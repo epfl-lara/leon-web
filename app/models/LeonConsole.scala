@@ -3,23 +3,19 @@ package models
 
 import akka.actor._
 import akka.util.duration._
-
-import play.api._
-import play.api.libs.json._
-import play.api.libs.iteratee._
-import play.api.libs.concurrent._
-import play.api.libs.json.Json._
-import play.api.libs.json.Writes._
-
 import akka.util.Timeout
+import akka.dispatch.Await
+import akka.dispatch.Future
 import akka.pattern.ask
 
-import play.api.Play.current
+import play.api._
+import play.api.libs.iteratee._
+import play.api.libs.concurrent._
+import play.api.libs.json._
+import play.api.libs.json.Json.toJson
 
-import leon.{LeonContext, Settings, Reporter}
-import leon.plugin.{TemporaryInputPhase, ExtractionPhase}
-import leon.synthesis.SynthesisPhase
-import leon.verification.AnalysisPhase
+
+import play.api.Play.current
 
 object LeonConsole {
   def open: Promise[(Iteratee[JsValue,_],Enumerator[JsValue])] = {
@@ -32,15 +28,7 @@ object LeonConsole {
       case InitSuccess(enumerator) =>
         // Create an Iteratee to consume the feed
         val iteratee = Iteratee.foreach[JsValue] { event =>
-          (event \ "action").as[String] match {
-            case "start" =>
-              session ! Start((event \ "mode").as[String], (event \ "code").as[String])
-            case "startpower" =>
-              session ! StartPower((event \ "flags").asOpt[String].getOrElse(""), (event \ "code").as[String])
-            case "stop" =>
-              session ! Stop
-            case _ =>
-          }
+          session ! ProcessClientEvent(event)
         }.mapDone { _ =>
           session ! Quit
         }
@@ -62,134 +50,3 @@ object LeonConsole {
     }
   }
 }
-
-class ConsoleSession extends Actor {
-  import ConsoleProtocol._
-
-  var isStarted = false
-  var channel: PushEnumerator[JsValue] = _
-  var reporter: WSReporter = _
-
-  def log(msg: String) = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> msg)))
-  }
-
-  def error(msg: String) = {
-    channel.push(toJson(Map("kind" -> "error", "message" -> msg)))
-  }
-
-  def event(kind: String) = {
-    channel.push(toJson(Map("kind" -> "event", "event" -> kind)))
-  }
-
-  def receive = {
-    case Init =>
-      channel = Enumerator.imperative[JsValue]()
-      reporter = WSReporter(channel)
-      sender ! InitSuccess(channel)
-
-    case Start(mode, code) =>
-      log("Welcome to LeonOnline!")
-      log("Processing request...")
-
-      val classPath = Play.current.configuration.getString("app.classpath").map(_.split(":").toList).getOrElse(Settings.defaultClassPath())
-
-      mode match {
-        case "verification" =>
-          event("started")
-          isStarted = true
-
-          var ctx = leon.Main.processOptions(reporter, "--timeout=2" :: Nil)
-          ctx = ctx.copy(settings = ctx.settings.copy(classPath = classPath))
-
-          val pipeline = TemporaryInputPhase andThen ExtractionPhase andThen AnalysisPhase
-
-          val analysisResults = pipeline.run(ctx)((code, Nil))
-
-          log(analysisResults.summaryString)
-
-          event("stopped")
-
-        case "synthesis" =>
-          event("started")
-          isStarted = true
-
-          var ctx = leon.Main.processOptions(reporter, "--synthesis" :: "--parallel" :: "--timeout=10" :: Nil)
-          ctx = ctx.copy(settings = ctx.settings.copy(classPath = classPath))
-
-          val pipeline = TemporaryInputPhase andThen ExtractionPhase andThen SynthesisPhase
-
-          pipeline.run(ctx)((code, Nil))
-
-          event("stopped")
-
-        case _ =>
-          error("Invalid request mode: "+mode)
-      }
-
-    case StartPower(flags, code) =>
-      val classPath = Play.current.configuration.getString("app.classpath").map(_.split(":").toList).getOrElse(Settings.defaultClassPath())
-
-      event("started")
-      isStarted = true
-
-      log(""">     ____                          __  __           _        _ 
-             > __ |  _ \ _____      _____ _ __  |  \/  | ___   __| | ___  | | __
-             > __ | |_) / _ \ \ /\ / / _ \ '__| | |\/| |/ _ \ / _` |/ _ \ | | __
-             > __ |  __/ (_) \ V  V /  __/ |    | |  | | (_) | (_| |  __/ |_| __
-             >    |_|   \___/ \_/\_/ \___|_|    |_|  |_|\___/ \__,_|\___| (_)""".stripMargin('>'))
-
-      var ctx = leon.Main.processOptions(reporter, flags.split(" ").filterNot(_.isEmpty).toList)
-      ctx = ctx.copy(settings = ctx.settings.copy(classPath = classPath))
-
-      val pipeline = TemporaryInputPhase andThen leon.Main.computePipeline(ctx.settings)
-
-      pipeline.run(ctx)((code, Nil)) match {
-        case report: leon.verification.VerificationReport => log(report.summaryString)
-        case report: leon.termination.TerminationReport   => log(report.summaryString)
-        case _ => 
-      }
-
-      event("stopped")
-
-    case Stop =>
-      isStarted = false
-
-      event("stopped")
-    case Quit =>
-
-  }
-}
-
-object ConsoleProtocol {
-  case object Init
-  case class InitSuccess(enum: Enumerator[JsValue])
-  case class InitFailure(error: String)
-
-
-  case class Start(mode: String, code: String)
-  case class StartPower(flags : String, code : String)
-
-  case object Stop
-
-  case object Quit
-}
-
-case class WSReporter(channel: PushEnumerator[JsValue]) extends Reporter {
-  def infoFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> (msg.toString))))
-  }
-
-  def warningFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> ("Warning: "+msg.toString))))
-  }
-
-  def errorFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> ("Error: "+msg.toString))))
-  }
-
-  def fatalErrorFunction(msg: Any) : Nothing = {
-    sys.error("FATAL: "+msg)
-  }
-}
-

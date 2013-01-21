@@ -6,10 +6,7 @@ body {
     font-family: Arial, Helvetica, Sans-serif;
     margin: 0px;
     padding: 0px;
-    background-image: url('../images/lionbkg.png');
-    background-color: #FFFFFF;
-    background-repeat: no-repeat;
-    background-position: 25px 15px;
+    background: #383C4D;
     height: 100%;
 }
 
@@ -40,53 +37,15 @@ a:hover {
     text-decoration: underline;
 }
 
-div.contentbox {
-    position: relative;
-    left: 320px;
-    padding: 0px;
-    margin: 0px;
-}
-
 div#title {
-    height: 80px;
-    width: 700px;
-    min-height: 80px;
-    max-height: 80px;
-    background-image: url('../images/leonlogo.png');
-    background-repeat: no-repeat;
-    background-position: right bottom;
+    border-bottom: 1px solid #ccc;
+    background: #4F556E;
+    color: white;
+    font-size: 1.5em;
+    padding: 5px;
+    margin-bottom: 20px;
 }
 
-div#leonmain {
-}
-
-div#console {
-    background-color: #EEEEEE;
-}
-
-div#contact {
-    position: absolute;
-    top: 410px; 
-    left: 25px;
-    width: 290px;
-}
-
-div#allcontent {
-    width: 100%;
-    height: 100%;
-    min-height: 100%;
-}
-
-div#poweredby {
-    position: fixed;
-    left: 0px;
-    bottom: 0px;
-    width: 1020px;
-    height: 50px;
-    text-align: center;
-    display: table-cell;
-    background-color: #FFFFFF;
-}
 
 div#beforefooter {
     margin-bottom: 50px;
@@ -102,10 +61,44 @@ div#codecolumn {
     width: 700px;
 }
 
-div#selectcolumn {
+div#actionscolumn {
     float: left;
-    max-width: 320px;
-    padding: 10px;
+}
+
+div.action {
+    border: 2px solid #222;
+    margin: 0px 0px 10px 0px;
+    padding: 5px;
+    color: black;
+    max-width: 400px;
+    background: #4F556E;
+}
+
+div#compilation-status {
+    float: right;
+    margin: 5px;
+}
+
+div#compilation-status.success {
+    font-weight: bold;
+    color: #5BB553;
+}
+
+div#compilation-status.failure {
+    font-weight: bold;
+    color: #B55353;
+}
+
+div.action h3 {
+    margin: 5px 0px;
+}
+
+select#example-loader {
+    margin: 10px;
+    padding: 3px;
+    background: #4F556E;
+    width: 95%;
+    font-size: 14px;
 }
 
 img {
@@ -122,6 +115,9 @@ hr {
     margin-bottom: 10px;
 }
 
+form#leoninput {
+}
+
 ul {
     list-style-type: square;
 }
@@ -130,34 +126,16 @@ li {
     margin-bottom: 5px;
 }
 
-#subcodebox {
-    margin: 460px 0px 0px 0px;
-}
-
-#powerflags {
-    margin: 0px 0px 5px 0px;
-    border: 1px solid #666666;
-    width: 700px;
-}
-
-#askbutton {
-    margin: 0px 0px 5px 0px;
-    background-color: transparent;
-    border: 1px solid #666666;
-    width: 700px;
-}
-
 td.date {
     text-align:right;
 }
 
 div#codebox {
     border-style: none;
-    background-color: rgba(255,255,255,0.8);
-    border: 1px dashed #333;
+    background-color: rgba(255,255,255,0.9);
     width: 700px;
-    height: 450px;
-    position: absolute;
+    height: 300px;
+    position: relative;
 }
 
 div#codebox div.ace_gutter {
@@ -167,50 +145,200 @@ div#codebox div.ace_gutter_active_line {
     background-color: rgba(220,220,220,0.5) !important;
 }
 
-textarea#consolebox {
-    font-family: "Lucida Console", monospace;
-    font-size: 11px;
-    width: 700px;
-    height: 250px;
-    border: none;
-    background-color: #EEEEEE;
-    padding: 0px;
-    margin: 0px; 
-    resize: vertical;
-}
-
-.consoletext {
-    font-family: "Lucida Console", monospace;                                                     
-    font-size: 11px;
-}
-
-#tabcontent div.tab {
-    display: none;    
-}
-
-#tabcontent div.tab.active {
-    display: block;
-}
-
-#tabcontent {
+div#console {
     clear: both;
-    padding: 20px 10px 10px 10px;
-    border-left: 1px solid black;
 }
 
-#tabs a {
+div #console textarea {
+    font-family: "Lucida Console", monospace;
+    margin: 0px 0px 10px 0px;
+    padding: 5px;
+    font-size: 12px;
+    border: 2px solid #222;
+    width: 400px;
+    height: 150px;
+    white-space: pre-wrap;
+    overflow-y: scroll;
+    overflow-x: hidden;
+    color: black;
+    background: #4F556E;
+}
+div#problems.jstree {
+    background: none;
+}
+
+div#problems.jstree-default .jstree-clicked {
+    background: none;
+    border: 0px;
+}
+
+div#problems.jstree-default .jstree-hovered {
+    background: none;
+    border: 0px;
+}
+
+div#problems.jstree-default li[rel="failure"] a {
+    color: #B55353;
+    font-style: italic;
+    text-decoration: line-through;
+}
+
+div#problems.jstree-default li[rel="success"] a {
+    color: #5BB553;
+    font-weight: bold;
+}
+
+#editorMenu .ui-menu-item a {
+    padding-left: 25px;
+    font-size: 12px;
+}
+
+#editorMenu .ui-menu-item a span {
+    margin: 0px 3px;
+}
+
+#editorMenu .ui-menu-item.ui-state-disabled {
+    margin: 0px;
+}
+
+#notifications {
+    width: 400px;
+}
+
+#notifications .error {
+    border: 2px solid #B55353;
+    margin: 0px 0px 10px 0px;
+    padding: 5px;
+    color: black;
+    width: 400px;
+    background: #EBA2A2;
+}
+
+#notifications .success {
+    border: 2px solid #20BA13;
+    margin: 0px 0px 10px 0px;
+    padding: 5px;
+    color: black;
+    width: 400px;
+    background: #A4E39F;
+}
+
+span.ace_identifier.ace_choose {
+    color: #5BB553;
+    text-decoration: underline;
+}
+
+#searchDialog, #verifyDialog {
+    display: none;
+    font-size: 14px;
+}
+
+#searchDialog span.ui-icon {
     float: left;
+    margin-right: 3px;
+}
+
+#verifyDialog span.ui-icon {
+    float: right;
+    margin-left: 3px;
+}
+
+#searchDialog p, #verifyDialog p {
+    clear: both;
+}
+
+.ui-dialog[aria-describedby="searchDialog"] .ui-dialog-titlebar, .ui-dialog[aria-describedby="verifyDialog"] .ui-dialog-titlebar {
+    padding: 3px 10px;
+    font-weight: normal;
+}   
+
+.ui-dialog[aria-describedby="searchDialog"] .ui-button-text, .ui-dialog[aria-describedby="verifyDialog"] .ui-button-text {
+    padding: 3px 10px;
+    font-size: 0.8em;
+}
+
+.ui-dialog[aria-describedby="searchDialog"] .ui-dialog-buttonpane button, .ui-dialog[aria-describedby="verifyDialog"] .ui-dialog-buttonpane button {
+    margin: 0px;
+}
+
+#searchProgress .progress-label, #verifyProgress .progress-label {
+    float: left;
+    width: 100%;
+    text-align: center;
+    margin-top: 5px;
+    text-shadow: 1px 1px 0 #fff;
+}
+
+.ace_gutter-cell.ace_info.leon_gutter_synthesis {
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAg0lEQVR42mNgGLZAHog3AvE0IJ4LxP+BmIcUAw4D8TsgZobyDwGxKCkGfAXiv0CsDeWHALE4KQasgjr7IxCnADEjqWHAAcTzoIaA8DZSw4APamsEEL+EGrKGVC/AgDI0PN6TYsA3IFaCslmA+AMQbyHFAJCTXwBxKxDPBuLlpEbjSAIArsgavhzDbnYAAAAASUVORK5CYII=");
+}
+
+.ace_gutter-cell.ace_info.leon_gutter_verification {
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAaklEQVR42mNgGAXYgCQQ1wDxJygbBmYA8X5iDRED4v9AHIQkpgnEF0hxyR0gLkfiRwFxLikGHAXiSVA2MxDPBmJWUgzYAMRroewiIFYiNTBBNp4AYk8gdiAnNtqhMRFPbnSCNEaOpmrCAACDBA/ZplH5UgAAAABJRU5ErkJggg==");
+}
+
+.ui-progressbar-value.success {
+    background: #A4E39F;
+}
+
+.ui-progressbar-value.failure {
+    background: #EBA2A2;
+}
+
+#verifyResults  {
+    margin: 20px 0px 0px 0px;
+}
+
+#verifyResults table.allResults {
+    border-collapse: collapse;
+    width: 100%;
+    text-align: left;
+}
+
+#verifyResults table.allResults > thead > tr > th{
+    font-size: 14px;
+    padding: 10px 8px;
+    font-weight: normal;
+    color: #039;
+    border-bottom: 1px solid #039;
+}
+
+#verifyResults table.allResults > tbody > tr > td {
+    padding: 8px;
+}
+
+#verifyResults table.allResults > tbody > tr.odd {
+    background: #e8edff;
+}
+
+#verifyResults table.allResults > tbody > tr > td:last-child, #verifyResults table.allResults thead > tr > th:last-child {
+    text-align: right;
+}
+
+tr.counter-example > td > div {
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+
+    text-align: left;
+
+    background: #EDEDA8;
+    border: 1px solid #B5B505;
     padding: 10px;
-    border-right: 1px solid black;
-    border-bottom: 1px solid black;
+    margin: 5px;
 }
 
-#tabs a:first-child {
-    border-left: 1px solid black;
+tr.counter-example table {
+    margin-top: 5px;
+    margin-left: auto;
+    margin-right: auto;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
 }
 
-#tabs a.active {
-    background: white;
-    border-bottom: none;
-    border-top: 1px solid black;
+tr.counter-example table td {
+    padding: 4px 1px;
+    vertical-align: middle;
+}
+tr.counter-example table td:first-child {
+    text-align: right;
 }

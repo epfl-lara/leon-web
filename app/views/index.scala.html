@@ -1,83 +1,74 @@
-@(exs: List[examples.Example], default: examples.Example, prefix: String, powermode : Boolean)(implicit request: RequestHeader)
+@(exGroups: List[(String, List[examples.Example])], default: examples.Example, prefix: String)(implicit request: RequestHeader)
 
 @main("Leon Online", prefix) {
   <div id="allcontent">
-    <div id="title" class="contentbox"></div>
+    <div id="title">Leon Online</div>
+    <script>
+        var _leon_websocket_url = "@leon.web.controllers.routes.Application.openConsole().webSocketURL()";
+    </script>
 
-    <div id="contact">
-      <p>
-        <i>Leon</i> is developed by the <a alt="LARA Group EPFL" href="http://lara.epfl.ch">LARA</a> group at <a href="http://www.epfl.ch">EPFL</a>.
-      </p>
-    </div>
-    <div id="leonmain" class="contentbox">
+    <div id="codecolumn">
       <form id="leoninput" method="POST" action="">
-        <div id="codecolumn">
-            <div id="codebox">@default.code</div>
-            <div id="subcodebox">
-                @if(powermode) {
-                  <input type="text" id="powerflags" value="--timeout=2" placeholder="add any flags here">
-                }
-                <input type="submit" id="askbutton" value="Run Leon !">
-            </div>
-          <div><textarea id="consolebox"></textarea></div>
-        </div>
-        <div id="selectcolumn">
-          <input type="hidden" id="leon-mode" value="verification">
-          <h3>Load an Example:</h3>
-          <div>We provide you with a list of code-examples, select one from the list below to load it:</div>
-          <select id="example-loader-verification" name="codeexample" onchange="loadExample('verification', '@prefix');">
-            <option value="">-- Load Example --</option>
-            @exs.zipWithIndex.collect{ case (ex, i) if ex.kind == "verification" =>
-            <option value="@i">@ex.title</option>
-            }
-          </select>
-
-        </div>
+        <div id="codebox">@default.code</div>
       </form>
-      <script>
-        $(document).ready(function() {
-            var WS = window['MozWebSocket'] ? MozWebSocket : WebSocket
-            var leonSocket = new WS("@leon.web.controllers.routes.Application.openConsole().webSocketURL()")
-
-            var receiveEvent = function(event) {
-                var data = JSON.parse(event.data)
-                if (data.kind == "error") {
-                    alert(data.message);
-                } else if (data.kind == "log") {
-                    var txt = $("#consolebox")
-                    txt.val(txt.val()+"\n"+data.message);
-                    txt.scrollTop(txt[0].scrollHeight - txt.height())
-                } else if (data.kind == "event") {
-                    if (data.event == "started") {
-                        $("#askbutton").val("... processing ...")
-                    } else if (data.event == "stopped") {
-                        $("#askbutton").val("Ask Leon!")
-                    }
-                }
+    </div>
+    <div id="actionscolumn">
+      <div id="selectcolumn" class="action">
+        <h3>Load an Example:</h3>
+        <div>We provide you with a list of code-examples, select one from the list below to load it:</div>
+        <select id="example-loader" name="codeexample" prefix="@prefix">
+          <option value="">-- Load Example --</option>
+          @exGroups.collect{ case (group, es) =>
+            <option value="" disabled="disabled">@group</option>
+            @es.zipWithIndex.collect { case (ex, i) =>
+              <option group="@group" id="@i">&nbsp;&nbsp;@ex.title</option>
             }
+          }
+        </select>
 
-            leonSocket.onmessage = receiveEvent;
+      </div>
+      <div id="compilation" class="action">
+        <div id="compilation-status">Unknown</div>
+        <h3>Compilation:</h3>
+      </div>
+      <div id="console">
+        <textarea readonly wrap="virtual"></textarea>
+      </div>
 
-            var leonStatus = "stopped";
+      <div id="notifications">
+      </div>
+    </div>
 
-            $("#leoninput").submit(function () {
-                $("#consolebox").val("");
 
-                @if(!powermode) {
-                var msg = JSON.stringify(
-                  {action: "start", mode: $("#leon-mode").val(), code: editor.getValue()}
-                );
-                } else {
-                var msg = JSON.stringify(
-                  {action: "startpower", flags: $("#powerflags").val(), code: editor.getValue()}
-                );
-                }
-
-                leonSocket.send(msg);
-                return false;
-            });
-        });
-      </script>
+    <ul id="editorMenu">
+    </ul>
+    <div id="searchDialog" title="Synthesis" cid="0">
+        <p>
+            Leon is currently searching for a solution to your synthesis problem...
+        </p>
+        <p>
+            <div id="searchProgress"><div class="progress-label">Searching...</div></div>
+        </p>
+    </div>
+    <div id="verifyDialog" title="Verification">
+        <p>
+            Leon verifies the validity all the verification conditions found in the selected function.
+        </p>
+            <div id="verifyProgress"><div class="progress-label">Verifying...</div></div>
+        <div id="verifyResults">
+            <table class="allResults">
+                <thead>
+                    <tr>
+                        <th>Function</th>
+                        <th>Kind</th>
+                        <th>Result</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            </table>
+        </div>
     </div>
   </div>
 }

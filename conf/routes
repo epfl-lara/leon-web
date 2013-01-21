@@ -5,7 +5,7 @@
 # Home page
 GET     /                        leon.web.controllers.Application.index(powermode : Boolean ?= false)
 
-GET     /ajax/getExample/:id     leon.web.controllers.Application.getExample(id: Int)
+GET     /ajax/getExample/:group/:id     leon.web.controllers.Application.getExample(group: String, id: Int)
 GET     /openConsole             leon.web.controllers.Application.openConsole
 
 # Map static resources from the /public folder to the /assets URL path

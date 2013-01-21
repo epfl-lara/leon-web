@@ -12,16 +12,20 @@ import models.LeonConsole
 
 object Application extends Controller {
 
-  val examples = VerificationExamples.allExamples ++ SynthesisExamples.allExamples
+  val examples = List(
+    "Tutorials" -> TutorialExamples.allExamples,
+    "Verification" -> VerificationExamples.allExamples,
+    "Synthesis" -> SynthesisExamples.allExamples
+  )
 
   def index(powermode : Boolean) = Action { implicit request =>
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
 
-    Ok(views.html.index(examples, VerificationExamples.default, prefix, powermode))
+    Ok(views.html.index(examples, TutorialExamples.default, prefix))
   }
 
-  def getExample(id: Int) = Action { 
-    examples.lift.apply(id) match {
+  def getExample(kind: String, id: Int) = Action { 
+    examples.toMap.get(kind).flatMap(_.lift.apply(id)) match {
       case Some(ex) =>
         Ok(toJson(Map("status" -> "success", "code" -> ex.code)))
       case None =>

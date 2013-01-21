@@ -4,33 +4,8 @@ object VerificationExamples {
   var allExamples = List[Example]()
 
   def newExample(title: String, code: String) {
-    allExamples = allExamples ::: Example(title, "verification", code) :: Nil
+    allExamples = allExamples ::: Example(title, code) :: Nil
   }
-
-  val default = Example("Default", "verification", """
-import scala.collection.immutable.Set
-import leon.Annotations._
-import leon.Utils._
-
-object Example {
-  sealed abstract class List
-  case class Cons(head: Int, tail: List) extends List
-  case class Nil() extends List
-
-  def size(list : List) : Int = (list match {
-    case Nil() => 0
-    case Cons(_, xs) => 1 + size(xs)
-  }) ensuring(_ >= 0)
-
-  def content(l: List) : Set[Int] = l match {
-    case Nil() => Set.empty[Int]
-    case Cons(x, xs) => Set(x) ++ content(xs)
-  }
-
-  /* ... */
-
-}
-  """.trim)
 
   newExample("Amortized Queue", """
 import scala.collection.immutable.Set
