@@ -248,7 +248,7 @@ class ConsoleSession extends Actor {
 
           // Extract Verification Problems
           if (chooses.isEmpty) {
-            functions = prog.definedFunctions.filter(fd => fd.hasBody && fd.hasPostcondition).map(fd => fd.id.name -> fd).toMap
+            functions = prog.definedFunctions.filter(fd => fd.hasBody).map(fd => fd.id.name -> fd).toMap
           } else {
             functions = Map()
           }
