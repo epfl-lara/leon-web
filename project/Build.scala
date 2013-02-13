@@ -8,7 +8,8 @@ object ApplicationBuild extends Build {
     val appVersion      = "1.0-SNAPSHOT"
 
     val appDependencies = Seq(
-      "org.scala-lang" % "scala-compiler" % "2.9.1"
+      "org.scala-lang" % "scala-compiler" % "2.9.1",
+      "com.h2database" % "h2" % "1.3.158"
     )
 
     val main = PlayProject(appName, appVersion, appDependencies, mainLang = SCALA).settings(

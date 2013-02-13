@@ -1,8 +1,23 @@
-@(exGroups: List[(String, List[leon.web.models.Example])], default: leon.web.models.Example, prefix: String)(implicit request: RequestHeader)
+@(exGroups: List[(String, List[leon.web.models.Example])], default: leon.web.models.Example, prefix: String, url: String)(implicit request: RequestHeader)
 
-@main("Leon Online", prefix) {
+@main("Leon Online", prefix, url) {
   <div id="allcontent">
-    <div id="title">Leon Online</div>
+    <div id="title">
+      <h1>Leon Online</h1>
+      <div class="toolbox">
+        <a id="button-save" href="#"><span class="ui-icon ui-icon-disk"></span><span class="label">Save</span></a>
+        <a id="button-undo" href="#"><span class="ui-icon ui-icon-arrowreturnthick-1-s"></span><span class="label">Undo</span></a>
+        <a id="button-redo" href="#"><span class="ui-icon ui-icon-arrowreturnthick-1-e"></span><span class="label">Redo</span></a>
+        <a id="button-permalink" href="#"><span class="ui-icon ui-icon-link"></span><span class="label">Link</span>
+        </a>
+        <div id="permalink-value">
+            <input type="text" value="" />
+            <a id="button-permalink-close" href="#"><span class="ui-icon ui-icon-close"></span></a>
+        </div>
+        <a id="button-menu" href="#"><span class="ui-icon ui-icon-note"></span><span class="label">Menu</span></a>
+        <a id="button-compilation"><span class="label">Compilation:</span><span id="button-compilation-status" class="ui-icon ui-icon-check"></span></a>
+      </div>
+    </div>
     <script>
         var _leon_websocket_url = "@leon.web.controllers.routes.Application.openConsole().webSocketURL()";
     </script>
@@ -28,7 +43,7 @@
 
       </div>
       <div id="compilation" class="action">
-        <div id="compilation-status">Unknown</div>
+        <div class="compilation-status">Unknown</div>
         <h3>Compilation:</h3>
       </div>
       <div id="console">

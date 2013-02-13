@@ -18,10 +18,10 @@ import play.api.libs.json.Json.toJson
 import play.api.Play.current
 
 object LeonConsole {
-  def open: Promise[(Iteratee[JsValue,_],Enumerator[JsValue])] = {
+  def open(remoteIP: String): Promise[(Iteratee[JsValue,_],Enumerator[JsValue])] = {
     import ConsoleProtocol._
 
-    val session = Akka.system.actorOf(Props[ConsoleSession])
+    val session = Akka.system.actorOf(Props(new ConsoleSession(remoteIP)))
     implicit val timeout = Timeout(1.seconds)
 
     (session ? Init).asPromise.map {

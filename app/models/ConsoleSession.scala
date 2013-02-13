@@ -25,7 +25,7 @@ import leon.plugin.{TemporaryInputPhase, ExtractionPhase}
 import leon.synthesis._
 import leon.synthesis.search._
 import leon.synthesis.utils.SynthesisProblemExtractionPhase
-import leon.verification.{AnalysisPhase,VerificationCondition}
+import leon.verification._
 import leon.purescala.Common._
 import leon.purescala.Definitions._
 import leon.purescala.ScalaPrinter
@@ -35,24 +35,12 @@ import leon.xlang._
 
 import java.util.concurrent.TimeoutException
 
-class ConsoleSession extends Actor {
+class ConsoleSession(remoteIP: String) extends Actor {
   import context.dispatcher
   import ConsoleProtocol._
 
   var channel: PushEnumerator[JsValue] = _
   var reporter: WSReporter = _
-
-  def log(msg: String) = {
-    channel.push(toJson(Map("kind" -> "log", "level" -> "log", "message" -> msg)))
-  }
-
-  def error(msg: String) = {
-    channel.push(toJson(Map("kind" -> "log", "level" -> "error", "message" -> msg)))
-  }
-
-  def event(kind: String, data: Map[String, JsValue]) = {
-    channel.push(toJson(Map("kind" -> toJson(kind)) ++ data))
-  }
 
   var codeHistory: List[String]        = Nil
   var compilationHistory: List[String] = Nil
@@ -60,10 +48,16 @@ class ConsoleSession extends Actor {
   var chooses: Map[Int, (ChooseInfo, SimpleSearch)] = Map()
   var currentProgram: Option[Program] = None
   var functions: Map[String, FunDef] = Map()
-
-
-  case class VerificationContext(vcs: List[VerificationCondition], solvers: List[Solver])
   var verificationCtx: Option[VerificationContext] = None
+  var imperativeInfo: (Set[FunDef], Map[FunDef, FunDef], Map[FunDef, FunDef]) = (Set(), Map(), Map());
+
+  def resetContext() {
+    chooses = Map()
+    currentProgram = None
+    functions = Map()
+    verificationCtx = None
+    imperativeInfo = (Set(), Map(), Map())
+  }
 
   def notifyError(msg: String) = {
     event("notification", Map(
@@ -77,6 +71,23 @@ class ConsoleSession extends Actor {
       "type"    -> toJson("success")))
   }
 
+  def logInfo(msg: String) {
+    Logger.info("["+remoteIP+"] "+msg)
+  }
+
+  def logInfo(msg: String, t: Throwable) {
+    Logger.info("["+remoteIP+"] "+msg, t)
+  }
+
+  def clientLog(msg: String) = {
+    channel.push(toJson(Map("kind" -> "log", "level" -> "log", "message" -> msg)))
+  }
+
+  def event(kind: String, data: Map[String, JsValue]) = {
+    logInfo("[>] "+kind)
+    channel.push(toJson(Map("kind" -> toJson(kind)) ++ data))
+  }
+
   def setAnnotations(as: Seq[CodeAnnotation]) {
     event("editor", Map("annotations" -> toJson(as.map(_.toJson))))
   }
@@ -86,12 +97,21 @@ class ConsoleSession extends Actor {
       channel  = Enumerator.imperative[JsValue]()
       reporter = new WSReporter(channel)
       sender ! InitSuccess(channel)
+      logInfo("New client")
 
     case ProcessClientEvent(event) =>
       try {
+        logInfo("[<] "+(event \ "action").as[String])
+
         (event \ "action").as[String] match {
           case "doUpdateCode" =>
             self ! UpdateCode((event \ "code").as[String])
+
+          case "storePermaLink" =>
+            self ! StorePermaLink((event \ "code").as[String])
+
+          case "accessPermaLink" =>
+            self ! AccessPermaLink((event \ "link").as[String])
 
           case "synthesis_getRulesToApply" =>
             val chooseLine   = (event \ "chooseLine").as[Int]
@@ -117,6 +137,7 @@ class ConsoleSession extends Actor {
 
           case "verification_doVerify" =>
             val fname = (event \ "fname").as[String]
+            logInfo("Verifying "+fname+"...")
 
             self ! VerificationDoVerify(fname)
 
@@ -132,23 +153,49 @@ class ConsoleSession extends Actor {
       }
 
     case VerificationDoCancelCurrent =>
-      assert(verificationCtx.isDefined, "Verification not currently running ?!?")
-      verificationCtx.get.solvers.map(_.halt)
-
+      if (verificationCtx.isDefined) {
+        logInfo("Cancelling verification..")
+        verificationCtx.get.shouldStop.set(true)
+        verificationCtx.get.solvers.map(_.halt)
+      } else {
+        logInfo("Cannot cancel unknown verification!")
+      }
 
     case VerificationDone =>
-      assert(verificationCtx.isDefined, "Verification not currently running ?!?")
-      verificationCtx = None
-      
+      if (verificationCtx.isDefined) {
+        logInfo("Verification finished")
+        verificationCtx = None
+      } else {
+        logInfo("Cannot finish unknown verification!")
+      }
 
     case VerificationDoVerify(fname: String) =>
-      if (currentProgram.isDefined) {
-        assert(!(verificationCtx.isDefined), "Verification currently running ?!?")
+      if (currentProgram.isDefined && verificationCtx.isEmpty) {
 
         var compContext  = leon.Main.processOptions(reporter, List("--feelinglucky", "--evalground"))
 
+        val (wasLoop, freshFunDefs, parents) = imperativeInfo
+
+        val originalFunDefs = freshFunDefs.map(x => (x._2, x._1))
+
+        def functionWasLoop(fd: FunDef): Boolean = originalFunDefs.get(fd) match {
+          case None => false //meaning, this was a top level function
+          case Some(nested) => wasLoop.contains(nested) //could have been a LetDef originally
+        }
+
+        def subFunctionsOf(fd: FunDef): Set[FunDef] = parents.flatMap((p: (FunDef, FunDef)) => p match {
+          case (child, parent) => if(parent == fd) List(child) else List() 
+        }).toSet
+
+        val fnames = currentProgram.get.definedFunctions.find(_.id.name == fname) match {
+          case Some(fd) =>
+            Set(fd.id.name) ++ subFunctionsOf(fd).map(_.id.name)
+          case _ =>
+            Set()
+        }
+
         // Generate VCs
-        val vcs = AnalysisPhase.generateVerificationConditions(reporter, currentProgram.get, Set(fname))
+        val vcs = AnalysisPhase.generateVerificationConditions(reporter,currentProgram.get, Set(fname))
         val solvers = List(
           new TimeoutSolver(new TrivialSolver(compContext), 10000L),
           new TimeoutSolver(new FairZ3Solver(compContext), 10000L)
@@ -156,15 +203,46 @@ class ConsoleSession extends Actor {
 
         solvers.map(_.setProgram(currentProgram.get))
 
-        verificationCtx = Some(VerificationContext(vcs, solvers))
+        val vctx = VerificationContext(compContext, solvers, reporter)
+        verificationCtx = Some(vctx)
 
         val future = Future {
           try {
-            Some(AnalysisPhase.checkVerificationConditions(reporter, solvers, vcs))
+            val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
+
+            val freshVcs = vcs.map(vc => {
+              val funDef = vc.funDef
+              if(functionWasLoop(funDef)) {
+                val freshVc = new VerificationCondition(
+                  vc.condition,
+                  parents(funDef),
+                  if(vc.kind == VCKind.Postcondition) {
+                    VCKind.InvariantPost
+                  } else if(vc.kind == VCKind.Precondition) {
+                    VCKind.InvariantInd
+                  } else {
+                    vc.kind
+                  },
+                  vc.tactic,
+                  vc.info).setPosInfo(funDef)
+                freshVc.value = vc.value
+                freshVc.solvedWith = vc.solvedWith
+                freshVc.time = vc.time
+                freshVc
+              } else vc
+            })
+
+            val sortedFreshVcs = freshVcs.sortWith((vc1, vc2) => {
+              val id1 = vc1.funDef.id.name
+              val id2 = vc2.funDef.id.name
+              if(id1 != id2) id1 < id2 else vc1 < vc2
+            })
+
+            Some(new VerificationReport(sortedFreshVcs))
+
           } catch {
             case t: Throwable =>
-              notifyError("Woops, verification crashed: "+t.getMessage)
-              t.printStackTrace()
+              logInfo("[!] Verification crashed!", t)
               None
           }
         }
@@ -205,34 +283,65 @@ class ConsoleSession extends Actor {
               event("verification_result", Map("status" -> toJson(status), "vcs" -> toJson(report.conditions.map(vcToJson))))
             } catch {
               case t: Throwable =>
-              self ! VerificationDone
-                notifyError("Woops, solution processing crashed: "+t.getMessage)
+                self ! VerificationDone
                 event("verification_result", Map("status" -> toJson("failure"), "vcs" -> toJson(List[String]())))
-                t.printStackTrace()
+                logInfo("[!] Solution Processing crashed", t)
             }
           case None =>
             self ! VerificationDone
             event("verification_result", Map("status" -> toJson("failure"), "vcs" -> toJson(List[String]())))
+            logInfo("Verificatoin did not finish")
         }
       } else {
         event("verification_result", Map("status" -> toJson("failure")))
-        notifyError("No program available. Compilation failed?")
+        if (!currentProgram.isDefined) {
+          notifyError("No program available. Compilation failed?")
+        } else if (verificationCtx.isDefined) {
+          logInfo("Verification already running ?!?")
+        }
+      }
+
+    case StorePermaLink(code) =>
+      Permalink.store(code) match {
+        case Some(link) =>
+          event("permalink", Map("link" -> toJson(link)))
+        case _ =>
+          notifyError("Coult not create permalink")
+      }
+
+    case AccessPermaLink(link) =>
+      Permalink.get(link) match {
+        case Some(code) =>
+          event("replace_code", Map("newCode" -> toJson(code)))
+        case None =>
+          notifyError("Link not found ?!?: "+link)
       }
 
     case UpdateCode(code) =>
       if (codeHistory.headOption != Some(code)) {
-        log("Compiling...")
+        clientLog("Compiling...")
+        logInfo("Code to compile:\n"+code)
+
         codeHistory = code :: codeHistory
 
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(compReporter, Nil)
         var synthContext = compContext.copy(reporter = reporter)
 
-        val pipeline = TemporaryInputPhase andThen ExtractionPhase andThen FunctionClosure
+        val pipeline = TemporaryInputPhase andThen ExtractionPhase
+
+        resetContext()
 
         try {
-          val (prog, _, _) = pipeline.run(compContext)((code, Nil))
-          currentProgram = Some(prog)
+          val pgm = pipeline.run(compContext)((code, Nil))
+
+          val pgm1 = ArrayTransformation(compContext, pgm)
+          val pgm2 = EpsilonElimination(compContext, pgm1)
+          val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
+          val (pgm4, parents, freshFunDefs) = FunctionClosure.run(compContext)(pgm3)
+
+          currentProgram = Some(pgm4)
+          imperativeInfo = (wasLoop, parents, freshFunDefs)
 
           def noop(u:Expr, u2: Expr) = u
 
@@ -240,7 +349,7 @@ class ConsoleSession extends Actor {
           val ctx = new LeonContext()
 
           // Extract Synthesis Problems
-          chooses = ChooseInfo.extractFromProgram(synthContext, prog, options).zipWithIndex.map {
+          chooses = ChooseInfo.extractFromProgram(synthContext, pgm4, options).zipWithIndex.map {
             case (ci, i) =>
               val search = new SimpleWebSearch(this, ci.synthesizer, ci.problem)
               (i+1) -> (ci, search)
@@ -248,7 +357,7 @@ class ConsoleSession extends Actor {
 
           // Extract Verification Problems
           if (chooses.isEmpty) {
-            functions = prog.definedFunctions.filter(fd => fd.hasBody).map(fd => fd.id.name -> fd).toMap
+            functions = pgm3.definedFunctions.filter(fd => fd.hasBody).map(fd => fd.id.name -> fd).toMap
           } else {
             functions = Map()
           }
@@ -266,7 +375,8 @@ class ConsoleSession extends Actor {
           }
           setAnnotations((synthesisAnnotations ++ verificationAnnotations).toSeq)
 
-          log("Compilation successful!")
+          clientLog("Compilation successful!")
+          logInfo("Compilation successful!")
 
           compilationHistory = "success" :: compilationHistory
 
@@ -276,6 +386,11 @@ class ConsoleSession extends Actor {
             functions = Map()
             currentProgram = None
 
+            logInfo("Compilation failed:")
+            for ((l,e) <- compReporter.errors) {
+              logInfo("  "+e.mkString("\n  "))
+            }
+
             event("compilation", Map("status" -> toJson("failure")))
 
             setAnnotations(compReporter.errors.map{ case (l,e) =>
@@ -284,8 +399,8 @@ class ConsoleSession extends Actor {
 
             compilationHistory = "failure" :: compilationHistory
 
-            log("Compilation failed!")
-            t.printStackTrace
+            clientLog("Compilation failed!")
+
         }
       } else {
         compilationHistory.headOption.foreach { status =>
@@ -298,6 +413,7 @@ class ConsoleSession extends Actor {
     case SynthesisCancelSearch(cid) =>
       chooses.get(cid) match {
         case Some((ci, search)) =>
+          logInfo("Cancelling synthesis search")
           ci.synthesizer.shouldStop.set(true)
           search.stop()
         case None =>
@@ -316,25 +432,47 @@ class ConsoleSession extends Actor {
               } catch {
                 case t: Throwable =>
                   notifyError("Woops, search crashed: "+t.getMessage)
-                  t.printStackTrace()
+                  logInfo("Synthesis search crashed", t)
                   None
               }
             }
 
             future.map {
-              case Some(sol) =>
+              case Some((sol, isTrusted)) =>
                 try {
-                  val chToSol = Map(ci -> sol.toSimplifiedExpr(ctx, prog))
-                  val fInt = new FileInterface(reporter)
+                  val (newSol, succeeded) = if (!isTrusted) {
+                    // Validate solution
+                    event("synthesis_proof", Map("status" -> toJson("started")))
+                    ci.synthesizer.validateSolution(search, sol, 2000L) match {
+                      case (sol, true) =>
+                        event("synthesis_proof", Map("status" -> toJson("success")))
+                        (sol, true)
+                      case (sol, false) =>
+                        event("synthesis_proof", Map("status" -> toJson("failure")))
+                        (sol, false)
+                    }
+                  } else {
+                    (sol, true)
+                  }
 
-                  val newCode = fInt.substitueChooses(codeHistory.head, chToSol, true)
+                  if (succeeded) {
+                    val chToSol = Map(ci -> newSol.toSimplifiedExpr(ctx, prog))
+                    val fInt = new FileInterface(reporter)
 
-                  event("synthesis_replace_code", Map("cid" -> toJson(cid),
-                                                      "newCode" -> toJson(newCode)))
+                    val newCode = fInt.substitueChooses(codeHistory.head, chToSol, true)
 
-                  event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("success")))
+                    event("replace_code", Map("newCode" -> toJson(newCode)))
 
-                  notifySuccess("Search succeeded!")
+                    event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("success")))
+
+                    notifySuccess("Search succeeded!")
+                    logInfo("Synthesis search succeeded!")
+                  } else {
+                    event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("failure")))
+
+                    notifySuccess("Search failed!")
+                    logInfo("Synthesis search failed!")
+                  }
                 } catch {
                   case t: Throwable =>
                     notifyError("Woops, solution processing crashed: "+t.getMessage)
@@ -356,7 +494,7 @@ class ConsoleSession extends Actor {
       } catch {
         case t: Throwable =>
           notifyError("Woops, I crashed: "+t.getMessage())
-          t.printStackTrace();
+          logInfo("Synthesis search crashed!", t)
       }
 
 
@@ -367,6 +505,7 @@ class ConsoleSession extends Actor {
           case Some((ci @ ChooseInfo(ctx, prog, fd, pc, ch, _), search)) =>
             search.traversePath(path) match {
               case Some(al: search.g.AndLeaf) =>
+                logInfo("Applying :"+al.task.app.toString)
                 val res = search.expandAndTask(al.task)
                 search.onExpansion(al, res)
 
@@ -393,25 +532,28 @@ class ConsoleSession extends Actor {
 
                     val newCode = fInt.substitueChooses(codeHistory.head, chToSol, true)
 
-                    event("synthesis_replace_code", Map("cid" -> toJson(cid),
-                                                        "newCode" -> toJson(newCode)))
+                    event("replace_code", Map("newCode" -> toJson(newCode)))
 
                     notifySuccess("Successfully applied "+al.task.app.toString)
+                    logInfo("Application successful!")
 
                   case None =>
                     notifyError("Failed to apply "+al.task.toString)
+                    logInfo("Application failed!")
 
                 }
               case _ =>
-                error("Woops, choose not found..")
+                notifyError("Woops, choose not found..")
+                logInfo("Path "+path+" did not lead to AndLeaf!")
             }
           case _ =>
-            error("Woops, choose not found..")
+            notifyError("Woops, choose not found..")
+            logInfo("Choose "+cid+" not found")
         }
       } catch {
         case t: Throwable =>
           notifyError("Woops, I crashed: "+t.getMessage())
-          t.printStackTrace();
+          logInfo("Synthesis Rule Application crashed", t)
       }
 
     case SynthesisGetRulesToApply(chooseLine, chooseColumn) =>
@@ -448,16 +590,17 @@ class ConsoleSession extends Actor {
                                                 "rulesApps"    -> toJson(rulesApps)))
 
           case None =>
-            error("Woops, choose not found..")
+            notifyError("Woops, choose not found..")
+            logInfo("Choose "+chooseLine+":"+chooseColumn+" not found")
         }
 
       } catch {
         case t: Throwable =>
           notifyError("Woops, I crashed: "+t.getMessage())
-          t.printStackTrace();
+          logInfo("Synthesis RulesList crashed", t)
       }
 
     case msg =>
-      log("Unknown Actor Message: "+msg)
+      clientLog("Unknown Actor Message: "+msg)
   }
 }

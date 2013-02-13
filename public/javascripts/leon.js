@@ -4,11 +4,71 @@ $(document).ready(function() {
     editor = ace.edit("codebox");
     editor.getSession().setMode("ace/mode/scala");
     editor.getSession().setUseWrapMode(true);
+    editor.getSession().setTabSize(2);
 
     var hash = window.location.hash
 
     var WS = window['MozWebSocket'] ? MozWebSocket : WebSocket
-    var leonSocket = new WS(_leon_websocket_url)
+    var leonSocket = null
+
+    var headerHeight = 100
+    var menuWidth    = 450
+
+    var mode = "normal"
+    function togglePresentationMode() {
+        if (mode == "normal") {
+            $("#actionscolumn").hide()
+            menuWidth = 20
+            resizeEditor()
+
+            mode = "presentation"
+            //$("#button-menu span.label").html("Show menu")
+        } else {
+            menuWidth = 450
+            resizeEditor()
+            $("#actionscolumn").show()
+
+            mode = "normal"
+            //$("#button-menu span.label").html("Hide menu")
+        }
+    }
+
+    $("#button-menu").click(function(event) {
+        togglePresentationMode()
+        if (mode == "presentation") {
+            $(this).addClass("ui-state-disabled")
+        } else {
+            $(this).removeClass("ui-state-disabled")
+        }
+        event.preventDefault()
+    });
+
+    $("#button-save").click(function(event) {
+        recompile()
+        event.preventDefault()
+    });
+
+    $("#button-undo").click(function(event) {
+        if (!$(this).hasClass("ui-state-disabled")) {
+            doUndo()
+        }
+        event.preventDefault()
+    });
+
+    $("#button-redo").click(function(event) {
+        if (!$(this).hasClass("ui-state-disabled")) {
+            doRedo()
+        }
+        event.preventDefault()
+    });
+
+    function hasLocalStorage() {
+      try {
+        return 'localStorage' in window && window['localStorage'] !== null;
+      } catch (e) {
+        return false;
+      }
+    }
 
     var handlers = [];
     var compilationStatus = 0
@@ -16,19 +76,125 @@ $(document).ready(function() {
     var verificationFinished = false
     var context = "unknown";
 
-    handlers["compilation"] = function (data) {
-        var e = $("#compilation-status")
-        e.hide();
-        if(data.status == "success") {
-            e.attr("class", "success")
-            compilationStatus = 1
-            e.html("Success")
-        } else {
-            e.attr("class", "failure")
-            compilationStatus = -1
-            e.html("Error")
+    // Undo/Redo
+    var backwardChanges = []
+    var forwardChanges  = []
+
+    function doUndo() {
+      forwardChanges.push(editor.getValue());
+      var code = backwardChanges.pop();
+      editor.setValue(code)
+      editor.selection.clearSelection();
+      editor.gotoLine(0);
+      recompile();
+      updateUndoRedo()
+    }
+
+    function doRedo() {
+      backwardChanges.push(editor.getValue());
+      var code = forwardChanges.pop();
+      editor.setValue(code)
+      editor.selection.clearSelection();
+      editor.gotoLine(0);
+      recompile();
+      updateUndoRedo()
+    }
+
+    function storeCurrent(code) {
+      forwardChanges = []
+      if (backwardChanges.length >= 1) {
+        if (code != backwardChanges[backwardChanges.length-1]) {
+          backwardChanges.push(code)
         }
-        e.show();
+      } else {
+          backwardChanges.push(code)
+      }
+      updateUndoRedo()
+    }
+
+    function updateUndoRedo() {
+      var ub = $("#button-undo") 
+      var rb = $("#button-redo") 
+
+      if (backwardChanges.length > 0) {
+        ub.removeClass("ui-state-disabled") 
+      } else {
+        ub.addClass("ui-state-disabled") 
+      }
+
+      if (forwardChanges.length > 0) {
+        rb.removeClass("ui-state-disabled") 
+      } else {
+        rb.addClass("ui-state-disabled") 
+      }
+    }
+
+    updateUndoRedo()
+
+    function updateCompilationStatus(status) {
+        var e = $(".compilation-status")
+        var b = $("#button-compilation")
+        var bs = $("#button-compilation-status")
+
+        if (status == "success") {
+          b.removeClass("ui-state-disabled")
+          bs.attr("class", "ui-icon ui-icon-check")
+
+          e.attr("class", "compilation-status success")
+          compilationStatus = 1
+          e.html("Success")
+        } else if (status == "failure") {
+          b.removeClass("ui-state-disabled")
+          bs.attr("class", "ui-icon ui-icon-alert")
+
+          e.attr("class", "compilation-status failure")
+          compilationStatus = -1
+          e.html("Error")
+        } else if (status == "disconnected") {
+          b.addClass("ui-state-disabled")
+          bs.attr("class", "ui-icon ui-icon-alert")
+
+          e.attr("class", "compilation-status failure")
+          compilationStatus = 0
+          e.html("Disconnected")
+        } else if (status == "unknown") {
+          b.removeClass("ui-state-disabled")
+          bs.attr("class", "ui-icon ui-icon-refresh")
+
+          e.attr("class", "compilation-status")
+          compilationStatus = 0
+          e.html("<img src=\""+_leon_loader_url+"\" />")
+        } else {
+            alert("Unknown status: "+status)
+        }
+    }
+
+    $("#button-permalink").click(function(event) {
+        if (!$(this).hasClass("ui-state-disabled")) {
+            var msg = JSON.stringify(
+              {action: "storePermaLink", code: editor.getValue()}
+            )
+            leonSocket.send(msg)
+        }
+        event.preventDefault()
+    });
+
+    handlers["permalink"] = function (data) {
+        $("#permalink-value input").val(_leon_url+"#link/"+data.link)
+        $("#permalink-value").show()
+    }
+
+    $("#button-permalink-close").click(function(event) {
+        $("#permalink-value").hide()
+    })
+
+
+    handlers["compilation"] = function (data) {
+        if(data.status == "success") {
+            updateCompilationStatus("success")
+        } else {
+            updateCompilationStatus("failure")
+        }
     }
 
     handlers["editor"] = function (data) {
@@ -44,7 +210,6 @@ $(document).ready(function() {
                 } else if (a.type == "synthesis") {
                     context = "synthesis";
                 }
-                console.log(a.type);
 
                 if (a.type != "info" && a.type != "error") {
                     session.addGutterDecoration(a.row, "leon_gutter_"+a.type)
@@ -64,6 +229,15 @@ $(document).ready(function() {
         var txt = $("#console textarea")
         txt.val(txt.val()+"\n"+data.message);
         txt.scrollTop(txt[0].scrollHeight - txt.height())
+    }
+
+    handlers["synthesis_proof"] = function (data) {
+        if (data.status == "started") {
+            $("#searchProgress").progressbar("value", false)
+            $("#searchProgress .progress-label").text("Verifying solution...")
+        } else {
+            $("#searchProgress").progressbar("value", 100)
+        }
     }
 
     handlers["synthesis_search"] = function (data) {
@@ -117,6 +291,10 @@ $(document).ready(function() {
             }
         }
 
+        if (data.vcs.length == 0) {
+            tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
+        }
+
 
         $("div[aria-describedby='verifyDialog'] span.ui-button-text").html("Close")
         $("#verifyResults").show("fade");
@@ -135,12 +313,86 @@ $(document).ready(function() {
         }
     }
 
-    leonSocket.onmessage = receiveEvent
+    var connected = false
 
-    var lastChange = new Date().getTime();
+    var closeEvent = function(event) {
+        if (connected) {
+            connected = false
+            updateCompilationStatus("disconnected")
+            reconnect(0)
+        }
+    }
+
+    var openEvent = function(event) {
+        connected = true;
+
+        if(hash) {
+            if (hash.indexOf("#link/") == 0) {
+                var msg = JSON.stringify(
+                  {action: "accessPermaLink", link: hash.substr("#link/".length)}
+                )
+
+                leonSocket.send(msg);
+
+                window.location.hash = "";
+            }
+        }
+    }
+
+    var reconnectEvent = function(event) {
+        connected = true
+
+        $("#notifications").children(".error").each(function() {
+            $(this).hide();
+        });
+        notify("Aaaaaand we are back!", "success")
+        recompile()
+    }
+
+    function reconnect(after) {
+        if (!connected) {
+            var newTimeout = after + 5000;
+            notify("Server disconnected. Attempting reconnection in "+(newTimeout/1000)+"s...", "error")
+
+            connectWS()
+            leonSocket.onopen = reconnectEvent
+
+            setTimeout(function() { reconnect(newTimeout) }, newTimeout);
+        }
+    }
+
+    var errorEvent = function(event) {
+        console.log("ERROR")
+        console.log(event)
+    }
+
+    connectWS()
+
+    function connectWS() {
+        leonSocket = new WS(_leon_websocket_url)
+        leonSocket.onopen = openEvent
+        leonSocket.onmessage = receiveEvent
+        leonSocket.onclose = closeEvent
+        leonSocket.onerror = errorEvent
+    }
+
+    var lastChange      = new Date().getTime();
+    var lastSavedChange = lastChange;
     var timeWindow = 1000;
 
-    function notify(content, type) {
+    function updateSaveButton() {
+        var e = $("#button-save")
+        if (lastChange == lastSavedChange) {
+           e.addClass("ui-state-disabled"); 
+        } else {
+           e.removeClass("ui-state-disabled"); 
+        }
+    }
+
+    function notify(content, type, fade) {
+        if (!fade) {
+            fade = 3000
+        }
 
         var note = $("<div>", {
             "class": type
@@ -152,19 +404,27 @@ $(document).ready(function() {
         note.show("fade");
         setTimeout(function() {
             note.hide("fade");
-        }, 2000)
+        }, fade)
     }
 
+    var oldCode = ""
+
     function recompile() {
-        var e = $("#compilation-status")
-        e.attr("class", "")
-        compilationStatus = 0
-        e.html("<img src=\""+_leon_loader_url+"\" />")
+        if (oldCode != "" && oldCode != editor.getValue()) {
+            if (forwardChanges.length == 0) { 
+                storeCurrent(oldCode)
+            }
+        }
+        oldCode = editor.getValue();
+
+        updateCompilationStatus("unknown")
 
         var msg = JSON.stringify(
           {action: "doUpdateCode", code: editor.getValue()}
         )
 
+        lastSavedChange = lastChange;
+        updateSaveButton();
         leonSocket.send(msg)
     }
 
@@ -172,6 +432,7 @@ $(document).ready(function() {
         var now = new Date().getTime()
 
         if (lastChange < (now - timeWindow)) {
+            lastChange = new Date().getTime();
             recompile()
         }
 
@@ -190,6 +451,7 @@ $(document).ready(function() {
               dataType: "json",
               success: function(data, textStatus, jqXHR) {
                 if (data.status == "success") {
+                    storeCurrent(editorSession.getValue())
                     editor.setValue(data.code);
                     editor.selection.clearSelection();
                     editor.gotoLine(0);
@@ -232,24 +494,25 @@ $(document).ready(function() {
 
     editorSession.on('change', function(e) {
         lastChange = new Date().getTime();
+        updateSaveButton();
         setTimeout(onCodeUpdate, timeWindow+50)
     });
 
     function resizeEditor() {
-        var heightRest = 100
-        var widthRest = 450
 
         $('#codecolumn')
-            .height($(window).height()-heightRest)
-            .width($(window).width()-widthRest);
+            .height($(window).height()-headerHeight)
+            .width($(window).width()-menuWidth);
+
 
         $('#leoninput')
-            .height($(window).height()-heightRest)
-            .width($(window).width()-widthRest);
+            .height($(window).height()-headerHeight)
+            .width($(window).width()-menuWidth);
 
         $('#codebox')
-            .height($(window).height()-heightRest)
-            .width($(window).width()-widthRest);
+            .height($(window).height()-headerHeight)
+            .width($(window).width()-menuWidth);
+
 
         editor.resize();
     };
@@ -268,7 +531,8 @@ $(document).ready(function() {
         }
     }
 
-    handlers["synthesis_replace_code"] = function(data) {
+    handlers["replace_code"] = function(data) {
+        storeCurrent(editorSession.getValue())
         editorSession.setValue(data.newCode)
         recompile()
     }

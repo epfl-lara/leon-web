@@ -23,14 +23,16 @@ object Application extends Controller {
 
   def index = Action { implicit request =>
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
+    val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(otherExamples, otherExamples.head._2.head, prefix))
+    Ok(views.html.index(otherExamples, otherExamples.head._2.head, prefix, url))
   }
 
   def tutorials = Action { implicit request =>
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
+    val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, prefix))
+    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, prefix, url))
   }
 
   def getExample(kind: String, id: Int) = Action { 
@@ -43,7 +45,7 @@ object Application extends Controller {
   }
 
   def openConsole() = WebSocket.async[JsValue] { request =>
-    LeonConsole.open
+    LeonConsole.open(request.remoteAddress)
   }
 
 }

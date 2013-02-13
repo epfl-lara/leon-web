@@ -10,6 +10,15 @@ body {
     height: 100%;
 }
 
+h1 {
+    padding: 0px;
+    margin: 0px;
+    color: white;
+    font-size: 1.5em;
+    display: inline;
+    float: left;
+}
+
 h2 {
     margin-top: 20px;
     margin-bottom: 0px;
@@ -40,12 +49,56 @@ a:hover {
 div#title {
     border-bottom: 1px solid #ccc;
     background: #4F556E;
-    color: white;
-    font-size: 1.5em;
     padding: 5px;
     margin-bottom: 20px;
+    overflow: hidden;
 }
 
+div#title div.toolbox {
+    margin: 8px 0px 0px 30px;
+    float: left;
+    font-size: 0.9em;
+}
+
+div#title div.toolbox a {
+    float: left;
+    color: black;
+    padding: 0px 3px 1px 3px;
+}
+
+div#title div.toolbox a.button-disabled {
+    color: #ccc;
+}
+
+a#button-compilation {
+    margin-left: 20px;
+}
+a#button-compilation span.label {
+    float: left;
+}
+
+div#permalink-value {
+    position: absolute;
+    top: 25px;
+    padding: 3px;
+    background: #4F556E;
+    border: 1px solid #333;
+    border-radius: 5px;
+    display: none;
+}
+
+div#permalink-value input {
+    border: 1px solid #333;
+    width: 300px;
+    float: left;
+}
+div#permalink-value span {
+    margin-top: 3px;
+}
+
+div#title div.toolbox a span.ui-icon {
+    float: left;
+}
 
 div#beforefooter {
     margin-bottom: 50px;
@@ -57,12 +110,13 @@ div#beforefooter {
 
 div#codecolumn {
     float: left;
-    padding: 0px 10px;
+    margin: 0px 10px;
     width: 700px;
 }
 
 div#actionscolumn {
-    float: left;
+    position: absolute;
+    right: 10px;
 }
 
 div.action {
@@ -74,17 +128,17 @@ div.action {
     background: #4F556E;
 }
 
-div#compilation-status {
+div.compilation-status {
     float: right;
     margin: 5px;
 }
 
-div#compilation-status.success {
+div.compilation-status.success {
     font-weight: bold;
     color: #5BB553;
 }
 
-div#compilation-status.failure {
+div.compilation-status.failure {
     font-weight: bold;
     color: #B55353;
 }
@@ -313,6 +367,21 @@ span.ace_identifier.ace_choose {
 
 #verifyResults table.allResults > tbody > tr > td:last-child, #verifyResults table.allResults thead > tr > th:last-child {
     text-align: right;
+}
+
+tr.empty > td > div {
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+
+    text-align: left;
+
+    background: #eee;
+    color: #999;
+    text-align: center;
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin: 5px;
 }
 
 tr.counter-example > td > div {
