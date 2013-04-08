@@ -346,6 +346,7 @@ class ConsoleSession(remoteIP: String) extends Actor {
           def noop(u:Expr, u2: Expr) = u
 
           var options = SynthesisOptions()
+          options = options.copy(cegisGenerateFunCalls = true)
           val ctx = new LeonContext()
 
           // Extract Synthesis Problems
@@ -470,7 +471,7 @@ class ConsoleSession(remoteIP: String) extends Actor {
                   } else {
                     event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("failure")))
 
-                    notifySuccess("Search failed!")
+                    notifyError("Solution was not proven.")
                     logInfo("Synthesis search failed!")
                   }
                 } catch {
