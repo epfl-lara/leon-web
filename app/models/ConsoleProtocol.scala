@@ -22,7 +22,8 @@ object ConsoleProtocol {
   case class SynthesisSearch(cid: Int)
   case class SynthesisCancelSearch(cid: Int)
 
-  case class VerificationDoVerify(fname: String)
+  case class VerificationDoManualVerify(fname: String)
+  case class VerificationDoVerify(fnames: Set[String], standalone: Boolean)
   case object VerificationDoCancelCurrent
   case object VerificationDone
 

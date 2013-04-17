@@ -29,6 +29,7 @@ import leon.verification._
 import leon.purescala.Common._
 import leon.purescala.Definitions._
 import leon.purescala.ScalaPrinter
+import leon.purescala.EquivalencePrettyPrinter
 import leon.purescala.Trees._
 import leon.purescala.TreeOps._
 import leon.xlang._
@@ -47,14 +48,52 @@ class ConsoleSession(remoteIP: String) extends Actor {
 
   var chooses: Map[Int, (ChooseInfo, SimpleSearch)] = Map()
   var currentProgram: Option[Program] = None
-  var functions: Map[String, FunDef] = Map()
   var verificationCtx: Option[VerificationContext] = None
   var imperativeInfo: (Set[FunDef], Map[FunDef, FunDef], Map[FunDef, FunDef]) = (Set(), Map(), Map());
+
+  var verifOverview = Map[FunDef, List[VerificationCondition]]()
+
+  case class FunctionHash(fd: FunDef) {
+    val v = {
+      val pp = new EquivalencePrettyPrinter()
+      pp.pp(fd, 0)
+      pp.toString
+    }
+
+    override def equals(o: Any): Boolean = {
+      o match {
+        case fh: FunctionHash =>
+          fh.v == v
+        case _ =>
+          false
+      }
+    }
+
+    override def hashCode: Int = {
+      v.##
+    }
+  }
+
+  def innerFunctionsOf(fd: FunDef): Set[FunDef] = {
+    val (_, _, parents) = imperativeInfo
+
+    parents.flatMap((p: (FunDef, FunDef)) => p match {
+      case (child, parent) => if(parent == fd) List(child) else List()
+    }).toSet
+  }
+
+  def origFunctionFor(fd: FunDef): FunDef = {
+    val (_, freshFunDefs, _) = imperativeInfo
+    val originalFunDefs = freshFunDefs.map(x => (x._2, x._1))
+
+    originalFunDefs.getOrElse(fd, fd)
+  }
+
 
   def resetContext() {
     chooses = Map()
     currentProgram = None
-    functions = Map()
+    verifOverview = Map()
     verificationCtx = None
     imperativeInfo = (Set(), Map(), Map())
   }
@@ -63,6 +102,77 @@ class ConsoleSession(remoteIP: String) extends Actor {
     event("notification", Map(
       "content" -> toJson(msg),
       "type"    -> toJson("error")))
+  }
+
+  def vcToJson(vc: VerificationCondition): JsValue = {
+    def ceToJson(ce: Map[Identifier, Expr]): JsValue = {
+      toJson(ce.map{ case (id, ex) =>
+        id.toString -> toJson(ScalaPrinter(ex))
+      })
+    }
+
+    val base = Map(
+      "kind"   -> toJson(vc.kind.toString),
+      "fun"    -> toJson(origFunctionFor(vc.funDef).id.name),
+      "status" -> toJson(vc.status),
+      "time"   -> toJson(vc.time.map("%-3.3f".format(_)).getOrElse("")))
+
+    vc.counterExample match {
+      case Some(ce) =>
+        toJson(base + ("counterExample" -> ceToJson(ce)))
+      case None =>
+        toJson(base)
+    }
+  }
+
+  def getOverallVCsStatus(vcs: Seq[VerificationCondition]) = {
+    var c: Option[String] = None
+
+    for (vc <- vcs if vc.hasValue) {
+      if (vc.value == Some(true) && c == None) {
+        c = Some("valid")
+      }
+      if (vc.value == Some(false)) {
+        c = Some("invalid")
+      }
+      if (vc.value == None && c != Some("invalid")) {
+        c = Some("timeout")
+      }
+    }
+    if (vcs.isEmpty) {
+      c = Some("valid")
+    }
+
+    c.getOrElse("undefined")
+  }
+
+  def notifyOverview() {
+    case class FunVerif(fd: FunDef, vcs: List[VerificationCondition]) {
+      val totalTime = vcs.flatMap(_.time).foldLeft(0d)(_ + _)
+      var status = getOverallVCsStatus(vcs)
+    }
+
+
+    var verifResults = verifOverview.map { case (fd, vcs) =>
+      (fd, FunVerif(fd, vcs))
+    }
+
+    for ((fd, fv) <- verifResults if fv.status != "valid") {
+      for (cfd <- currentProgram.get.transitiveCallers(fd) if verifResults.get(cfd).map(_.status) == Some("valid")) {
+        verifResults(cfd).status = "cond-valid"
+      }
+    }
+
+    val fvcs = verifResults.toSeq.sortWith{ (a,b) => a._1 < b._1 }.map{ case (fd, fv) =>
+      toJson(Map(
+        "name" -> toJson(origFunctionFor(fv.fd).id.name),
+        "status" -> toJson(fv.status),
+        "time" -> toJson(fv.totalTime),
+        "vcs"  -> toJson(fv.vcs.map(vcToJson))
+      ))
+    }
+
+    event("verification_overview", Map("overview" -> toJson(fvcs.toSeq)))
   }
 
   def notifySuccess(msg: String) = {
@@ -80,6 +190,7 @@ class ConsoleSession(remoteIP: String) extends Actor {
   }
 
   def clientLog(msg: String) = {
+    logInfo("[>] L: "+msg)
     channel.push(toJson(Map("kind" -> "log", "level" -> "log", "message" -> msg)))
   }
 
@@ -139,7 +250,7 @@ class ConsoleSession(remoteIP: String) extends Actor {
             val fname = (event \ "fname").as[String]
             logInfo("Verifying "+fname+"...")
 
-            self ! VerificationDoVerify(fname)
+            self ! VerificationDoManualVerify(fname)
 
           case "verification_doCancel" =>
             self ! VerificationDoCancelCurrent
@@ -169,36 +280,36 @@ class ConsoleSession(remoteIP: String) extends Actor {
         logInfo("Cannot finish unknown verification!")
       }
 
-    case VerificationDoVerify(fname: String) =>
+    case VerificationDoManualVerify(fname) =>
+      val (wasLoop, freshFunDefs, parents) = imperativeInfo
+
+      val realfname = freshFunDefs.find(_._1.id.name == fname) match {
+        case Some((fd1, fd2)) => fd2.id.name
+        case None => fname
+      }
+
+      verifOverview.keySet.find(_.id.name == realfname) match {
+        case Some(fd) =>
+          self ! VerificationDoVerify((Set(fd) ++ innerFunctionsOf(fd)).map(_.id.name), true)
+        case None =>
+          logInfo("Fanction nowt found!")
+      }
+
+    case VerificationDoVerify(toAnalyze, standalone) =>
       if (currentProgram.isDefined && verificationCtx.isEmpty) {
+
+        //val reporter = if (standalone) this.reporter else new SilentReporter
 
         var compContext  = leon.Main.processOptions(reporter, List("--feelinglucky", "--evalground"))
 
         val (wasLoop, freshFunDefs, parents) = imperativeInfo
 
-        val originalFunDefs = freshFunDefs.map(x => (x._2, x._1))
+        def functionWasLoop(fd: FunDef): Boolean =
+          wasLoop.contains(origFunctionFor(fd))
 
-        def functionWasLoop(fd: FunDef): Boolean = originalFunDefs.get(fd) match {
-          case None => false //meaning, this was a top level function
-          case Some(nested) => wasLoop.contains(nested) //could have been a LetDef originally
-        }
-
-        def subFunctionsOf(fd: FunDef): Set[FunDef] = parents.flatMap((p: (FunDef, FunDef)) => p match {
-          case (child, parent) => if(parent == fd) List(child) else List() 
-        }).toSet
-
-        val fnames = currentProgram.get.definedFunctions.find(_.id.name == fname) match {
-          case Some(fd) =>
-            Set(fd.id.name) ++ subFunctionsOf(fd).map(_.id.name)
-          case _ =>
-            Set()
-        }
-
-        // Generate VCs
-        val vcs = AnalysisPhase.generateVerificationConditions(reporter,currentProgram.get, Set(fname))
         val solvers = List(
-          new TimeoutSolver(new TrivialSolver(compContext), 10000L),
-          new TimeoutSolver(new FairZ3Solver(compContext), 10000L)
+          new TimeoutSolver(new TrivialSolver(compContext), 1000L),
+          new TimeoutSolver(new FairZ3Solver(compContext), 1000L)
         )
 
         solvers.map(_.setProgram(currentProgram.get))
@@ -206,39 +317,17 @@ class ConsoleSession(remoteIP: String) extends Actor {
         val vctx = VerificationContext(compContext, solvers, reporter)
         verificationCtx = Some(vctx)
 
+        val vcs = verifOverview.collect {
+          case (fd, vcs) if toAnalyze(fd.id.name) => fd -> vcs
+        }
+
         val future = Future {
           try {
             val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
-            val freshVcs = vcs.map(vc => {
-              val funDef = vc.funDef
-              if(functionWasLoop(funDef)) {
-                val freshVc = new VerificationCondition(
-                  vc.condition,
-                  parents(funDef),
-                  if(vc.kind == VCKind.Postcondition) {
-                    VCKind.InvariantPost
-                  } else if(vc.kind == VCKind.Precondition) {
-                    VCKind.InvariantInd
-                  } else {
-                    vc.kind
-                  },
-                  vc.tactic,
-                  vc.info).setPosInfo(funDef)
-                freshVc.value = vc.value
-                freshVc.solvedWith = vc.solvedWith
-                freshVc.time = vc.time
-                freshVc
-              } else vc
-            })
+            val newVR = XlangAnalysisPhase.completeVerificationReport(vr, parents, functionWasLoop _)
 
-            val sortedFreshVcs = freshVcs.sortWith((vc1, vc2) => {
-              val id1 = vc1.funDef.id.name
-              val id2 = vc2.funDef.id.name
-              if(id1 != id2) id1 < id2 else vc1 < vc2
-            })
-
-            Some(new VerificationReport(sortedFreshVcs))
+            Some(newVR)
 
           } catch {
             case t: Throwable =>
@@ -250,50 +339,38 @@ class ConsoleSession(remoteIP: String) extends Actor {
         future.map {
           case Some(report) =>
             try {
-              def vcToJson(vc: VerificationCondition): JsValue = {
-                def ceToJson(ce: Map[Identifier, Expr]): JsValue = {
-                  toJson(ce.map{ case (id, ex) =>
-                    id.toString -> toJson(ScalaPrinter(ex))
-                  })
-                }
-
-                val base = Map(
-                  "fun" -> toJson(vc.funDef.id.toString),
-                  "kind" -> toJson(vc.kind.toString),
-                  "status" -> toJson(vc.status),
-                  "time" -> toJson(vc.time.map("%-3.3f".format(_)).getOrElse("")))
-
-                vc.counterExample match {
-                  case Some(ce) =>
-                    toJson(base + ("counterExample" -> ceToJson(ce)))
-                  case None =>
-                    toJson(base)
-                }
-              }
-
-              val status = if (report.totalInvalid > 0) {
-                "failure"
-              } else if (report.totalUnknown > 0) {
-                "failure"
-              } else {
-                "success"
-              }
+              val status = getOverallVCsStatus(report.conditions)
 
               self ! VerificationDone
-              event("verification_result", Map("status" -> toJson(status), "vcs" -> toJson(report.conditions.map(vcToJson))))
+
+              for ((f, vcs) <- report.fvcs) {
+                verifOverview += f -> vcs
+              }
+
+              notifyOverview()
+
+              if (standalone) {
+                event("verification_result", Map("status" -> toJson(status), "vcs" -> toJson(report.conditions.map(vcToJson))))
+              }
             } catch {
               case t: Throwable =>
                 self ! VerificationDone
-                event("verification_result", Map("status" -> toJson("failure"), "vcs" -> toJson(List[String]())))
+                if (standalone) {
+                  event("verification_result", Map("status" -> toJson("failure"), "vcs" -> toJson(List[String]())))
+                }
                 logInfo("[!] Solution Processing crashed", t)
             }
           case None =>
             self ! VerificationDone
-            event("verification_result", Map("status" -> toJson("failure"), "vcs" -> toJson(List[String]())))
+            if (standalone) {
+              event("verification_result", Map("status" -> toJson("failure"), "vcs" -> toJson(List[String]())))
+            }
             logInfo("Verificatoin did not finish")
         }
       } else {
-        event("verification_result", Map("status" -> toJson("failure")))
+        if (standalone) {
+          event("verification_result", Map("status" -> toJson("failure")))
+        }
         if (!currentProgram.isDefined) {
           notifyError("No program available. Compilation failed?")
         } else if (verificationCtx.isDefined) {
@@ -330,6 +407,7 @@ class ConsoleSession(remoteIP: String) extends Actor {
 
         val pipeline = TemporaryInputPhase andThen ExtractionPhase
 
+        val oldVerifOverView = verifOverview
         resetContext()
 
         try {
@@ -338,10 +416,10 @@ class ConsoleSession(remoteIP: String) extends Actor {
           val pgm1 = ArrayTransformation(compContext, pgm)
           val pgm2 = EpsilonElimination(compContext, pgm1)
           val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
-          val (pgm4, parents, freshFunDefs) = FunctionClosure.run(compContext)(pgm3)
+          val (program, parents, freshFunDefs) = FunctionClosure.run(compContext)(pgm3)
 
-          currentProgram = Some(pgm4)
-          imperativeInfo = (wasLoop, parents, freshFunDefs)
+          currentProgram = Some(program)
+          imperativeInfo = (wasLoop, freshFunDefs, parents)
 
           def noop(u:Expr, u2: Expr) = u
 
@@ -350,17 +428,18 @@ class ConsoleSession(remoteIP: String) extends Actor {
           val ctx = new LeonContext()
 
           // Extract Synthesis Problems
-          chooses = ChooseInfo.extractFromProgram(synthContext, pgm4, options).zipWithIndex.map {
+          println(ScalaPrinter(program))
+          chooses = ChooseInfo.extractFromProgram(synthContext, program, options).zipWithIndex.map {
             case (ci, i) =>
               val search = new SimpleWebSearch(this, ci.synthesizer, ci.problem)
               (i+1) -> (ci, search)
           }.toMap
 
           // Extract Verification Problems
-          if (chooses.isEmpty) {
-            functions = pgm3.definedFunctions.filter(fd => fd.hasBody).map(fd => fd.id.name -> fd).toMap
+          val verifFunctions = if (chooses.isEmpty) {
+            program.definedFunctions.filter(fd => fd.hasBody).toSet
           } else {
-            functions = Map()
+            Set()
           }
 
           event("compilation", Map("status" -> toJson("success")))
@@ -370,24 +449,64 @@ class ConsoleSession(remoteIP: String) extends Actor {
             CodeAnnotation(line, col, "Synthesis problem: "+ci.problem.toString, CodeAnnotationSynthesis)
           }
 
-          val verificationAnnotations = functions.values.map { case fd =>
+          val verificationAnnotations = verifFunctions.map { case fd =>
             val (line, col) = fd.posIntInfo
             CodeAnnotation(line, col, "Verifiable function", CodeAnnotationVerification)
           }
           setAnnotations((synthesisAnnotations ++ verificationAnnotations).toSeq)
 
           clientLog("Compilation successful!")
-          logInfo("Compilation successful!")
+
+          var toGenerate = Set[FunDef]()
+
+          // Generate VCs
+          for (f <- verifFunctions) {
+            val h = FunctionHash(f)
+
+            oldVerifOverView find { case (fd, _) => FunctionHash(fd) == h } match {
+              case Some((fd, vcs)) =>
+                verifOverview += f -> vcs
+              case None =>
+                verifOverview -= f
+                toGenerate += f
+            }
+          }
+
+          val toInvalidate = toGenerate.flatMap { program.transitiveCallers _ }
+
+          toGenerate ++= toInvalidate
+
+          if (!toGenerate.isEmpty) {
+            clientLog("Generating VCs...")
+
+            toGenerate.foreach{ fd =>
+              toGenerate ++= innerFunctionsOf(fd)
+            }
+
+            // Generate VCs
+            val fvcs = AnalysisPhase.generateVerificationConditions(reporter, program, toGenerate.map(_.id.name))
+
+            for ((f, vcs) <- fvcs) {
+              verifOverview += f -> vcs
+            }
+
+            clientLog("Done!")
+
+            notifyOverview()
+          }
+
+          self ! VerificationDoVerify(toGenerate.map(_.id.name), false)
 
           compilationHistory = "success" :: compilationHistory
 
         } catch {
           case t: Throwable =>
             chooses = Map()
-            functions = Map()
             currentProgram = None
 
-            logInfo("Compilation failed:")
+            verifOverview = oldVerifOverView
+
+            logInfo("Compilation failed: "+t.getMessage)
             for ((l,e) <- compReporter.errors) {
               logInfo("  "+e.mkString("\n  "))
             }

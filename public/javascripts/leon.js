@@ -73,7 +73,6 @@ $(document).ready(function() {
     var handlers = [];
     var compilationStatus = 0
     var searchFinished = false
-    var verificationFinished = false
     var context = "unknown";
 
     // Undo/Redo
@@ -142,28 +141,28 @@ $(document).ready(function() {
 
           e.attr("class", "compilation-status success")
           compilationStatus = 1
-          e.html("Success")
+          e.html("<img src=\""+_leon_prefix+"/assets/images/accept.png\" />")
         } else if (status == "failure") {
           b.removeClass("ui-state-disabled")
           bs.attr("class", "ui-icon ui-icon-alert")
 
           e.attr("class", "compilation-status failure")
           compilationStatus = -1
-          e.html("Error")
+          e.html("<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />")
         } else if (status == "disconnected") {
           b.addClass("ui-state-disabled")
           bs.attr("class", "ui-icon ui-icon-alert")
 
           e.attr("class", "compilation-status failure")
           compilationStatus = 0
-          e.html("Disconnected")
+          e.html("<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />")
         } else if (status == "unknown") {
           b.removeClass("ui-state-disabled")
           bs.attr("class", "ui-icon ui-icon-refresh")
 
           e.attr("class", "compilation-status")
           compilationStatus = 0
-          e.html("<img src=\""+_leon_loader_url+"\" />")
+          e.html("<img src=\""+_leon_prefix+"/assets/images/loader.gif\" />")
         } else {
             alert("Unknown status: "+status)
         }
@@ -197,6 +196,50 @@ $(document).ready(function() {
         }
     }
 
+    handlers["verification_overview"] = function(data) {
+        console.log(data)
+        var t = $("#overview_table")
+        var html = "";
+        var o = data.overview
+
+        for (var i = 0; i < o.length; i++) {
+           var f = o[i] 
+           var status = ""
+           var time = f.time.toFixed(2)
+           switch(f.status) {
+            case "undefined":
+                status = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" />";
+                time   = ""
+                break;
+            case "cond-valid":
+                status = "<img src=\""+_leon_prefix+"/assets/images/error.png\" />";
+                break;
+            case "valid":
+                status = "<img src=\""+_leon_prefix+"/assets/images/accept.png\" />";
+                break;
+            case "invalid":
+                status = "<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />";
+                break;
+            case "timeout":
+                status = "<img src=\""+_leon_prefix+"/assets/images/hourglass.png\" />";
+                break;
+           }
+
+           var vcDetails = ""
+           if (time != "") {
+            vcDetails = " vc=\""+i+"\""
+           }
+           html += "<tr><td>"+f.name+"</td><td class=\"status\""+vcDetails+">"+status+"</td><td class=\"time\""+vcDetails+">"+time+"</td></tr>"
+        }
+
+        t.html(html);
+
+        $("td[vc]").click(function () {
+            var vcId = $(this).attr("vc")
+            displayVerificationDetails(o[vcId].status, o[vcId].vcs, true)
+        });
+    }
+
     handlers["editor"] = function (data) {
         if ("annotations" in data) {
             var session = editor.getSession();
@@ -226,8 +269,8 @@ $(document).ready(function() {
     }
 
     handlers["log"] = function (data) {
-        var txt = $("#console textarea")
-        txt.val(txt.val()+"\n"+data.message);
+        var txt = $("#console")
+        txt.append(data.message+"\n");
         txt.scrollTop(txt[0].scrollHeight - txt.height())
     }
 
@@ -251,29 +294,53 @@ $(document).ready(function() {
         }
     }
 
-    handlers["verification_result"] = function (data) {
-        $("#verifyProgress").progressbar("value", 100)
-        var pbValue = $("#verifyProgress").find(".ui-progressbar-value");
+    function displayVerificationDetails(status, vcs, doOpen) {
+        var pb = $("#verifyProgress")
+        if (doOpen) {
+            pb.progressbar({
+                value: 100,
+            });
 
-        if (data.status == "success") {
-            $("#verifyProgress .progress-label").text("Success!")
-            pbValue.addClass("success")
+            openVerifyDialog()
         } else {
-            $("#verifyProgress .progress-label").text("Failed!")
-            pbValue.addClass("failure")
+            pb.progressbar("value", 100);
         }
-        verificationFinished = true
+
+        var pbValue = $("#verifyProgress").find(".ui-progressbar-value");
+        pbValue.removeClass("cond-valid valid invalid timeout")
+
+        switch (status) {
+            case "cond-valid":
+                $("#verifyProgress .progress-label").text("Conditionally Valid!")
+                pbValue.addClass("cond-valid")
+                break;
+
+            case "valid":
+                $("#verifyProgress .progress-label").text("Valid!")
+                pbValue.addClass("valid")
+                break;
+
+            case "invalid":
+                $("#verifyProgress .progress-label").text("Invalid!")
+                pbValue.addClass("invalid")
+                break;
+
+            case "timeout":
+                $("#verifyProgress .progress-label").text("Timeout!")
+                pbValue.addClass("timeout")
+                break;
+        }
 
         var tbl = $("#verifyResults tbody")
         tbl.html("");
 
-        for (var i = 0; i < data.vcs.length; i++) {
-            var vc = data.vcs[i];
+        for (var i = 0; i < vcs.length; i++) {
+            var vc = vcs[i];
             var icon = "check"
             if (vc.status == "invalid") {
-                icon = "alert"    
+                icon = "alert"
             } else if (vc.status == "unknown") {
-                icon = "help"    
+                icon = "help"
             }
 
 
@@ -291,13 +358,18 @@ $(document).ready(function() {
             }
         }
 
-        if (data.vcs.length == 0) {
+        if (vcs.length == 0) {
             tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
         }
 
 
         $("div[aria-describedby='verifyDialog'] span.ui-button-text").html("Close")
         $("#verifyResults").show("fade");
+
+    }
+
+    handlers["verification_result"] = function (data) {
+        displayVerificationDetails(data.status, data.vcs, false)
     }
 
     function error(msg) {
@@ -309,7 +381,8 @@ $(document).ready(function() {
         if (data.kind in handlers) {
             handlers[data.kind](data);
         } else {
-            error("Unknown event type: "+data.kind)
+            console.log("Unknown event type: "+data.kind)
+            console.log(data)
         }
     }
 
@@ -378,7 +451,7 @@ $(document).ready(function() {
 
     var lastChange      = new Date().getTime();
     var lastSavedChange = lastChange;
-    var timeWindow = 1000;
+    var timeWindow      = 2000;
 
     function updateSaveButton() {
         var e = $("#button-save")
@@ -662,9 +735,28 @@ $(document).ready(function() {
         }
     }
 
-    function verifyFun(fname) {
-        verificationFinished = false
+    function openVerifyDialog(cancelOnClose) {
+        $("#verifyDialog").dialog({
+            modal: true,
+            width: 500,
+            buttons: {
+                Cancel: function() {
+                    $(this).dialog("close");
+                }
+            },
+            close: function() {
+                if (cancelOnClose) {
+                    var msg = JSON.stringify(
+                      {action: "verification_doCancel", fname: cancelOnClose}
+                    )
 
+                    leonSocket.send(msg)
+                }
+            }
+        });
+    }
+
+    function verifyFun(fname) {
         var msg = JSON.stringify(
           {action: "verification_doVerify", fname: fname}
         )
@@ -687,25 +779,7 @@ $(document).ready(function() {
         pbv.removeClass("failure").removeClass("success")
         $("#verifyResults").hide();
 
-        $("#verifyDialog").dialog({
-            modal: true,
-            width: 500,
-            buttons: {
-                Cancel: function() {
-                    $(this).dialog("close");
-                }
-            },
-            close: function() {
-                if (!verificationFinished) {
-                    var msg = JSON.stringify(
-                      {action: "verification_doCancel", fname: fname}
-                    )
-
-                    leonSocket.send(msg)
-                    verificationFinished = true;
-                }
-            }
-        });
+        openVerifyDialog(fname)
     }
 
     function synthesisDisplayMenu(screenX, screenY, cid, rulesApps) {
