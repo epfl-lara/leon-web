@@ -1,4 +1,4 @@
-# HOWTO RUN LEON ONLINE
+# HOWT ORUN LEON ONLINE
 
 ## Step 1
 
@@ -12,7 +12,7 @@
 ### On laraserver
 
     $ export LD_LIBRARY_PATH=/localhome/leonweb/git/z3/build/
-    $ play "start -Dapp.prefix=/leon"
+    $ play "start -Dapp.prefix=/leon/ -Dapp.url=http://lara.epfl.ch"
 
 ### Locally
 
