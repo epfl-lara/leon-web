@@ -13,3 +13,5 @@ dist
 /.classpath
 /.project
 /RUNNING_PID
+/database
+/lib
