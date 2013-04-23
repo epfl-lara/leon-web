@@ -298,6 +298,8 @@ class ConsoleSession(remoteIP: String) extends Actor {
     case VerificationDoVerify(toAnalyze, standalone) =>
       if (currentProgram.isDefined && verificationCtx.isEmpty) {
 
+        val verifTimeout = 3000L // 3sec
+
         //val reporter = if (standalone) this.reporter else new SilentReporter
 
         var compContext  = leon.Main.processOptions(reporter, List("--feelinglucky", "--evalground"))
@@ -308,8 +310,8 @@ class ConsoleSession(remoteIP: String) extends Actor {
           wasLoop.contains(origFunctionFor(fd))
 
         val solvers = List(
-          new TimeoutSolver(new TrivialSolver(compContext), 1000L),
-          new TimeoutSolver(new FairZ3Solver(compContext), 1000L)
+          new TimeoutSolver(new TrivialSolver(compContext), verifTimeout),
+          new TimeoutSolver(new FairZ3Solver(compContext), verifTimeout)
         )
 
         solvers.map(_.setProgram(currentProgram.get))
