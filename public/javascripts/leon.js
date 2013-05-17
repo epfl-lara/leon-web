@@ -409,6 +409,8 @@ $(document).ready(function() {
 
                 window.location.hash = "";
             }
+        } else {
+            recompile()
         }
     }
 
@@ -490,15 +492,17 @@ $(document).ready(function() {
         }
         oldCode = editor.getValue();
 
-        updateCompilationStatus("unknown")
+        if (connected) {
+            updateCompilationStatus("unknown")
 
-        var msg = JSON.stringify(
-          {action: "doUpdateCode", code: editor.getValue()}
-        )
+            var msg = JSON.stringify(
+              {action: "doUpdateCode", code: editor.getValue()}
+            )
 
-        lastSavedChange = lastChange;
-        updateSaveButton();
-        leonSocket.send(msg)
+            lastSavedChange = lastChange;
+            updateSaveButton();
+            leonSocket.send(msg)
+        }
     }
 
     function onCodeUpdate() {
