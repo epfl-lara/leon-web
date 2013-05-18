@@ -442,6 +442,15 @@ $(document).ready(function() {
     }
 
     connectWS()
+    setTimeout(function() {
+        if (!connected) {
+            $("#errorDialog").dialog({
+                modal: true,
+                width: 500,
+                buttons: { },
+            });
+        }
+    }, 3000);
 
     function connectWS() {
         leonSocket = new WS(_leon_websocket_url)

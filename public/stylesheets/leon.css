@@ -303,7 +303,7 @@ span.ace_identifier.ace_choose {
     text-decoration: underline;
 }
 
-#searchDialog, #verifyDialog {
+#searchDialog, #verifyDialog, #errorDialog {
     display: none;
     font-size: 14px;
 }
@@ -320,6 +320,10 @@ span.ace_identifier.ace_choose {
 
 #searchDialog p, #verifyDialog p {
     clear: both;
+}
+
+#errorDialog p {
+    color: red;
 }
 
 .ui-dialog[aria-describedby="searchDialog"] .ui-dialog-titlebar, .ui-dialog[aria-describedby="verifyDialog"] .ui-dialog-titlebar {
