@@ -2,58 +2,64 @@
 
 @main("Leon Online", prefix, url) {
   <div id="allcontent">
-    <div id="title">
+    <div id="title" class="std-background">
     <h1>Leon</h1>
       <div class="toolbox">
-        <a id="button-save" href="#"><span class="ui-icon ui-icon-disk"></span><span class="label">Save</span></a>
-        <a id="button-undo" href="#"><span class="ui-icon ui-icon-arrowreturnthick-1-s"></span><span class="label">Undo</span></a>
-        <a id="button-redo" href="#"><span class="ui-icon ui-icon-arrowreturnthick-1-e"></span><span class="label">Redo</span></a>
-        <a id="button-permalink" href="#"><span class="ui-icon ui-icon-link"></span><span class="label">Link</span>
+        <a id="button-save" href="#"><span><i class="icon-save"></i> Save</span></a>
+        <a id="button-undo" href="#"><span><i class="icon-undo"></i> Undo</span></a>
+        <a id="button-redo" href="#"><span><i class="icon-repeat"></i> Redo</span></a>
+        <a id="button-permalink" href="#"><span><i class="icon-link"></i> Link</span>
         </a>
         <div id="permalink-value">
             <input type="text" value="" />
-            <a id="button-permalink-close" href="#"><span class="ui-icon ui-icon-close"></span></a>
+            <a id="button-permalink-close" href="#"><i class="icon-remove"></i></a>
         </div>
-        <a id="button-menu" href="#"><span class="ui-icon ui-icon-note"></span><span class="label">Menu</span></a>
-        <a id="button-compilation"><span class="label">Compilation:</span><span id="button-compilation-status" class="ui-icon ui-icon-check"></span></a>
+        <a id="button-menu" href="#"><span><i class="icon-list-alt"></i> Menu</span></a>
+        <a id="button-console" href="#" class="disabled"><span><i class="icon-comments-alt"></i> Console</span></a>
       </div>
     </div>
     <script>
         var _leon_websocket_url = "@leon.web.controllers.routes.Application.openConsole().webSocketURL()";
     </script>
 
-    <div id="codecolumn">
-      <form id="leoninput" method="POST" action="">
-        <div id="codebox">@default.code</div>
-      </form>
+    <div class="container-fluid">
+          <div class="row-fluid">
+                <div id="codecolumn" class="span8">
+                  <form id="leoninput" method="POST" action="">
+                    <div id="codebox">@default.code</div>
+                  </form>
+                </div>
+                <div id="actionscolumn" class="span4">
+                  <div id="selectcolumn" class="action">
+                    <h3 class="std-background"><i class="icon-upload"></i> Load an Program:</h3>
+                    <select id="example-loader" name="codeexample" prefix="@prefix">
+                      <option value="">-- Select a Program --</option>
+                      @exGroups.collect{ case (group, es) =>
+                        <option value="" disabled="disabled">@group</option>
+                        @es.zipWithIndex.collect { case (ex, i) =>
+                          <option group="@group" id="@i">&nbsp;&nbsp;@ex.title</option>
+                        }
+                      }
+                    </select>
+
+                  </div>
+
+                  <div id="overview" class="action">
+                    <h3 class="std-background"><i class="icon-search"></i> Verification</h3>
+                    <table id="overview_table">
+                    </table>
+                  </div>
+                  <div class="action" id="console-action">
+                      <h3 class="std-background"><i class="icon-comments-alt"></i> Console:</h3>
+                      <div id="console"></div>
+                  </div>
+
+                  <div id="notifications">
+                  </div>
+                </div>
+          </div>
     </div>
-    <div id="actionscolumn">
-      <div id="selectcolumn" class="action">
-        <h3>Load an Program:</h3>
-        <select id="example-loader" name="codeexample" prefix="@prefix">
-          <option value="">-- Select a Program --</option>
-          @exGroups.collect{ case (group, es) =>
-            <option value="" disabled="disabled">@group</option>
-            @es.zipWithIndex.collect { case (ex, i) =>
-              <option group="@group" id="@i">&nbsp;&nbsp;@ex.title</option>
-            }
-          }
-        </select>
 
-      </div>
-      <div id="console" class="action"></div>
-
-      <div id="overview" class="action">
-        <div class="compilation-status">Unknown</div>
-        <h3>Compilation</h3>
-        <h3>Verification</h3>
-        <table id="overview_table">
-        </table>
-      </div>
-
-      <div id="notifications">
-      </div>
-    </div>
 
 
     <ul id="editorMenu">

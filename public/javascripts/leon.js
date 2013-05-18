@@ -2,43 +2,55 @@ var editor = null;
 
 $(document).ready(function() {
     editor = ace.edit("codebox");
-    editor.getSession().setMode("ace/mode/scala");
-    editor.getSession().setUseWrapMode(true);
-    editor.getSession().setTabSize(2);
+    editor.getSession().setMode("ace/mode/scala")
+    editor.getSession().setUseWrapMode(true)
+    editor.getSession().setTabSize(2)
 
     var hash = window.location.hash
 
     var WS = window['MozWebSocket'] ? MozWebSocket : WebSocket
     var leonSocket = null
 
-    var headerHeight = 100
-    var menuWidth    = 450
+    var headerHeight = $("#title").height()+20
 
     var mode = "normal"
     function togglePresentationMode() {
         if (mode == "normal") {
             $("#actionscolumn").hide()
-            menuWidth = 20
-            resizeEditor()
+            $("#codecolumn").removeClass("span8").addClass("span12")
 
             mode = "presentation"
             //$("#button-menu span.label").html("Show menu")
         } else {
-            menuWidth = 450
-            resizeEditor()
+            $("#codecolumn").removeClass("span12").addClass("span8")
             $("#actionscolumn").show()
 
             mode = "normal"
             //$("#button-menu span.label").html("Hide menu")
         }
+        resizeEditor()
     }
 
+    $("#button-console").click(function(event) {
+        var isOpen = $("#console-action").is(":visible")
+
+        if (isOpen) {
+            $("#console-action").hide()
+            $(this).addClass("disabled")
+        } else {
+            $("#console-action").show()
+            $(this).removeClass("disabled")
+        }
+
+    });
     $("#button-menu").click(function(event) {
         togglePresentationMode()
         if (mode == "presentation") {
-            $(this).addClass("ui-state-disabled")
+            $(this).addClass("disabled")
+            $("#button-console").hide()
         } else {
-            $(this).removeClass("ui-state-disabled")
+            $(this).removeClass("disabled")
+            $("#button-console").show()
         }
         event.preventDefault()
     });
@@ -49,14 +61,14 @@ $(document).ready(function() {
     });
 
     $("#button-undo").click(function(event) {
-        if (!$(this).hasClass("ui-state-disabled")) {
+        if (!$(this).hasClass("disabled")) {
             doUndo()
         }
         event.preventDefault()
     });
 
     $("#button-redo").click(function(event) {
-        if (!$(this).hasClass("ui-state-disabled")) {
+        if (!$(this).hasClass("disabled")) {
             doRedo()
         }
         event.preventDefault()
@@ -116,15 +128,15 @@ $(document).ready(function() {
       var rb = $("#button-redo") 
 
       if (backwardChanges.length > 0) {
-        ub.removeClass("ui-state-disabled") 
+        ub.removeClass("disabled") 
       } else {
-        ub.addClass("ui-state-disabled") 
+        ub.addClass("disabled") 
       }
 
       if (forwardChanges.length > 0) {
-        rb.removeClass("ui-state-disabled") 
+        rb.removeClass("disabled") 
       } else {
-        rb.addClass("ui-state-disabled") 
+        rb.addClass("disabled") 
       }
     }
 
@@ -132,34 +144,20 @@ $(document).ready(function() {
 
     function updateCompilationStatus(status) {
         var e = $(".compilation-status")
-        var b = $("#button-compilation")
-        var bs = $("#button-compilation-status")
 
         if (status == "success") {
-          b.removeClass("ui-state-disabled")
-          bs.attr("class", "ui-icon ui-icon-check")
-
           e.attr("class", "compilation-status success")
           compilationStatus = 1
           e.html("<img src=\""+_leon_prefix+"/assets/images/accept.png\" />")
         } else if (status == "failure") {
-          b.removeClass("ui-state-disabled")
-          bs.attr("class", "ui-icon ui-icon-alert")
-
           e.attr("class", "compilation-status failure")
           compilationStatus = -1
           e.html("<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />")
         } else if (status == "disconnected") {
-          b.addClass("ui-state-disabled")
-          bs.attr("class", "ui-icon ui-icon-alert")
-
           e.attr("class", "compilation-status failure")
           compilationStatus = 0
           e.html("<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />")
         } else if (status == "unknown") {
-          b.removeClass("ui-state-disabled")
-          bs.attr("class", "ui-icon ui-icon-refresh")
-
           e.attr("class", "compilation-status")
           compilationStatus = 0
           e.html("<img src=\""+_leon_prefix+"/assets/images/loader.gif\" />")
@@ -169,7 +167,7 @@ $(document).ready(function() {
     }
 
     $("#button-permalink").click(function(event) {
-        if (!$(this).hasClass("ui-state-disabled")) {
+        if (!$(this).hasClass("disabled")) {
             var msg = JSON.stringify(
               {action: "storePermaLink", code: editor.getValue()}
             )
@@ -213,15 +211,19 @@ $(document).ready(function() {
                 break;
             case "cond-valid":
                 status = "<img src=\""+_leon_prefix+"/assets/images/error.png\" />";
+                status = "<i class=\"icon-exclamation-sign\"></i>";
                 break;
             case "valid":
                 status = "<img src=\""+_leon_prefix+"/assets/images/accept.png\" />";
+                status = "<i class=\"icon-ok-sign\"></i>";
                 break;
             case "invalid":
                 status = "<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />";
+                status = "<i class=\"icon-remove-sign\"></i>";
                 break;
             case "timeout":
                 status = "<img src=\""+_leon_prefix+"/assets/images/hourglass.png\" />";
+                status = "<i class=\"icon-time\"></i>";
                 break;
            }
 
@@ -467,9 +469,9 @@ $(document).ready(function() {
     function updateSaveButton() {
         var e = $("#button-save")
         if (lastChange == lastSavedChange) {
-           e.addClass("ui-state-disabled"); 
+           e.addClass("disabled"); 
         } else {
-           e.removeClass("ui-state-disabled"); 
+           e.removeClass("disabled"); 
         }
     }
 
@@ -586,19 +588,12 @@ $(document).ready(function() {
 
     function resizeEditor() {
 
-        $('#codecolumn')
-            .height($(window).height()-headerHeight)
-            .width($(window).width()-menuWidth);
+        var h = $(window).height()-$("#title").height()-15
+        var w = $(window).width()
+//        var w = $("#codecolumn").width()
 
-
-        $('#leoninput')
-            .height($(window).height()-headerHeight)
-            .width($(window).width()-menuWidth);
-
-        $('#codebox')
-            .height($(window).height()-headerHeight)
-            .width($(window).width()-menuWidth);
-
+        $('#leoninput').height(h).width(w);
+        $('#codebox').height(h).width(w);
 
         editor.resize();
     };
@@ -679,13 +674,13 @@ $(document).ready(function() {
         $("#editorMenu").html("");
 
         if (compilationStatus == 1) {
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Automated Verification:</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Automated Verification:</a></li>');
 
             $("#editorMenu").append('<li action="verify" fname="'+fname+'"><a href="#">Verify</a></li>');
         } else if (compilationStatus == 0) {
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Not yet compiled...</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Not yet compiled...</a></li>');
         } else {
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Compilation failed!</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Compilation failed!</a></li>');
         }
 
         $("#editorMenu").menu({
@@ -799,11 +794,11 @@ $(document).ready(function() {
         $("#editorMenu").html("");
 
         if (compilationStatus == 1) {
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Automated Search:</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Automated Search:</a></li>');
 
             $("#editorMenu").append('<li'+clazz+' action="search" cid="'+cid+'"><a href="#">Search</a></li>');
 
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Apply Rule:</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Apply Rule:</a></li>');
 
             for (var i = 0; i < rulesApps.length; i++) {
                 var app = rulesApps[i];
@@ -812,14 +807,14 @@ $(document).ready(function() {
 
                 if (app.status == "closed") {
                     statusIcon = '<span class="ui-icon ui-icon-alert"></span>'
-                    clazz = ' class="ui-state-disabled"'
+                    clazz = ' class="disabled"'
                 }
                 $("#editorMenu").append('<li'+clazz+' action="rule" cid="'+cid+'" rid="'+app.id+'"><a href="#">'+statusIcon+app.name+'</a></li>');
             }
         } else if (compilationStatus == 0) {
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Not yet compiled...</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Not yet compiled...</a></li>');
         } else {
-            $("#editorMenu").append('<li class="ui-state-disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Compilation failed!</a></li>');
+            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Compilation failed!</a></li>');
         }
 
         $("#editorMenu").menu({

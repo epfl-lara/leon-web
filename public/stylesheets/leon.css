@@ -6,37 +6,33 @@ body {
     font-family: Arial, Helvetica, Sans-serif;
     margin: 0px;
     padding: 0px;
-    background: #61738B;
+    background: #EFEFEF;
     height: 100%;
 }
 
+.std-background {
+    background: #000050 !important;
+}
+
 div#title {
-    border-bottom: 2px solid #333;
-    background: #ACC0DC;
     padding: 3px;
-    margin-bottom: 20px;
     overflow: hidden;
 }
 
-div.action {
-    border: 1px solid #333;
-    -webkit-border-radius: 8px;
-    -moz-border-radius: 8px;
-    margin: 0px 0px 10px 0px;
-    padding: 5px;
-    color: black;
-    max-width: 400px;
-    background: #ACC0DC;
+i {
+    font-size: 14px;
 }
 
 
-h1 {
+#leon h1 {
     font-family: 'Kaushan Script', cursive;
     padding: 0px;
     margin: 0px 0px 0px 10px;
     font-size: 1.5em;
     color: #61738B;
     color: black;
+    color: #11D12E;
+    color: white;
     display: inline;
     float: left;
 }
@@ -65,7 +61,34 @@ table#overview_table td.status {
 }
 
 table#overview_table tr:nth-child(odd) {
-    background: #9AB6DC;
+    background: #ddd;
+}
+
+table#overview_table td.status i {
+    cursor: pointer;
+}
+table#overview_table td.status i {
+    font-size: 1.2em;
+}
+
+table#overview_table td.status i.icon-ok-sign {
+    color: green;
+}
+
+table#overview_table td.status i.icon-remove-sign {
+    color: red;
+}
+
+table#overview_table td.status i.icon-time {
+    color: orange;
+}
+
+table#overview_table td.status i.icon-exclamation-sign {
+    color: green;
+}
+
+table#overview_table td.status i.icon-ok-sign {
+    color: green;
 }
 
 h2 {
@@ -96,19 +119,18 @@ a:hover {
 }
 
 div#title div.toolbox {
-    margin: 8px 0px 0px 30px;
+    margin: 12px 0px 0px 30px;
     float: left;
     font-size: 0.9em;
 }
 
 div#title div.toolbox a {
     float: left;
-    color: black;
-    padding: 0px 3px 1px 3px;
+    color: white;
+    padding: 0px 3px 1px 6px;
 }
-
-div#title div.toolbox a.button-disabled {
-    color: #ccc;
+div#title div.toolbox a.disabled {
+    color: #666;
 }
 
 a#button-compilation {
@@ -122,7 +144,8 @@ div#permalink-value {
     position: absolute;
     top: 25px;
     padding: 3px;
-    background: #B3B8C9;
+    z-index: 1000;
+    background: #999;
     border: 1px solid #333;
     border-radius: 5px;
     display: none;
@@ -131,34 +154,41 @@ div#permalink-value {
 div#permalink-value input {
     border: 1px solid #333;
     width: 300px;
+    margin-bottom: 0px;
     float: left;
 }
 div#permalink-value span {
     margin-top: 3px;
 }
 
-div#title div.toolbox a span.ui-icon {
-    float: left;
-}
-
-div#beforefooter {
-    margin-bottom: 50px;
+a#button-permalink-close {
+    margin-top: 5px;
 }
 
 .smallnote {
     font-size: 10px;
 }
 
+#leon .container-fluid {
+    padding: 0px;
+}
+
 div#codecolumn {
-    float: left;
-    margin: 0px 10px;
-    width: 700px;
+    min-height: 100%;
 }
 
 div#actionscolumn {
     position: absolute;
-    right: 10px;
+    right: 15px;
+    z-index: 1000;
+    margin-top: 10px;
+    padding-right: 10px;
 }
+
+#leon [class^="icon-"], [class*=" icon-"] {
+    background-image: none;
+}
+
 
 div.compilation-status {
     float: right;
@@ -175,8 +205,24 @@ div.compilation-status.failure {
     color: #B55353;
 }
 
+div.action {
+    margin: 0px 0px 10px 0px;
+    color: black;
+    background: #ccc;
+    border: 2px solid #333;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+}
+
 div.action h3 {
-    margin: 5px 0px;
+    margin: 0px;
+    line-height: 1.3em;
+    padding: 5px 5px;
+    border-bottom: 1px solid #333;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: white;
 }
 
 select#example-loader {
@@ -201,6 +247,7 @@ hr {
 }
 
 form#leoninput {
+    margin: 0px;
 }
 
 ul {
@@ -218,8 +265,8 @@ td.date {
 div#codebox {
     border-style: none;
     background-color: rgba(255,255,255,0.9);
-    width: 700px;
-    height: 300px;
+    width: 100%;
+    height: 100%;
     position: relative;
 }
 
@@ -230,14 +277,18 @@ div#codebox div.ace_gutter_active_line {
     background-color: rgba(220,220,220,0.5) !important;
 }
 
+div #console-action {
+    display:none;
+}
 div #console {
     font-family: "Lucida Console", monospace;
     font-size: 12px;
     height: 150px;
     white-space: pre-wrap;
-    overflow-y: scroll;
+    overflow-y: auto;
     overflow-x: hidden;
 }
+
 div#problems.jstree {
     background: none;
 }
@@ -270,10 +321,6 @@ div#problems.jstree-default li[rel="success"] a {
 
 #editorMenu .ui-menu-item a span {
     margin: 0px 3px;
-}
-
-#editorMenu .ui-menu-item.ui-state-disabled {
-    margin: 0px;
 }
 
 #notifications {
