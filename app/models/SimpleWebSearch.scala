@@ -14,9 +14,11 @@ class SimpleWebSearch(cs: BaseActor,
 
     val (closed, total) = g.getStatus
 
-    cs.event("synthesis_search", Map("action" -> toJson("progress"),
-                                     "closed" -> toJson(closed),
-                                     "total"  -> toJson(total)))
+    cs.event("synthesis_result", Map(
+      "result" -> toJson("progress"),
+      "closed" -> toJson(closed),
+      "total" -> toJson(total)
+    ))
   }
 
 }

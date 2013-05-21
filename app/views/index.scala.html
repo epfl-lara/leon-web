@@ -70,19 +70,29 @@
                 </div>
           </div>
     </div>
-    <div id="searchDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true" cid="0">
+    <div id="synthesisDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true" cid="0">
       <div class="modal-header">
         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
         <h3>Synthesis</h3>
       </div>
       <div class="modal-body">
-        <p>
-            Leon is currently searching for a solution to your synthesis problem...
-        </p>
-        <div id="searchProgress" class="progress progress-striped active"><div class="bar" style="width: 40%;"></div></div>
+        <h4>Synthesis Problem:</h4>
+        <pre class="problem code">
+        </pre>
+        <div id="synthesisProgressBox">
+            <h4>Progress:</h4>
+            <div id="synthesisProgress" class="progress progress-striped active"><div class="bar" style="width: 0%;"></div></div>
+        </div>
+        <div id="synthesisResults">
+            <h4>Solution:</h4>
+            <pre class="code solution">
+            </pre>
+        </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import Code</button>
+        <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
       </div>
     </div>
     <div id="verifyDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true">

@@ -104,10 +104,20 @@ table#overview_table td.status i.icon-ok-sign {
     color: green;
 }
 
-table#synthesis_table{
+table#synthesis_table {
     overflow: auto;
 }
 
+table#synthesis_table div.dropdown a[role="button"] {
+    color: black;
+}
+table#synthesis_table td.subproblem {
+    padding-left: 10px;
+}
+
+table#synthesis_table td {
+    overflow: visible;
+}
 .widget_content {
     *position: relative;
 }
@@ -380,28 +390,18 @@ span.ace_identifier.ace_choose {
     margin: 0px;
 }
 
-#searchProgress {
-    height: 30px;
-}
-#searchProgress .bar {
-    text-align: center;
-    padding-top: 4px;
-    text-shadow: 1px 1px 0 #000;
-    font-size: 1.2em;
-}
-#verifyProgress {
+#synthesisProgress, #verifyProgress {
     height: 30px;
 }
 
-#verifyProgress .bar {
-    width: 100%;
+#synthesisProgress .bar, #verifyProgress .bar {
     text-align: center;
     padding-top: 4px;
     text-shadow: 1px 1px 0 #000;
     font-size: 1.2em;
 }
 
-#searchProgress .progress-label, #verifyProgress .progress-label {
+#synthesisProgress .progress-label, #verifyProgress .progress-label {
     float: left;
     width: 100%;
     text-align: center;
@@ -459,7 +459,7 @@ tr.empty > td > div {
     text-align: center;
     border: 1px solid #ccc;
     padding: 10px;
-    margin: 5px;
+    pc+margin: 5px;
 }
 
 tr.counter-example > td > div {

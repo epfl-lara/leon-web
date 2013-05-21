@@ -170,7 +170,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
     c.getOrElse("undefined")
   }
 
-  def notifyOverview(cstate: CompilationState) {
+  def notifyVerifOverview(cstate: CompilationState) {
     case class FunVerif(fd: FunDef, vcs: List[VerificationCondition]) {
       val totalTime = vcs.flatMap(_.time).foldLeft(0d)(_ + _)
       var status = getOverallVCsStatus(vcs)
@@ -195,7 +195,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
         "vcs"  -> toJson(fv.vcs.map(vcToJson(cstate, _)))
       ))
 
-      cstate.origFunctionFor(fv.fd).id.name -> v
+      fv.fd.id.name -> v
     }.toMap)
 
     event("update_overview", Map("module" -> toJson("verification"), "overview" -> fvcs))
@@ -235,7 +235,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
         logInfo("[!] Verification crashed!", t)
     }
 
-    notifyOverview(cstate)
+    notifyVerifOverview(cstate)
   }
 
   def receive = {
@@ -283,7 +283,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
 
         clientLog("Done!")
 
-        notifyOverview(cstate)
+        notifyVerifOverview(cstate)
       }
 
       doVerify(cstate, toGenerate, false)
@@ -314,14 +314,14 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
 class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Actor with WorkerActor {
   import ConsoleProtocol._
 
-  def notifyOverview(cstate: CompilationState, data: Map[FunDef, TerminationGuarantee]) {
+  def notifyTerminOverview(cstate: CompilationState, data: Map[FunDef, TerminationGuarantee]) {
     if (cstate.isCompiled) {
       val facts = for ((fd, tg) <- data) yield {
         val t = toJson(Map(
           "status" -> toJson(if (tg.isGuaranteed) "terminates" else "noguarantee")
         ))
 
-        cstate.origFunctionFor(fd).id.name -> t
+        fd.id.name -> t
       }
 
       event("update_overview", Map("module" -> toJson("termination"), "overview" -> toJson(facts.toMap)))
@@ -341,7 +341,7 @@ class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends 
         (funDef -> tc.terminates(funDef))
       }).toMap
 
-      notifyOverview(cstate, data)
+      notifyTerminOverview(cstate, data)
 
     case _ =>
   }
@@ -352,12 +352,12 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
 
   var choosesInfo = Map[String, Seq[(ChooseInfo, SimpleWebSearch)]]()
 
-  def notifyOverview(cstate: CompilationState) {
+  def notifySynthesisOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
       val facts = for ((fname, sps) <- choosesInfo) yield {
         val problems = for (((ci, search), i) <- sps.zipWithIndex) yield {
           Map(
-            "description" -> toJson(ci.problem.toString),
+            "description" -> toJson("Problem #"+(i+1)),
             "problem" -> toJson(ci.problem.toString),
             "line" -> toJson(ci.ch.posIntInfo._1),
             "column" -> toJson(ci.ch.posIntInfo._2),
@@ -383,15 +383,15 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
           (ci, search)
       }.groupBy(_._1.fd.id.name)
 
-      notifyOverview(cstate)
+      notifySynthesisOverview(cstate)
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
         case "getRulesToApply" =>
-          val chooseLine   = (event \ "chooseLine").as[Int]
-          val chooseColumn = (event \ "chooseColumn").as[Int]
+          val fname = (event \ "fname").as[String]
+          val cid   = (event \ "cid").as[Int]
 
-          self ! SynthesisGetRulesToApply(chooseLine, chooseColumn)
+          getRulesToApply(cstate, fname, cid)
 
         case "doApplyRule" =>
           val fname = (event \ "fname").as[String]
@@ -410,8 +410,115 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
 
   def doApplyRule(cstate: CompilationState, fname: String, cid: Int, rid: Int) {
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci, search)) =>
+      case Some((ci @ ChooseInfo(ctx, prog, fd, pc, ch, _), search)) =>
+        try {
+          val path = List(rid)
+          search.traversePath(path) match {
+            case Some(al: search.g.AndLeaf) =>
+              logInfo("Applying :"+al.task.app.toString)
 
+              event("synthesis_result", Map(
+                "result" -> toJson("init"),
+                "problem" -> toJson(ScalaPrinter(ci.ch))
+              ))
+
+              val res = search.expandAndTask(al.task)
+              search.onExpansion(al, res)
+
+              val solution = res match {
+                case es: search.ExpandSuccess[_] =>
+                  // Solved
+                  Some(es.sol)
+                case ex: search.Expanded[_] =>
+                  // Node has been updated
+                  search.traversePath(path) match {
+                    case Some(an: search.g.AndNode) =>
+                      an.task.composeSolution(an.subTasks.map(t => Solution.choose(t.p)))
+                    case _ =>
+                      None
+                  }
+                case _ =>
+                  None
+              }
+
+              solution match {
+                case Some(sol) =>
+                  val solCode = sol.toSimplifiedExpr(ctx, prog)
+                  val chToSol = Map(ci -> solCode)
+                  val fInt = new FileInterface(new SilentReporter)
+
+                  val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
+
+                  val (closed, total) = search.g.getStatus
+
+                  event("synthesis_result", Map(
+                    "result" -> toJson("success"),
+                    "solCode" -> toJson(ScalaPrinter(solCode)),
+                    "allCode" -> toJson(allCode),
+                    "closed" -> toJson(1),
+                    "total" -> toJson(1)
+                  ))
+                  logInfo("Application successful!")
+
+                case None =>
+                  event("synthesis_result", Map(
+                    "result" -> toJson("failure"),
+                    "closed" -> toJson(1),
+                    "total" -> toJson(1)
+                  ))
+                  logInfo("Application failed!")
+              }
+            case _ =>
+              notifyError("Internal error :(")
+              logInfo("Path "+path+" did not lead to AndLeaf!")
+          }
+        } catch {
+          case t: Throwable =>
+            notifyError("Internal error :(")
+            logInfo("Synthesis Rule Application crashed", t)
+        }
+      case None =>
+        notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
+    }
+  }
+
+  def getRulesToApply(cstate: CompilationState, fname: String, cid: Int) {
+    choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
+      case Some((ci, search)) =>
+        try {
+          val orNode = search.g.tree match {
+            case ol: search.g.OrLeaf =>
+              val sub = search.expandOrTask(ol.task)
+              search.onExpansion(ol, sub)
+
+              // It was updated
+              search.g.tree.asInstanceOf[search.g.OrNode]
+
+            case on: search.g.OrNode =>
+              on
+          }
+
+          val rulesApps = for ((t, i) <- orNode.altTasks.zipWithIndex) yield {
+            val status = if (orNode.triedAlternatives contains t) {
+              "closed"
+            } else {
+              "open"
+            }
+
+            toJson(Map("id" -> toJson(i),
+                       "name" -> toJson(t.app.toString),
+                       "status" -> toJson(status)))
+          }
+
+          event("synthesis_rulesToApply", Map("fname"     -> toJson(fname),
+                                              "cid"       -> toJson(cid),
+                                              "rulesApps" -> toJson(rulesApps)))
+
+        } catch {
+          case t: Throwable =>
+            notifyError("Woops, I crashed: "+t.getMessage())
+            logInfo("Synthesis RulesList crashed", t)
+        }
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }
@@ -422,6 +529,11 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
       case Some((ci @ ChooseInfo(ctx, prog, fd, _, ch, _), search)) =>
         try {
           ci.synthesizer.shouldStop.set(false)
+
+          event("synthesis_result", Map(
+            "result" -> toJson("init"),
+            "problem" -> toJson(ScalaPrinter(ci.ch))
+          ))
 
           search.search() match {
             case Some((sol, isTrusted)) =>
@@ -440,21 +552,32 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
                 (sol, true)
               }
 
-              if (succeeded) {
-                val chToSol = Map(ci -> newSol.toSimplifiedExpr(ctx, prog))
+              val solCode = newSol.toSimplifiedExpr(ctx, prog)
+              val chToSol = Map(ci -> solCode)
+              val fInt = new FileInterface(new SilentReporter)
 
-                event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("success")))
+              val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
 
-                notifySuccess("Search succeeded!")
-                logInfo("Synthesis search succeeded!")
-              } else {
-                event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("failure")))
+              val (closed, total) = search.g.getStatus
 
-                notifyError("Solution was not proven.")
-                logInfo("Synthesis search failed!")
-              }
+              event("synthesis_result", Map(
+                "result" -> toJson("success"),
+                "proven" -> toJson(succeeded),
+                "solCode" -> toJson(ScalaPrinter(solCode)),
+                "allCode" -> toJson(allCode),
+                "closed" -> toJson(closed),
+                "total" -> toJson(total)
+              ))
+
+              logInfo("Synthesis search succeeded!")
             case None =>
-              event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("failure")))
+              val (closed, total) = search.g.getStatus
+
+              event("synthesis_result", Map(
+                "result" -> toJson("failure"),
+                "closed" -> toJson(closed),
+                "total" -> toJson(total)
+              ))
 
               notifyError("Search failed.")
               logInfo("Synthesis search failed!")
@@ -468,193 +591,6 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }
   }
-
-    /*
-    case SynthesisSearch(cid) =>
-      assumeCompiled { cstate =>
-        try {
-          chooses.get(cid) match {
-            case Some((ci @ ChooseInfo(ctx, prog, fd, _, ch, _), search)) =>
-
-              val future = Future {
-                try {
-                  ci.synthesizer.shouldStop.set(false)
-                  val sol = search.search()
-                  sol
-                } catch {
-                  case t: Throwable =>
-                    notifyError("Woops, search crashed: "+t.getMessage)
-                    logInfo("Synthesis search crashed", t)
-                    None
-                }
-              }
-
-              future.map {
-                case Some((sol, isTrusted)) =>
-                  try {
-                    val (newSol, succeeded) = if (!isTrusted) {
-                      // Validate solution
-                      event("synthesis_proof", Map("status" -> toJson("started")))
-                      ci.synthesizer.validateSolution(search, sol, 2000L) match {
-                        case (sol, true) =>
-                          event("synthesis_proof", Map("status" -> toJson("success")))
-                          (sol, true)
-                        case (sol, false) =>
-                          event("synthesis_proof", Map("status" -> toJson("failure")))
-                          (sol, false)
-                      }
-                    } else {
-                      (sol, true)
-                    }
-
-                    if (succeeded) {
-                      val chToSol = Map(ci -> newSol.toSimplifiedExpr(ctx, prog))
-                      val fInt = new FileInterface(reporter)
-
-                      val newCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
-
-                      event("replace_code", Map("newCode" -> toJson(newCode)))
-
-                      event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("success")))
-
-                      notifySuccess("Search succeeded!")
-                      logInfo("Synthesis search succeeded!")
-                    } else {
-                      event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("failure")))
-
-                      notifyError("Solution was not proven.")
-                      logInfo("Synthesis search failed!")
-                    }
-                  } catch {
-                    case t: Throwable =>
-                      notifyError("Woops, solution processing crashed: "+t.getMessage)
-                      t.printStackTrace()
-                  }
-
-                case None =>
-                  event("synthesis_search", Map("action" -> toJson("result"), "status" -> toJson("failure")))
-
-                  if (search.shouldStop) {
-                    notifyError("Search cancelled")
-                  } else {
-                    notifyError("Search failed to find a solution")
-                  }
-
-              }
-            case None =>
-          }
-        } catch {
-          case t: Throwable =>
-            notifyError("Woops, I crashed: "+t.getMessage())
-            logInfo("Synthesis search crashed!", t)
-        }
-      }
-
-
-    case SynthesisApplyRule(cid, rid) =>
-      assumeCompiled { cstate =>
-        try {
-          val path = List(rid)
-          chooses.get(cid) match {
-            case Some((ci @ ChooseInfo(ctx, prog, fd, pc, ch, _), search)) =>
-              search.traversePath(path) match {
-                case Some(al: search.g.AndLeaf) =>
-                  logInfo("Applying :"+al.task.app.toString)
-                  val res = search.expandAndTask(al.task)
-                  search.onExpansion(al, res)
-
-                  val solution = res match {
-                    case es: search.ExpandSuccess[_] =>
-                      // Solved
-                      Some(es.sol)
-                    case ex: search.Expanded[_] =>
-                      // Node has been updated
-                      search.traversePath(path) match {
-                        case Some(an: search.g.AndNode) =>
-                          an.task.composeSolution(an.subTasks.map(t => Solution.choose(t.p)))
-                        case _ =>
-                          None
-                      }
-                    case _ =>
-                      None
-                  }
-
-                  solution match {
-                    case Some(sol) =>
-                      val chToSol = Map(ci -> sol.toSimplifiedExpr(ctx, prog))
-                      val fInt = new FileInterface(reporter)
-
-                      val newCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
-
-                      event("replace_code", Map("newCode" -> toJson(newCode)))
-
-                      notifySuccess("Successfully applied "+al.task.app.toString)
-                      logInfo("Application successful!")
-
-                    case None =>
-                      notifyError("Failed to apply "+al.task.toString)
-                      logInfo("Application failed!")
-
-                  }
-                case _ =>
-                  notifyError("Woops, choose not found..")
-                  logInfo("Path "+path+" did not lead to AndLeaf!")
-              }
-            case _ =>
-              notifyError("Woops, choose not found..")
-              logInfo("Choose "+cid+" not found")
-          }
-        } catch {
-          case t: Throwable =>
-            notifyError("Woops, I crashed: "+t.getMessage())
-            logInfo("Synthesis Rule Application crashed", t)
-        }
-      }
-
-    case SynthesisGetRulesToApply(chooseLine, chooseColumn) =>
-      try {
-        chooses.find(_._2._1.ch.posIntInfo == (chooseLine, chooseColumn)) match {
-          case Some((i, (ci, search))) =>
-            val orNode = search.g.tree match {
-              case ol: search.g.OrLeaf =>
-                val sub = search.expandOrTask(ol.task)
-                search.onExpansion(ol, sub)
-
-                // It was updated
-                search.g.tree.asInstanceOf[search.g.OrNode]
-
-              case on: search.g.OrNode =>
-                on
-            }
-
-            val rulesApps = for ((t, i) <- orNode.altTasks.zipWithIndex) yield {
-              val status = if (orNode.triedAlternatives contains t) {
-                "closed"
-              } else {
-                "open"
-              }
-
-              toJson(Map("id" -> toJson(i),
-                         "name" -> toJson(t.app.toString),
-                         "status" -> toJson(status)))
-            }
-
-            event("synthesis_choose_rules", Map("chooseLine"   -> toJson(chooseLine),
-                                                "chooseColumn" -> toJson(chooseColumn),
-                                                "cid"          -> toJson(i),
-                                                "rulesApps"    -> toJson(rulesApps)))
-
-          case None =>
-            notifyError("Woops, choose not found..")
-            logInfo("Choose "+chooseLine+":"+chooseColumn+" not found")
-        }
-
-      } catch {
-        case t: Throwable =>
-          notifyError("Woops, I crashed: "+t.getMessage())
-          logInfo("Synthesis RulesList crashed", t)
-      }
-      */
 }
 
 class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
@@ -725,7 +661,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
             }
 
           case m if modules contains m =>
-            modules(m).actor ! ProcessClientEvent(event)
+            modules(m).actor ! OnClientEvent(lastCompilationState, event)
 
           case m =>
             notifyError("Module "+m+" not available.")
@@ -753,7 +689,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       }
 
     case UpdateCode(code) =>
-      if (lastCompilationState.code != code) {
+      if (lastCompilationState.code != Some(code)) {
         clientLog("Compiling...")
         logInfo("Code to compile:\n"+code)
 
@@ -800,7 +736,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
           clientLog("Compilation successful!")
 
-          notifyOverview(cstate)
+          notifyMainOverview(cstate)
 
           notifyAnnotations(Seq())
 
@@ -839,13 +775,14 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       clientLog("Unknown Actor Message: "+msg)
   }
 
-  def notifyOverview(cstate: CompilationState) {
+  def notifyMainOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
       val facts = for (fd <- cstate.program.definedFunctions.toList.sortWith(_ < _)) yield {
         toJson(Map(
-          "name" -> toJson(fd.id.name),
-          "line" -> toJson(fd.posIntInfo._1),
-          "column" -> toJson(fd.posIntInfo._2)
+          "name"        -> toJson(fd.id.name),
+          "displayName" -> toJson(cstate.origFunctionFor(fd).id.name),
+          "line"        -> toJson(fd.posIntInfo._1),
+          "column"      -> toJson(fd.posIntInfo._2)
         ))
       }
 

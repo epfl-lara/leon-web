@@ -281,30 +281,37 @@ $(document).ready(function() {
     }
 
     handlers["update_synthesis_overview"] = function(data) {
-        console.log(data.functions)
-
         var t = $("#synthesis_table")
         var html = "";
 
+        function addMenu(index, fname, description) {
+            var id = 'menu'+fname+index
+
+            html += ' <div class="dropdown">'
+            html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+description+'</a>'
+            html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
+            html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search">Search</a></li>'
+            html += '    <li role="presentation" class="divider"></li>'
+            html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="'+_leon_prefix+'/assets/images/loader.gif" /></a></li>'
+            html += '  </ul>'
+            html += ' </div>'
+        }
+
         for (var f in data.functions) {
-            html += "<tr><th class=\"fname hovertoline\" line=\""+overview.functions[f].line+"\">"+f+"</th></tr>"
-            for (var i = 0; i < data.functions[f].length; i++) {
-                var sp = data.functions[f][i]
-                html += "<tr>"
-                html += "<td class=\"problem hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-
-                var id = 'menu'+f+sp.index
-
-                html += ' <div class="dropdown">'
-                html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+sp.description+'</a>'
-                html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
-                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Search</a></li>'
-                html += '    <li role="presentation" class="divider"></li>'
-                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Separated link</a></li>'
-                html += '  </ul>'
-                html += ' </div>'
+            if (data.functions[f].length == 1) {
+                var sp = data.functions[f][0]
+                html += "<tr><td class=\"fname problem  hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+                addMenu(sp.index, f, overview.functions[f].displayName)
                 html += "</td></tr>"
-
+            } else {
+                html += "<tr><td class=\"fname hovertoline\" line=\""+overview.functions[f].line+"\">"+overview.functions[f].displayName+"</td></tr>"
+                for (var i = 0; i < data.functions[f].length; i++) {
+                    var sp = data.functions[f][i]
+                    html += "<tr>"
+                    html += "<td class=\"problem subproblem hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+                    addMenu(sp.index, f, sp.description)
+                    html += "</td></tr>"
+                }
             }
         }
 
@@ -314,6 +321,20 @@ $(document).ready(function() {
             var line = $(this).attr("line")
             editor.gotoLine(line);
         }, function() {})
+
+
+        $("#synthesis .dropdown-toggle").click(function(e) {
+            var p = $(this).parents(".problem")
+
+            var msg = JSON.stringify({
+                module: "synthesis",
+                action: "getRulesToApply",
+                fname: p.attr("fname"),
+                cid: 1*p.attr("cid"),
+            })
+
+            leonSocket.send(msg)
+        })
 
         if (Object.keys(data.functions).length > 0) {
             $("#synthesis").show()
@@ -337,7 +358,7 @@ $(document).ready(function() {
             var fdata = overview.functions[fname]
 
             html += "<tr>"
-            html += "  <td class=\"fname hovertoline\" line=\""+fdata.line+"\">"+fname+"</td>"
+            html += "  <td class=\"fname hovertoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
             for (var m in overview.modules) {
                 var mod = overview.modules[m]
                 var data = overview.data[m]
@@ -404,29 +425,105 @@ $(document).ready(function() {
         txt.scrollTop(txt[0].scrollHeight - txt.height())
     }
 
-    handlers["synthesis_proof"] = function (data) {
-        if (data.status == "started") {
-            $("#searchProgress").progressbar("value", false)
-            $("#searchProgress .progress-label").text("Verifying solution...")
-        } else {
-            $("#searchProgress").progressbar("value", 100)
+    handlers["synthesis_result"] = function(data) {
+        var pb = $("#synthesisProgress")
+        var pbb = $("#synthesisProgress .bar")
+
+        // setup and open pane
+        if (data.result == "init") {
+            $("#synthesisResults").hide()
+            $("#synthesisDialog .importButton").hide()
+            $("#synthesisDialog .cancelButton").show()
+            $("#synthesisDialog .code.problem").html(data.problem)
+            $("#synthesisDialog").modal("show")
+            pbb.removeClass("bar-success bar-danger")
+            pbb.width("0%")
+            pbb.html("");
+            $("#synthesisProgressBox").show()
+        } else if (data.result == "progress") {
+
+            var pc = (data.closed*100)/data.total;
+            pbb.width(pc+"%")
+            pbb.html(data.closed+"/"+data.total);
+
+        } else if (data.result == "failure") {
+            pb.removeClass("active progress-striped")
+
+            pbb.width("100%")
+            pbb.html("Failed to apply");
+            pbb.addClass("bar-danger")
+
+            $("#synthesisDialog .cancelButton").hide()
+
+        } else if (data.result == "success") {
+            pb.removeClass("active progress-striped")
+
+            pbb.width("100%")
+            pbb.addClass("bar-success")
+
+            if (data.total == 1) {
+                $("#synthesisProgressBox").hide()
+            }
+
+            $("#synthesisResults .code.solution").html(data.solCode)
+            $("#synthesisResults").show()
+            $("#synthesisDialog .importButton").show()
+            $("#synthesisDialog .importButton").unbind('click').click(function () {
+                handlers["replace_code"]({ newCode: data.allCode })
+            })
+            $("#synthesisDialog .cancelButton").hide()
         }
     }
 
-    handlers["synthesis_search"] = function (data) {
-        if (data.action == "progress") {
-            var pc = (data.closed*100)/data.total;
-            $("#searchProgress .bar").width(pc+"%").html(data.closed + " / "+data.total)
-        } else if (data.action == "result") {
-            searchFinished = true
-            $("#searchDialog").dialog("close");
+    handlers["synthesis_rulesToApply"] = function(data) {
+        var fname       = data.fname
+        var cid         = data.cid
+        var rulesApps   = data.rulesApps
+
+        var html = "";
+
+        // Start by removing temp content
+        if (compilationStatus == 1) {
+            for (var i = 0; i < rulesApps.length; i++) {
+                var app = rulesApps[i];
+                var statusIcon = ""
+                var clazz = "temp"
+
+                if (app.status == "closed") {
+                    statusIcon = '<i class="icon-exclamation-sign"></i> '
+                    clazz += ' disabled'
+                }
+                html += '<li role="presentation" class="'+clazz+'"><a role="menuitem" tabindex="-1" href="#" action="rule" cid="'+cid+'" rid="'+app.id+'">'+statusIcon+app.name+'</a></li>'
+            }
+        } else {
+            html += '<li role="presentation" class="temp disabled"><a role="menuitem" tabindex="-1" href="#" fname="'+fname+'">Not yet compiled...</a></li>'
         }
+
+        var selector = "#synthesis .problem[fname=\""+fname+"\"][cid=\""+cid+"\"] ul"
+        $(selector+" li.temp").remove()
+        $(selector).append(html)
+        $(selector+" li a[action=\"search\"]").unbind('click').click(function() {
+            var msg = JSON.stringify(
+              {action: "doSearch", module: "synthesis", fname: fname, cid: cid}
+            )
+
+            leonSocket.send(msg)
+        })
+        $(selector+" li a[action=\"rule\"]").click(function() {
+            var rid = 1*$(this).attr("rid")
+
+            var msg = JSON.stringify(
+              {action: "doApplyRule", module: "synthesis",  fname: fname, cid: cid, rid: rid}
+            )
+
+            leonSocket.send(msg)
+        })
     }
 
     function displayVerificationDetails(status, vcs, doOpen) {
         var pb = $("#verifyProgress")
         var pbb = pb.children(".bar")
-    
+
         if (doOpen) {
             openVerifyDialog()
         }
@@ -476,10 +573,10 @@ $(document).ready(function() {
             tbl.append("<tr class=\""+((i%2 == 0) ? "odd " : "")+vc.status+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"icon-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
 
             if ("counterExample" in vc) {
-                var html = "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example\"><td colspan=\"4\"><div><div>The following example violates the VC:</div><table>";
+                var html = "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example\"><td colspan=\"4\"><div><div>The following valuation violates the VC:</div><table>";
 
                 for (var v in vc.counterExample) {
-                    html += "<tr><td>"+v+"</td><td><i class=\"icon-arrow-right\"></i></td><td>"+vc.counterExample[v]+"</td></tr>";
+                    html += "<tr><td>"+v+"</td><td>&nbsp;:=&nbsp;</td><td>"+vc.counterExample[v]+"</td></tr>";
                 }
                 html += "</div></td></tr></table>"
 
@@ -585,7 +682,7 @@ $(document).ready(function() {
         leonSocket.onerror = errorEvent
     }
 
-    var lastChange      = new Date().getTime();
+    var lastChange      = 0;
     var lastSavedChange = lastChange;
     var timeWindow      = 2000;
 
@@ -617,18 +714,19 @@ $(document).ready(function() {
     var oldCode = ""
 
     function recompile() {
-        if (oldCode != "" && oldCode != editor.getValue()) {
-            if (forwardChanges.length == 0) { 
+        var currentCode = editor.getValue()
+
+        if (oldCode != "" && oldCode != currentCode) {
+            if (forwardChanges.length == 0) {
                 storeCurrent(oldCode)
             }
         }
-        oldCode = editor.getValue();
 
-        if (connected) {
+        if (connected && oldCode != currentCode) {
             updateCompilationStatus("unknown")
 
             var msg = JSON.stringify(
-              {action: "doUpdateCode", module: "main", code: editor.getValue()}
+              {action: "doUpdateCode", module: "main", code: currentCode}
             )
 
             lastSavedChange = lastChange;
@@ -642,7 +740,9 @@ $(document).ready(function() {
 
         if (lastChange < (now - timeWindow)) {
             lastChange = new Date().getTime();
-            recompile()
+            if (lastChange > 0) {
+                recompile()
+            }
         }
 
         localStorage.setItem("leonEditorCode", editor.getValue());
@@ -678,8 +778,6 @@ $(document).ready(function() {
     }
 
     $("#example-loader").change(loadExample);
-
-    setTimeout(onCodeUpdate, timeWindow+50)
 
     var editorSession = editor.getSession();
 
@@ -725,15 +823,6 @@ $(document).ready(function() {
 
     resizeEditor();
 
-    var chooseRulesDisplayer = null
-
-    handlers["synthesis_choose_rules"] = function(data) {
-        if (chooseRulesDisplayer != null) {
-            chooseRulesDisplayer(data.cid, data.rulesApps)
-        } else {
-            error("I don't know how to display this..");
-        }
-    }
 
     handlers["replace_code"] = function(data) {
         storeCurrent(editorSession.getValue())
@@ -862,24 +951,6 @@ $(document).ready(function() {
 
     function openVerifyDialog(cancelOnClose) {
         $("#verifyDialog").modal("show")
-        //$("#verifyDialog").dialog({
-        //    modal: true,
-        //    width: 500,
-        //    buttons: {
-        //        Cancel: function() {
-        //            $(this).dialog("close");
-        //        }
-        //    },
-        //    close: function() {
-        //        if (cancelOnClose) {
-        //            var msg = JSON.stringify(
-        //              {action: "verification_doCancel", fname: cancelOnClose}
-        //            )
-
-        //            leonSocket.send(msg)
-        //        }
-        //    }
-        //});
     }
 
     function verifyFun(fname) {
