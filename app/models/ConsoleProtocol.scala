@@ -29,5 +29,10 @@ object ConsoleProtocol {
 
   case object Stop
 
+  // Communication between session and modules
+  case class OnUpdateCode(cstate: CompilationState)
+  case class OnClientEvent(cstate: CompilationState, event: JsValue)
+  case class NotifyClient(event: JsValue)
+
   case object Quit
 }

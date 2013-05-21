@@ -994,7 +994,6 @@ var ScalaHighlightRules = function() {
         "keyword": keywords,
         "support.function": langClasses,
         "constant.language": buildinConstants,
-        "identifier.choose": "choose",
         "identifier.require": "require",
         "identifier.ensuring": "ensuring"
     }, "identifier");

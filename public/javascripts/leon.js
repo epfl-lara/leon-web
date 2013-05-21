@@ -169,7 +169,7 @@ $(document).ready(function() {
     $("#button-permalink").click(function(event) {
         if (!$(this).hasClass("disabled")) {
             var msg = JSON.stringify(
-              {action: "storePermaLink", code: editor.getValue()}
+              {action: "storePermaLink", module: "main", code: editor.getValue()}
             )
             leonSocket.send(msg)
         }
@@ -194,52 +194,180 @@ $(document).ready(function() {
         }
     }
 
-    handlers["verification_overview"] = function(data) {
-        console.log(data)
-        var t = $("#overview_table")
+    var overview = {
+        modules: {
+            verification: {
+                column: "Verif.",
+                html: function(name, d) {
+                    var vstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying...\" />"
+
+                    switch(d.status) {
+                      case "undefined":
+                        vstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying...\" />";
+                        break;
+                      case "cond-valid":
+                        vstatus = "<i class=\"icon-exclamation-sign\" title=\"Cond-Valid\"></i>";
+                        break;
+                      case "valid":
+                        vstatus = "<i class=\"icon-ok-sign\" title=\"Valid\"></i>";
+                        break;
+                      case "invalid":
+                        vstatus = "<i class=\"icon-remove-sign\" title=\"Invalid\"></i>";
+                        break;
+                      case "timeout":
+                        vstatus = "<i class=\"icon-time\" title=\"Timeout\"></i>";
+                        break;
+                    }
+
+                    return "<td class=\"status verif\" fname=\""+name+"\">"+vstatus+"</td>"
+                },
+                missing: function(name) {
+                    return "<td class=\"status verif\" fname=\""+name+"\"><i class=\"icon-question-sign\" title=\"unknown\"></i></td>"
+                },
+                handlers: function() {
+                    $("td.verif").click(function () {
+                        var fname = $(this).attr("fname")
+                        var d = overview.data["verification"][fname]
+                        displayVerificationDetails(d.status, d.vcs, true)
+                    });
+                }
+            },
+            termination: {
+                column: "Term.",
+                html: function(name, d) {
+                    var tstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying\"/>"
+
+                    switch(d.status) {
+                        case "unknown":
+                            tstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Unknown\" />";
+                            break;
+                        case "terminates":
+                            tstatus = "<i class=\"icon-ok-sign\" title=\"Termination guaranteed\"></i>";
+                            break;
+                        case "noguarantee":
+                            tstatus = "<i class=\"icon-question-sign\" title=\"No termination guarantee\"></i>";
+                            break;
+                    }
+
+                    return "<td class=\"status termin\" fname=\""+name+"\">"+tstatus+"</td>"
+                },
+                missing: function(name) {
+                    return "<td class=\"status termin\" fname=\""+name+"\"><i class=\"icon-question-sign\" title=\"Unknown\"></i></td>"
+                },
+                handlers: function() { }
+            },
+        },
+        functions: {},
+        data: {
+            verification: {},
+            termination: {},
+        },
+    }
+
+    handlers["update_overview"] = function(data) {
+        if (data.module == "main") {
+            overview.functions = {};
+
+            for (var i = 0; i < data.overview.length; i++) {
+                var fdata = data.overview[i]
+                var fname = fdata.name
+                overview.functions[fname] = fdata;
+            }
+        } else {
+            overview.data[data.module] = data.overview
+        }
+
+        drawOverView()
+    }
+
+    handlers["update_synthesis_overview"] = function(data) {
+        console.log(data.functions)
+
+        var t = $("#synthesis_table")
         var html = "";
-        var o = data.overview
 
-        for (var i = 0; i < o.length; i++) {
-           var f = o[i] 
-           var status = ""
-           var time = f.time.toFixed(2)
-           switch(f.status) {
-            case "undefined":
-                status = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" />";
-                time   = ""
-                break;
-            case "cond-valid":
-                status = "<img src=\""+_leon_prefix+"/assets/images/error.png\" />";
-                status = "<i class=\"icon-exclamation-sign\"></i>";
-                break;
-            case "valid":
-                status = "<img src=\""+_leon_prefix+"/assets/images/accept.png\" />";
-                status = "<i class=\"icon-ok-sign\"></i>";
-                break;
-            case "invalid":
-                status = "<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />";
-                status = "<i class=\"icon-remove-sign\"></i>";
-                break;
-            case "timeout":
-                status = "<img src=\""+_leon_prefix+"/assets/images/hourglass.png\" />";
-                status = "<i class=\"icon-time\"></i>";
-                break;
-           }
+        for (var f in data.functions) {
+            html += "<tr><th class=\"fname hovertoline\" line=\""+overview.functions[f].line+"\">"+f+"</th></tr>"
+            for (var i = 0; i < data.functions[f].length; i++) {
+                var sp = data.functions[f][i]
+                html += "<tr>"
+                html += "<td class=\"problem hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
 
-           var vcDetails = ""
-           if (time != "") {
-            vcDetails = " vc=\""+i+"\""
-           }
-           html += "<tr><td>"+f.name+"</td><td class=\"status\""+vcDetails+">"+status+"</td><td class=\"time\""+vcDetails+">"+time+"</td></tr>"
+                var id = 'menu'+f+sp.index
+
+                html += ' <div class="dropdown">'
+                html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+sp.description+'</a>'
+                html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
+                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Search</a></li>'
+                html += '    <li role="presentation" class="divider"></li>'
+                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#">Separated link</a></li>'
+                html += '  </ul>'
+                html += ' </div>'
+                html += "</td></tr>"
+
+            }
         }
 
         t.html(html);
 
-        $("td[vc]").click(function () {
-            var vcId = $(this).attr("vc")
-            displayVerificationDetails(o[vcId].status, o[vcId].vcs, true)
-        });
+        $("#synthesis .hovertoline[line]").hover(function() {
+            var line = $(this).attr("line")
+            editor.gotoLine(line);
+        }, function() {})
+
+        if (Object.keys(data.functions).length > 0) {
+            $("#synthesis").show()
+        } else {
+            $("#synthesis").hide()
+        }
+    }
+
+    function drawOverView() {
+        var t = $("#overview_table")
+        var html = "";
+
+        html += "<tr>"
+        html += "<th>Function</th>"
+        for (var m in overview.modules) {
+            html += "<th>"+overview.modules[m].column+"</th>"
+        }
+        html += "</tr>"
+
+        for (var fname in overview.functions) {
+            var fdata = overview.functions[fname]
+
+            html += "<tr>"
+            html += "  <td class=\"fname hovertoline\" line=\""+fdata.line+"\">"+fname+"</td>"
+            for (var m in overview.modules) {
+                var mod = overview.modules[m]
+                var data = overview.data[m]
+                if (fname in data) {
+                    html += mod.html(fname, data[fname])
+                } else {
+                    html += mod.missing(fname)
+                }
+            }
+            html += "</tr>"
+        }
+
+        t.html(html);
+
+        for (var m in overview.modules) {
+            if ("handlers" in overview.modules[m]) {
+                overview.modules[m].handlers()
+            }
+        }
+
+        $("#overview .hovertoline[line]").hover(function() {
+            var line = $(this).attr("line")
+            editor.gotoLine(line);
+        }, function() {})
+
+        if (Object.keys(overview.functions).length == 0) {
+            $("#overview").hide()
+        } else {
+            $("#overview").show()
+        }
     }
 
     handlers["editor"] = function (data) {
@@ -288,8 +416,7 @@ $(document).ready(function() {
     handlers["synthesis_search"] = function (data) {
         if (data.action == "progress") {
             var pc = (data.closed*100)/data.total;
-            $("#searchProgress").progressbar("value", pc)
-            $("#searchProgress .progress-label").text(data.closed + " / "+data.total)
+            $("#searchProgress .bar").width(pc+"%").html(data.closed + " / "+data.total)
         } else if (data.action == "result") {
             searchFinished = true
             $("#searchDialog").dialog("close");
@@ -298,38 +425,38 @@ $(document).ready(function() {
 
     function displayVerificationDetails(status, vcs, doOpen) {
         var pb = $("#verifyProgress")
+        var pbb = pb.children(".bar")
+    
         if (doOpen) {
-            pb.progressbar({
-                value: 100,
-            });
-
             openVerifyDialog()
-        } else {
-            pb.progressbar("value", 100);
         }
 
-        var pbValue = $("#verifyProgress").find(".ui-progressbar-value");
-        pbValue.removeClass("cond-valid valid invalid timeout")
+        pbb.width("100%")
+        pb.removeClass("active")
+        pb.removeClass("progress-striped")
+
+
+        pbb.removeClass("bar-warning bar-success bar-danger")
 
         switch (status) {
             case "cond-valid":
-                $("#verifyProgress .progress-label").text("Conditionally Valid!")
-                pbValue.addClass("cond-valid")
+                pbb.html("Conditionally Valid!")
+                pbb.addClass("bar-warning")
                 break;
 
             case "valid":
-                $("#verifyProgress .progress-label").text("Valid!")
-                pbValue.addClass("valid")
+                pbb.html("Valid!")
+                pbb.addClass("bar-success")
                 break;
 
             case "invalid":
-                $("#verifyProgress .progress-label").text("Invalid!")
-                pbValue.addClass("invalid")
+                pbb.html("Invalid!")
+                pbb.addClass("bar-danger")
                 break;
 
             case "timeout":
-                $("#verifyProgress .progress-label").text("Timeout!")
-                pbValue.addClass("timeout")
+                pbb.html("Timeout!")
+                pbb.addClass("bar-warning")
                 break;
         }
 
@@ -338,21 +465,21 @@ $(document).ready(function() {
 
         for (var i = 0; i < vcs.length; i++) {
             var vc = vcs[i];
-            var icon = "check"
+            var icon = "ok"
             if (vc.status == "invalid") {
-                icon = "alert"
+                icon = "remove"
             } else if (vc.status == "unknown") {
-                icon = "help"
+                icon = "time"
             }
 
 
-            tbl.append("<tr class=\""+((i%2 == 0) ? "odd " : "")+vc.status+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><span class=\"ui-icon ui-icon-"+icon+"\"></span>"+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
+            tbl.append("<tr class=\""+((i%2 == 0) ? "odd " : "")+vc.status+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"icon-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
 
             if ("counterExample" in vc) {
                 var html = "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example\"><td colspan=\"4\"><div><div>The following example violates the VC:</div><table>";
 
                 for (var v in vc.counterExample) {
-                    html += "<tr><td>"+v+"</td><td><span class=\"ui-icon ui-icon-arrowthick-1-e\"></span></td><td>"+vc.counterExample[v]+"</td></tr>";
+                    html += "<tr><td>"+v+"</td><td><i class=\"icon-arrow-right\"></i></td><td>"+vc.counterExample[v]+"</td></tr>";
                 }
                 html += "</div></td></tr></table>"
 
@@ -404,7 +531,7 @@ $(document).ready(function() {
         if(hash) {
             if (hash.indexOf("#link/") == 0) {
                 var msg = JSON.stringify(
-                  {action: "accessPermaLink", link: hash.substr("#link/".length)}
+                  {action: "accessPermaLink", module: "main", link: hash.substr("#link/".length)}
                 )
 
                 leonSocket.send(msg);
@@ -446,11 +573,7 @@ $(document).ready(function() {
     connectWS()
     setTimeout(function() {
         if (!connected) {
-            $("#errorDialog").dialog({
-                modal: true,
-                width: 500,
-                buttons: { },
-            });
+            $("#connectError").show().alert();
         }
     }, 3000);
 
@@ -481,15 +604,13 @@ $(document).ready(function() {
         }
 
         var note = $("<div>", {
-            "class": type
-        }).html(content)
-
-        note.hide();
+            "class": "alert fade in alert-"+type
+        }).html('<button type="button" class="close" data-dismiss="alert">×</button>'+content)
 
         $("#notifications").append(note);
-        note.show("fade");
+
         setTimeout(function() {
-            note.hide("fade");
+            note.hide();
         }, fade)
     }
 
@@ -507,7 +628,7 @@ $(document).ready(function() {
             updateCompilationStatus("unknown")
 
             var msg = JSON.stringify(
-              {action: "doUpdateCode", code: editor.getValue()}
+              {action: "doUpdateCode", module: "main", code: editor.getValue()}
             )
 
             lastSavedChange = lastChange;
@@ -588,10 +709,12 @@ $(document).ready(function() {
 
     function resizeEditor() {
 
-        var h = $(window).height()-$("#title").height()-15
-        var w = $(window).width()
-//        var w = $("#codecolumn").width()
+        var h = $(window).height()-$("#title").height()-6
+        //var w = $(window).width()
+        var w = $("#codecolumn").width()
 
+        $('#codecolumn').height(h);
+        $('#actionscolumn').height(h);
         $('#leoninput').height(h).width(w);
         $('#codebox').height(h).width(w);
 
@@ -615,6 +738,7 @@ $(document).ready(function() {
     handlers["replace_code"] = function(data) {
         storeCurrent(editorSession.getValue())
         editorSession.setValue(data.newCode)
+        $("#overview").hide()
         recompile()
     }
 
@@ -624,87 +748,80 @@ $(document).ready(function() {
         currentMousePos = { x: event.pageX, y: event.pageY };
     });
 
-    editorSession.selection.on('changeCursor', function(e) {
-        var cursor = editorSession.selection.getCursor()
+    //editorSession.selection.on('changeCursor', function(e) {
+    //    var cursor = editorSession.selection.getCursor()
 
-        var token     = editorSession.getTokenAt(cursor.row, cursor.column);
+    //    var token     = editorSession.getTokenAt(cursor.row, cursor.column);
 
-        $("#editorMenu").hide();
+    //    if (token != null) {
+    //        var screenX = currentMousePos.x
+    //        var screenY = currentMousePos.y
 
-        if (token != null) {
-            var screenX = currentMousePos.x
-            var screenY = currentMousePos.y
+    //        var prevToken = editorSession.getTokenAt(cursor.row, token.start-1);
 
-            var prevToken = editorSession.getTokenAt(cursor.row, token.start-1);
+    //        if (token.type == "identifier.choose" && token.value == "choose" && context == "synthesis") {
 
-            if (token.type == "identifier.choose" && token.value == "choose" && context == "synthesis") {
+    //            if (compilationStatus == 1) {
+    //                var msg = JSON.stringify({
+    //                    action: "synthesis_getRulesToApply",
+    //                    module: "synthesis",
+    //                    chooseLine: cursor.row+1,
+    //                    chooseColumn: token.start+1,
+    //                })
 
-                if (compilationStatus == 1) {
-                    var msg = JSON.stringify({
-                        action: "synthesis_getRulesToApply",
-                        chooseLine: cursor.row+1,
-                        chooseColumn: token.start+1,
-                    })
+    //                chooseRulesDisplayer = function(cid, rulesApp) {
+    //                    return synthesisDisplayMenu(screenX, screenY, cid, rulesApp);
+    //                }
 
-                    chooseRulesDisplayer = function(cid, rulesApp) {
-                        return synthesisDisplayMenu(screenX, screenY, cid, rulesApp);
-                    }
+    //                leonSocket.send(msg)
+    //            } else {
+    //                synthesisDisplayMenu(screenX, screenY, 0, []);
+    //            }
+    //        } else if (token.type == "identifier" && prevToken != null && prevToken.type == "keyword" && prevToken.value == "def" && context == "verification") {
+    //            var found = false;
+    //            var annots = editorSession.getAnnotations();
+    //            for (var i = 0; i < annots.length && !found; i++) {
+    //                if (annots[i].row == cursor.row) {
+    //                    found = true;
+    //                }
+    //            }
+    //            if (found) {
+    //                verificationDisplayMenu(screenX, screenY, token.value);
+    //            }
+    //            
+    //        }
+    //    }
+    //});
 
-                    leonSocket.send(msg)
-                } else {
-                    synthesisDisplayMenu(screenX, screenY, 0, []);
-                }
-            } else if (token.type == "identifier" && prevToken != null && prevToken.type == "keyword" && prevToken.value == "def" && context == "verification") {
-                var found = false;
-                var annots = editorSession.getAnnotations();
-                for (var i = 0; i < annots.length && !found; i++) {
-                    if (annots[i].row == cursor.row) {
-                        found = true;
-                    }
-                }
-                if (found) {
-                    verificationDisplayMenu(screenX, screenY, token.value);
-                }
-                
-            }
-        }
-    });
+    //function verificationDisplayMenu(screenX, screenY, fname) {
+    //    var m = $("#editorMenu")
+    //    m.html("");
 
-    function verificationDisplayMenu(screenX, screenY, fname) {
-        $("#editorMenu").html("");
+    //    if (compilationStatus == 1) {
+    //        m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="verify" fname="'+fname+'">Verify</a></li>');
+    //    } else if (compilationStatus == 0) {
+    //        m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
+    //    } else {
+    //        m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
+    //    }
 
-        if (compilationStatus == 1) {
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Automated Verification:</a></li>');
+    //    $("#menuToggle").dropdown('toggle')
+    //    $("#editorMenu").css({
+    //        "position": "absolute",
+    //        "top": (screenY-20)+"px",
+    //        "left": (screenX-20)+"px",
+    //        "z-index": 1000
+    //    });
 
-            $("#editorMenu").append('<li action="verify" fname="'+fname+'"><a href="#">Verify</a></li>');
-        } else if (compilationStatus == 0) {
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Not yet compiled...</a></li>');
-        } else {
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Compilation failed!</a></li>');
-        }
-
-        $("#editorMenu").menu({
-            select: function( event, ui) {
-                var r = ui.item;
-
-                if (r.attr("action") == "verify") {
-                    verifyFun(r.attr("fname"))
-                }
-
-                $("#editorMenu").hide();
-                event.preventDefault();
-            }
-        });
-
-        $("#editorMenu").show();
-        $("#editorMenu").menu("refresh");
-        $("#editorMenu").css({
-            "position": "absolute",
-            "top": screenY+"px",
-            "left": screenX+"px",
-            "z-index": 100
-        });
-    }
+    //    $('ul.dropdown-menu li a').click(function (e) {
+    //        $("#menuToggle").dropdown('toggle')
+    //        if ($(this).attr("action") == "verify") {
+    //            verifyFun($(this).attr("fname"))
+    //        }
+    //        e.preventDefault();
+    //        return false;
+    //    });
+    //}
 
     function verifyCurrentFun() {
         var cursor = editorSession.selection.getCursor()
@@ -744,61 +861,51 @@ $(document).ready(function() {
     }
 
     function openVerifyDialog(cancelOnClose) {
-        $("#verifyDialog").dialog({
-            modal: true,
-            width: 500,
-            buttons: {
-                Cancel: function() {
-                    $(this).dialog("close");
-                }
-            },
-            close: function() {
-                if (cancelOnClose) {
-                    var msg = JSON.stringify(
-                      {action: "verification_doCancel", fname: cancelOnClose}
-                    )
+        $("#verifyDialog").modal("show")
+        //$("#verifyDialog").dialog({
+        //    modal: true,
+        //    width: 500,
+        //    buttons: {
+        //        Cancel: function() {
+        //            $(this).dialog("close");
+        //        }
+        //    },
+        //    close: function() {
+        //        if (cancelOnClose) {
+        //            var msg = JSON.stringify(
+        //              {action: "verification_doCancel", fname: cancelOnClose}
+        //            )
 
-                    leonSocket.send(msg)
-                }
-            }
-        });
+        //            leonSocket.send(msg)
+        //        }
+        //    }
+        //});
     }
 
     function verifyFun(fname) {
         var msg = JSON.stringify(
-          {action: "verification_doVerify", fname: fname}
+          {action: "verification_doVerify", module: "verification", fname: fname}
         )
 
         leonSocket.send(msg)
 
         var pb = $("#verifyProgress")
-        var pbl = $("#verifyProgress .progress-label")
-        var pbv = pb.find(".ui-progressbar-value")
+        var pbb = $("#verifyProgress .bar")
 
-        pbl.text("Verifying...");
+        pbb.html("Verifying...");
+        pb.addClass("active progress-striped")
 
-        pb.progressbar({
-            value: false,
-            complete: function() {
-                pbl.text("Complete!");
-            }
-        });
-
-        pbv.removeClass("failure").removeClass("success")
         $("#verifyResults").hide();
 
         openVerifyDialog(fname)
     }
 
     function synthesisDisplayMenu(screenX, screenY, cid, rulesApps) {
-        $("#editorMenu").html("");
-
+        var m = $("#editorMenu")
+        m.html("");
         if (compilationStatus == 1) {
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Automated Search:</a></li>');
-
-            $("#editorMenu").append('<li'+clazz+' action="search" cid="'+cid+'"><a href="#">Search</a></li>');
-
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-circle-triangle-s"></span>Apply Rule:</a></li>');
+            m.append('<li role="presentation"'+clazz+'><a role="menuitem" tabindex="-1" href="#" action="search" cid="'+cid+'">Search</a></li>');
+            m.append('<li role="presentation" class="divider"></li>');
 
             for (var i = 0; i < rulesApps.length; i++) {
                 var app = rulesApps[i];
@@ -806,82 +913,73 @@ $(document).ready(function() {
                 var clazz = ""
 
                 if (app.status == "closed") {
-                    statusIcon = '<span class="ui-icon ui-icon-alert"></span>'
+                    statusIcon = '<i class="icon-exclamation-sign"></i> '
                     clazz = ' class="disabled"'
                 }
-                $("#editorMenu").append('<li'+clazz+' action="rule" cid="'+cid+'" rid="'+app.id+'"><a href="#">'+statusIcon+app.name+'</a></li>');
+                m.append('<li role="presentation"'+clazz+'><a role="menuitem" tabindex="-1" href="#" action="rule" cid="'+cid+'" rid="'+app.id+'">'+statusIcon+app.name+'</a></li>');
             }
         } else if (compilationStatus == 0) {
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Not yet compiled...</a></li>');
+            m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
         } else {
-            $("#editorMenu").append('<li class="disabled"><a href="#"><span class="ui-icon ui-icon-alert"></span>Compilation failed!</a></li>');
+            m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
         }
 
-        $("#editorMenu").menu({
-            select: function( event, ui) {
-                var r = ui.item;
 
-                if (r.attr("action") == "rule") {
-                    var msg = JSON.stringify(
-                      {action: "synthesis_doApplyRule", cid: 1*r.attr("cid"), rid: 1*r.attr("rid")}
-                    )
-
-                    leonSocket.send(msg)
-                } else if (r.attr("action") == "search") {
-                    var cid = 1*r.attr("cid")
-
-                    searchFinished = false
-
-                    var msg = JSON.stringify(
-                      {action: "synthesis_doSearch", cid: cid}
-                    )
-
-                    leonSocket.send(msg)
-
-                    var pb = $("#searchProgress")
-                    var pbl = $("#searchProgress .progress-label")
-
-                    pb.progressbar({
-                        value: false,
-                        complete: function() {
-                            pbl.text("Complete!");
-                        }
-                    });
-
-                    $("#searchDialog").dialog({
-                        modal: true,
-                        width: 500,
-                        buttons: {
-                            Cancel: function() {
-                                $(this).dialog("close");
-                            }
-                        },
-                        close: function() {
-                            if (!searchFinished) {
-                                var msg = JSON.stringify(
-                                  {action: "synthesis_doCancelSearch", cid: cid}
-                                )
-
-                                leonSocket.send(msg)
-                                searchFinished = true;
-                            }
-                        }
-                    });
-                }
-
-                $("#editorMenu").hide();
-                event.preventDefault();
-            }
-        });
-
-        $("#editorMenu").show();
-        $("#editorMenu").menu("refresh");
+        $("#menuToggle").dropdown('toggle')
         $("#editorMenu").css({
             "position": "absolute",
-            "top": screenY+"px",
-            "left": screenX+"px",
-            "z-index": 100
+            "top": (screenY-20)+"px",
+            "left": (screenX-20)+"px",
+            "z-index": 1000
+        });
 
+        $('ul.dropdown-menu li a').click(function (e) {
+            $("#menuToggle").dropdown('toggle')
+            var r = $(this)
+
+            if (r.attr("action") == "rule") {
+                var msg = JSON.stringify(
+                  {action: "synthesis_doApplyRule", module: "synthesis", cid: 1*r.attr("cid"), rid: 1*r.attr("rid")}
+                )
+
+                leonSocket.send(msg)
+            } else if (r.attr("action") == "search") {
+                var cid = 1*r.attr("cid")
+
+                searchFinished = false
+
+                var msg = JSON.stringify(
+                  {action: "synthesis_doSearch", module: "synthesis", cid: cid}
+                )
+
+                leonSocket.send(msg)
+
+                var pb = $("#searchProgress")
+                var pbb = $("#searchProgress .bar")
+
+                $("#searchDialog").modal("show")
+                //$("#searchDialog").dialog({
+                //    modal: true,
+                //    width: 500,
+                //    buttons: {
+                //        Cancel: function() {
+                //            $(this).dialog("close");
+                //        }
+                //    },
+                //    close: function() {
+                //        if (!searchFinished) {
+                //            var msg = JSON.stringify(
+                //              {action: "synthesis_doCancelSearch", cid: cid}
+                //            )
+
+                //            leonSocket.send(msg)
+                //            searchFinished = true;
+                //        }
+                //    }
+                //});
+            }
+            e.preventDefault();
+            return false;
         });
     }
 

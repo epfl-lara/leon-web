@@ -42,29 +42,38 @@ h1 em {
     font-size: 0.7em;
 }
 
-table#overview_table {
+table.results_table {
     width: 100%;
     border-collapse: collapse;
 }
 
-table#overview_table td {
+table.results_table th, table.results_table td{
+    text-align: left;
     padding: 3px;
+}
+
+table.results_table tr:nth-child(odd) {
+    background: #ddd;
 }
 
 table#overview_table td.time {
     width: 20px;
     text-align: right
 }
+
 table#overview_table td.status {
     width: 20px;
     text-align: right
 }
 
-table#overview_table tr:nth-child(odd) {
-    background: #ddd;
+i.icon-magic {
+    padding-right: 6px;
 }
 
-table#overview_table td.status i {
+table#overview_table td.status.termin i {
+    cursor: help;
+}
+table#overview_table td.status.verif i {
     cursor: pointer;
 }
 table#overview_table td.status i {
@@ -79,6 +88,10 @@ table#overview_table td.status i.icon-remove-sign {
     color: red;
 }
 
+table#overview_table td.status i.icon-question-sign {
+    color: #666;
+}
+
 table#overview_table td.status i.icon-time {
     color: orange;
 }
@@ -89,6 +102,14 @@ table#overview_table td.status i.icon-exclamation-sign {
 
 table#overview_table td.status i.icon-ok-sign {
     color: green;
+}
+
+table#synthesis_table{
+    overflow: auto;
+}
+
+.widget_content {
+    *position: relative;
 }
 
 h2 {
@@ -178,11 +199,8 @@ div#codecolumn {
 }
 
 div#actionscolumn {
-    position: absolute;
-    right: 15px;
-    z-index: 1000;
-    margin-top: 10px;
-    padding-right: 10px;
+    padding-right: 20px;
+    overflow-y: auto;
 }
 
 #leon [class^="icon-"], [class*=" icon-"] {
@@ -206,7 +224,7 @@ div.compilation-status.failure {
 }
 
 div.action {
-    margin: 0px 0px 10px 0px;
+    margin: 10px 0px 10px 0px;
     color: black;
     background: #ccc;
     border: 2px solid #333;
@@ -277,9 +295,14 @@ div#codebox div.ace_gutter_active_line {
     background-color: rgba(220,220,220,0.5) !important;
 }
 
-div #console-action {
-    display:none;
+div #synthesis {
+    display: none;
 }
+
+div #console-action {
+    display: none;
+}
+
 div #console {
     font-family: "Lucida Console", monospace;
     font-size: 12px;
@@ -314,36 +337,6 @@ div#problems.jstree-default li[rel="success"] a {
     font-weight: bold;
 }
 
-#editorMenu .ui-menu-item a {
-    padding-left: 25px;
-    font-size: 12px;
-}
-
-#editorMenu .ui-menu-item a span {
-    margin: 0px 3px;
-}
-
-#notifications {
-    width: 400px;
-}
-
-#notifications .error {
-    border: 2px solid #B55353;
-    margin: 0px 0px 10px 0px;
-    padding: 5px;
-    color: black;
-    width: 400px;
-    background: #EBA2A2;
-}
-
-#notifications .success {
-    border: 2px solid #20BA13;
-    margin: 0px 0px 10px 0px;
-    padding: 5px;
-    color: black;
-    width: 400px;
-    background: #A4E39F;
-}
 
 span.ace_identifier.ace_choose {
     color: #5BB553;
@@ -387,6 +380,27 @@ span.ace_identifier.ace_choose {
     margin: 0px;
 }
 
+#searchProgress {
+    height: 30px;
+}
+#searchProgress .bar {
+    text-align: center;
+    padding-top: 4px;
+    text-shadow: 1px 1px 0 #000;
+    font-size: 1.2em;
+}
+#verifyProgress {
+    height: 30px;
+}
+
+#verifyProgress .bar {
+    width: 100%;
+    text-align: center;
+    padding-top: 4px;
+    text-shadow: 1px 1px 0 #000;
+    font-size: 1.2em;
+}
+
 #searchProgress .progress-label, #verifyProgress .progress-label {
     float: left;
     width: 100%;
@@ -401,18 +415,6 @@ span.ace_identifier.ace_choose {
 
 .ace_gutter-cell.ace_info.leon_gutter_verification {
     background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAaklEQVR42mNgGAXYgCQQ1wDxJygbBmYA8X5iDRED4v9AHIQkpgnEF0hxyR0gLkfiRwFxLikGHAXiSVA2MxDPBmJWUgzYAMRroewiIFYiNTBBNp4AYk8gdiAnNtqhMRFPbnSCNEaOpmrCAACDBA/ZplH5UgAAAABJRU5ErkJggg==");
-}
-
-.ui-progressbar-value.valid {
-    background: #A4E39F;
-}
-
-.ui-progressbar-value.invalid {
-    background: #EBA2A2;
-}
-
-.ui-progressbar-value.cond-valid {
-    background: #EBE2A2;
 }
 
 #verifyResults  {
@@ -486,4 +488,13 @@ tr.counter-example table td {
 }
 tr.counter-example table td:first-child {
     text-align: right;
+}
+
+td.fname {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#connectError {
 }

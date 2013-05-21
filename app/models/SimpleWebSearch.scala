@@ -5,7 +5,7 @@ import leon.synthesis._
 import leon.synthesis.search._
 import play.api.libs.json.Json._
 
-class SimpleWebSearch(cs: ConsoleSession,
+class SimpleWebSearch(cs: BaseActor,
                       synth: Synthesizer,
                       problem: Problem) extends SimpleSearch(synth, problem, synth.rules, synth.options.costModel) {
 

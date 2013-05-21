@@ -8,8 +8,7 @@
         <a id="button-save" href="#"><span><i class="icon-save"></i> Save</span></a>
         <a id="button-undo" href="#"><span><i class="icon-undo"></i> Undo</span></a>
         <a id="button-redo" href="#"><span><i class="icon-repeat"></i> Redo</span></a>
-        <a id="button-permalink" href="#"><span><i class="icon-link"></i> Link</span>
-        </a>
+        <a id="button-permalink" href="#"><span><i class="icon-link"></i> Link</span></a>
         <div id="permalink-value">
             <input type="text" value="" />
             <a id="button-permalink-close" href="#"><i class="icon-remove"></i></a>
@@ -45,8 +44,13 @@
                   </div>
 
                   <div id="overview" class="action">
-                    <h3 class="std-background"><i class="icon-search"></i> Verification</h3>
-                    <table id="overview_table">
+                    <h3 class="std-background"><i class="icon-search"></i> Analysis Results</h3>
+                    <table id="overview_table" class="results_table">
+                    </table>
+                  </div>
+                  <div id="synthesis" class="action">
+                    <h3 class="std-background"><i class="icon-magic"></i> Synthesis</h3>
+                    <table id="synthesis_table" class="results_table">
                     </table>
                   </div>
                   <div class="action" id="console-action">
@@ -56,27 +60,41 @@
 
                   <div id="notifications">
                   </div>
+
+                  <div id="connectError" class="error alert alert-error fade hide in">
+                      <a class="close" data-dismiss="alert" href="#">&times;</a>
+                      <h4>Failed to connect</h4>
+                      <p>Leon failed to contact the mothership :(</p>
+                      <p>Please try again later.</p>
+                  </div>
                 </div>
           </div>
     </div>
-
-
-
-    <ul id="editorMenu">
-    </ul>
-    <div id="searchDialog" title="Synthesis" cid="0">
+    <div id="searchDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true" cid="0">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3>Synthesis</h3>
+      </div>
+      <div class="modal-body">
         <p>
             Leon is currently searching for a solution to your synthesis problem...
         </p>
-        <p>
-            <div id="searchProgress"><div class="progress-label">Searching...</div></div>
-        </p>
+        <div id="searchProgress" class="progress progress-striped active"><div class="bar" style="width: 40%;"></div></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+      </div>
     </div>
-    <div id="verifyDialog" title="Verification">
+    <div id="verifyDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true">
+      <div class="modal-header">
+        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+        <h3>Verification</h3>
+      </div>
+      <div class="modal-body">
         <p>
             Leon verifies the validity all the verification conditions found in the selected function.
         </p>
-            <div id="verifyProgress"><div class="progress-label">Verifying...</div></div>
+        <div id="verifyProgress" class="progress progress-striped active"><div class="bar" style="width: 40%;"></div></div>
         <div id="verifyResults">
             <table class="allResults">
                 <thead>
@@ -91,15 +109,10 @@
                 </tbody>
             </table>
         </div>
-    </div>
-    <div id="errorDialog" title="Error" class="error">
-        <p>
-            Leon failed to contact the mothership :(
-        </p>
-
-        <p>
-            Please check that your internet connection allows traffic on port 9000.
-        </p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+      </div>
     </div>
   </div>
 }
