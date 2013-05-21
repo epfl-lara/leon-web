@@ -31,18 +31,21 @@ $(document).ready(function() {
         resizeEditor()
     }
 
-    $("#button-console").click(function(event) {
-        var isOpen = $("#console-action").is(":visible")
+    $(".menu-button").click(function(event) {
+        var target = $(this).attr("ref")
+        var sel = "#"+target
+        console.log(sel)
 
-        if (isOpen) {
-            $("#console-action").hide()
+        if ($(sel).is(":visible")) {
+            $(sel).hide()
             $(this).addClass("disabled")
         } else {
-            $("#console-action").show()
+            $(sel).show()
             $(this).removeClass("disabled")
         }
 
     });
+
     $("#button-menu").click(function(event) {
         togglePresentationMode()
         if (mode == "presentation") {
@@ -194,6 +197,31 @@ $(document).ready(function() {
         }
     }
 
+    var features = {
+        verification:   {active: true, name: "Verification"},
+        synthesis:      {active: true, name: "Synthesis"},
+        termination:    {active: false, name: "Termination <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
+    }
+
+    var localFeatures = localStorage.getItem("leonFeatures")
+    if (localFeatures != null) {
+        features = JSON.parse(localFeatures)
+    }
+
+    var fts = $("#params-action ul")
+    for (var f in features) {
+        fts.append('<li><label class="checkbox"><input id="feature-'+f+'" class=\"feature\" ref=\"'+f+'\" type="checkbox"'+(features[f].active ? ' checked="checked"' : "")+'>'+features[f].name+'</label></li>')
+    }
+
+    $(".feature").click(function () {
+        var f = $(this).attr("ref")
+        features[f].active = !features[f].active
+        localStorage.setItem("leonFeatures", JSON.stringify(features));
+
+        drawOverView()
+        drawSynthesisOverview()
+    })
+
     var overview = {
         modules: {
             verification: {
@@ -280,7 +308,14 @@ $(document).ready(function() {
         drawOverView()
     }
 
+    var synthesisOverview = {}
+
     handlers["update_synthesis_overview"] = function(data) {
+        synthesisOverview = data;
+        drawSynthesisOverview();
+    }
+
+    function drawSynthesisOverview() {
         var t = $("#synthesis_table")
         var html = "";
 
@@ -296,6 +331,8 @@ $(document).ready(function() {
             html += '  </ul>'
             html += ' </div>'
         }
+
+        var data = synthesisOverview
 
         for (var f in data.functions) {
             if (data.functions[f].length == 1) {
@@ -336,7 +373,7 @@ $(document).ready(function() {
             leonSocket.send(msg)
         })
 
-        if (Object.keys(data.functions).length > 0) {
+        if (Object.keys(data.functions).length > 0 && features["synthesis"].active) {
             $("#synthesis").show()
         } else {
             $("#synthesis").hide()
@@ -350,7 +387,9 @@ $(document).ready(function() {
         html += "<tr>"
         html += "<th>Function</th>"
         for (var m in overview.modules) {
-            html += "<th>"+overview.modules[m].column+"</th>"
+            if (features[m].active) {
+                html += "<th>"+overview.modules[m].column+"</th>"
+            }
         }
         html += "</tr>"
 
@@ -360,12 +399,14 @@ $(document).ready(function() {
             html += "<tr>"
             html += "  <td class=\"fname hovertoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
             for (var m in overview.modules) {
-                var mod = overview.modules[m]
-                var data = overview.data[m]
-                if (fname in data) {
-                    html += mod.html(fname, data[fname])
-                } else {
-                    html += mod.missing(fname)
+                if (features[m].active) {
+                    var mod = overview.modules[m]
+                    var data = overview.data[m]
+                    if (fname in data) {
+                        html += mod.html(fname, data[fname])
+                    } else {
+                        html += mod.missing(fname)
+                    }
                 }
             }
             html += "</tr>"

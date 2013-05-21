@@ -49,7 +49,7 @@ table.results_table {
 
 table.results_table th, table.results_table td{
     text-align: left;
-    padding: 3px;
+    padding: 5px;
 }
 
 table.results_table tr:nth-child(odd) {
@@ -97,7 +97,7 @@ table#overview_table td.status i.icon-time {
 }
 
 table#overview_table td.status i.icon-exclamation-sign {
-    color: green;
+    color: yellow;
 }
 
 table#overview_table td.status i.icon-ok-sign {
@@ -150,6 +150,7 @@ a:hover {
 }
 
 div#title div.toolbox {
+    white-space: nowrap;
     margin: 12px 0px 0px 30px;
     float: left;
     font-size: 0.9em;
@@ -282,10 +283,6 @@ ul {
     list-style-type: square;
 }
 
-li {
-    margin-bottom: 5px;
-}
-
 td.date {
     text-align:right;
 }
@@ -309,8 +306,24 @@ div #synthesis {
     display: none;
 }
 
-div #console-action {
+div#console-action, div#params-action {
     display: none;
+}
+
+div#params-action li label {
+    padding-left: 5px;
+}
+div#params-action ul {
+    margin: 0px;
+}
+
+div#params-action li:nth-child(odd) {
+    background: #ddd;
+}
+
+div #params-action li {
+    list-style: none;
+    padding: 5px 5px 5px 20px;
 }
 
 div #console {
@@ -374,20 +387,6 @@ span.ace_identifier.ace_choose {
 
 #errorDialog p {
     color: red;
-}
-
-.ui-dialog[aria-describedby="searchDialog"] .ui-dialog-titlebar, .ui-dialog[aria-describedby="verifyDialog"] .ui-dialog-titlebar {
-    padding: 3px 10px;
-    font-weight: normal;
-}   
-
-.ui-dialog[aria-describedby="searchDialog"] .ui-button-text, .ui-dialog[aria-describedby="verifyDialog"] .ui-button-text {
-    padding: 3px 10px;
-    font-size: 0.8em;
-}
-
-.ui-dialog[aria-describedby="searchDialog"] .ui-dialog-buttonpane button, .ui-dialog[aria-describedby="verifyDialog"] .ui-dialog-buttonpane button {
-    margin: 0px;
 }
 
 #synthesisProgress, #verifyProgress {
@@ -491,7 +490,7 @@ tr.counter-example table td:first-child {
 }
 
 td.fname {
-    max-width: 250px;
+    max-width: 10em;
     overflow: hidden;
     text-overflow: ellipsis;
 }

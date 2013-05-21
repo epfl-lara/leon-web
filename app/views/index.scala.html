@@ -14,7 +14,8 @@
             <a id="button-permalink-close" href="#"><i class="icon-remove"></i></a>
         </div>
         <a id="button-menu" href="#"><span><i class="icon-list-alt"></i> Menu</span></a>
-        <a id="button-console" href="#" class="disabled"><span><i class="icon-comments-alt"></i> Console</span></a>
+        <a id="button-console" class="disabled menu-button" ref="console-action" href="#"><span><i class="icon-comments-alt"></i> Console</span></a>
+        <a id="button-params" class="disabled menu-button" ref="params-action" href="#"><span><i class="icon-wrench"></i> Params</span></a>
       </div>
     </div>
     <script>
@@ -56,6 +57,11 @@
                   <div class="action" id="console-action">
                       <h3 class="std-background"><i class="icon-comments-alt"></i> Console:</h3>
                       <div id="console"></div>
+                  </div>
+                  <div class="action" id="params-action">
+                      <h3 class="std-background"><i class="icon-wrench"></i> Features:</h3>
+                      <ul>
+                      </ul>
                   </div>
 
                   <div id="notifications">
