@@ -413,19 +413,26 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, ch, _), search)) =>
         try {
           val path = List(rid)
-          search.traversePath(path) match {
+
+          event("synthesis_result", Map(
+            "result" -> toJson("init"),
+            "problem" -> toJson(ScalaPrinter(ci.ch))
+          ))
+
+          val solution: Option[Solution] = search.traversePath(path) match {
+            case Some(an: search.g.AndNode) =>
+              logInfo("Applying :"+an.task.app.toString)
+
+
+              an.task.composeSolution(an.subTasks.map(t => Solution.choose(t.p)))
+
             case Some(al: search.g.AndLeaf) =>
               logInfo("Applying :"+al.task.app.toString)
-
-              event("synthesis_result", Map(
-                "result" -> toJson("init"),
-                "problem" -> toJson(ScalaPrinter(ci.ch))
-              ))
 
               val res = search.expandAndTask(al.task)
               search.onExpansion(al, res)
 
-              val solution = res match {
+              res match {
                 case es: search.ExpandSuccess[_] =>
                   // Solved
                   Some(es.sol)
@@ -441,36 +448,38 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
                   None
               }
 
-              solution match {
-                case Some(sol) =>
-                  val solCode = sol.toSimplifiedExpr(ctx, prog)
-                  val chToSol = Map(ci -> solCode)
-                  val fInt = new FileInterface(new SilentReporter)
-
-                  val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
-
-                  val (closed, total) = search.g.getStatus
-
-                  event("synthesis_result", Map(
-                    "result" -> toJson("success"),
-                    "solCode" -> toJson(ScalaPrinter(solCode)),
-                    "allCode" -> toJson(allCode),
-                    "closed" -> toJson(1),
-                    "total" -> toJson(1)
-                  ))
-                  logInfo("Application successful!")
-
-                case None =>
-                  event("synthesis_result", Map(
-                    "result" -> toJson("failure"),
-                    "closed" -> toJson(1),
-                    "total" -> toJson(1)
-                  ))
-                  logInfo("Application failed!")
-              }
             case _ =>
-              notifyError("Internal error :(")
               logInfo("Path "+path+" did not lead to AndLeaf!")
+              throw new Exception("WWOT")
+          }
+
+
+          solution match {
+            case Some(sol) =>
+              val solCode = sol.toSimplifiedExpr(ctx, prog)
+              val chToSol = Map(ci -> solCode)
+              val fInt = new FileInterface(new SilentReporter)
+
+              val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
+
+              val (closed, total) = search.g.getStatus
+
+              event("synthesis_result", Map(
+                "result" -> toJson("success"),
+                "solCode" -> toJson(ScalaPrinter(solCode)),
+                "allCode" -> toJson(allCode),
+                "closed" -> toJson(1),
+                "total" -> toJson(1)
+              ))
+              logInfo("Application successful!")
+
+            case None =>
+              event("synthesis_result", Map(
+                "result" -> toJson("failure"),
+                "closed" -> toJson(1),
+                "total" -> toJson(1)
+              ))
+              logInfo("Application failed!")
           }
         } catch {
           case t: Throwable =>
@@ -517,6 +526,7 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
         } catch {
           case t: Throwable =>
             notifyError("Woops, I crashed: "+t.getMessage())
+            t.printStackTrace()
             logInfo("Synthesis RulesList crashed", t)
         }
       case None =>

@@ -221,17 +221,15 @@ div#actionscolumn {
 
 div.compilation-status {
     float: right;
-    margin: 5px;
+    padding: 3px;
 }
 
 div.compilation-status.success {
-    font-weight: bold;
-    color: #5BB553;
+    color: white;
 }
 
 div.compilation-status.failure {
-    font-weight: bold;
-    color: #B55353;
+    color: white;
 }
 
 div.action {

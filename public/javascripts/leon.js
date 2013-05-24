@@ -151,19 +151,19 @@ $(document).ready(function() {
         if (status == "success") {
           e.attr("class", "compilation-status success")
           compilationStatus = 1
-          e.html("<img src=\""+_leon_prefix+"/assets/images/accept.png\" />")
+          e.html('<i class="icon-ok" title="Compilation succeeded"></i>')
         } else if (status == "failure") {
           e.attr("class", "compilation-status failure")
           compilationStatus = -1
-          e.html("<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />")
+          e.html('<i class="icon-exclamation" title="Compilation failed"></i>')
         } else if (status == "disconnected") {
           e.attr("class", "compilation-status failure")
           compilationStatus = 0
-          e.html("<img src=\""+_leon_prefix+"/assets/images/exclamation.png\" />")
+          e.html('<i class="icon-unlink" title="Disconnected from server"></i>')
         } else if (status == "unknown") {
           e.attr("class", "compilation-status")
           compilationStatus = 0
-          e.html("<img src=\""+_leon_prefix+"/assets/images/loader.gif\" />")
+          e.html('<i class="icon-spinner" title="Compiling..."></i>')
         } else {
             alert("Unknown status: "+status)
         }
@@ -337,15 +337,15 @@ $(document).ready(function() {
         for (var f in data.functions) {
             if (data.functions[f].length == 1) {
                 var sp = data.functions[f][0]
-                html += "<tr><td class=\"fname problem  hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+                html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
                 addMenu(sp.index, f, overview.functions[f].displayName)
                 html += "</td></tr>"
             } else {
-                html += "<tr><td class=\"fname hovertoline\" line=\""+overview.functions[f].line+"\">"+overview.functions[f].displayName+"</td></tr>"
+                html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions[f].line+"\">"+overview.functions[f].displayName+"</td></tr>"
                 for (var i = 0; i < data.functions[f].length; i++) {
                     var sp = data.functions[f][i]
                     html += "<tr>"
-                    html += "<td class=\"problem subproblem hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+                    html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
                     addMenu(sp.index, f, sp.description)
                     html += "</td></tr>"
                 }
@@ -353,12 +353,6 @@ $(document).ready(function() {
         }
 
         t.html(html);
-
-        $("#synthesis .hovertoline[line]").hover(function() {
-            var line = $(this).attr("line")
-            editor.gotoLine(line);
-        }, function() {})
-
 
         $("#synthesis .dropdown-toggle").click(function(e) {
             var p = $(this).parents(".problem")
@@ -397,7 +391,7 @@ $(document).ready(function() {
             var fdata = overview.functions[fname]
 
             html += "<tr>"
-            html += "  <td class=\"fname hovertoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
+            html += "  <td class=\"fname clicktoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
             for (var m in overview.modules) {
                 if (features[m].active) {
                     var mod = overview.modules[m]
@@ -420,10 +414,15 @@ $(document).ready(function() {
             }
         }
 
-        $("#overview .hovertoline[line]").hover(function() {
+        $(".hovertoline[line]").hover(function() {
             var line = $(this).attr("line")
             editor.gotoLine(line);
         }, function() {})
+
+        $(".clicktoline[line]").click(function() {
+            var line = $(this).attr("line")
+            editor.gotoLine(line);
+        })
 
         if (Object.keys(overview.functions).length == 0) {
             $("#overview").hide()
@@ -475,7 +474,9 @@ $(document).ready(function() {
             $("#synthesisResults").hide()
             $("#synthesisDialog .importButton").hide()
             $("#synthesisDialog .cancelButton").show()
+            $("#synthesisDialog .code.problem").removeClass("prettyprinted")
             $("#synthesisDialog .code.problem").html(data.problem)
+            prettyPrint();
             $("#synthesisDialog").modal("show")
             pbb.removeClass("bar-success bar-danger")
             pbb.width("0%")
@@ -506,8 +507,10 @@ $(document).ready(function() {
                 $("#synthesisProgressBox").hide()
             }
 
+            $("#synthesisResults .code.solution").removeClass("prettyprinted")
             $("#synthesisResults .code.solution").html(data.solCode)
             $("#synthesisResults").show()
+            prettyPrint();
             $("#synthesisDialog .importButton").show()
             $("#synthesisDialog .importButton").unbind('click').click(function () {
                 handlers["replace_code"]({ newCode: data.allCode })
