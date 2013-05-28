@@ -145,6 +145,29 @@ $(document).ready(function() {
 
     updateUndoRedo()
 
+    $("#button-permalink").click(function(event) {
+        if (!$(this).hasClass("disabled")) {
+            var msg = JSON.stringify(
+              {action: "storePermaLink", module: "main", code: editor.getValue()}
+            )
+            leonSocket.send(msg)
+        }
+        event.preventDefault()
+    });
+
+    handlers["permalink"] = function (data) {
+        $("#permalink-value input").val(_leon_url+"#link/"+data.link)
+        $("#permalink-value").show()
+    }
+
+    $("#button-permalink-close").click(function(event) {
+        $("#permalink-value").hide()
+    })
+
+    /**
+     * Compilation
+     */
+
     function updateCompilationStatus(status) {
         var e = $(".compilation-status")
 
@@ -167,27 +190,9 @@ $(document).ready(function() {
         } else {
             alert("Unknown status: "+status)
         }
+
+        drawSynthesisOverview()
     }
-
-    $("#button-permalink").click(function(event) {
-        if (!$(this).hasClass("disabled")) {
-            var msg = JSON.stringify(
-              {action: "storePermaLink", module: "main", code: editor.getValue()}
-            )
-            leonSocket.send(msg)
-        }
-        event.preventDefault()
-    });
-
-    handlers["permalink"] = function (data) {
-        $("#permalink-value input").val(_leon_url+"#link/"+data.link)
-        $("#permalink-value").show()
-    }
-
-    $("#button-permalink-close").click(function(event) {
-        $("#permalink-value").hide()
-    })
-
 
     handlers["compilation"] = function (data) {
         if(data.status == "success") {
@@ -256,7 +261,10 @@ $(document).ready(function() {
                     $("td.verif").click(function () {
                         var fname = $(this).attr("fname")
                         var d = overview.data["verification"][fname]
-                        displayVerificationDetails(d.status, d.vcs, true)
+
+                        openVerifyDialog()
+
+                        displayVerificationDetails(d.status, d.vcs)
                     });
                 }
             },
@@ -325,9 +333,14 @@ $(document).ready(function() {
             html += ' <div class="dropdown">'
             html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+description+'</a>'
             html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
-            html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search">Search</a></li>'
-            html += '    <li role="presentation" class="divider"></li>'
-            html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="'+_leon_prefix+'/assets/images/loader.gif" /></a></li>'
+            if (compilationStatus == 1) {
+                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid="'+index+'">Search</a></li>'
+                html += '    <li role="presentation" class="divider"></li>'
+                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="'+_leon_prefix+'/assets/images/loader.gif" /></a></li>'
+            } else {
+                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="icon-exclamation"></i> Not compiled</a></li>'
+            }
+
             html += '  </ul>'
             html += ' </div>'
         }
@@ -354,20 +367,22 @@ $(document).ready(function() {
 
         t.html(html);
 
-        $("#synthesis .dropdown-toggle").click(function(e) {
-            var p = $(this).parents(".problem")
+        if (compilationStatus == 1) {
+            $("#synthesis .dropdown-toggle").click(function(e) {
+                var p = $(this).parents(".problem")
 
-            var msg = JSON.stringify({
-                module: "synthesis",
-                action: "getRulesToApply",
-                fname: p.attr("fname"),
-                cid: 1*p.attr("cid"),
+                var msg = JSON.stringify({
+                    module: "synthesis",
+                    action: "getRulesToApply",
+                    fname: p.attr("fname"),
+                    cid: 1*p.attr("cid"),
+                })
+
+                leonSocket.send(msg)
             })
+        }
 
-            leonSocket.send(msg)
-        })
-
-        if (Object.keys(data.functions).length > 0 && features["synthesis"].active) {
+        if (data.functions && Object.keys(data.functions).length > 0 && features["synthesis"].active) {
             $("#synthesis").show()
         } else {
             $("#synthesis").hide()
@@ -425,9 +440,9 @@ $(document).ready(function() {
         })
 
         if (Object.keys(overview.functions).length == 0) {
-            $("#overview").hide()
+            t.hide()
         } else {
-            $("#overview").show()
+            t.show()
         }
     }
 
@@ -564,18 +579,13 @@ $(document).ready(function() {
         })
     }
 
-    function displayVerificationDetails(status, vcs, doOpen) {
+    function displayVerificationDetails(status, vcs) {
         var pb = $("#verifyProgress")
         var pbb = pb.children(".bar")
-
-        if (doOpen) {
-            openVerifyDialog()
-        }
 
         pbb.width("100%")
         pb.removeClass("active")
         pb.removeClass("progress-striped")
-
 
         pbb.removeClass("bar-warning bar-success bar-danger")
 
@@ -639,7 +649,7 @@ $(document).ready(function() {
     }
 
     handlers["verification_result"] = function (data) {
-        displayVerificationDetails(data.status, data.vcs, false)
+        displayVerificationDetails(data.status, data.vcs)
     }
 
     function error(msg) {
@@ -881,81 +891,6 @@ $(document).ready(function() {
         currentMousePos = { x: event.pageX, y: event.pageY };
     });
 
-    //editorSession.selection.on('changeCursor', function(e) {
-    //    var cursor = editorSession.selection.getCursor()
-
-    //    var token     = editorSession.getTokenAt(cursor.row, cursor.column);
-
-    //    if (token != null) {
-    //        var screenX = currentMousePos.x
-    //        var screenY = currentMousePos.y
-
-    //        var prevToken = editorSession.getTokenAt(cursor.row, token.start-1);
-
-    //        if (token.type == "identifier.choose" && token.value == "choose" && context == "synthesis") {
-
-    //            if (compilationStatus == 1) {
-    //                var msg = JSON.stringify({
-    //                    action: "synthesis_getRulesToApply",
-    //                    module: "synthesis",
-    //                    chooseLine: cursor.row+1,
-    //                    chooseColumn: token.start+1,
-    //                })
-
-    //                chooseRulesDisplayer = function(cid, rulesApp) {
-    //                    return synthesisDisplayMenu(screenX, screenY, cid, rulesApp);
-    //                }
-
-    //                leonSocket.send(msg)
-    //            } else {
-    //                synthesisDisplayMenu(screenX, screenY, 0, []);
-    //            }
-    //        } else if (token.type == "identifier" && prevToken != null && prevToken.type == "keyword" && prevToken.value == "def" && context == "verification") {
-    //            var found = false;
-    //            var annots = editorSession.getAnnotations();
-    //            for (var i = 0; i < annots.length && !found; i++) {
-    //                if (annots[i].row == cursor.row) {
-    //                    found = true;
-    //                }
-    //            }
-    //            if (found) {
-    //                verificationDisplayMenu(screenX, screenY, token.value);
-    //            }
-    //            
-    //        }
-    //    }
-    //});
-
-    //function verificationDisplayMenu(screenX, screenY, fname) {
-    //    var m = $("#editorMenu")
-    //    m.html("");
-
-    //    if (compilationStatus == 1) {
-    //        m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="verify" fname="'+fname+'">Verify</a></li>');
-    //    } else if (compilationStatus == 0) {
-    //        m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
-    //    } else {
-    //        m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
-    //    }
-
-    //    $("#menuToggle").dropdown('toggle')
-    //    $("#editorMenu").css({
-    //        "position": "absolute",
-    //        "top": (screenY-20)+"px",
-    //        "left": (screenX-20)+"px",
-    //        "z-index": 1000
-    //    });
-
-    //    $('ul.dropdown-menu li a').click(function (e) {
-    //        $("#menuToggle").dropdown('toggle')
-    //        if ($(this).attr("action") == "verify") {
-    //            verifyFun($(this).attr("fname"))
-    //        }
-    //        e.preventDefault();
-    //        return false;
-    //    });
-    //}
-
     function verifyCurrentFun() {
         var cursor = editorSession.selection.getCursor()
 
@@ -1015,88 +950,6 @@ $(document).ready(function() {
         openVerifyDialog(fname)
     }
 
-    function synthesisDisplayMenu(screenX, screenY, cid, rulesApps) {
-        var m = $("#editorMenu")
-        m.html("");
-        if (compilationStatus == 1) {
-            m.append('<li role="presentation"'+clazz+'><a role="menuitem" tabindex="-1" href="#" action="search" cid="'+cid+'">Search</a></li>');
-            m.append('<li role="presentation" class="divider"></li>');
-
-            for (var i = 0; i < rulesApps.length; i++) {
-                var app = rulesApps[i];
-                var statusIcon = ""
-                var clazz = ""
-
-                if (app.status == "closed") {
-                    statusIcon = '<i class="icon-exclamation-sign"></i> '
-                    clazz = ' class="disabled"'
-                }
-                m.append('<li role="presentation"'+clazz+'><a role="menuitem" tabindex="-1" href="#" action="rule" cid="'+cid+'" rid="'+app.id+'">'+statusIcon+app.name+'</a></li>');
-            }
-        } else if (compilationStatus == 0) {
-            m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
-        } else {
-            m.append('<li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="none" fname="'+fname+'">Not yet compiled...</a></li>');
-        }
-
-
-        $("#menuToggle").dropdown('toggle')
-        $("#editorMenu").css({
-            "position": "absolute",
-            "top": (screenY-20)+"px",
-            "left": (screenX-20)+"px",
-            "z-index": 1000
-        });
-
-        $('ul.dropdown-menu li a').click(function (e) {
-            $("#menuToggle").dropdown('toggle')
-            var r = $(this)
-
-            if (r.attr("action") == "rule") {
-                var msg = JSON.stringify(
-                  {action: "synthesis_doApplyRule", module: "synthesis", cid: 1*r.attr("cid"), rid: 1*r.attr("rid")}
-                )
-
-                leonSocket.send(msg)
-            } else if (r.attr("action") == "search") {
-                var cid = 1*r.attr("cid")
-
-                searchFinished = false
-
-                var msg = JSON.stringify(
-                  {action: "synthesis_doSearch", module: "synthesis", cid: cid}
-                )
-
-                leonSocket.send(msg)
-
-                var pb = $("#searchProgress")
-                var pbb = $("#searchProgress .bar")
-
-                $("#searchDialog").modal("show")
-                //$("#searchDialog").dialog({
-                //    modal: true,
-                //    width: 500,
-                //    buttons: {
-                //        Cancel: function() {
-                //            $(this).dialog("close");
-                //        }
-                //    },
-                //    close: function() {
-                //        if (!searchFinished) {
-                //            var msg = JSON.stringify(
-                //              {action: "synthesis_doCancelSearch", cid: cid}
-                //            )
-
-                //            leonSocket.send(msg)
-                //            searchFinished = true;
-                //        }
-                //    }
-                //});
-            }
-            e.preventDefault();
-            return false;
-        });
-    }
 
     var storedCode = localStorage.getItem("leonEditorCode")
     if (storedCode != null) {

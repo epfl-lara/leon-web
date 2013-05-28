@@ -19,7 +19,7 @@ if [ ! -d "$LEON_PATH" ]; then
 fi
 
 if [ ! -f "$LEON_PATH/setupenv" ]; then
-    echo "$LEON_PATH/setupenv does not exist"
+    echo "$LEON_PATH/setupenv does not exist. Did you run 'sbt script' in leon project?"
     return;
 fi
 
