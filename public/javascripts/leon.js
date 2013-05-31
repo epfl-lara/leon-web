@@ -195,6 +195,8 @@ $(document).ready(function() {
     }
 
     handlers["compilation"] = function (data) {
+        console.log(data)
+
         if(data.status == "success") {
             updateCompilationStatus("success")
         } else {
@@ -260,11 +262,17 @@ $(document).ready(function() {
                 handlers: function() {
                     $("td.verif").click(function () {
                         var fname = $(this).attr("fname")
-                        var d = overview.data["verification"][fname]
+                        if (fname in overview.data["verification"]) {
+                            var d = overview.data["verification"][fname]
 
-                        openVerifyDialog()
+                            openVerifyDialog()
 
-                        displayVerificationDetails(d.status, d.vcs)
+                            displayVerificationDetails(d.status, d.vcs)
+                        } else {
+                            openVerifyDialog()
+
+                            displayVerificationDetails("unknown", [])
+                        }
                     });
                 }
             },
@@ -319,6 +327,7 @@ $(document).ready(function() {
     var synthesisOverview = {}
 
     handlers["update_synthesis_overview"] = function(data) {
+        console.log("update_synthesis_overview", data)
         synthesisOverview = data;
         drawSynthesisOverview();
     }
@@ -585,7 +594,7 @@ $(document).ready(function() {
 
         pbb.width("100%")
         pb.removeClass("active")
-        pb.removeClass("progress-striped")
+        pb.addClass("progress-striped")
 
         pbb.removeClass("bar-warning bar-success bar-danger")
 
@@ -603,6 +612,11 @@ $(document).ready(function() {
             case "invalid":
                 pbb.html("Invalid!")
                 pbb.addClass("bar-danger")
+                break;
+
+            case "unknown":
+                pbb.html("Unknown ?!")
+                pbb.addClass("bar-warning")
                 break;
 
             case "timeout":
@@ -697,10 +711,11 @@ $(document).ready(function() {
     var reconnectEvent = function(event) {
         connected = true
 
-        $("#notifications").children(".error").each(function() {
+        $("#notifications").children(".alert-error").each(function() {
             $(this).hide();
         });
         notify("Aaaaaand we are back!", "success")
+        $("#connectError").hide();
         recompile()
     }
 
@@ -952,6 +967,172 @@ $(document).ready(function() {
 
 
     var storedCode = localStorage.getItem("leonEditorCode")
+
+    var seenDemo = 1*localStorage.getItem("leonSeenDemo")
+    var demos = [
+        {
+            placement: "modal",
+            title: "Welcome to Leon!",
+            content: "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
+        },
+        {
+            where: function() { return $("#example-loader") },
+            placement: "left",
+            title: "Select from examples",
+            content: "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
+        },
+        {
+            where: function() { return $($(".ace_line_group")[13]).find("span").last() },
+            placement: "right",
+            title: "Edit at will",
+            content: "Feel free to modify or extend the selected examples with your own code."
+        },
+        {
+            where: function() { return $("#overview_table") },
+            placement: "left",
+            title: "Live results",
+            content: "Leon will verify your code in the background and display live verification results here."
+        },
+        {
+            where: function() { return $($("#overview_table td.status.verif")[2]) },
+            placement: "left",
+            title: "Display details",
+            content: "Click on the verification status of each function to get more information!"
+        },
+        {
+            where: function() { return $("#synthesis_table td.problem").first() },
+            placement: "left",
+            title: "Synthesize",
+            content: "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
+        },
+        {
+            where: function() { return $("#button-permalink") },
+            placement: "bottom",
+            title: "Permalinks",
+            content: "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
+        }
+    ];
+
+    if (!seenDemo || (seenDemo < demos.length-1)) {
+
+        function showDemo(id) {
+            var demo = demos[id]
+
+
+            if (demo.placement == "modal") {
+                // Assume only the first demo is modal
+                var html  = '<div id="demoPane" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">'
+                html     += '  <div class="modal-header">'
+                html     += '    <button type="button" class="close" demo-action="close" data-dismiss="modal" aria-hidden="true">×</button>'
+                html     += '    <h3 id="demoModal">'+demo.title+'</h3>'
+                html     += '  </div>'
+                html     += '  <div class="modal-body">'
+                html     += '    '+demo.content
+                html     += '  </div>'
+                html     += '  <div class="modal-footer">'
+                html     += '    <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="icon-play"></i></button>'
+                html     += '    <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>'
+                html     += '  </div>'
+                html     += '</div>'
+
+                $("body").append(html);
+
+                $("#demoPane").modal("show")
+
+                var action = "close"
+                $("#demoPane button[demo-action=\"close\"]").click(function() {
+                    hideDemo(id)
+                    action = "close"
+                })
+
+                $("#demoPane button[demo-action=\"next\"]").click(function() {
+                    hideDemo(id)
+                    action = "next"
+                })
+                $('#demoPane').on('hidden', function () {
+                    if (action == "next") {
+                        localStorage.setItem("leonSeenDemo", id+1)
+                        showDemo(id+1)
+                    } else {
+                        localStorage.setItem("leonSeenDemo", 100)
+                    }
+                })
+
+            } else {
+                var content = '<div id="demoPane" class="demo">'
+                content += demo.content
+                content += '  <div class="demo-nav">'
+                if (id == demos.length-1) {
+                    // last demo
+                    content += '    <button class="btn btn-success" demo-action="close">Ok!</button>';
+                } else {
+                    content += '    <button class="btn" demo-action="close">Got it</button>';
+                    content += '    <button class="btn btn-success" demo-action="next">Next <i class="icon-step-forward"></i></button>';
+                }
+                content += '  </div>'
+                content += '</div>'
+
+                var where = demo.where()
+
+                console.log(where)
+
+                var progress = ""
+                for (var i = 0; i < demos.length-1; i++) {
+                    if (i < id) {
+                        progress += '<i class="icon-circle"></i>'
+                    } else {
+                        progress += '<i class="icon-circle-blank"></i>'
+                    }
+                }
+
+                where.popover({
+                    html: true,
+                    placement: demo.placement,
+                    trigger: "manual",
+                    title: '<span class="demo-progress">'+progress+'</span>'+demo.title,
+                    content: content,
+                    container: "body"
+                })
+
+                where.popover("show")
+
+                $("#demoPane button[demo-action=\"close\"]").click(function() {
+                    hideDemo(id)
+                    localStorage.setItem("leonSeenDemo", 100)
+                })
+
+                $("#demoPane button[demo-action=\"next\"]").click(function() {
+                    localStorage.setItem("leonSeenDemo", id+1)
+                    hideDemo(id)
+                    showDemo(id+1)
+                })
+            }
+
+
+        }
+
+        function hideDemo(id) {
+            var demo = demos[id]
+
+            if (demo.placement == "modal") {
+                $("#demoPane").modal("hide")
+                $("#demoPane").on("hidden", function() { $("demoPane").remove() })
+            } else {
+                var where = demo.where()
+                where.popover("destroy")
+            }
+        }
+
+        var toShow = seenDemo? seenDemo : 0;
+        if (toShow != 0) {
+            setTimeout(function() { showDemo(toShow) }, 1000)
+        } else {
+            showDemo(toShow)
+        }
+
+        storedCode = null
+    }
+
     if (storedCode != null) {
         editor.setValue(storedCode);
         editor.selection.clearSelection();

@@ -25,7 +25,7 @@ object Application extends Controller {
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(otherExamples, otherExamples.head._2.head, prefix, url))
+    Ok(views.html.index(otherExamples, otherExamples.tail.head._2(1), prefix, url))
   }
 
   def tutorials = Action { implicit request =>

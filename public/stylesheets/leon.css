@@ -141,11 +141,11 @@ a {
     color: #1133CC;
 }
 
-a:link, a:visited {
+div.toolbox a:link, div.toolbox a:visited, div.toolbox a:hover {
     text-decoration: none;
 }
 
-a:hover {
+div.toolbox a:hover span {
     text-decoration: underline;
 }
 
@@ -501,4 +501,21 @@ td.fname {
   font-style: normal;
   font-weight: 400;
   src: local('Kaushan Script'), local('KaushanScript-Regular'), url(../fonts/KaushanScript-Regular.woff) format('woff');
+}
+
+div.demo div.demo-nav {
+    margin-top: 5px;
+    text-align: right;
+}
+
+body div.popover {
+    z-index: 2000;
+}
+
+span.demo-progress {
+    float: right;
+    color: #CCC;
+}
+span.demo-progress i {
+    font-size: 0.8em;
 }

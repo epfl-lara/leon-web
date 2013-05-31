@@ -5,17 +5,17 @@
     <div id="title" class="std-background">
     <h1>Leon</h1>
       <div class="toolbox">
-        <a id="button-save" href="#"><span><i class="icon-save"></i> Save</span></a>
-        <a id="button-undo" href="#"><span><i class="icon-undo"></i> Undo</span></a>
-        <a id="button-redo" href="#"><span><i class="icon-repeat"></i> Redo</span></a>
-        <a id="button-permalink" href="#"><span><i class="icon-link"></i> Link</span></a>
+        <a id="button-save" href="#"><i class="icon-save"></i> <span>Save</span></a>
+        <a id="button-undo" href="#"><i class="icon-undo"></i> <span>Undo</span></a>
+        <a id="button-redo" href="#"><i class="icon-repeat"></i> <span>Redo</span></a>
+        <a id="button-permalink" href="#"><i class="icon-link"></i> <span>Link</span></a>
         <div id="permalink-value">
             <input type="text" value="" />
             <a id="button-permalink-close" href="#"><i class="icon-remove"></i></a>
         </div>
-        <a id="button-menu" href="#"><span><i class="icon-list-alt"></i> Menu</span></a>
-        <a id="button-console" class="disabled menu-button" ref="console-action" href="#"><span><i class="icon-comments-alt"></i> Console</span></a>
-        <a id="button-params" class="disabled menu-button" ref="params-action" href="#"><span><i class="icon-wrench"></i> Params</span></a>
+        <a id="button-menu" href="#"><i class="icon-list-alt"></i> <span>Menu</span></a>
+        <a id="button-console" class="disabled menu-button" ref="console-action" href="#"><i class="icon-comments-alt"></i> <span>Console</span></a>
+        <a id="button-params" class="disabled menu-button" ref="params-action" href="#"><i class="icon-wrench"></i> <span>Params</span></a>
       </div>
     </div>
     <script>
@@ -65,14 +65,14 @@
                       </ul>
                   </div>
 
-                  <div id="notifications">
-                  </div>
-
                   <div id="connectError" class="error alert alert-error fade hide in">
                       <a class="close" data-dismiss="alert" href="#">&times;</a>
                       <h4>Failed to connect</h4>
                       <p>Leon failed to contact the mothership :(</p>
                       <p>Please try again later.</p>
+                  </div>
+
+                  <div id="notifications">
                   </div>
                 </div>
           </div>
