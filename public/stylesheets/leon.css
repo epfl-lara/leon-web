@@ -518,3 +518,6 @@ span.demo-progress {
 span.demo-progress i {
     font-size: 0.8em;
 }
+.progress .bar.bar-init {
+    background-color: #ccc;
+}
