@@ -24,11 +24,14 @@ i {
 }
 
 
+#leon {
+    font-size: 14px;
+}
 #leon h1 {
     font-family: 'Kaushan Script', cursive;
     padding: 0px;
     margin: 0px 0px 0px 10px;
-    font-size: 1.5em;
+    font-size: 1.7em;
     color: #61738B;
     color: black;
     color: #11D12E;
@@ -153,7 +156,7 @@ div#title div.toolbox {
     white-space: nowrap;
     margin: 12px 0px 0px 30px;
     float: left;
-    font-size: 0.9em;
+    font-size: 1em;
 }
 
 div#title div.toolbox a {
@@ -214,7 +217,7 @@ div#actionscolumn {
     overflow-y: auto;
 }
 
-#leon [class^="icon-"], [class*=" icon-"] {
+#leon [class^="icon-"], #leon [class*=" icon-"] {
     background-image: none;
 }
 
@@ -224,11 +227,7 @@ div.compilation-status {
     padding: 3px;
 }
 
-div.compilation-status.success {
-    color: white;
-}
-
-div.compilation-status.failure {
+div.compilation-status {
     color: white;
 }
 
@@ -247,8 +246,8 @@ div.action h3 {
     line-height: 1.3em;
     padding: 5px 5px;
     border-bottom: 1px solid #333;
-    font-size: 0.8em;
-    font-weight: bold;
+    font-size: 1em;
+    font-weight: normal;
     color: white;
 }
 

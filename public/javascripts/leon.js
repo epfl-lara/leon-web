@@ -309,6 +309,7 @@ $(document).ready(function() {
     }
 
     handlers["update_overview"] = function(data) {
+        console.log("update_overview", data)
         if (data.module == "main") {
             overview.functions = {};
 
@@ -328,8 +329,10 @@ $(document).ready(function() {
 
     handlers["update_synthesis_overview"] = function(data) {
         console.log("update_synthesis_overview", data)
-        synthesisOverview = data;
-        drawSynthesisOverview();
+        if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
+            synthesisOverview = data;
+            drawSynthesisOverview();
+        }
     }
 
     function drawSynthesisOverview() {
@@ -791,13 +794,12 @@ $(document).ready(function() {
             }
         }
 
-        if (connected && oldCode != currentCode) {
-            updateCompilationStatus("unknown")
-
+        if (connected) {
             var msg = JSON.stringify(
               {action: "doUpdateCode", module: "main", code: currentCode}
             )
-
+            oldCode = currentCode;
+            console.log("recompiling")
             lastSavedChange = lastChange;
             updateSaveButton();
             leonSocket.send(msg)
@@ -871,6 +873,10 @@ $(document).ready(function() {
     editorSession.on('change', function(e) {
         lastChange = new Date().getTime();
         updateSaveButton();
+        var currentCode = editor.getValue()
+        if (currentCode != oldCode) {
+            updateCompilationStatus("unknown")
+        }
         setTimeout(onCodeUpdate, timeWindow+50)
     });
 
@@ -896,7 +902,6 @@ $(document).ready(function() {
     handlers["replace_code"] = function(data) {
         storeCurrent(editorSession.getValue())
         editorSession.setValue(data.newCode)
-        $("#overview").hide()
         recompile()
     }
 
@@ -1015,6 +1020,8 @@ $(document).ready(function() {
 
     if (!seenDemo || (seenDemo < demos.length-1)) {
 
+        var lastDemo = null
+
         function showDemo(id) {
             var demo = demos[id]
 
@@ -1074,6 +1081,8 @@ $(document).ready(function() {
 
                 var where = demo.where()
 
+                lastDemo = where;
+
                 console.log(where)
 
                 var progress = ""
@@ -1118,8 +1127,7 @@ $(document).ready(function() {
                 $("#demoPane").modal("hide")
                 $("#demoPane").on("hidden", function() { $("demoPane").remove() })
             } else {
-                var where = demo.where()
-                where.popover("destroy")
+                lastDemo.popover("destroy")
             }
         }
 
