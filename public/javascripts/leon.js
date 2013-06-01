@@ -237,6 +237,9 @@ $(document).ready(function() {
                     var vstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying...\" />"
 
                     switch(d.status) {
+                      case "crashed":
+                        vstatus = "<i class=\"icon-bolt\" title=\"Unnexpected error during verification\"></i>";
+                        break;
                       case "undefined":
                         vstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying...\" />";
                         break;
@@ -492,6 +495,8 @@ $(document).ready(function() {
         txt.scrollTop(txt[0].scrollHeight - txt.height())
     }
 
+    var synthesizing = false;
+
     handlers["synthesis_result"] = function(data) {
         var pb = $("#synthesisProgress")
         var pbb = $("#synthesisProgress .bar")
@@ -500,17 +505,31 @@ $(document).ready(function() {
         if (data.result == "init") {
             $("#synthesisResults").hide()
             $("#synthesisDialog .importButton").hide()
+            $("#synthesisDialog .closeButton").hide()
             $("#synthesisDialog .cancelButton").show()
             $("#synthesisDialog .code.problem").removeClass("prettyprinted")
             $("#synthesisDialog .code.problem").html(data.problem)
             prettyPrint();
             $("#synthesisDialog").modal("show")
-            pbb.removeClass("bar-success bar-danger bar-init")
-            pb.addClass("active")
+
+            pb.addClass("active progress-striped")
+            pbb.removeClass("bar-success bar-danger")
             pbb.addClass("bar-init")
             pbb.width("100%")
-            pbb.html("");
+            pbb.html("Synthesizing...");
+
             $("#synthesisProgressBox").show()
+            synthesizing = true;
+            $('#synthesisDialog').unbind('hidden').on('hidden', function () {
+                if (synthesizing) {
+                    var msg = JSON.stringify({
+                        module: "main",
+                        action: "doCancel"
+                    })
+
+                    leonSocket.send(msg)
+                }
+            })
         } else if (data.result == "progress") {
             pbb.removeClass("bar-init")
 
@@ -527,6 +546,8 @@ $(document).ready(function() {
             pbb.addClass("bar-danger")
 
             $("#synthesisDialog .cancelButton").hide()
+            $("#synthesisDialog .closeButton").show()
+            synthesizing = false;
 
         } else if (data.result == "success") {
             pb.removeClass("active progress-striped")
@@ -548,6 +569,8 @@ $(document).ready(function() {
                 handlers["replace_code"]({ newCode: data.allCode })
             })
             $("#synthesisDialog .cancelButton").hide()
+            $("#synthesisDialog .closeButton").show()
+            synthesizing = false;
         }
     }
 
@@ -1130,7 +1153,7 @@ $(document).ready(function() {
 
             if (demo.placement == "modal") {
                 $("#demoPane").modal("hide")
-                $("#demoPane").on("hidden", function() { $("demoPane").remove() })
+                $("#demoPane").unbind("hidden").on("hidden", function() { $("demoPane").remove() })
             } else {
                 lastDemo.popover("destroy")
             }

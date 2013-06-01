@@ -14,17 +14,18 @@ object ConsoleProtocol {
 
   case class UpdateCode(code: String)
 
+  case class Cancelled(wa: WorkerActor)
+  case object DoCancel
+
   case class StorePermaLink(code: String)
   case class AccessPermaLink(link: String)
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)
   case class SynthesisSearch(cid: Int)
-  case class SynthesisCancelSearch(cid: Int)
 
   case class VerificationDoManualVerify(fname: String)
   case class VerificationDoVerify(fnames: Set[String], standalone: Boolean)
-  case object VerificationDoCancelCurrent
   case object VerificationDone
 
   case object Stop

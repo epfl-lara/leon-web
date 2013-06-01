@@ -125,6 +125,7 @@ trait WorkerActor extends BaseActor {
 class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Actor with WorkerActor {
   import ConsoleProtocol._
 
+  var verifCrashed   = false
   var verifOverview  = Map[FunDef, List[VerificationCondition]]()
 
   def vcToJson(cstate: CompilationState, vc: VerificationCondition): JsValue = {
@@ -148,32 +149,31 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
     }
   }
 
-
-  def getOverallVCsStatus(vcs: Seq[VerificationCondition]) = {
-    var c: Option[String] = None
-
-    for (vc <- vcs if vc.hasValue) {
-      if (vc.value == Some(true) && c == None) {
-        c = Some("valid")
-      }
-      if (vc.value == Some(false)) {
-        c = Some("invalid")
-      }
-      if (vc.value == None && c != Some("invalid")) {
-        c = Some("timeout")
-      }
-    }
-    if (vcs.isEmpty) {
-      c = Some("valid")
-    }
-
-    c.getOrElse("undefined")
-  }
-
   def notifyVerifOverview(cstate: CompilationState) {
     case class FunVerif(fd: FunDef, vcs: List[VerificationCondition]) {
       val totalTime = vcs.flatMap(_.time).foldLeft(0d)(_ + _)
       var status = getOverallVCsStatus(vcs)
+
+      def getOverallVCsStatus(vcs: Seq[VerificationCondition]) = {
+        var c: Option[String] = None
+
+        for (vc <- vcs if vc.hasValue) {
+          if (vc.value == Some(true) && c == None) {
+            c = Some("valid")
+          }
+          if (vc.value == Some(false)) {
+            c = Some("invalid")
+          }
+          if (vc.value == None && c != Some("invalid")) {
+            c = Some("timeout")
+          }
+        }
+        if (vcs.isEmpty) {
+          c = Some("valid")
+        }
+
+        c.getOrElse(if (verifCrashed) "crashed" else "undefined")
+      }
     }
 
     var verifResults = verifOverview.map { case (fd, vcs) =>
@@ -221,17 +221,17 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
     }
 
     try {
+      verifCrashed = false
       val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
       val report = XlangAnalysisPhase.completeVerificationReport(vr, cstate.parents, cstate.functionWasLoop _)
-
-      val status = getOverallVCsStatus(report.conditions)
 
       for ((f, vcs) <- report.fvcs) {
         verifOverview += f -> vcs
       }
     } catch {
       case t: Throwable =>
+        verifCrashed = true
         logInfo("[!] Verification crashed!", t)
     }
 
@@ -288,6 +288,9 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
 
       doVerify(cstate, toGenerate, false)
 
+    case DoCancel =>
+      sender ! Cancelled(this)
+
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
         case "doVerify" =>
@@ -343,6 +346,9 @@ class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends 
 
       notifyTerminOverview(cstate, data)
 
+    case DoCancel =>
+      sender ! Cancelled(this)
+
     case _ =>
   }
 }
@@ -384,6 +390,9 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
       }.groupBy(_._1.fd.id.name)
 
       notifySynthesisOverview(cstate)
+
+    case DoCancel =>
+      sender ! Cancelled(this)
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
@@ -635,6 +644,8 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   case class ModuleContext(name: String, actor: ActorRef, cancelFlag: AtomicBoolean)
 
   var modules = Map[String, ModuleContext]()
+  var cancelledWorkers = Set[WorkerActor]()
+  val cancelFlag = new AtomicBoolean()
 
   def receive = {
     case Init =>
@@ -642,13 +653,27 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       reporter = new WSReporter(channel)
       sender ! InitSuccess(channel)
 
-      val cancelFlag = new AtomicBoolean()
 
       modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, cancelFlag))), cancelFlag)
       modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, cancelFlag))), cancelFlag)
       modules += "synthesis"    -> ModuleContext("termination",  Akka.system.actorOf(Props(new SynthesisWorker(self, cancelFlag))), cancelFlag)
 
       logInfo("New client")
+
+    case DoCancel =>
+      cancelledWorkers = Set()
+      cancelFlag.set(true)
+      logInfo("[?] Starting Cancel Procedure...")
+      modules.values.foreach(_.actor ! DoCancel)
+
+    case Cancelled(wa: WorkerActor)  =>
+      cancelledWorkers += wa
+
+      logInfo("[?] Worker "+wa.getClass+" notified its cancellation")
+      if (cancelledWorkers.size == modules.size) {
+        logInfo("[?] All workers got cancelled, resuming normal operations")
+        cancelFlag.set(false)
+      }
 
     case NotifyClient(event) =>
       pushMessage(event)
@@ -660,6 +685,9 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         (event \ "module").as[String] match {
           case "main" =>
             (event \ "action").as[String] match {
+              case "doCancel" =>
+                self ! DoCancel
+
               case "doUpdateCode" =>
                 self ! UpdateCode((event \ "code").as[String])
 

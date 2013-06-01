@@ -95,8 +95,11 @@ table#overview_table td.status i.icon-question-sign {
     color: #666;
 }
 
+table#overview_table td.status i.icon-bolt {
+    color: red;
+}
 table#overview_table td.status i.icon-time {
-    color: orange;
+    color: green;
 }
 
 table#overview_table td.status i.icon-exclamation-sign {
