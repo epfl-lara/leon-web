@@ -548,18 +548,28 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci @ ChooseInfo(ctx, prog, fd, _, ch, _), search)) =>
         try {
-          ci.synthesizer.shouldStop.set(false)
-
           event("synthesis_result", Map(
             "result" -> toJson("init"),
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
           search.search() match {
+            case _ if doCancel.get =>
+              val (closed, total) = search.g.getStatus
+
+              event("synthesis_result", Map(
+                "result" -> toJson("failure"),
+                "closed" -> toJson(closed),
+                "total" -> toJson(total)
+              ))
+
+              // We refresh all synthesis state because an abort messes up with the search
+              self ! OnUpdateCode(cstate)
+
             case Some((sol, isTrusted)) =>
               val (newSol, succeeded) = if (!isTrusted) {
                 // Validate solution
-                event("synthesis_proof", Map("status" -> toJson("started")))
+                event("synthesis_proof", Map("status" -> toJson("init")))
                 ci.synthesizer.validateSolution(search, sol, 2000L) match {
                   case (sol, true) =>
                     event("synthesis_proof", Map("status" -> toJson("success")))
@@ -664,15 +674,15 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
     case DoCancel =>
       cancelledWorkers = Set()
       cancelFlag.set(true)
-      logInfo("[?] Starting Cancel Procedure...")
+      logInfo("Starting Cancel Procedure...")
       modules.values.foreach(_.actor ! DoCancel)
 
     case Cancelled(wa: WorkerActor)  =>
       cancelledWorkers += wa
 
-      logInfo("[?] Worker "+wa.getClass+" notified its cancellation")
+      logInfo(cancelledWorkers.size+"/"+modules.size+": Worker "+wa.getClass+" notified its cancellation")
       if (cancelledWorkers.size == modules.size) {
-        logInfo("[?] All workers got cancelled, resuming normal operations")
+        logInfo("All workers got cancelled, resuming normal operations")
         cancelFlag.set(false)
       }
 
