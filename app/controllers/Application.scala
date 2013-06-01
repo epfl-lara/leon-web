@@ -13,8 +13,8 @@ import models.LeonConsole
 object Application extends Controller {
 
   val allExamples = List(
-    "Verification" -> new FileExamples("verification").allExamples,
     "Synthesis"    -> new FileExamples("synthesis").allExamples,
+    "Verification" -> new FileExamples("verification").allExamples,
     "Tutorials"    -> new FileExamples("tutorials").allExamples
   )
 
@@ -25,7 +25,7 @@ object Application extends Controller {
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(otherExamples, otherExamples.tail.head._2(1), prefix, url))
+    Ok(views.html.index(otherExamples, otherExamples.head._2(1), prefix, url))
   }
 
   def tutorials = Action { implicit request =>
