@@ -385,6 +385,7 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
 
       choosesInfo = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
         case ci =>
+          ci.synthesizer.shouldStop = doCancel
           val search = new SimpleWebSearch(this, ci.synthesizer, ci.problem)
           (ci, search)
       }.groupBy(_._1.fd.id.name)
