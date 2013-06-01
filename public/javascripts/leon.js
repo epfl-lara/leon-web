@@ -505,11 +505,14 @@ $(document).ready(function() {
             $("#synthesisDialog .code.problem").html(data.problem)
             prettyPrint();
             $("#synthesisDialog").modal("show")
-            pbb.removeClass("bar-success bar-danger")
-            pbb.width("0%")
+            pbb.removeClass("bar-success bar-danger bar-init")
+            pb.addClass("active")
+            pbb.addClass("bar-init")
+            pbb.width("100%")
             pbb.html("");
             $("#synthesisProgressBox").show()
         } else if (data.result == "progress") {
+            pbb.removeClass("bar-init")
 
             var pc = (data.closed*100)/data.total;
             pbb.width(pc+"%")
@@ -520,6 +523,7 @@ $(document).ready(function() {
 
             pbb.width("100%")
             pbb.html("Failed to apply");
+            pbb.removeClass("bar-init")
             pbb.addClass("bar-danger")
 
             $("#synthesisDialog .cancelButton").hide()
@@ -528,6 +532,7 @@ $(document).ready(function() {
             pb.removeClass("active progress-striped")
 
             pbb.width("100%")
+            pbb.removeClass("bar-init")
             pbb.addClass("bar-success")
 
             if (data.total == 1) {
