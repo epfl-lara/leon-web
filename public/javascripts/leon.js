@@ -553,6 +553,7 @@ $(document).ready(function() {
             pb.removeClass("active progress-striped")
 
             pbb.width("100%")
+            pbb.html(data.closed+"/"+data.total);
             pbb.removeClass("bar-init")
             pbb.addClass("bar-success")
 
