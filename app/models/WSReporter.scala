@@ -6,7 +6,7 @@ import play.api.libs.json._
 import play.api.libs.json.Json.toJson
 import leon.Reporter
 
-class WSReporter(channel: PushEnumerator[JsValue]) extends Reporter {
+class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter {
   def infoFunction(msg: Any) : Unit = {
     channel.push(toJson(Map("kind" -> "log", "message" -> (msg.toString))))
   }

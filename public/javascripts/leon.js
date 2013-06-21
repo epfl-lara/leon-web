@@ -1077,18 +1077,20 @@ $(document).ready(function() {
 
                 var action = "close"
                 $("#demoPane button[demo-action=\"close\"]").click(function() {
+                    console.log("Closing..");
                     hideDemo(id)
                     action = "close"
                 })
 
                 $("#demoPane button[demo-action=\"next\"]").click(function() {
+                    console.log("NExting..");
                     hideDemo(id)
                     action = "next"
                 })
-                $('#demoPane').on('hidden', function () {
+                $('#demoPane').on('hide', function () {
                     if (action == "next") {
                         localStorage.setItem("leonSeenDemo", id+1)
-                        showDemo(id+1)
+                        setTimeout(function() { showDemo(id+1) }, 500)
                     } else {
                         localStorage.setItem("leonSeenDemo", 100)
                     }

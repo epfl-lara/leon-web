@@ -2,9 +2,9 @@ package leon.web
 package models
 
 import akka.actor._
-import akka.util.duration._
-import akka.dispatch.Await
-import akka.dispatch.Future
+import scala.concurrent.duration._
+import scala.concurrent.Await
+import scala.concurrent.Future
 
 import play.api._
 import play.api.libs.json._
@@ -627,7 +627,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   import context.dispatcher
   import ConsoleProtocol._
 
-  var channel: PushEnumerator[JsValue] = _
+  val (enumerator, channel) = Concurrent.broadcast[JsValue]
   var reporter: WSReporter = _
 
   def pushMessage(v: JsValue) = channel.push(v)
@@ -660,9 +660,8 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
   def receive = {
     case Init =>
-      channel  = Enumerator.imperative[JsValue]()
       reporter = new WSReporter(channel)
-      sender ! InitSuccess(channel)
+      sender ! InitSuccess(enumerator)
 
 
       modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, cancelFlag))), cancelFlag)

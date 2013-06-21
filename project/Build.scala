@@ -1,19 +1,22 @@
 import sbt._
 import Keys._
-import PlayProject._
+import play.Project._
 
 object ApplicationBuild extends Build {
 
-    val appName         = "leononline"
+    val appName         = "leon-web"
     val appVersion      = "1.0-SNAPSHOT"
 
     val appDependencies = Seq(
-      "org.scala-lang" % "scala-compiler" % "2.9.1",
-      "com.h2database" % "h2" % "1.3.158"
+      "org.scala-lang" % "scala-compiler" % "2.10.2",
+      "com.h2database" % "h2" % "1.3.158",
+      jdbc,
+      anorm
     )
 
-    val main = PlayProject(appName, appVersion, appDependencies, mainLang = SCALA).settings(
+    val main = play.Project(appName, appVersion, appDependencies).settings(
       // Add your own project settings here      
+      scalaVersion := "2.10.2"
     )
 
 }
