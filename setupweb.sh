@@ -31,18 +31,22 @@ if [ ! -n "$SCALA_HOME" ]; then
     return;
 fi
 
-if [ ! -f "$LEON_PATH/target/scala-2.9.2/leon_2.9.2-2.0.jar" ]; then
-    echo "Could not find leon package in: $LEON_PATH/target/scala-2.9.2/leon_2.9.2-2.0.jar"
+LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-2.0.jar"
+SCALAZ3_DEP="$LEON_PATH/unmanaged/64/scalaz3_2.10-2.0.jar"
+CAFEBABE_DEP="$LEON_PATH/unmanaged/64/cafebabe_2.10-1.2.jar"
+
+if [ ! -f "$LEON_DEP" ]; then
+    echo "Could not find leon package in: $LEON_DEP"
     return;
 fi
 
-if [ ! -f "$LEON_PATH/unmanaged/64/cafebabe_2.9.2-1.2.jar" ]; then
-    echo "Could not find cafebabe package in: $LEON_PATH/unmanaged/64/cafebabe_2.9.2-1.2.jar"
+if [ ! -f "$CAFEBABE_DEP" ]; then
+    echo "Could not find cafebabe package in: $CAFEBABE_DEP"
     return;
 fi
 
-if [ ! -f "$LEON_PATH/unmanaged/64/scalaz3.jar" ]; then
-    echo "Could not find scalaz3 package in: $LEON_PATH/unmanaged/64/scalaz3.jar"
+if [ ! -f "$SCALAZ3_DEP" ]; then
+    echo "Could not find scalaz3 package in: $SCALAZ3_DEP"
     return;
 fi
 
@@ -50,8 +54,8 @@ echo "Creating symlinks to external libs..."
 
 mkdir -p lib
 
-ln -sf "$LEON_PATH/target/scala-2.9.2/leon_2.9.2-2.0.jar" lib/leon.jar
-ln -sf "$LEON_PATH/unmanaged/64/scalaz3.jar"              lib/scalaz3.jar
-ln -sf "$LEON_PATH/unmanaged/64/cafebabe_2.9.2-1.2.jar"   lib/cafebabe.jar
+ln -sf "$LEON_DEP" lib/leon.jar
+ln -sf "$SCALAZ3_DEP"              lib/scalaz3.jar
+ln -sf "$CAFEBABE_DEP"   lib/cafebabe.jar
 
 echo "Done."
