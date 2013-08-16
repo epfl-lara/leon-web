@@ -330,6 +330,7 @@ div #console {
     font-family: "Lucida Console", monospace;
     font-size: 12px;
     height: 150px;
+    padding: 5px;
     white-space: pre-wrap;
     overflow-y: auto;
     overflow-x: hidden;
@@ -526,6 +527,7 @@ span.demo-progress i {
 }
 span.compilation-error {
     color: red;
+    font-weight: bold;
 }
 
 div#codebox.compilation-error div.ace_gutter {
