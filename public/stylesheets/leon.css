@@ -45,17 +45,17 @@ h1 em {
     font-size: 0.7em;
 }
 
-table.results_table {
+div.results_table > table {
     width: 100%;
     border-collapse: collapse;
 }
 
-table.results_table th, table.results_table td{
+div.results_table > table th, div.results_table > table td{
     text-align: left;
     padding: 5px;
 }
 
-table.results_table tr:nth-child(odd) {
+div.results_table > table tr:nth-child(odd) {
     background: #ddd;
 }
 
@@ -523,4 +523,31 @@ span.demo-progress i {
 }
 .progress .bar.bar-init {
     background-color: #ccc;
+}
+span.compilation-error {
+    color: red;
+}
+
+div#codebox.compilation-error div.ace_gutter {
+    background-color: rgba(255, 0, 0, 0.3) !important;
+}
+div#codebox.compilation-error div.ace_gutter-active-line {
+    background: #E75555;
+}
+
+div#codebox .ace_gutter-tooltip {
+    display: pre;
+}
+div.results_table {
+    position: relative;
+}
+
+div.overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
 }

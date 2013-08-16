@@ -170,15 +170,22 @@ $(document).ready(function() {
 
     function updateCompilationStatus(status) {
         var e = $(".compilation-status")
+        var codebox = $("div#codebox")
+        var boxes = $(".results_table")
 
         if (status == "success") {
           e.attr("class", "compilation-status success")
           compilationStatus = 1
           e.html('<i class="icon-ok" title="Compilation succeeded"></i>')
+          codebox.removeClass("compilation-error")
+          $(".results_table > .overlay").remove();
         } else if (status == "failure") {
           e.attr("class", "compilation-status failure")
           compilationStatus = -1
-          e.html('<i class="icon-exclamation" title="Compilation failed"></i>')
+          e.html('<span class="compilation-error">Compilation Failed <i class="icon-exclamation" title="Compilation failed"></i></span>')
+          codebox.addClass("compilation-error")
+          $(".results_table > .overlay").remove();
+          boxes.append('<div class="overlay" />')
         } else if (status == "disconnected") {
           e.attr("class", "compilation-status failure")
           compilationStatus = 0
