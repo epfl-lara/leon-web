@@ -4,9 +4,11 @@ package models
 import play.api.libs.iteratee._
 import play.api.libs.json._
 import play.api.libs.json.Json.toJson
-import leon.Reporter
 
-class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter {
+import leon.Reporter
+import leon.Settings
+
+class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter(Settings()) {
   def infoFunction(msg: Any) : Unit = {
     channel.push(toJson(Map("kind" -> "log", "message" -> (msg.toString))))
   }
@@ -17,6 +19,10 @@ class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter {
 
   def errorFunction(msg: Any) : Unit = {
     channel.push(toJson(Map("kind" -> "log", "message" -> ("Error: "+msg.toString))))
+  }
+
+  def debugFunction(msg: Any) : Unit = {
+    channel.push(toJson(Map("kind" -> "log", "message" -> ("Debug: "+msg.toString))))
   }
 
   def fatalErrorFunction(msg: Any) : Nothing = {

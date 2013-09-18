@@ -18,9 +18,9 @@ import akka.pattern.ask
 
 import play.api.Play.current
 
-import leon.{LeonContext, Settings, Reporter, SilentReporter}
-import leon.solvers.z3.{UninterpretedZ3Solver, FairZ3Solver}
-import leon.solvers.{Solver, TimeoutSolver, TrivialSolver}
+import leon.{LeonContext, Settings, Reporter}
+import leon.solvers.z3._
+import leon.solvers._
 import leon.plugin.{TemporaryInputPhase, ExtractionPhase}
 import leon.synthesis._
 import leon.synthesis.search._
@@ -34,6 +34,7 @@ import leon.purescala.EquivalencePrettyPrinter
 import leon.purescala.Trees._
 import leon.purescala.TreeOps._
 import leon.xlang._
+import leon.purescala._
 
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -43,9 +44,7 @@ case class CompilationState (
   compResult: String,
   optProgram: Option[Program],
   // Imperative information
-  wasLoop: Set[FunDef],
-  freshFunDefs: Map[FunDef, FunDef],
-  parents: Map[FunDef, FunDef]) {
+  wasLoop: Set[FunDef]) {
 
   def program: Program = {
     optProgram.get
@@ -53,28 +52,21 @@ case class CompilationState (
 
   def isCompiled = optProgram.isDefined
 
+  lazy val toInner = program.definedFunctions.filter(_.parent.isDefined).groupBy(_.parent.get)
   def innerFunctionsOf(fd: FunDef): Set[FunDef] = {
-    parents.flatMap((p: (FunDef, FunDef)) => p match {
-      case (child, parent) => if(parent == fd) List(child) else List()
-    }).toSet
-  }
-
-  def origFunctionFor(fd: FunDef): FunDef = {
-    val originalFunDefs = freshFunDefs.map(x => (x._2, x._1))
-
-    originalFunDefs.getOrElse(fd, fd)
+    toInner.getOrElse(fd, Set()).toSet
   }
 
   def functionWasLoop(fd: FunDef): Boolean =
-    wasLoop.contains(origFunctionFor(fd))
+    wasLoop.contains(fd.orig.getOrElse(fd))
 
 }
 object CompilationState {
   def failure(code: String) =
-    CompilationState(Some(code), "failure", None, Set(), Map(), Map())
+    CompilationState(Some(code), "failure", None, Set())
 
   def unknown = 
-    CompilationState(None, "unknown", None, Set(), Map(), Map())
+    CompilationState(None, "unknown", None, Set())
 }
 
 trait BaseActor extends Actor {
@@ -137,7 +129,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
 
     val base = Map(
       "kind"   -> toJson(vc.kind.toString),
-      "fun"    -> toJson(cstate.origFunctionFor(vc.funDef).id.name),
+      "fun"    -> toJson(vc.funDef.orig.getOrElse(vc.funDef).id.name),
       "status" -> toJson(vc.status),
       "time"   -> toJson(vc.time.map("%-3.3f".format(_)).getOrElse("")))
 
@@ -204,15 +196,10 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
   def doVerify(cstate: CompilationState, funs: Set[FunDef], standalone: Boolean) {
     val verifTimeout = 3000L // 3sec
 
-    val reporter = new SilentReporter
-    var compContext  = leon.Main.processOptions(reporter, List("--feelinglucky", "--evalground"))
+    val reporter = new MuteReporter
+    var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground"))
 
-    val solvers = List(
-      new TimeoutSolver(new TrivialSolver(compContext), verifTimeout),
-      new TimeoutSolver(new FairZ3Solver(compContext), verifTimeout)
-    )
-
-    solvers.map(_.setProgram(cstate.program))
+    val solvers = List(new FairZ3SolverFactory(compContext, cstate.program).withTimeout(verifTimeout))
 
     val vctx = VerificationContext(compContext, solvers, reporter)
 
@@ -224,7 +211,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
       verifCrashed = false
       val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
-      val report = XlangAnalysisPhase.completeVerificationReport(vr, cstate.parents, cstate.functionWasLoop _)
+      val report = XlangAnalysisPhase.completeVerificationReport(vr, cstate.functionWasLoop _)
 
       for ((f, vcs) <- report.fvcs) {
         verifOverview += f -> vcs
@@ -233,6 +220,8 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
       case t: Throwable =>
         verifCrashed = true
         logInfo("[!] Verification crashed!", t)
+    } finally {
+      solvers.foreach(_.free)
     }
 
     notifyVerifOverview(cstate)
@@ -241,7 +230,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
       val program = cstate.program
-      val reporter = new SilentReporter
+      val reporter = new MuteReporter
 
       var toGenerate = Set[FunDef]()
       val oldVerifOverView = verifOverview
@@ -296,10 +285,11 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
         case "doVerify" =>
           val fname = (event \ "fname").as[String]
 
-          val realfname = cstate.freshFunDefs.find(_._1.id.name == fname) match {
-            case Some((fd1, fd2)) => fd2.id.name
-            case None => fname
-          }
+          val realfname = fname
+          //val realfname = cstate.program.declaredFun.find(_._1.id.name == fname) match {
+          //  case Some((fd1, fd2)) => fd2.id.name
+          //  case None => fname
+          //}
 
           verifOverview.keySet.find(_.id.name == realfname) match {
             case Some(fd) =>
@@ -335,8 +325,8 @@ class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends 
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
 
-      val reporter = new SilentReporter
-      var ctx      = leon.Main.processOptions(reporter, List())
+      val reporter = new MuteReporter()
+      var ctx      = leon.Main.processOptions(List())
 
       val tc = new SimpleTerminationChecker(ctx, cstate.program)
 
@@ -381,11 +371,10 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
   def receive = {
     case OnUpdateCode(cstate) =>
       var options = SynthesisOptions().copy(cegisGenerateFunCalls = true)
-      var context = leon.Main.processOptions(new SilentReporter, Nil)
+      var context = leon.Main.processOptions(Nil)
 
       choosesInfo = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
         case ci =>
-          ci.synthesizer.shouldStop = doCancel
           val search = new SimpleWebSearch(this, ci.synthesizer, ci.problem)
           (ci, search)
       }.groupBy(_._1.fd.id.name)
@@ -468,7 +457,7 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
             case Some(sol) =>
               val solCode = sol.toSimplifiedExpr(ctx, prog)
               val chToSol = Map(ci -> solCode)
-              val fInt = new FileInterface(new SilentReporter)
+              val fInt = new FileInterface(new MuteReporter())
 
               val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
 
@@ -584,7 +573,7 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
 
               val solCode = newSol.toSimplifiedExpr(ctx, prog)
               val chToSol = Map(ci -> solCode)
-              val fInt = new FileInterface(new SilentReporter)
+              val fInt = new FileInterface(new MuteReporter())
 
               val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
 
@@ -742,7 +731,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         logInfo("Code to compile:\n"+code)
 
         val compReporter = new CompilingWSReporter(channel)
-        var compContext  = leon.Main.processOptions(compReporter, Nil)
+        var compContext  = leon.Main.processOptions(Nil)
         //var synthContext = compContext.copy(reporter = reporter)
 
         val pipeline = TemporaryInputPhase andThen ExtractionPhase
@@ -755,15 +744,13 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           val pgm1 = ArrayTransformation(compContext, pgm)
           val pgm2 = EpsilonElimination(compContext, pgm1)
           val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
-          val (program, parents, freshFunDefs) = FunctionClosure.run(compContext)(pgm3)
+          val program = FunctionClosure.run(compContext)(pgm3)
 
           val cstate = CompilationState(
             optProgram = Some(program),
             code = Some(code),
             compResult = "success",
-            wasLoop = wasLoop,
-            freshFunDefs = freshFunDefs,
-            parents = parents
+            wasLoop = wasLoop
           )
 
           lastCompilationState = cstate
@@ -828,7 +815,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       val facts = for (fd <- cstate.program.definedFunctions.toList.sortWith(_ < _)) yield {
         toJson(Map(
           "name"        -> toJson(fd.id.name),
-          "displayName" -> toJson(cstate.origFunctionFor(fd).id.name),
+          "displayName" -> toJson(fd.orig.getOrElse(fd).id.name),
           "line"        -> toJson(fd.posIntInfo._1),
           "column"      -> toJson(fd.posIntInfo._2)
         ))
