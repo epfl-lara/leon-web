@@ -1,0 +1,564 @@
+html {
+    height: 100%;
+}
+
+body {
+    font-family: Arial, Helvetica, Sans-serif;
+    margin: 0px;
+    padding: 0px;
+    background: #EFEFEF;
+    height: 100%;
+}
+
+.std-background {
+        background: rgb(238,238,238);
+}
+
+div#title {
+    padding: 3px;
+    overflow: hidden;
+    border-bottom-color: #cccccc;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+}
+
+i {
+    font-size: 14px;
+}
+
+
+#leon {
+    font-size: 14px;
+}
+#leon h1 {
+    font-family: 'Kaushan Script', cursive;
+    padding: 0px;
+    margin: 0px 0px 0px 10px;
+    font-size: 1.7em;
+    color: #444444;
+    display: inline;
+    float: left;
+}
+
+h1 em {
+    font-family: Arial, Helvetica, Sans-serif;
+    font-size: 0.7em;
+}
+
+div.results_table > table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+div.results_table > table th, div.results_table > table td{
+    text-align: left;
+    padding: 5px;
+}
+
+div.results_table > table tr:nth-child(odd) {
+    background: #ddd;
+}
+
+table#overview_table td.time {
+    width: 20px;
+    text-align: right
+}
+
+table#overview_table td.status {
+    width: 20px;
+    text-align: right
+}
+
+table#overview_table td.status.termin i {
+    cursor: help;
+}
+table#overview_table td.status.verif i {
+    cursor: pointer;
+}
+table#overview_table td.status i {
+    font-size: 1.2em;
+}
+
+table#overview_table td.status i.icon-ok-sign {
+    color: #333;
+}
+
+table#overview_table td.status i.icon-remove-sign {
+    color: #333;
+}
+
+table#overview_table td.status i.icon-question-sign {
+    color: #666;
+}
+
+table#overview_table td.status i.icon-bolt {
+    color: #333;
+}
+table#overview_table td.status i.icon-time {
+    color: #333;
+}
+
+table#overview_table td.status i.icon-exclamation-sign {
+    color: #333;
+}
+
+table#overview_table td.status i.icon-ok-sign {
+    color: #333333;
+}
+
+table#synthesis_table {
+    overflow: auto;
+}
+
+table#synthesis_table div.dropdown a[role="button"] {
+    color: #333;
+}
+table#synthesis_table td.subproblem {
+    padding-left: 10px;
+}
+
+table#synthesis_table td {
+    overflow: visible;
+}
+.widget_content {
+    *position: relative;
+}
+
+h2 {
+    margin-top: 20px;
+    margin-bottom: 0px;
+}
+
+h3 {
+    margin-top: 0px;
+    margin-bottom: 0px;
+    font-weight: normal;
+}
+
+p, li {
+    text-align: justify;
+}
+
+a {
+    color: #1133CC;
+}
+
+div.toolbox a:link, div.toolbox a:visited, div.toolbox a:hover {
+    text-decoration: none;
+}
+
+div.toolbox a:hover span {
+    text-decoration: underline;
+}
+
+div#title div.toolbox {
+    white-space: nowrap;
+    margin: 12px 0px 0px 30px;
+    float: left;
+    font-size: 1em;
+}
+
+div#title div.toolbox a {
+    float: left;
+    color: #444;
+    padding: 0px 3px 1px 6px;
+}
+div#title div.toolbox a.disabled {
+    color: #cccccc;
+}
+
+a#button-compilation {
+    margin-left: 20px;
+}
+a#button-compilation span.label {
+    float: left;
+}
+
+div#permalink-value {
+    position: absolute;
+    top: 25px;
+    padding: 3px;
+    z-index: 1000;
+    background: #999;
+    border: 1px solid #333;
+    border-radius: 5px;
+    display: none;
+}
+
+div#permalink-value input {
+    border: 1px solid #333;
+    width: 300px;
+    margin-bottom: 0px;
+    float: left;
+}
+div#permalink-value span {
+    margin-top: 3px;
+}
+
+a#button-permalink-close {
+    margin-top: 5px;
+}
+
+.smallnote {
+    font-size: 10px;
+}
+
+#leon .container-fluid {
+    padding: 0px;
+}
+
+div#codecolumn {
+    min-height: 100%;
+}
+
+div#actionscolumn {
+    padding-right: 20px;
+    overflow-y: auto;
+}
+
+#leon [class^="icon-"], #leon [class*=" icon-"] {
+    background-image: none;
+}
+
+
+div.compilation-status {
+    float: right;
+    padding: 3px;
+}
+
+div.compilation-status {
+    color: #333333;
+}
+
+div.action {
+    margin: 10px 0px 10px 0px;
+    color: #333;
+    background: #efefef;
+    border: 1px solid #e6efef;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+}
+
+div.action h3 {
+    margin: 0px;
+    line-height: 1.3em;
+    padding: 5px 5px;
+    border-bottom: 1px solid #ddd;
+    font-size: 1em;
+    font-weight: bold;
+    color: #333333;
+}
+
+select#example-loader {
+    margin: 10px;
+    padding: 3px;
+    width: 95%;
+    font-size: 14px;
+}
+
+img {
+    border-style: none;
+    border-width: 0px;
+    margin: 0px;
+}
+
+hr {
+    border: none 0;
+    border-top: 1px dashed #000;
+    height: 1px;
+    margin-top: 0px;
+    margin-bottom: 10px;
+}
+
+form#leoninput {
+    margin: 0px;
+}
+
+ul {
+    list-style-type: square;
+}
+
+td.date {
+    text-align:right;
+}
+
+div#codebox {
+    border-style: none;
+    background-color: rgba(255,255,255,0.9);
+    width: 100%;
+    height: 100%;
+    position: relative;
+    font-size: 12px;
+}
+
+div#codebox div.ace_gutter {
+    background-color: rgba(220,220,220,0.3) !important;
+}
+div#codebox div.ace_gutter_active_line {
+    background-color: rgba(220,220,220,0.5) !important;
+}
+
+div #synthesis {
+    display: none;
+}
+
+div#console-action, div#params-action {
+    display: none;
+}
+
+div#params-action li label {
+    padding-left: 5px;
+}
+div#params-action ul {
+    margin: 0px;
+}
+
+div#params-action li:nth-child(odd) {
+    background: #ddd;
+}
+
+div #params-action li {
+    list-style: none;
+    padding: 5px 5px 5px 20px;
+}
+
+div #console {
+    font-family: "Lucida Console", monospace;
+    font-size: 12px;
+    height: 150px;
+    padding: 5px;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+div #goals_output {
+    font-family: "Monaco", monospace;
+    font-size: 13px;
+    height: 150px;
+    padding: 5px;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    overflow-x: hidden;
+    font-weight: bold;
+}
+
+div#problems.jstree {
+    background: none;
+}
+
+div#problems.jstree-default .jstree-clicked {
+    background: none;
+    border: 0px;
+}
+
+div#problems.jstree-default .jstree-hovered {
+    background: none;
+    border: 0px;
+}
+
+div#problems.jstree-default li[rel="failure"] a {
+    color: #B55353;
+    font-style: italic;
+    text-decoration: line-through;
+}
+
+div#problems.jstree-default li[rel="success"] a {
+    color: #5BB553;
+    font-weight: bold;
+}
+
+
+span.ace_identifier.ace_choose {
+    color: #5BB553;
+    text-decoration: underline;
+}
+
+#searchDialog, #verifyDialog, #errorDialog {
+    display: none;
+    font-size: 14px;
+}
+
+#searchDialog span.ui-icon {
+    float: left;
+    margin-right: 3px;
+}
+
+#verifyDialog span.ui-icon {
+    float: right;
+    margin-left: 3px;
+}
+
+#searchDialog p, #verifyDialog p {
+    clear: both;
+}
+
+#errorDialog p {
+    color: red;
+}
+
+#synthesisProgress, #verifyProgress {
+    height: 30px;
+}
+
+#synthesisProgress .bar, #verifyProgress .bar {
+    text-align: center;
+    padding-top: 4px;
+    text-shadow: 1px 1px 0 #000;
+    font-size: 1.2em;
+}
+
+#synthesisProgress .progress-label, #verifyProgress .progress-label {
+    float: left;
+    width: 100%;
+    text-align: center;
+    margin-top: 5px;
+    text-shadow: 1px 1px 0 #fff;
+}
+
+.ace_gutter-cell.ace_info.leon_gutter_synthesis {
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAg0lEQVR42mNgGLZAHog3AvE0IJ4LxP+BmIcUAw4D8TsgZobyDwGxKCkGfAXiv0CsDeWHALE4KQasgjr7IxCnADEjqWHAAcTzoIaA8DZSw4APamsEEL+EGrKGVC/AgDI0PN6TYsA3IFaCslmA+AMQbyHFAJCTXwBxKxDPBuLlpEbjSAIArsgavhzDbnYAAAAASUVORK5CYII=");
+}
+
+.ace_gutter-cell.ace_info.leon_gutter_verification {
+    background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAaklEQVR42mNgGAXYgCQQ1wDxJygbBmYA8X5iDRED4v9AHIQkpgnEF0hxyR0gLkfiRwFxLikGHAXiSVA2MxDPBmJWUgzYAMRroewiIFYiNTBBNp4AYk8gdiAnNtqhMRFPbnSCNEaOpmrCAACDBA/ZplH5UgAAAABJRU5ErkJggg==");
+}
+
+#verifyResults  {
+    margin: 20px 0px 0px 0px;
+}
+
+#verifyResults table.allResults {
+    border-collapse: collapse;
+    width: 100%;
+    text-align: left;
+}
+
+#verifyResults table.allResults > thead > tr > th{
+    font-size: 14px;
+    padding: 10px 8px;
+    font-weight: normal;
+    color: #039;
+    border-bottom: 1px solid #039;
+}
+
+#verifyResults table.allResults > tbody > tr > td {
+    padding: 8px;
+}
+
+#verifyResults table.allResults > tbody > tr.odd {
+    background: #e8edff;
+}
+
+#verifyResults table.allResults > tbody > tr > td:last-child, #verifyResults table.allResults thead > tr > th:last-child {
+    text-align: right;
+}
+
+tr.empty > td > div {
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+
+    text-align: left;
+
+    background: #eee;
+    color: #999;
+    text-align: center;
+    border: 1px solid #ccc;
+    padding: 10px;
+    pc+margin: 5px;
+}
+
+tr.counter-example > td > div {
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    border-radius: 5px;
+
+    text-align: left;
+
+    background: #EDEDA8;
+    border: 1px solid #B5B505;
+    padding: 10px;
+    margin: 5px;
+}
+
+tr.counter-example table {
+    margin-top: 5px;
+    margin-left: auto;
+    margin-right: auto;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+}
+
+tr.counter-example table td {
+    padding: 4px 1px;
+    vertical-align: middle;
+}
+tr.counter-example table td:first-child {
+    text-align: right;
+}
+
+td.fname {
+    max-width: 10em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#connectError {
+}
+
+@font-face {
+  font-family: 'Kaushan Script';
+  font-style: normal;
+  font-weight: 400;
+  src: local('Kaushan Script'), local('KaushanScript-Regular'), url(../fonts/KaushanScript-Regular.woff) format('woff');
+}
+
+div.demo div.demo-nav {
+    margin-top: 5px;
+    text-align: right;
+}
+
+body div.popover {
+    z-index: 2000;
+}
+
+span.demo-progress {
+    float: right;
+    color: #CCC;
+}
+span.demo-progress i {
+    font-size: 0.8em;
+}
+.progress .bar.bar-init {
+    background-color: #ccc;
+}
+span.compilation-error {
+    color: red;
+    font-weight: bold;
+}
+
+div#codebox.compilation-error div.ace_gutter {
+    background-color: rgba(255, 0, 0, 0.3) !important;
+}
+div#codebox.compilation-error div.ace_gutter-active-line {
+    background: #E75555;
+}
+
+div#codebox .ace_gutter-tooltip {
+    display: pre;
+}
+div.results_table {
+    position: relative;
+}
+
+div.overlay {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 9999;
+}
+
