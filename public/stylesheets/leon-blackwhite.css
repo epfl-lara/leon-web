@@ -11,12 +11,15 @@ body {
 }
 
 .std-background {
-    background: #000050 !important;
+        background: rgb(238,238,238);
 }
 
 div#title {
     padding: 3px;
     overflow: hidden;
+    border-bottom-color: #cccccc;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
 }
 
 i {
@@ -32,10 +35,7 @@ i {
     padding: 0px;
     margin: 0px 0px 0px 10px;
     font-size: 1.7em;
-    color: #61738B;
-    color: black;
-    color: #11D12E;
-    color: white;
+    color: #444444;
     display: inline;
     float: left;
 }
@@ -69,10 +69,6 @@ table#overview_table td.status {
     text-align: right
 }
 
-i.icon-magic {
-    padding-right: 6px;
-}
-
 table#overview_table td.status.termin i {
     cursor: help;
 }
@@ -84,11 +80,11 @@ table#overview_table td.status i {
 }
 
 table#overview_table td.status i.icon-ok-sign {
-    color: green;
+    color: #333;
 }
 
 table#overview_table td.status i.icon-remove-sign {
-    color: red;
+    color: #333;
 }
 
 table#overview_table td.status i.icon-question-sign {
@@ -96,18 +92,18 @@ table#overview_table td.status i.icon-question-sign {
 }
 
 table#overview_table td.status i.icon-bolt {
-    color: red;
+    color: #333;
 }
 table#overview_table td.status i.icon-time {
-    color: green;
+    color: #333;
 }
 
 table#overview_table td.status i.icon-exclamation-sign {
-    color: yellow;
+    color: #333;
 }
 
 table#overview_table td.status i.icon-ok-sign {
-    color: green;
+    color: #333333;
 }
 
 table#synthesis_table {
@@ -115,7 +111,7 @@ table#synthesis_table {
 }
 
 table#synthesis_table div.dropdown a[role="button"] {
-    color: black;
+    color: #333;
 }
 table#synthesis_table td.subproblem {
     padding-left: 10px;
@@ -164,11 +160,11 @@ div#title div.toolbox {
 
 div#title div.toolbox a {
     float: left;
-    color: white;
+    color: #444;
     padding: 0px 3px 1px 6px;
 }
 div#title div.toolbox a.disabled {
-    color: #666;
+    color: #cccccc;
 }
 
 a#button-compilation {
@@ -231,14 +227,14 @@ div.compilation-status {
 }
 
 div.compilation-status {
-    color: white;
+    color: #333333;
 }
 
 div.action {
     margin: 10px 0px 10px 0px;
-    color: black;
-    background: #ccc;
-    border: 2px solid #333;
+    color: #333;
+    background: #efefef;
+    border: 1px solid #e6efef;
     -webkit-border-radius: 5px;
     -moz-border-radius: 5px;
     border-radius: 5px;
@@ -248,10 +244,10 @@ div.action h3 {
     margin: 0px;
     line-height: 1.3em;
     padding: 5px 5px;
-    border-bottom: 1px solid #333;
+    border-bottom: 1px solid #ddd;
     font-size: 1em;
-    font-weight: normal;
-    color: white;
+    font-weight: bold;
+    color: #333333;
 }
 
 select#example-loader {
@@ -293,6 +289,7 @@ div#codebox {
     width: 100%;
     height: 100%;
     position: relative;
+    font-size: 12px;
 }
 
 div#codebox div.ace_gutter {
@@ -337,13 +334,14 @@ div #console {
 }
 
 div #goals_output {
-    font-family: "Lucida Console", monospace;
-    font-size: 12px;
+    font-family: "Monaco", monospace;
+    font-size: 13px;
     height: 150px;
     padding: 5px;
     white-space: pre-wrap;
     overflow-y: auto;
     overflow-x: hidden;
+    font-weight: bold;
 }
 
 div#problems.jstree {
