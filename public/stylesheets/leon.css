@@ -336,6 +336,16 @@ div #console {
     overflow-x: hidden;
 }
 
+div #goals_output {
+    font-family: "Lucida Console", monospace;
+    font-size: 12px;
+    height: 150px;
+    padding: 5px;
+    white-space: pre-wrap;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
 div#problems.jstree {
     background: none;
 }
@@ -552,4 +562,21 @@ div.overlay {
     left: 0;
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 9999;
+}
+
+.themes {
+        float: right;
+        width: 16px;
+        margin-top: 8px;
+        margin-right: 4px;
+        cursor: pointer;
+        height: 20px;
+}
+
+#blue-theme {
+        background: blue;
+}
+
+#black-white-theme {
+        background: rgb(189, 189, 189);
 }

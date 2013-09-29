@@ -562,3 +562,19 @@ div.overlay {
     z-index: 9999;
 }
 
+.themes {
+        float: right;
+        width: 16px;
+        margin-top: 8px;
+        margin-right: 4px;
+        cursor: pointer;
+        height: 20px;
+}
+
+#blue-theme {
+        background: blue;
+}
+
+#black-white-theme {
+        background: rgb(189, 189, 189);
+}

@@ -1184,4 +1184,19 @@ $(document).ready(function() {
         editor.selection.clearSelection();
         editor.gotoLine(0);
     }
+
+    function setCSSTheme(name) {     
+        var url = $("#csstheme")[0].getAttribute("href");
+        var arr = url.split("/"); arr.pop(); arr.push(name + ".css")
+
+        $("#csstheme")[0].setAttribute("href", arr.join("/"));
+    }
+
+    $('#blue-theme').on('click',function(){
+        setCSSTheme("leon");
+    });
+
+    $('#black-white-theme').on('click',function(){
+        setCSSTheme("leon-blackwhite");
+    });
 });
