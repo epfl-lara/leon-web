@@ -731,7 +731,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         logInfo("Code to compile:\n"+code)
 
         val compReporter = new CompilingWSReporter(channel)
-        var compContext  = leon.Main.processOptions(Nil)
+        var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
         //var synthContext = compContext.copy(reporter = reporter)
 
         val pipeline = TemporaryInputPhase andThen ExtractionPhase
