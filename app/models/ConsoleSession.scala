@@ -199,7 +199,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
     val reporter = new MuteReporter
     var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground"))
 
-    val solvers = List(new FairZ3SolverFactory(compContext, cstate.program).withTimeout(verifTimeout))
+    val solvers = List(SolverFactory(() => new FairZ3Solver(compContext, cstate.program).setTimeout(verifTimeout)))
 
     val vctx = VerificationContext(compContext, solvers, reporter)
 
@@ -220,8 +220,6 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
       case t: Throwable =>
         verifCrashed = true
         logInfo("[!] Verification crashed!", t)
-    } finally {
-      solvers.foreach(_.free)
     }
 
     notifyVerifOverview(cstate)
