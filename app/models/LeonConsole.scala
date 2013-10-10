@@ -31,7 +31,7 @@ object LeonConsole {
         // Create an Iteratee to consume the feed
         val iteratee = Iteratee.foreach[JsValue] { event =>
           session ! ProcessClientEvent(event)
-        }.mapDone { _ =>
+        }.map { _ =>
           session ! Quit
         }
 

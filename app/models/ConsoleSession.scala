@@ -35,6 +35,7 @@ import leon.purescala.Trees._
 import leon.purescala.TreeOps._
 import leon.xlang._
 import leon.purescala._
+import leon.utils.InterruptManager
 
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -61,6 +62,8 @@ case class CompilationState (
     wasLoop.contains(fd.orig.getOrElse(fd))
 
 }
+
+
 object CompilationState {
   def failure(code: String) =
     CompilationState(Some(code), "failure", None, Set())
@@ -114,7 +117,7 @@ trait WorkerActor extends BaseActor {
   def pushMessage(v: JsValue) = session ! NotifyClient(v)
 }
 
-class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Actor with WorkerActor {
+class VerificationWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
 
   var verifCrashed   = false
@@ -197,7 +200,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
     val verifTimeout = 3000L // 3sec
 
     val reporter = new MuteReporter
-    var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground"))
+    var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager)
 
     val solvers = List(SolverFactory(() => new FairZ3Solver(compContext, cstate.program).setTimeout(verifTimeout)))
 
@@ -302,7 +305,7 @@ class VerificationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends
   }
 }
 
-class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Actor with WorkerActor {
+class TerminationWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
 
   def notifyTerminOverview(cstate: CompilationState, data: Map[FunDef, TerminationGuarantee]) {
@@ -324,7 +327,7 @@ class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends 
     case OnUpdateCode(cstate) if cstate.isCompiled =>
 
       val reporter = new MuteReporter()
-      var ctx      = leon.Main.processOptions(List())
+      var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager)
 
       val tc = new SimpleTerminationChecker(ctx, cstate.program)
 
@@ -341,7 +344,7 @@ class TerminationWorker(val session: ActorRef, doCancel: AtomicBoolean) extends 
   }
 }
 
-class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Actor with WorkerActor {
+class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
 
   var choosesInfo = Map[String, Seq[(ChooseInfo, SimpleWebSearch)]]()
@@ -369,7 +372,7 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
   def receive = {
     case OnUpdateCode(cstate) =>
       var options = SynthesisOptions().copy(cegisGenerateFunCalls = true)
-      var context = leon.Main.processOptions(Nil)
+      var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager)
 
       choosesInfo = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
         case ci =>
@@ -541,7 +544,7 @@ class SynthesisWorker(val session: ActorRef, doCancel: AtomicBoolean) extends Ac
           ))
 
           search.search() match {
-            case _ if doCancel.get =>
+            case _ if interruptManager.isInterrupted =>
               val (closed, total) = search.g.getStatus
 
               event("synthesis_result", Map(
@@ -639,28 +642,29 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
     chooses = Map()
   }
 
-  case class ModuleContext(name: String, actor: ActorRef, cancelFlag: AtomicBoolean)
+  case class ModuleContext(name: String, actor: ActorRef)
 
   var modules = Map[String, ModuleContext]()
   var cancelledWorkers = Set[WorkerActor]()
-  val cancelFlag = new AtomicBoolean()
+  var interruptManager: InterruptManager = _
 
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
       sender ! InitSuccess(enumerator)
+      interruptManager = new InterruptManager(reporter)
 
 
-      modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, cancelFlag))), cancelFlag)
-      modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, cancelFlag))), cancelFlag)
-      modules += "synthesis"    -> ModuleContext("termination",  Akka.system.actorOf(Props(new SynthesisWorker(self, cancelFlag))), cancelFlag)
+      modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, interruptManager))))
+      modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
+      modules += "synthesis"    -> ModuleContext("termination",  Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
 
       logInfo("New client")
 
     case DoCancel =>
       cancelledWorkers = Set()
-      cancelFlag.set(true)
       logInfo("Starting Cancel Procedure...")
+      interruptManager.interrupt()
       modules.values.foreach(_.actor ! DoCancel)
 
     case Cancelled(wa: WorkerActor)  =>
@@ -669,7 +673,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       logInfo(cancelledWorkers.size+"/"+modules.size+": Worker "+wa.getClass+" notified its cancellation")
       if (cancelledWorkers.size == modules.size) {
         logInfo("All workers got cancelled, resuming normal operations")
-        cancelFlag.set(false)
+        interruptManager.recoverInterrupt()
       }
 
     case NotifyClient(event) =>

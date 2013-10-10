@@ -8,7 +8,7 @@ if [ $# -eq 0 ] ; then
     return;
 fi
 
-LEON_PATH=$1
+LEON_PATH=`readlink -m $1`
 
 echo "Setting up environment for web..."
 echo "LEON_PATH=$LEON_PATH"
