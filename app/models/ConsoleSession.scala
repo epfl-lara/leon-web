@@ -109,6 +109,30 @@ trait BaseActor extends Actor {
 
 }
 
+class WorkerReporter(session: ActorRef) extends Reporter(Settings()) {
+  import ConsoleProtocol.NotifyClient
+
+  def infoFunction(msg: Any) : Unit = {
+    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (msg.toString))))
+  }
+
+  def warningFunction(msg: Any) : Unit = {
+    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> ("Warning: "+msg.toString))))
+  }
+
+  def errorFunction(msg: Any) : Unit = {
+    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> ("Error: "+msg.toString))))
+  }
+
+  def debugFunction(msg: Any) : Unit = {
+    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> ("Debug: "+msg.toString))))
+  }
+
+  def fatalErrorFunction(msg: Any) : Nothing = {
+    sys.error("FATAL: "+msg)
+  }
+}
+
 trait WorkerActor extends BaseActor {
   import ConsoleProtocol._
 
@@ -199,8 +223,8 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
   def doVerify(cstate: CompilationState, funs: Set[FunDef], standalone: Boolean) {
     val verifTimeout = 3000L // 3sec
 
-    val reporter = new MuteReporter
-    var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager)
+    val reporter = new WorkerReporter(session)
+    var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
 
     val solvers = List(SolverFactory(() => new FairZ3Solver(compContext, cstate.program).setTimeout(verifTimeout)))
 
@@ -231,7 +255,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
       val program = cstate.program
-      val reporter = new MuteReporter
+      val reporter = new WorkerReporter(session)
 
       var toGenerate = Set[FunDef]()
       val oldVerifOverView = verifOverview
@@ -326,8 +350,8 @@ class TerminationWorker(val session: ActorRef, interruptManager: InterruptManage
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
 
-      val reporter = new MuteReporter()
-      var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager)
+      val reporter = new WorkerReporter(session)
+      var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager, reporter = reporter)
 
       val tc = new SimpleTerminationChecker(ctx, cstate.program)
 
@@ -372,7 +396,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   def receive = {
     case OnUpdateCode(cstate) =>
       var options = SynthesisOptions().copy(cegisGenerateFunCalls = true)
-      var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager)
+      val reporter = new WorkerReporter(session)
+      var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
       choosesInfo = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
         case ci =>
