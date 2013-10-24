@@ -32,7 +32,7 @@ if [ ! -n "$SCALA_HOME" ]; then
 fi
 
 LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-2.0.jar"
-SCALAZ3_DEP="$LEON_PATH/unmanaged/64/scalaz3_2.10-2.0.jar"
+SCALAZ3_DEP="$LEON_PATH/unmanaged/64/scalaz3-unix-64b-2.1.jar"
 CAFEBABE_DEP="$LEON_PATH/unmanaged/64/cafebabe_2.10-1.2.jar"
 
 if [ ! -f "$LEON_DEP" ]; then
