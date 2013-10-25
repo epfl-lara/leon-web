@@ -553,3 +553,21 @@ div.overlay {
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 9999;
 }
+
+body.beamer #codebox {
+    font-size: 20px;
+    line-height: 25px;
+}
+
+body.beamer #verifyDialog {
+    font-size: 20px;
+}
+
+body.beamer #synthesisDialog {
+    font-size: 20px;
+}
+
+body.beamer .results_table .fname {
+    font-size: 16px;
+    font-weight: bold;
+}

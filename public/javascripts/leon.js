@@ -215,6 +215,7 @@ $(document).ready(function() {
         verification:   {active: true, name: "Verification"},
         synthesis:      {active: true, name: "Synthesis"},
         termination:    {active: false, name: "Termination <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
+        beamer:         {active: false, name: "Beamer"},
     }
 
     var localFeatures = localStorage.getItem("leonFeatures")
@@ -234,7 +235,10 @@ $(document).ready(function() {
 
         drawOverView()
         drawSynthesisOverview()
+        setBeamerMode()
     })
+
+    setBeamerMode()
 
     var overview = {
         modules: {
@@ -408,6 +412,18 @@ $(document).ready(function() {
             $("#synthesis").show()
         } else {
             $("#synthesis").hide()
+        }
+    }
+
+    function setBeamerMode() {
+        if(features["beamer"].active) {
+            $("body").addClass("beamer")
+            $("#codecolumn").removeClass("span8").addClass("span9")
+            $("#actionscolumn").removeClass("span4").addClass("span3")
+        } else {
+            $("body").removeClass("beamer")
+            $("#codecolumn").removeClass("span9").addClass("span8")
+            $("#actionscolumn").removeClass("span3").addClass("span4")
         }
     }
 
