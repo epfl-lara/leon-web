@@ -19,7 +19,7 @@
       </div>
     </div>
     <script>
-        var _leon_websocket_url = "@leon.web.controllers.routes.Application.openConsole().webSocketURL()";
+        var _leon_websocket_url = "@leon.web.controllers.routes.Interface.openConsole().webSocketURL()";
     </script>
 
     <div class="container-fluid">
@@ -52,10 +52,19 @@
                         </table>
                     </div>
                   </div>
+
                   <div id="synthesis" class="action">
                     <h3 class="std-background"><i class="icon-magic"></i> Synthesis</h3>
                     <div class="results_table">
                         <table id="synthesis_table">
+                        </table>
+                    </div>
+                  </div>
+
+                  <div id="execution" class="action">
+                    <h3 class="std-background"><i class="icon-magic"></i> Execution</h3>
+                    <div class="results_table">
+                        <table id="execution_table">
                         </table>
                     </div>
                   </div>

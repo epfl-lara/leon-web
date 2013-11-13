@@ -353,18 +353,87 @@ class TerminationWorker(val session: ActorRef, interruptManager: InterruptManage
       val reporter = new WorkerReporter(session)
       var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager, reporter = reporter)
 
-      val tc = new SimpleTerminationChecker(ctx, cstate.program)
+      try {
+        val tc = new SimpleTerminationChecker(ctx, cstate.program)
+        //val tc = new ComplexTerminationChecker(ctx, cstate.program)
+        //tc.initialize()
 
-      val data = (cstate.program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
-        (funDef -> tc.terminates(funDef))
-      }).toMap
+        val data = (cstate.program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
+          (funDef -> tc.terminates(funDef))
+        }).toMap
 
-      notifyTerminOverview(cstate, data)
+        notifyTerminOverview(cstate, data)
+      } catch {
+        case t: Throwable =>
+          logInfo("[!] Termination crashed!", t)
+
+          val data = (cstate.program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
+            (funDef -> NoGuarantee)
+          }).toMap
+
+          notifyTerminOverview(cstate, data)
+      }
 
     case DoCancel =>
       sender ! Cancelled(this)
 
     case _ =>
+  }
+}
+
+class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
+  import ConsoleProtocol._
+  import leon.codegen._
+  import leon.evaluators._
+
+  val reporter = new WorkerReporter(session)
+  var ctx      = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
+
+  val params = CodeGenParams(maxFunctionInvocations = 5000, checkContracts = true)
+
+  def notifyExecutionOverview(cstate: CompilationState) {
+    if (cstate.isCompiled) {
+      val facts = for (fd <- cstate.program.definedFunctions if fd.args.isEmpty) yield {
+        fd.id.name -> toJson(Map("line" -> fd.posIntInfo._1))
+      }
+
+      event("update_execution_overview", Map("functions" -> toJson(facts.toMap)))
+    }
+
+  }
+
+  def receive = {
+    case OnUpdateCode(cstate) =>
+      notifyExecutionOverview(cstate)
+
+    case DoCancel =>
+      sender ! Cancelled(this)
+
+    case OnClientEvent(cstate, event) =>
+      (event \ "action").as[String] match {
+        case "doExecute" =>
+          val fname = (event \ "fname").as[String]
+
+          val evaluator = new CodeGenEvaluator(ctx, cstate.program, params)
+
+          cstate.program.definedFunctions.find(_.id.name == fname) match {
+            case Some(fd) =>
+              evaluator.eval(FunctionInvocation(fd, List())) match {
+                case EvaluationResults.Successful(v) =>
+                  notifySuccess(v.toString)
+
+                case EvaluationResults.RuntimeError(msg) =>
+                  notifyError("Evaluation failed: "+msg +"")
+
+                case EvaluationResults.EvaluatorError(msg) =>
+                  notifyError("Evaluation failed: "+msg +"")
+              }
+
+            case _ =>
+              notifyError("Function "+fname +" not found :(")
+          }
+
+      }
   }
 }
 
@@ -683,6 +752,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, interruptManager))))
       modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
       modules += "synthesis"    -> ModuleContext("termination",  Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
+      modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
 
       logInfo("New client")
 

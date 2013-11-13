@@ -110,18 +110,18 @@ table#overview_table td.status i.icon-ok-sign {
     color: green;
 }
 
-table#synthesis_table {
+table#execution_table, table#synthesis_table {
     overflow: auto;
 }
 
-table#synthesis_table div.dropdown a[role="button"] {
+table#execution_table div.dropdown a[role="button"], table#synthesis_table div.dropdown a[role="button"] {
     color: black;
 }
-table#synthesis_table td.subproblem {
+table#execution_table td.subproblem, table#synthesis_table td.subproblem {
     padding-left: 10px;
 }
 
-table#synthesis_table td {
+table#execution_table td, table#synthesis_table td {
     overflow: visible;
 }
 .widget_content {

@@ -199,6 +199,7 @@ $(document).ready(function() {
         }
 
         drawSynthesisOverview()
+        drawExecutionOverview()
     }
 
     handlers["compilation"] = function (data) {
@@ -216,11 +217,15 @@ $(document).ready(function() {
         synthesis:      {active: true, name: "Synthesis"},
         termination:    {active: false, name: "Termination <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
         beamer:         {active: false, name: "Beamer"},
+        execution:      {active: false, name: "Execution <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
     }
 
     var localFeatures = localStorage.getItem("leonFeatures")
     if (localFeatures != null) {
-        features = JSON.parse(localFeatures)
+        var locFeatures = JSON.parse(localFeatures)
+        for (var f in locFeatures) {
+            features[f].active = locFeatures[f].active
+        }
     }
 
     var fts = $("#params-action ul")
@@ -235,6 +240,7 @@ $(document).ready(function() {
 
         drawOverView()
         drawSynthesisOverview()
+        drawExecutionOverview()
         setBeamerMode()
     })
 
@@ -349,6 +355,7 @@ $(document).ready(function() {
         }
     }
 
+
     function drawSynthesisOverview() {
         var t = $("#synthesis_table")
         var html = "";
@@ -424,6 +431,64 @@ $(document).ready(function() {
             $("body").removeClass("beamer")
             $("#codecolumn").removeClass("span9").addClass("span8")
             $("#actionscolumn").removeClass("span3").addClass("span4")
+        }
+    }
+
+    var executionOverview = {}
+
+    handlers["update_execution_overview"] = function(data) {
+        console.log("update_execution_overview", data)
+        if (JSON.stringify(executionOverview) != JSON.stringify(data)) {
+            executionOverview = data;
+            drawExecutionOverview();
+        }
+    }
+
+    function drawExecutionOverview() {
+        var t = $("#execution_table")
+        var html = "";
+
+        function addMenu(fname, displayName) {
+            var id = 'menuexec'+fname
+
+            html += ' <div class="dropdown">'
+            html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+displayName+'</a>'
+            html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
+            if (compilationStatus == 1) {
+                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="execute" fname="'+fname+'">Execute</a></li>'
+            } else {
+                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="icon-exclamation"></i> Not compiled</a></li>'
+            }
+
+            html += '  </ul>'
+            html += ' </div>'
+        }
+
+        var data = executionOverview
+
+        for (var f in data.functions) {
+            var sp = data.functions[f]
+            html += "<tr><td class=\"fname problem hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\">"
+            addMenu(f, overview.functions[f].displayName)
+            html += "</td></tr>"
+        }
+
+        t.html(html);
+
+        $("#execution_table li a[action=\"execute\"]").click(function() {
+            var fname = $(this).attr("fname")
+
+            var msg = JSON.stringify(
+              {action: "doExecute", module: "execution",  fname: fname}
+            )
+
+            leonSocket.send(msg)
+        })
+
+        if (data.functions && Object.keys(data.functions).length > 0 && features["execution"].active) {
+            $("#execution").show()
+        } else {
+            $("#execution").hide()
         }
     }
 
