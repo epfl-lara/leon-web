@@ -14,19 +14,18 @@ $(document).ready(function() {
     var headerHeight = $("#title").height()+20
 
     var mode = "normal"
-    function togglePresentationMode() {
+
+    function toggleMenuDisplay() {
         if (mode == "normal") {
             $("#actionscolumn").hide()
             $("#codecolumn").removeClass("span8").addClass("span12")
 
             mode = "presentation"
-            //$("#button-menu span.label").html("Show menu")
         } else {
             $("#codecolumn").removeClass("span12").addClass("span8")
             $("#actionscolumn").show()
 
             mode = "normal"
-            //$("#button-menu span.label").html("Hide menu")
         }
         resizeEditor()
     }
@@ -44,18 +43,6 @@ $(document).ready(function() {
             $(this).removeClass("disabled")
         }
 
-    });
-
-    $("#button-menu").click(function(event) {
-        togglePresentationMode()
-        if (mode == "presentation") {
-            $(this).addClass("disabled")
-            $("#button-console").hide()
-        } else {
-            $(this).removeClass("disabled")
-            $("#button-console").show()
-        }
-        event.preventDefault()
     });
 
     $("#button-save").click(function(event) {
@@ -236,7 +223,16 @@ $(document).ready(function() {
     $(".feature").click(function () {
         var f = $(this).attr("ref")
         features[f].active = !features[f].active
+
+        var msg = JSON.stringify(
+          {action: "featureSet", module: "main", feature: f, active: features[f].active}
+        )
+        leonSocket.send(msg)
+
+
         localStorage.setItem("leonFeatures", JSON.stringify(features));
+
+        recompile()
 
         drawOverView()
         drawSynthesisOverview()
@@ -432,6 +428,7 @@ $(document).ready(function() {
             $("#codecolumn").removeClass("span9").addClass("span8")
             $("#actionscolumn").removeClass("span3").addClass("span4")
         }
+        resizeEditor()
     }
 
     var executionOverview = {}
@@ -761,12 +758,19 @@ $(document).ready(function() {
             tbl.append("<tr class=\""+((i%2 == 0) ? "odd " : "")+vc.status+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"icon-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
 
             if ("counterExample" in vc) {
-                var html = "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example\"><td colspan=\"4\"><div><div>The following valuation violates the VC:</div><table>";
+                var html = "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example input\"><td colspan=\"4\"><div><p>The following inputs violate the VC:</p><div><table>";
 
                 for (var v in vc.counterExample) {
                     html += "<tr><td>"+v+"</td><td>&nbsp;:=&nbsp;</td><td>"+vc.counterExample[v]+"</td></tr>";
                 }
-                html += "</div></td></tr></table>"
+                html += "</table></div></td></tr>"
+                    
+                if ("execution" in vc && vc.execution.result == "success" && features["execution"].active) {
+                    html += "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example output\"><td colspan=\"4\"><div><p>It produced the following output:</p>";
+                    html += "<div>"+vc.execution.output+"</div>"
+                    html += "</div></td></tr>"
+                }
+
 
                 tbl.append(html)
             }
@@ -824,6 +828,14 @@ $(document).ready(function() {
                 window.location.hash = "";
             }
         } else {
+            for (var f in features) {
+                var msg = JSON.stringify(
+                  {action: "featureSet", module: "main", feature: f, active: features[f].active}
+                )
+
+                leonSocket.send(msg)
+            }
+
             recompile()
         }
     }
@@ -1265,4 +1277,12 @@ $(document).ready(function() {
         editor.selection.clearSelection();
         editor.gotoLine(0);
     }
+
+    snowStorm.snowColor = '#ddddff';
+    snowStorm.vMaxX = 2;
+    snowStorm.vMaxY = 2;
+    snowStorm.useTwinkleEffect = false;
+    snowStorm.flakesMinActive = 350;
+    snowStorm.flakesMaxActive = 350;
+    snowStorm.followMouse = false;
 });

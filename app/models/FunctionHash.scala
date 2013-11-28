@@ -7,7 +7,7 @@ import leon.purescala.EquivalencePrettyPrinter
 case class FunctionHash(fd: FunDef) {
   val v = {
     val pp = new EquivalencePrettyPrinter()
-    pp.pp(fd, 0)
+    pp.pp(fd)(0)
     pp.toString
   }
 

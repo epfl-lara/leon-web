@@ -143,9 +143,32 @@ trait WorkerActor extends BaseActor {
 
 class VerificationWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
+  import leon.evaluators._
+  import leon.codegen._
 
   var verifCrashed   = false
   var verifOverview  = Map[FunDef, List[VerificationCondition]]()
+  var ceExecResults  = Map[VerificationCondition, EvaluationResults.Result]()
+
+  def evrToJson(er: EvaluationResults.Result): JsValue = er match {
+    case EvaluationResults.Successful(ex) =>
+      toJson(Map(
+        "result" -> toJson("success"),
+        "output" -> toJson(ScalaPrinter(ex))
+      ))
+
+    case EvaluationResults.RuntimeError(msg) =>
+      toJson(Map(
+        "result" -> toJson("error"),
+        "error" -> toJson(msg)
+      ))
+
+    case EvaluationResults.EvaluatorError(msg) =>
+      toJson(Map(
+        "result" -> toJson("error"),
+        "error" -> toJson(msg)
+      ))
+  }
 
   def vcToJson(cstate: CompilationState, vc: VerificationCondition): JsValue = {
     def ceToJson(ce: Map[Identifier, Expr]): JsValue = {
@@ -162,7 +185,12 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
     vc.counterExample match {
       case Some(ce) =>
-        toJson(base + ("counterExample" -> ceToJson(ce)))
+        ceExecResults.get(vc) match {
+          case Some(er) =>
+            toJson(base + ("counterExample" -> ceToJson(ce), "execution" -> evrToJson(er)))
+          case _ =>
+            toJson(base + ("counterExample" -> ceToJson(ce)))
+        }
       case None =>
         toJson(base)
     }
@@ -234,6 +262,9 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       case (fd, vcs) if funs(fd) => fd -> vcs
     }
 
+    val params = CodeGenParams(maxFunctionInvocations = 5000, checkContracts = false)
+    val evaluator = new CodeGenEvaluator(compContext, cstate.program, params)
+
     try {
       verifCrashed = false
       val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
@@ -242,6 +273,15 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       for ((f, vcs) <- report.fvcs) {
         verifOverview += f -> vcs
+
+        for (vc <- vcs if vc.kind == VCKind.Postcondition) vc.counterExample match {
+          case Some(ce) =>
+            val callExpr = FunctionInvocation(vc.funDef, vc.funDef.args.map(ad => ce(ad.id)))
+            ceExecResults += vc -> evaluator.eval(callExpr)
+
+          case _ =>
+            ceExecResults -= vc
+        }
       }
     } catch {
       case t: Throwable =>
@@ -326,6 +366,9 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         case action =>
           notifyError("Received unknown action: "+action)
       }
+
+    case _ =>
+
   }
 }
 
@@ -353,12 +396,14 @@ class TerminationWorker(val session: ActorRef, interruptManager: InterruptManage
       val reporter = new WorkerReporter(session)
       var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager, reporter = reporter)
 
-      try {
-        val tc = new SimpleTerminationChecker(ctx, cstate.program)
-        //val tc = new ComplexTerminationChecker(ctx, cstate.program)
-        //tc.initialize()
+      val program = cstate.program//.duplicate
 
-        val data = (cstate.program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
+      try {
+        //val tc = new SimpleTerminationChecker(ctx, cstate.program)
+        val tc = new ComplexTerminationChecker(ctx, program)
+        tc.initialize()
+
+        val data = (program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
           (funDef -> tc.terminates(funDef))
         }).toMap
 
@@ -367,7 +412,7 @@ class TerminationWorker(val session: ActorRef, interruptManager: InterruptManage
         case t: Throwable =>
           logInfo("[!] Termination crashed!", t)
 
-          val data = (cstate.program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
+          val data = (program.definedFunctions.toList.sortWith(_ < _).map { funDef =>
             (funDef -> NoGuarantee)
           }).toMap
 
@@ -434,6 +479,8 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
           }
 
       }
+
+    case _ =>
   }
 }
 
@@ -500,6 +547,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
           doSearch(cstate, fname, chooseId)
       }
+
+    case _ =>
   }
 
   def doApplyRule(cstate: CompilationState, fname: String, cid: Int, rid: Int) {
@@ -736,7 +785,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
     chooses = Map()
   }
 
-  case class ModuleContext(name: String, actor: ActorRef)
+  case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
 
   var modules = Map[String, ModuleContext]()
   var cancelledWorkers = Set[WorkerActor]()
@@ -751,7 +800,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
       modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, interruptManager))))
       modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
-      modules += "synthesis"    -> ModuleContext("termination",  Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
+      modules += "synthesis"    -> ModuleContext("synthesis",    Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
       modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
 
       logInfo("New client")
@@ -792,10 +841,24 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
               case "accessPermaLink" =>
                 self ! AccessPermaLink((event \ "link").as[String])
+
+              case "featureSet" =>
+                val f      = (event \ "feature").as[String]
+                val active = (event \ "active").as[Boolean]
+
+                if (modules contains f) {
+                  if (active) {
+                    modules(f).isActive = true
+                  } else {
+                    modules(f).isActive = false
+                  }
+                }
             }
 
           case m if modules contains m =>
-            modules(m).actor ! OnClientEvent(lastCompilationState, event)
+            if (modules(m).isActive) {
+              modules(m).actor ! OnClientEvent(lastCompilationState, event)
+            }
 
           case m =>
             notifyError("Module "+m+" not available.")
@@ -872,13 +935,14 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
           notifyAnnotations(Seq())
 
-          modules.values.foreach (_.actor ! OnUpdateCode(cstate))
+          modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
 
         } catch {
           case t: Throwable =>
             chooses = Map()
 
             logInfo("Compilation failed: "+t.getMessage)
+            t.printStackTrace
             for ((l,e) <- compReporter.errors) {
               logInfo("  "+e.mkString("\n  "))
             }

@@ -34,6 +34,8 @@ object ConsoleProtocol {
   case class OnUpdateCode(cstate: CompilationState)
   case class OnClientEvent(cstate: CompilationState, event: JsValue)
   case class NotifyClient(event: JsValue)
+  case object Enable
+  case object Disable
 
   case object Quit
 }

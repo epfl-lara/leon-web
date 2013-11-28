@@ -10,6 +10,10 @@ body {
     height: 100%;
 }
 
+body.beamer #codebox.ace_editor {
+    font-size: 18px;
+}
+
 .std-background {
     background: #000050 !important;
 }
@@ -459,20 +463,25 @@ tr.empty > td > div {
     text-align: center;
     border: 1px solid #ccc;
     padding: 10px;
-    pc+margin: 5px;
+    margin: 5px;
 }
 
 tr.counter-example > td > div {
+    text-align: left;
+    padding: 10px;
+}
+
+tr.counter-example > td > div > div {
     -webkit-border-radius: 5px;
     -moz-border-radius: 5px;
     border-radius: 5px;
 
-    text-align: left;
+    text-align: center;
+    margin: 5px;
+    padding: 5px;
 
     background: #EDEDA8;
     border: 1px solid #B5B505;
-    padding: 10px;
-    margin: 5px;
 }
 
 tr.counter-example table {
@@ -552,22 +561,4 @@ div.overlay {
     left: 0;
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 9999;
-}
-
-body.beamer #codebox {
-    font-size: 20px;
-    line-height: 25px;
-}
-
-body.beamer #verifyDialog {
-    font-size: 20px;
-}
-
-body.beamer #synthesisDialog {
-    font-size: 20px;
-}
-
-body.beamer .results_table .fname {
-    font-size: 16px;
-    font-weight: bold;
 }
