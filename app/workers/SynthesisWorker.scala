@@ -10,6 +10,7 @@ import leon.utils._
 import leon.purescala.ScalaPrinter
 import leon.synthesis._
 import leon.purescala.Common._
+import leon.purescala.TreeOps._
 import leon.purescala.Definitions._
 
 class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
@@ -24,8 +25,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           Map(
             "description" -> toJson("Problem #"+(i+1)),
             "problem" -> toJson(ci.problem.toString),
-            "line" -> toJson(ci.ch.posIntInfo._1),
-            "column" -> toJson(ci.ch.posIntInfo._2),
+            "line" -> toJson(ci.ch.getPos.line),
+            "column" -> toJson(ci.ch.getPos.col),
             "index" -> toJson(i)
           )
         }
@@ -128,10 +129,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           solution match {
             case Some(sol) =>
               val solCode = sol.toSimplifiedExpr(ctx, prog)
-              val chToSol = Map(ci -> solCode)
               val fInt = new FileInterface(new MuteReporter())
 
-              val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
+              val allCode = fInt.substitute(cstate.code.getOrElse(""),
+                                            ci.ch,
+                                            solCode)
 
               val (closed, total) = search.g.getStatus
 
@@ -244,10 +246,19 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               }
 
               val solCode = newSol.toSimplifiedExpr(ctx, prog)
-              val chToSol = Map(ci -> solCode)
               val fInt = new FileInterface(new MuteReporter())
 
-              val allCode = fInt.substitueChooses(cstate.code.getOrElse(""), chToSol, true)
+
+              val oldFd = ci.fd
+              val newFd = ci.fd.duplicate
+              newFd.body = newFd.body.map(b => replace(Map(ci.ch -> solCode), b))
+
+              val resFd = flattenFunctions(newFd)
+              println(ScalaPrinter(resFd))
+
+              val allCode = fInt.substitute(cstate.code.getOrElse(""),
+                                            oldFd,
+                                            resFd)
 
               val (closed, total) = search.g.getStatus
 

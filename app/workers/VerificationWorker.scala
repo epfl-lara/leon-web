@@ -111,7 +111,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       }
     }
 
-    val fvcs = toJson(verifResults.toSeq.sortWith{ (a,b) => a._1 < b._1 }.map{ case (fd, fv) =>
+    val fvcs = toJson(verifResults.toSeq.sortWith{ (a,b) => a._1.getPos < b._1.getPos }.map{ case (fd, fv) =>
       val v = toJson(Map(
         "status" -> toJson(fv.status),
         "time" -> toJson(fv.totalTime),

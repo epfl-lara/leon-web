@@ -17,10 +17,11 @@ import akka.pattern.ask
 
 import play.api.Play.current
 
-import leon.plugin._
+import leon.frontends.scalac._
 import leon.xlang._
-import leon.purescala._
+import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
+import leon.purescala._
 
 import leon.web.workers._
 
@@ -221,12 +222,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
   def notifyMainOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
-      val facts = for (fd <- cstate.program.definedFunctions.toList.sortWith(_ < _)) yield {
+      val facts = for (fd <- cstate.program.definedFunctions.toList.sortWith(_.getPos < _.getPos)) yield {
         toJson(Map(
           "name"        -> toJson(fd.id.name),
           "displayName" -> toJson(fd.orig.getOrElse(fd).id.name),
-          "line"        -> toJson(fd.posIntInfo._1),
-          "column"      -> toJson(fd.posIntInfo._2)
+          "line"        -> toJson(fd.getPos.line),
+          "column"      -> toJson(fd.getPos.col)
         ))
       }
 

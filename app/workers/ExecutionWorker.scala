@@ -22,7 +22,7 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
   def notifyExecutionOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
       val facts = for (fd <- cstate.program.definedFunctions if fd.args.isEmpty) yield {
-        fd.id.name -> toJson(Map("line" -> fd.posIntInfo._1))
+        fd.id.name -> toJson(Map("line" -> fd.getPos.line))
       }
 
       event("update_execution_overview", Map("functions" -> toJson(facts.toMap)))

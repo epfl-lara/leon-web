@@ -6,9 +6,7 @@ import leon.purescala.EquivalencePrettyPrinter
 
 case class FunctionHash(fd: FunDef) {
   val v = {
-    val pp = new EquivalencePrettyPrinter()
-    pp.pp(fd)(0)
-    pp.toString
+    EquivalencePrettyPrinter(fd)
   }
 
   override def equals(o: Any): Boolean = {

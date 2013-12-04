@@ -2,8 +2,11 @@ var editor = null;
 
 $(document).ready(function() {
     editor = ace.edit("codebox");
+    editor.setTheme("ace/theme/chrome");
     editor.getSession().setMode("ace/mode/scala")
     editor.getSession().setUseWrapMode(true)
+    editor.setShowPrintMargin(false);
+    editor.setAutoScrollEditorIntoView();
     editor.getSession().setTabSize(2)
 
     var hash = window.location.hash
@@ -1285,4 +1288,5 @@ $(document).ready(function() {
     snowStorm.flakesMinActive = 350;
     snowStorm.flakesMaxActive = 350;
     snowStorm.followMouse = false;
+    snowStorm.stop();
 });
