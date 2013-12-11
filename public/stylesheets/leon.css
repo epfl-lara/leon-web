@@ -15,7 +15,7 @@ body.beamer #codebox.ace_editor {
 }
 
 body #codebox.ace_editor {
-    font-size: 18px;
+    font-size: 16px;
 }
 
 body#leon {
@@ -122,18 +122,18 @@ table#overview_table td.status i.icon-ok-sign {
     color: green;
 }
 
-table#execution_table, table#synthesis_table {
+table#synthesis_table {
     overflow: auto;
 }
 
-table#execution_table div.dropdown a[role="button"], table#synthesis_table div.dropdown a[role="button"] {
+table#synthesis_table div.dropdown a[role="button"] {
     color: black;
 }
-table#execution_table td.subproblem, table#synthesis_table td.subproblem {
+table#synthesis_table td.subproblem {
     padding-left: 10px;
 }
 
-table#execution_table td, table#synthesis_table td {
+table#synthesis_table td {
     overflow: visible;
 }
 .widget_content {
@@ -565,4 +565,23 @@ div.overlay {
     left: 0;
     background-color: rgba(0, 0, 0, 0.5);
     z-index: 9999;
+}
+
+.ace_marker-layer .leon-explore-location {
+    background: rgba(255, 0, 0, 0.07);
+    position: absolute;
+    z-index: 2;
+}
+
+div#codebox .tooltip-inner {
+    max-width: 600px;
+    padding: 1px 3px;
+}
+
+div#codebox .tooltip {
+    position: fixed;
+}
+div#codebox .tooltip.in{
+    opacity: 0.8;
+    filter: alpha(opacity=80);
 }

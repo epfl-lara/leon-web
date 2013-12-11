@@ -2,12 +2,16 @@ var editor = null;
 
 $(document).ready(function() {
     editor = ace.edit("codebox");
+    var aceRange = ace.require("ace/range").Range;
+    ace.require("ace/token_tooltip");
     editor.setTheme("ace/theme/chrome");
     editor.getSession().setMode("ace/mode/scala")
     editor.getSession().setUseWrapMode(true)
     editor.setShowPrintMargin(false);
     editor.setAutoScrollEditorIntoView();
+    editor.setHighlightActiveLine(false);
     editor.getSession().setTabSize(2)
+
 
     var hash = window.location.hash
 
@@ -33,10 +37,174 @@ $(document).ready(function() {
         resizeEditor()
     }
 
+    var lastRange = null;
+    var lastProcessedRange = null;
+    var lastDisplayedRange = null;
+
+    var explorationFacts = [
+        {range: new aceRange(8, 2, 8, 10), res: "Yay"},
+        {range: new aceRange(9, 6, 9, 10), res: "Yay2"},
+    ];
+
+    var lastMarker = -1;
+
+    function updateExplorationFacts(newResults) {
+        lastRange = null;
+        lastProcessedRange = null;
+
+        hideHighlight();
+
+        lastMarker = -1
+
+        console.log("New Exploration facts: ");
+        explorationFacts = [];
+        for (i in newResults) {
+            var n = newResults[i];
+
+            explorationFacts[i] = {
+                range: new aceRange(n.fromRow, n.fromColumn, n.toRow, n.toColumn),
+                res: n.result
+            };
+
+            console.log(" - "+explorationFacts[i].range.toString()+"   -->   "+n.result)
+        }
+
+        displayExplorationFacts()
+    }
+
+    function hideHighlight() {
+        if (lastMarker > 0) {
+            editor.getSession().removeMarker(lastMarker);
+            $(".leon-explore-location.ace_start").tooltip("destroy");
+            lastMarker = 0;
+        }
+        lastDisplayedRange = null;
+    }
+
+    function rangeScore(start, end) {
+        if (start.row == end.row) {
+            return (end.row - start.row)*80 + end.column - start.column;
+        } else {
+            return (end.row - start.row)*80 + end.column - start.column;
+        }
+    }
+
+    function displayExplorationFacts() {
+        if (features["execution"].active) {
+            var lastRange = editor.selection.getRange();
+
+            if (!lastProcessedRange || !lastRange.isEqual(lastProcessedRange)) {
+                var maxScore = 0
+                var maxRes = null
+
+                for(i in explorationFacts) {
+                    var r = explorationFacts[i];
+
+                    var score = 0;
+
+                    var cmp = lastRange.compareRange(r.range)
+
+                    var found = ((cmp >= -1) && (cmp <= 1));
+
+                    if (cmp == -1) {
+                        var match_s = lastRange.start
+                        var match_e = r.range.end
+                        var before_s = r.range.start
+                        var after_e = lastRange.end
+
+                        score = rangeScore(match_s, match_e) -
+                                rangeScore(before_s, match_s) -
+                                rangeScore(match_e, after_e);
+
+                    } else if (cmp == 0) {
+                        if (lastRange.containsRange(r.range)) {
+                            var match_s = r.range.start
+                            var match_e = r.range.end
+                            var before_s = lastRange.start
+                            var after_e = lastRange.end
+
+                            score = rangeScore(match_s, match_e) -
+                                    rangeScore(before_s, match_s) -
+                                    rangeScore(match_e, after_e);
+                        } else {
+                            var match_s = lastRange.start
+                            var match_e = lastRange.end
+                            var before_s = r.range.start
+                            var after_e = r.range.end
+
+                            score = rangeScore(match_s, match_e) -
+                                    rangeScore(before_s, match_s) -
+                                    rangeScore(match_e, after_e);
+                        }
+                    } else if (cmp == 1) {
+                        var match_s = r.range.start
+                        var match_e = lastRange.end
+                        var before_s = lastRange.start
+                        var after_e = r.range.end
+
+                        score = rangeScore(match_s, match_e) -
+                                rangeScore(before_s, match_s) -
+                                rangeScore(match_e, after_e);
+                    }
+
+                    if (found && (maxRes === null || maxScore < score)) {
+                        maxScore = score
+                        maxRes = r
+                    }
+                }
+
+                if (maxRes !== null) {
+                    showHighlight(maxRes.range, maxRes.res)
+                } else {
+                    hideHighlight();
+                }
+            }
+
+            lastProcessedRange = lastRange
+        }
+    }
+
+    $("#codecolumn").mouseup(function() {
+        displayExplorationFacts();
+    })
+
+    $("#codecolumn").keyup(function() {
+        displayExplorationFacts();
+    })
+
+    function updateExplorationHighlights() {
+        if (compilationStatus != 1) {
+            explorationFacts = [];
+            hideHighlight();
+        }
+    }
+
+    function showHighlight(range, content) {
+        if (range != lastDisplayedRange) {
+            if (lastMarker > 0) {
+                editor.getSession().removeMarker(lastMarker);
+                $(".leon-explore-location.ace_start").tooltip("destroy");
+            }
+
+            lastDisplayedRange = range;
+
+            lastMarker = editor.getSession().addMarker(range, "leon-explore-location", "text", true);
+
+            setTimeout(function() {
+                $(".leon-explore-location.ace_start").tooltip({
+                    title: content,
+                    container: "#codebox",
+                    placement: "top",
+                    trigger: "manual"
+                })
+                $(".leon-explore-location.ace_start").tooltip("show");
+            }, 50);
+        }
+    }
+
     $(".menu-button").click(function(event) {
         var target = $(this).attr("ref")
         var sel = "#"+target
-        console.log(sel)
 
         if ($(sel).is(":visible")) {
             $(sel).hide()
@@ -188,13 +356,11 @@ $(document).ready(function() {
             alert("Unknown status: "+status)
         }
 
+        updateExplorationHighlights();
         drawSynthesisOverview()
-        drawExecutionOverview()
     }
 
     handlers["compilation"] = function (data) {
-        console.log(data)
-
         if(data.status == "success") {
             updateCompilationStatus("success")
         } else {
@@ -239,7 +405,6 @@ $(document).ready(function() {
 
         drawOverView()
         drawSynthesisOverview()
-        drawExecutionOverview()
         setBeamerMode()
     })
 
@@ -328,7 +493,6 @@ $(document).ready(function() {
     }
 
     handlers["update_overview"] = function(data) {
-        console.log("update_overview", data)
         if (data.module == "main") {
             overview.functions = {};
 
@@ -347,7 +511,6 @@ $(document).ready(function() {
     var synthesisOverview = {}
 
     handlers["update_synthesis_overview"] = function(data) {
-        console.log("update_synthesis_overview", data)
         if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
             synthesisOverview = data;
             drawSynthesisOverview();
@@ -434,62 +597,8 @@ $(document).ready(function() {
         resizeEditor()
     }
 
-    var executionOverview = {}
-
-    handlers["update_execution_overview"] = function(data) {
-        console.log("update_execution_overview", data)
-        if (JSON.stringify(executionOverview) != JSON.stringify(data)) {
-            executionOverview = data;
-            drawExecutionOverview();
-        }
-    }
-
-    function drawExecutionOverview() {
-        var t = $("#execution_table")
-        var html = "";
-
-        function addMenu(fname, displayName) {
-            var id = 'menuexec'+fname
-
-            html += ' <div class="dropdown">'
-            html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+displayName+'</a>'
-            html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
-            if (compilationStatus == 1) {
-                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="execute" fname="'+fname+'">Execute</a></li>'
-            } else {
-                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="icon-exclamation"></i> Not compiled</a></li>'
-            }
-
-            html += '  </ul>'
-            html += ' </div>'
-        }
-
-        var data = executionOverview
-
-        for (var f in data.functions) {
-            var sp = data.functions[f]
-            html += "<tr><td class=\"fname problem hovertoline\" line=\""+sp.line+"\" fname=\""+f+"\">"
-            addMenu(f, overview.functions[f].displayName)
-            html += "</td></tr>"
-        }
-
-        t.html(html);
-
-        $("#execution_table li a[action=\"execute\"]").click(function() {
-            var fname = $(this).attr("fname")
-
-            var msg = JSON.stringify(
-              {action: "doExecute", module: "execution",  fname: fname}
-            )
-
-            leonSocket.send(msg)
-        })
-
-        if (data.functions && Object.keys(data.functions).length > 0 && features["execution"].active) {
-            $("#execution").show()
-        } else {
-            $("#execution").hide()
-        }
+    handlers["update_exploration_facts"] = function(data) {
+        updateExplorationFacts(data.newFacts);
     }
 
     function drawOverView() {
@@ -783,7 +892,6 @@ $(document).ready(function() {
             tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
         }
 
-
         $("div[aria-describedby='verifyDialog'] span.ui-button-text").html("Close")
         $("#verifyResults").show("fade");
 
@@ -931,7 +1039,6 @@ $(document).ready(function() {
               {action: "doUpdateCode", module: "main", code: currentCode}
             )
             oldCode = currentCode;
-            console.log("recompiling")
             lastSavedChange = lastChange;
             updateSaveButton();
             leonSocket.send(msg)
@@ -993,14 +1100,8 @@ $(document).ready(function() {
         readOnly: true
     });
 
-    editor.commands.addCommand({
-        name: 'verify',
-        bindKey: {win: 'Alt-V',  mac: 'Alt-V'},
-        exec: function(editor) {
-            verifyCurrentFun()
-        },
-        readOnly: true
-    });
+    editor.commands.removeCommand('replace');
+    editor.commands.removeCommand('transposeletters');
 
     editorSession.on('change', function(e) {
         lastChange = new Date().getTime();
@@ -1186,7 +1287,7 @@ $(document).ready(function() {
                 })
 
                 $("#demoPane button[demo-action=\"next\"]").click(function() {
-                    console.log("NExting..");
+                    console.log("Nexting..");
                     hideDemo(id)
                     action = "next"
                 })

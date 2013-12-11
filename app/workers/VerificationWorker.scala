@@ -111,6 +111,20 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       }
     }
 
+    val allCEs = verifOverview.flatMap { case (fd, vcs) =>
+      vcs.find(_.counterExample.isDefined) match {
+        case Some(vc) =>
+          val ce = vc.counterExample.get
+
+          Some(vc.funDef -> vc.funDef.args.map(ad => ce(ad.id)))
+
+        case None =>
+          None
+      }
+    }.toMap
+
+    sender ! DispatchTo("execution", NewCounterExamples(cstate, allCEs))
+
     val fvcs = toJson(verifResults.toSeq.sortWith{ (a,b) => a._1.getPos < b._1.getPos }.map{ case (fd, fv) =>
       val v = toJson(Map(
         "status" -> toJson(fv.status),
@@ -226,17 +240,11 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         case "doVerify" =>
           val fname = (event \ "fname").as[String]
 
-          val realfname = fname
-          //val realfname = cstate.program.declaredFun.find(_._1.id.name == fname) match {
-          //  case Some((fd1, fd2)) => fd2.id.name
-          //  case None => fname
-          //}
-
-          verifOverview.keySet.find(_.id.name == realfname) match {
+          verifOverview.keySet.find(_.id.name == fname) match {
             case Some(fd) =>
               doVerify(cstate, Set(fd) ++ cstate.innerFunctionsOf(fd), true)
             case None =>
-              logInfo("Function "+fname+" ~ "+realfname+" not found!")
+              logInfo("Function "+fname+" not found!")
           }
 
         case action =>

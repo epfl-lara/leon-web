@@ -132,6 +132,13 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           notifyError("Could not process event: "+t.getMessage)
       }
 
+    case DispatchTo(m: String, msg: Any) =>
+      modules.get(m) match {
+        case Some(m) if m.isActive =>
+          m.actor ! msg
+        case _ =>
+      }
+
     case StorePermaLink(code) =>
       Permalink.store(code) match {
         case Some(link) =>
@@ -162,16 +169,17 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         try {
           val pgm = pipeline.run(compContext)((code, Nil))
 
-          val pgm1 = ArrayTransformation(compContext, pgm)
-          val pgm2 = EpsilonElimination(compContext, pgm1)
-          val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
-          val program = FunctionClosure.run(compContext)(pgm3)
+          //val pgm1 = ArrayTransformation(compContext, pgm)
+          //val pgm2 = EpsilonElimination(compContext, pgm1)
+          //val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
+          //val program = FunctionClosure.run(compContext)(pgm3)
+          val program = pgm
 
           val cstate = CompilationState(
             optProgram = Some(program),
             code = Some(code),
             compResult = "success",
-            wasLoop = wasLoop
+            wasLoop = Set()
           )
 
           lastCompilationState = cstate

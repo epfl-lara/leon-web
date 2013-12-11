@@ -6,6 +6,8 @@ import workers.WorkerActor
 import play.api.libs.json._
 import play.api.libs.iteratee._
 import leon.synthesis.Solution
+import leon.purescala.Definitions._
+import leon.purescala.Trees._
 
 object ConsoleProtocol {
   case object Init
@@ -29,6 +31,10 @@ object ConsoleProtocol {
   case class VerificationDoManualVerify(fname: String)
   case class VerificationDoVerify(fnames: Set[String], standalone: Boolean)
   case object VerificationDone
+
+  case class NewCounterExamples(cstate: CompilationState, ces: Map[FunDef, Seq[Expr]])
+
+  case class DispatchTo(module: String, msg: Any)
 
   case object Stop
 
