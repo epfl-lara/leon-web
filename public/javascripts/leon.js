@@ -81,6 +81,10 @@ $(document).ready(function() {
         lastDisplayedRange = null;
     }
 
+    editor.getSession().on("changeScrollTop", function() {
+        hideHighlight();
+    });
+
     function rangeScore(start, end) {
         if (start.row == end.row) {
             return (end.row - start.row)*80 + end.column - start.column;
