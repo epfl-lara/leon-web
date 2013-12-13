@@ -4,22 +4,22 @@ import leon.Utils._
 object ListOperations {
     sealed abstract class List
     case class Cons(head: Int, tail: List) extends List
-    case class Nil() extends List
+    case object Nil extends List
 
     sealed abstract class IntPairList
     case class IPCons(head: IntPair, tail: IntPairList) extends IntPairList
-    case class IPNil() extends IntPairList
+    case object IPNil extends IntPairList
 
     sealed abstract class IntPair
     case class IP(fst: Int, snd: Int) extends IntPair
 
     def size(l: List) : Int = (l match {
-        case Nil() => 0
+        case Nil => 0
         case Cons(_, t) => 1 + size(t)
     }) ensuring(res => res >= 0)
 
     def iplSize(l: IntPairList) : Int = (l match {
-      case IPNil() => 0
+      case IPNil => 0
       case IPCons(_, xs) => 1 + iplSize(xs)
     }) ensuring(_ >= 0)
 
@@ -29,7 +29,7 @@ object ListOperations {
       require(size(l1) == size(l2))
 
       l1 match {
-        case Nil() => IPNil()
+        case Nil => IPNil
         case Cons(x, xs) => l2 match {
           case Cons(y, ys) => IPCons(IP(x, y), zip(xs, ys))
         }
@@ -40,7 +40,7 @@ object ListOperations {
     def sizeTailRecAcc(l: List, acc: Int) : Int = {
      require(acc >= 0)
      l match {
-       case Nil() => acc
+       case Nil => acc
        case Cons(_, xs) => sizeTailRecAcc(xs, acc+1)
      }
     } ensuring(res => res == size(l) + acc)
@@ -50,7 +50,7 @@ object ListOperations {
     } holds
 
     def content(l: List) : Set[Int] = l match {
-      case Nil() => Set.empty[Int]
+      case Nil => Set.empty[Int]
       case Cons(x, xs) => Set(x) ++ content(xs)
     }
 
@@ -59,23 +59,23 @@ object ListOperations {
     } holds
     
     def drunk(l : List) : List = (l match {
-      case Nil() => Nil()
+      case Nil => Nil
       case Cons(x,l1) => Cons(x,Cons(x,drunk(l1)))
     }) ensuring (size(_) == 2 * size(l))
 
-    def reverse(l: List) : List = reverse0(l, Nil()) ensuring(content(_) == content(l))
+    def reverse(l: List) : List = reverse0(l, Nil) ensuring(content(_) == content(l))
     def reverse0(l1: List, l2: List) : List = (l1 match {
-      case Nil() => l2
+      case Nil => l2
       case Cons(x, xs) => reverse0(xs, Cons(x, l2))
     }) ensuring(content(_) == content(l1) ++ content(l2))
 
     def append(l1 : List, l2 : List) : List = (l1 match {
-      case Nil() => l2
+      case Nil => l2
       case Cons(x,xs) => Cons(x, append(xs, l2))
     }) ensuring(content(_) == content(l1) ++ content(l2))
 
     @induct
-    def nilAppend(l : List) : Boolean = (append(l, Nil()) == l) holds
+    def nilAppend(l : List) : Boolean = (append(l, Nil) == l) holds
 
     @induct
     def appendAssoc(xs : List, ys : List, zs : List) : Boolean =
@@ -91,14 +91,14 @@ object ListOperations {
 
     @induct
     def concat(l1: List, l2: List) : List = 
-      concat0(l1, l2, Nil()) ensuring(content(_) == content(l1) ++ content(l2))
+      concat0(l1, l2, Nil) ensuring(content(_) == content(l1) ++ content(l2))
 
     @induct
     def concat0(l1: List, l2: List, l3: List) : List = (l1 match {
-      case Nil() => l2 match {
-        case Nil() => reverse(l3)
+      case Nil => l2 match {
+        case Nil => reverse(l3)
         case Cons(y, ys) => {
-          concat0(Nil(), ys, Cons(y, l3))
+          concat0(Nil, ys, Cons(y, l3))
         }
       }
       case Cons(x, xs) => concat0(xs, l2, Cons(x, l3))

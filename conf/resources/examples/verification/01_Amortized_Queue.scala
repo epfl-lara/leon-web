@@ -4,18 +4,18 @@ import leon.Annotations._
 object AmortizedQueue {
   sealed abstract class List
   case class Cons(head : Int, tail : List) extends List
-  case class Nil() extends List
+  case object Nil extends List
 
   sealed abstract class AbsQueue
   case class Queue(front : List, rear : List) extends AbsQueue
 
   def size(list : List) : Int = (list match {
-    case Nil() => 0
+    case Nil => 0
     case Cons(_, xs) => 1 + size(xs)
   }) ensuring(_ >= 0)
 
   def content(l: List) : Set[Int] = l match {
-    case Nil() => Set.empty[Int]
+    case Nil => Set.empty[Int]
     case Cons(x, xs) => Set(x) ++ content(xs)
   }
   
@@ -24,7 +24,7 @@ object AmortizedQueue {
   }
 
   def concat(l1 : List, l2 : List) : List = (l1 match {
-    case Nil() => l2
+    case Nil => l2
     case Cons(x,xs) => Cons(x, concat(xs, l2))
   }) ensuring (res => size(res) == size(l1) + size(l2) && content(res) == content(l1) ++ content(l2))
 
@@ -33,20 +33,20 @@ object AmortizedQueue {
   }
 
   def isEmpty(queue : AbsQueue) : Boolean = queue match {
-    case Queue(Nil(), Nil()) => true
+    case Queue(Nil, Nil) => true
     case _ => false
   }
 
   def reverse(l : List) : List = (l match {
-    case Nil() => Nil()
-    case Cons(x, xs) => concat(reverse(xs), Cons(x, Nil()))
+    case Nil => Nil
+    case Cons(x, xs) => concat(reverse(xs), Cons(x, Nil))
   }) ensuring (content(_) == content(l))
 
   def amortizedQueue(front : List, rear : List) : AbsQueue = {
     if (size(rear) <= size(front))
       Queue(front, rear)
     else
-      Queue(concat(front, reverse(rear)), Nil())
+      Queue(concat(front, reverse(rear)), Nil)
   } ensuring(isAmortized(_))
 
   def enqueue(queue : AbsQueue, elem : Int) : AbsQueue = (queue match {
