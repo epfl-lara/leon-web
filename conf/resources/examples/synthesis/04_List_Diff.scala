@@ -42,15 +42,6 @@ object Diff {
     }
   } ensuring { content(_) == content(in1) ++ content(in2) }
 
-  // def diff(in1: List, in2: List): List = {
-  //   in2 match {
-  //     case Nil =>
-  //       in1
-  //     case Cons(h, t) =>
-  //       diff(delete(in1, h), t)
-  //   }
-  // } ensuring { content(_) == content(in1) -- content(in2) }
-
   def diff(in1: List, in2: List) = choose {
     (out : List) =>
       content(out) == content(in1) -- content(in2)

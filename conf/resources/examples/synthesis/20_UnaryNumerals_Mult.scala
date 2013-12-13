@@ -16,19 +16,6 @@ object Numerals {
     case S(p) => add(p, S(y))
   }) ensuring (value(_) == value(x) + value(y))
 
-  //def distinct(x : Num, y : Num) : Num = (x match {
-  //  case Z =>
-  //    S(y)
-
-  //  case S(p) =>
-  //    y match {
-  //      case Z =>
-  //        S(x)
-  //      case S(p) =>
-  //        Z
-  //    }
-  //}) ensuring (res => res != x  && res != y)
-
   def mult(x: Num, y: Num): Num = {
     choose { (r : Num) =>
       value(r) == value(x) * value(y)

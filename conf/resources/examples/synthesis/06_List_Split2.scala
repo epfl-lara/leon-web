@@ -27,10 +27,6 @@ object List {
     if(i < 0) -i else i
   } ensuring(_ >= 0)
 
-  // def split(list : List) : (List,List) = {
-  //   (list, list)
-  // }
-
   def split(list : List) : (List,List) = {
     choose { (res : (List,List)) => (content(res._1) ++ content(res._2) == content(list)) && abs(size(res._1) - size(res._2)) <= 1 }
   }

@@ -27,14 +27,6 @@ object List {
     if(i < 0) -i else i
   } ensuring(_ >= 0)
 
-  // def split(list : List) : (List,List) = (list match {
-  //   case Nil => (Nil, Nil)
-  //   case Cons(x, Nil) => (Cons(x, Nil), Nil)
-  //   case Cons(x1, Cons(x2, xs)) =>
-  //     val (s1,s2) = split(xs)
-  //     (Cons(x1, s1), Cons(x2, s2))
-  // }) ensuring(res => splitSpec(list, res))
-
   def split(list : List) : (List,List) = {
     choose { (res : (List,List)) => (content(res._1) ++ content(res._2) == content(list)) && abs(size(res._1) - size(res._2)) <= 1 && (size(res._1) + size(res._2) == size(list)) }
   }

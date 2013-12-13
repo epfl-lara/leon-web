@@ -23,23 +23,7 @@ object Complete {
     case Cons(_, xs) => isSorted(xs)
   }
 
-  // def insert1(in1: List, v: Int): List = {
-  //   require(isSorted(in1))
-  //   in1 match {
-  //     case Cons(h, t) =>
-  //       if (v < h) {
-  //         Cons(v, in1)
-  //       } else if (v == h) {
-  //         in1
-  //       } else {
-  //         Cons(h, insert1(t, v))
-  //       }
-  //     case Nil =>
-  //       Cons(v, Nil)
-  //   }
-  // } ensuring { res => (content(res) == content(in1) ++ Set(v)) && isSorted(res) }
-
-  def insert1(in1: List, v: Int) = choose {
+  def insert(in1: List, v: Int) = choose {
     (out : List) =>
       isSorted(in1) && (content(out) == content(in1) ++ Set(v)) && isSorted(out)
   }

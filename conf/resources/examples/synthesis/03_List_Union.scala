@@ -33,15 +33,6 @@ object Union {
     }
   } ensuring { content(_) == content(in1) -- Set(v) }
 
-  // def union(in1: List, in2: List): List = {
-  //   in1 match {
-  //     case Cons(h, t) =>
-  //       Cons(h, union(t, in2))
-  //     case Nil =>
-  //       in2
-  //   }
-  // } ensuring { content(_) == content(in1) ++ content(in2) }
-
   def union(in1: List, in2: List) = choose {
     (out : List) =>
       content(out) == content(in1) ++ content(in2)

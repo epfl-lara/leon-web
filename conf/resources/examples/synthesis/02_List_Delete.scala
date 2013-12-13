@@ -20,19 +20,6 @@ object Delete {
     Cons(v, in1)
   } ensuring { content(_) == content(in1) ++ Set(v) }
 
-  //def delete(in1: List, v: Int): List = {
-  //  in1 match {
-  //    case Cons(h,t) =>
-  //      if (h == v) {
-  //        delete(t, v)
-  //      } else {
-  //        Cons(h, delete(t, v))
-  //      }
-  //    case Nil =>
-  //      Nil
-  //  }
-  //} ensuring { content(_) == content(in1) -- Set(v) }
-
   def delete(in1: List, v: Int) = choose {
     (out : List) =>
       content(out) == content(in1) -- Set(v)

@@ -57,22 +57,6 @@ object Complete {
 
   } ensuring { res => (content(res) == content(in1) ++ Set(v)) && isSorted(res) && size(res) == size(in1) + 1 }
 
-  // def delete(in1: List, v: Int): List = {
-  //   require(isSorted(in1))
-  //   in1 match {
-  //     case Cons(h,t) =>
-  //       if (h < v) {
-  //         Cons(h, delete(t, v))
-  //       } else if (h == v) {
-  //         delete(t, v)
-  //       } else {
-  //         in1
-  //       }
-  //     case Nil =>
-  //       Nil
-  //   }
-  // } ensuring { res => content(res) == content(in1) -- Set(v) && isSorted(res) }
-
   def delete(in1: List, v: Int) = choose {
     (out : List) =>
       isSorted(in1) && (content(out) == content(in1) -- Set(v)) && isSorted(out)
