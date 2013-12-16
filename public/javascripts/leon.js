@@ -56,7 +56,7 @@ $(document).ready(function() {
 
         lastMarker = -1
 
-        console.log("New Exploration facts: ");
+        //console.log("New Exploration facts: ");
         explorationFacts = [];
         for (i in newResults) {
             var n = newResults[i];
@@ -66,7 +66,7 @@ $(document).ready(function() {
                 res: n.result
             };
 
-            console.log(" - "+explorationFacts[i].range.toString()+"   -->   "+n.result)
+            //console.log(" - "+explorationFacts[i].range.toString()+"   -->   "+n.result)
         }
 
         displayExplorationFacts()
@@ -376,15 +376,17 @@ $(document).ready(function() {
         verification:   {active: true, name: "Verification"},
         synthesis:      {active: true, name: "Synthesis"},
         termination:    {active: false, name: "Termination <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
-        beamer:         {active: false, name: "Beamer"},
-        execution:      {active: false, name: "Execution <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
+        presentation:   {active: false, name: "Presentation Mode"},
+        execution:      {active: true, name: "Execution <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
     }
 
     var localFeatures = localStorage.getItem("leonFeatures")
     if (localFeatures != null) {
         var locFeatures = JSON.parse(localFeatures)
         for (var f in locFeatures) {
-            features[f].active = locFeatures[f].active
+            if (f in features) {
+                features[f].active = locFeatures[f].active
+            }
         }
     }
 
@@ -409,10 +411,10 @@ $(document).ready(function() {
 
         drawOverView()
         drawSynthesisOverview()
-        setBeamerMode()
+        setPresentationMode()
     })
 
-    setBeamerMode()
+    setPresentationMode()
 
     var overview = {
         modules: {
@@ -588,13 +590,13 @@ $(document).ready(function() {
         }
     }
 
-    function setBeamerMode() {
-        if(features["beamer"].active) {
-            $("body").addClass("beamer")
+    function setPresentationMode() {
+        if(features["presentation"].active) {
+            $("body").addClass("presentation")
             $("#codecolumn").removeClass("span8").addClass("span9")
             $("#actionscolumn").removeClass("span4").addClass("span3")
         } else {
-            $("body").removeClass("beamer")
+            $("body").removeClass("presentation")
             $("#codecolumn").removeClass("span9").addClass("span8")
             $("#actionscolumn").removeClass("span3").addClass("span4")
         }
@@ -1386,6 +1388,7 @@ $(document).ready(function() {
         editor.gotoLine(0);
     }
 
+    /*
     snowStorm.snowColor = '#ddddff';
     snowStorm.vMaxX = 2;
     snowStorm.vMaxY = 2;
@@ -1394,4 +1397,5 @@ $(document).ready(function() {
     snowStorm.flakesMaxActive = 350;
     snowStorm.followMouse = false;
     snowStorm.stop();
+    */
 });

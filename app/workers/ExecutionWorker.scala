@@ -52,8 +52,11 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
                     "toColumn"    -> toJson(toCol-1),
                     "result"      -> toJson(sentRes)
                   ))
+
                 case NoPosition =>
-                  println("Expr: "+v+" ("+v.getClass+") has no position")
+                  //println("@"*80)
+                  //println("Expr: "+v+" ("+v.getClass+") has no position")
+
                 case _ =>
               }
             }

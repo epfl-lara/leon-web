@@ -10,7 +10,7 @@ body {
     height: 100%;
 }
 
-body.beamer #codebox.ace_editor {
+body.presentation #codebox.ace_editor {
     font-size: 18px;
 }
 
@@ -568,7 +568,7 @@ div.overlay {
 }
 
 .ace_marker-layer .leon-explore-location {
-    background: rgba(255, 0, 0, 0.07);
+    background: rgba(0, 255, 0, 0.1);
     position: absolute;
     z-index: 2;
 }

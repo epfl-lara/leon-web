@@ -167,13 +167,13 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         val pipeline = TemporaryInputPhase andThen ExtractionPhase
 
         try {
-          val pgm = pipeline.run(compContext)((code, Nil))
+          val pgm0 = pipeline.run(compContext)((code, Nil))
+          val pgm1 = ArrayTransformation(compContext, pgm0)
+          val pgm2 = EpsilonElimination(compContext, pgm1)
+          val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
+          val pgm4 = FunctionClosure.run(compContext)(pgm3)
 
-          //val pgm1 = ArrayTransformation(compContext, pgm)
-          //val pgm2 = EpsilonElimination(compContext, pgm1)
-          //val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
-          //val program = FunctionClosure.run(compContext)(pgm3)
-          val program = pgm
+          val program = pgm4
 
           val cstate = CompilationState(
             optProgram = Some(program),
