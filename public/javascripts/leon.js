@@ -925,14 +925,13 @@ $(document).ready(function() {
 
     var closeEvent = function(event) {
         if (connected) {
-            connected = false
-            updateCompilationStatus("disconnected")
-            reconnect(0)
+            setDisconnected()
         }
     }
 
     var openEvent = function(event) {
-        connected = true;
+        setConnected()
+        leonSocket.onmessage = receiveEvent;
 
         if(hash) {
             if (hash.indexOf("#link/") == 0) {
@@ -955,30 +954,76 @@ $(document).ready(function() {
 
             recompile()
         }
+
     }
 
-    var reconnectEvent = function(event) {
-        connected = true
+    var lastReconnectDelay = 0;
+    var reconnectIn = 0;
 
-        $("#notifications").children(".alert-error").each(function() {
-            $(this).hide();
-        });
-        notify("Aaaaaand we are back!", "success")
-        $("#connectError").hide();
+    var reconnectEvent = function(event) {
+        setConnected()
+        leonSocket.onmessage = receiveEvent;
+
+        notify("And we are back online!", "success")
+
+
         recompile()
     }
 
-    function reconnect(after) {
-        if (!connected) {
-            var newTimeout = after + 5000;
-            notify("Server disconnected. Attempting reconnection in "+(newTimeout/1000)+"s...", "error")
+    function setDisconnected() {
+        connected = false
+        updateCompilationStatus("disconnected")
+        lastReconnectDelay = 5;
+        reconnectIn = lastReconnectDelay;
+
+        checkDisconnectStatus()
+    }
+
+    function setConnected() {
+        connected = true
+
+        $("#connectError").hide();
+        $("#disconnectError").hide();
+
+        lastReconnectDelay = 0;
+        reconnectIn = -1;
+    }
+
+    function checkDisconnectStatus() {
+        if (reconnectIn == 0) {
+            reconnectIn = -1;
+            $("#disconnectError #disconnectMsg").html("Attempting reconnection...");
 
             connectWS()
-            leonSocket.onopen = reconnectEvent
+            leonSocket.onmessage = reconnectEvent
 
-            setTimeout(function() { reconnect(newTimeout) }, newTimeout);
+            // If still not connected after 2 seconds, consider failed
+            setTimeout(function() {
+                if (!connected) {
+                    if (lastReconnectDelay == 0) {
+                        lastReconnectDelay = 5;
+                    } else {
+                        lastReconnectDelay *= 2;
+                    }
+
+                    reconnectIn = lastReconnectDelay;
+                }
+            }, 2000);
+        } else if (reconnectIn > 0) {
+            $("#disconnectError #disconnectMsg").html('Retrying in '+reconnectIn+' seconds... <button id="tryReconnect" class="btn btn-danger btn-mini">Try now</button>');
+
+            $("#tryReconnect").click(function() {
+                reconnectIn = 0;
+                checkDisconnectStatus();
+            })
+
+            $("#disconnectError").show().alert();
+
+            reconnectIn -= 1;
         }
     }
+
+    setInterval(function () { checkDisconnectStatus() }, 1000);
 
     var errorEvent = function(event) {
         console.log("ERROR")
@@ -988,14 +1033,14 @@ $(document).ready(function() {
     connectWS()
     setTimeout(function() {
         if (!connected) {
+            $("#disconnectError").hide();
             $("#connectError").show().alert();
         }
     }, 3000);
 
     function connectWS() {
         leonSocket = new WS(_leon_websocket_url)
-        leonSocket.onopen = openEvent
-        leonSocket.onmessage = receiveEvent
+        leonSocket.onmessage = openEvent
         leonSocket.onclose = closeEvent
         leonSocket.onerror = errorEvent
     }

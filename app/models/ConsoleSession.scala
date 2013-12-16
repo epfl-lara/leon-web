@@ -58,8 +58,9 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
     case Init =>
       reporter = new WSReporter(channel)
       sender ! InitSuccess(enumerator)
-      interruptManager = new InterruptManager(reporter)
 
+
+      interruptManager = new InterruptManager(reporter)
 
       modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, interruptManager))))
       modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
@@ -67,6 +68,8 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
 
       logInfo("New client")
+
+      event("connected", Map())
 
     case DoCancel =>
       cancelledWorkers = Set()
@@ -247,5 +250,6 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   def notifyAnnotations(annotations: Seq[CodeAnnotation]) {
     event("editor", Map("annotations" -> toJson(annotations.map(_.toJson))))
   }
+
 }
 
