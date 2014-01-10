@@ -301,7 +301,7 @@ td.date {
 
 div#codebox {
     border-style: none;
-    //background-color: rgba(255,255,255,0.9);
+    /*background-color: rgba(255,255,255,0.9);*/
     width: 100%;
     height: 100%;
     position: relative;
@@ -551,8 +551,8 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 }
 
 div#codebox .ace_gutter-tooltip {
-    display: pre;
 }
+
 div.results_table {
     position: relative;
 }
