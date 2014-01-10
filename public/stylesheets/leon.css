@@ -115,7 +115,7 @@ table#overview_table td.status i.icon-time {
 }
 
 table#overview_table td.status i.icon-exclamation-sign {
-    color: yellow;
+    color: green;
 }
 
 table#overview_table td.status i.icon-ok-sign {
