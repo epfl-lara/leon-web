@@ -145,7 +145,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
     val reporter = new WorkerReporter(session)
     var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
 
-    val solvers = List(SolverFactory(() => new FairZ3Solver(compContext, cstate.program).setTimeout(verifTimeout)))
+    val solvers = List(SolverFactory(() => (new FairZ3Solver(compContext, cstate.program) with TimeoutSolver).setTimeout(verifTimeout)))
 
     val vctx = VerificationContext(compContext, solvers, reporter)
 
