@@ -27,6 +27,9 @@ import leon.web.workers._
 
 import java.util.concurrent.atomic.AtomicBoolean
 
+import org.joda.time.DateTime
+import org.joda.time.format.DateTimeFormat
+
 class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   import context.dispatcher
   import ConsoleProtocol._
@@ -163,6 +166,8 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         clientLog("Compiling...")
         logInfo("Code to compile:\n"+code)
 
+        saveCode(code)
+
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
         //var synthContext = compContext.copy(reporter = reporter)
@@ -245,6 +250,19 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       event("update_overview", Map("module" -> toJson("main"), "overview" -> toJson(facts)))
     }
 
+  }
+
+  def saveCode(code: String) {
+    import java.io.{File,PrintWriter}
+    val d = new DateTime().toString(DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS"))
+
+    val filePath = new File(s"logs/inputs/$d.scala");
+    val w = new PrintWriter( filePath , "UTF-8")
+    try {
+      w.print(code)
+    } finally {
+      w.close
+    }
   }
 
   def notifyAnnotations(annotations: Seq[CodeAnnotation]) {
