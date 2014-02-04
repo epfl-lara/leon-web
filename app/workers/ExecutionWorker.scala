@@ -8,7 +8,7 @@ import play.api.libs.json.Json._
 import models._
 import leon.utils._
 import leon.purescala.Trees._
-import leon.purescala.Definitions.FunDef
+import leon.purescala.Definitions.TypedFunDef
 
 class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
@@ -18,23 +18,23 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
   val reporter = new WorkerReporter(session)
   var ctx      = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
-  def doExplore(cstate: CompilationState, manualTargets: Map[FunDef, Seq[Expr]] ) = {
+  def doExplore(cstate: CompilationState, manualTargets: Map[TypedFunDef, Seq[Expr]] ) = {
     var allFacts = List[JsValue]()
 
     val autoTargets = cstate.program.definedFunctions.collect {
-      case fd if fd.args.isEmpty => (fd, Nil) 
+      case fd if fd.args.isEmpty => (fd.typed(fd.tparams.map(_.tp)), Nil)
     }.toMap
 
     val explorationTargets = autoTargets ++ manualTargets
 
     if (cstate.isCompiled) {
-      for ((fd, args) <- explorationTargets) {
+      for ((tfd, args) <- explorationTargets) {
         val tracingEval = new TracingEvaluator(ctx, cstate.program)
 
-        val positionedArgs = (args zip fd.args).map { case (a, ad) => a.setPos(ad) }.toList
+        val positionedArgs = (args zip tfd.args).map { case (a, ad) => a.setPos(ad) }.toList
 
-        tracingEval.eval(FunctionInvocation(fd, positionedArgs).setPos(fd))
-      
+        tracingEval.eval(FunctionInvocation(tfd, positionedArgs).setPos(tfd))
+
         tracingEval.lastGlobalContext match {
           case Some(gc) =>
             for ((v, res) <- gc.values) {

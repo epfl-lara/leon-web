@@ -31,7 +31,7 @@ if [ ! -n "$SCALA_HOME" ]; then
     return;
 fi
 
-LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-2.0.jar"
+LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-2.2.jar"
 SCALAZ3_DEP="$LEON_PATH/unmanaged/64/scalaz3-unix-64b-2.1.jar"
 CAFEBABE_DEP="$LEON_PATH/unmanaged/64/cafebabe_2.10-1.2.jar"
 
@@ -54,8 +54,8 @@ echo "Creating symlinks to external libs..."
 
 mkdir -p lib
 
-ln -sf "$LEON_DEP" lib/leon.jar
-ln -sf "$SCALAZ3_DEP"              lib/scalaz3.jar
-ln -sf "$CAFEBABE_DEP"   lib/cafebabe.jar
+ln -sf "$LEON_DEP"      lib/leon.jar
+ln -sf "$SCALAZ3_DEP"   lib/scalaz3.jar
+ln -sf "$CAFEBABE_DEP"  lib/cafebabe.jar
 
 echo "Done."

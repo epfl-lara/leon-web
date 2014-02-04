@@ -32,7 +32,7 @@ object ConsoleProtocol {
   case class VerificationDoVerify(fnames: Set[String], standalone: Boolean)
   case object VerificationDone
 
-  case class NewCounterExamples(cstate: CompilationState, ces: Map[FunDef, Seq[Expr]])
+  case class NewCounterExamples(cstate: CompilationState, ces: Map[TypedFunDef, Seq[Expr]])
 
   case class DispatchTo(module: String, msg: Any)
 
