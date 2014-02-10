@@ -36,7 +36,12 @@ object Interface extends Controller {
     import java.io.File
     import scala.io.Source
 
-    Source.fromFile(new File("./version")).getLines.toList.headOption.getOrElse("N/A")
+    val f = new File("./version")
+    if (f.isFile) {
+      Source.fromFile(f).getLines.toList.headOption.getOrElse("")
+    } else {
+      ""
+    }
   }
 
   def index() = Action { implicit request =>
