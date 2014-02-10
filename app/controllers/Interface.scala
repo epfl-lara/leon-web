@@ -32,18 +32,25 @@ object Interface extends Controller {
   val tutorialExamples = allExamples.filter(_._1 == "Tutorials")
   val otherExamples    = allExamples.filter(_._1 != "Tutorials")
 
+  def getLeonRelease: String = {
+    import java.io.File
+    import scala.io.Source
+
+    Source.fromFile(new File("./version")).getLines.toList.headOption.getOrElse("N/A")
+  }
+
   def index() = Action { implicit request =>
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(otherExamples, otherExamples.tail.head._2(1), prefix, url))
+    Ok(views.html.index(otherExamples, otherExamples.tail.head._2(1), prefix, url, getLeonRelease))
   }
 
   def tutorials() = Action { implicit request =>
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, prefix, url))
+    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, prefix, url, getLeonRelease))
   }
 
   def getExample(kind: String, id: Int) = Action { 

@@ -1,4 +1,4 @@
-@(exGroups: List[(String, List[leon.web.models.Example])], default: leon.web.models.Example, prefix: String, url: String)(implicit request: RequestHeader)
+@(exGroups: List[(String, List[leon.web.models.Example])], default: leon.web.models.Example, prefix: String, url: String, release: String)(implicit request: RequestHeader)
 
 @main("Leon Online", prefix, url) {
   <div id="allcontent">
@@ -145,4 +145,5 @@
       </div>
     </div>
   </div>
+  <div id="release">@release &copy; EPFL, Lausanne 2009-2014 </div>
 }

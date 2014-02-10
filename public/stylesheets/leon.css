@@ -585,3 +585,11 @@ div#codebox .tooltip.in{
     opacity: 0.8;
     filter: alpha(opacity=80);
 }
+
+#release {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    color: #ddd;
+    margin: 5px;
+}
