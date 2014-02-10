@@ -226,7 +226,9 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
         }
       } else {
-        event("compilation", Map("status" -> toJson(lastCompilationState.compResult)))
+        val cstate = lastCompilationState
+
+        event("compilation", Map("status" -> toJson(cstate.compResult)))
       }
 
     case Quit =>

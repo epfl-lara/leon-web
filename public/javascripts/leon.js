@@ -933,6 +933,14 @@ $(document).ready(function() {
         setConnected()
         leonSocket.onmessage = receiveEvent;
 
+        for (var f in features) {
+            var msg = JSON.stringify(
+              {action: "featureSet", module: "main", feature: f, active: features[f].active}
+            )
+
+            leonSocket.send(msg)
+        }
+
         if(hash) {
             if (hash.indexOf("#link/") == 0) {
                 var msg = JSON.stringify(
@@ -944,17 +952,8 @@ $(document).ready(function() {
                 window.location.hash = "";
             }
         } else {
-            for (var f in features) {
-                var msg = JSON.stringify(
-                  {action: "featureSet", module: "main", feature: f, active: features[f].active}
-                )
-
-                leonSocket.send(msg)
-            }
-
             recompile()
         }
-
     }
 
     var lastReconnectDelay = 0;
