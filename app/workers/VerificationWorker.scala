@@ -140,23 +140,23 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
   }
 
   def doVerify(cstate: CompilationState, funs: Set[FunDef], standalone: Boolean) {
-    val verifTimeout = 3000L // 3sec
-
-    val reporter = new WorkerReporter(session)
-    var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
-
-    val solvers = List(SolverFactory(() => (new FairZ3Solver(compContext, cstate.program) with TimeoutSolver).setTimeout(verifTimeout)))
-
-    val vctx = VerificationContext(compContext, solvers, reporter)
-
-    val vcs = verifOverview.collect {
-      case (fd, vcs) if funs(fd) => fd -> vcs
-    }
-
-    val params = CodeGenParams(maxFunctionInvocations = 5000, checkContracts = false)
-    val evaluator = new CodeGenEvaluator(compContext, cstate.program, params)
-
     try {
+      val verifTimeout = 3000L // 3sec
+
+      val reporter = new WorkerReporter(session)
+      var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
+
+      val solvers = List(SolverFactory(() => (new FairZ3Solver(compContext, cstate.program) with TimeoutSolver).setTimeout(verifTimeout)))
+
+      val vctx = VerificationContext(compContext, solvers, reporter)
+
+      val vcs = verifOverview.collect {
+        case (fd, vcs) if funs(fd) => fd -> vcs
+      }
+
+      val params = CodeGenParams(maxFunctionInvocations = 5000, checkContracts = false)
+      val evaluator = new CodeGenEvaluator(compContext, cstate.program, params)
+
       verifCrashed = false
       val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
@@ -180,6 +180,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       case t: Throwable =>
         verifCrashed = true
         logInfo("[!] Verification crashed!", t)
+        clientLog("Verification crashed: "+t.getMessage())
     }
 
     notifyVerifOverview(cstate)
