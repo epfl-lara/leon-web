@@ -105,7 +105,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
     if (cstate.isCompiled) {
       for ((fd, fv) <- verifResults if fv.status != "valid") {
-        for (cfd <- cstate.program.transitiveCallers(fd) if verifResults.get(cfd).map(_.status) == Some("valid")) {
+        for (cfd <- cstate.program.callGraph.transitiveCallers(fd) if verifResults.get(cfd).map(_.status) == Some("valid")) {
           verifResults(cfd).status = "cond-valid"
         }
       }
@@ -115,7 +115,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       vcs.find(_.counterExample.isDefined) match {
         case Some(vc) =>
           val ce = vc.counterExample.get
-          val callArgs = vc.funDef.args.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
+          val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
 
           Some(vc.funDef.typed(vc.funDef.tparams.map(_.tp)) -> callArgs)
 
@@ -139,23 +139,20 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
     event("update_overview", Map("module" -> toJson("verification"), "overview" -> fvcs))
   }
 
-  def doVerify(cstate: CompilationState, funs: Set[FunDef], standalone: Boolean) {
+  def doVerify(cstate: CompilationState, initvctx: VerificationContext, funs: Set[FunDef], standalone: Boolean) {
     try {
       val verifTimeout = 3000L // 3sec
 
-      val reporter = new WorkerReporter(session)
-      var compContext  = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
+      val solvers = List(SolverFactory(() => (new FairZ3Solver(initvctx.context, cstate.program) with TimeoutSolver).setTimeout(verifTimeout)))
 
-      val solvers = List(SolverFactory(() => (new FairZ3Solver(compContext, cstate.program) with TimeoutSolver).setTimeout(verifTimeout)))
-
-      val vctx = VerificationContext(compContext, solvers, reporter)
+      val vctx = initvctx.copy(solvers = solvers)
 
       val vcs = verifOverview.collect {
         case (fd, vcs) if funs(fd) => fd -> vcs
       }
 
       val params = CodeGenParams(maxFunctionInvocations = 5000, checkContracts = false)
-      val evaluator = new CodeGenEvaluator(compContext, cstate.program, params)
+      val evaluator = new CodeGenEvaluator(vctx.context, cstate.program, params)
 
       verifCrashed = false
       val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
@@ -167,7 +164,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
         for (vc <- vcs if vc.kind == VCKind.Postcondition) vc.counterExample match {
           case Some(ce) =>
-            val callArgs = vc.funDef.args.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
+            val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
             val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)
 
             ceExecResults += vc -> evaluator.eval(callExpr)
@@ -186,10 +183,14 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
     notifyVerifOverview(cstate)
   }
 
+  val reporter = new WorkerReporter(session)
+
+  val ctx = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
+
+
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
       val program = cstate.program
-      val reporter = new WorkerReporter(session)
 
       var toGenerate = Set[FunDef]()
       val oldVerifOverView = verifOverview
@@ -211,9 +212,11 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       verifOverview = verifOverview.filterKeys(verifFunctions)
 
-      val toInvalidate = toGenerate.flatMap { program.transitiveCallers _ }
+      val toInvalidate = toGenerate.flatMap { program.callGraph.transitiveCallers _ }
 
       toGenerate ++= toInvalidate
+
+      val vctx = VerificationContext(ctx, cstate.program, Nil, reporter)
 
       if (!toGenerate.isEmpty) {
         clientLog("Generating VCs...")
@@ -223,7 +226,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         }
 
         // Generate VCs
-        val fvcs = AnalysisPhase.generateVerificationConditions(reporter, program, toGenerate.map(_.id.name))
+        val fvcs = AnalysisPhase.generateVerificationConditions(vctx, toGenerate.map(_.id.name))
 
         for ((f, vcs) <- fvcs) {
           verifOverview += f -> vcs
@@ -234,7 +237,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         notifyVerifOverview(cstate)
       }
 
-      doVerify(cstate, toGenerate, false)
+      doVerify(cstate, vctx, toGenerate, false)
 
     case DoCancel =>
       sender ! Cancelled(this)
@@ -246,7 +249,9 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
           verifOverview.keySet.find(_.id.name == fname) match {
             case Some(fd) =>
-              doVerify(cstate, Set(fd) ++ cstate.innerFunctionsOf(fd), true)
+              val vctx = VerificationContext(ctx, cstate.program, Nil, reporter)
+
+              doVerify(cstate, vctx, Set(fd) ++ cstate.innerFunctionsOf(fd), true)
             case None =>
               logInfo("Function "+fname+" not found!")
           }

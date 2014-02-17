@@ -22,6 +22,7 @@ import leon.xlang._
 import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
 import leon.purescala._
+import leon.utils.SubtypingPhase
 
 import leon.web.workers._
 
@@ -172,7 +173,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
         //var synthContext = compContext.copy(reporter = reporter)
 
-        val pipeline = TemporaryInputPhase andThen ExtractionPhase
+        val pipeline = TemporaryInputPhase andThen 
+                       ExtractionPhase andThen
+                       MethodLifting andThen
+                       SubtypingPhase andThen
+                       CompleteAbstractDefinitions
+
 
         try {
           val pgm0 = pipeline.run(compContext)((code, Nil))
