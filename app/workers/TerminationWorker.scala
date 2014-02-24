@@ -42,7 +42,7 @@ class TerminationWorker(val session: ActorRef, interruptManager: InterruptManage
         //val tc = new ComplexTerminationChecker(ctx, program)
         //tc.initialize()
 
-        val data = (program.definedFunctions.toList.sortWith(_.getPos < _.getPos).map { funDef =>
+        val data = (cstate.functions.map { funDef =>
           (funDef -> tc.terminates(funDef))
         }).toMap
 
@@ -51,7 +51,7 @@ class TerminationWorker(val session: ActorRef, interruptManager: InterruptManage
         case t: Throwable =>
           logInfo("[!] Termination crashed!", t)
 
-          val data = (program.definedFunctions.toList.sortWith(_.getPos < _.getPos).map { funDef =>
+          val data = (cstate.functions.map { funDef =>
             (funDef -> NoGuarantee)
           }).toMap
 

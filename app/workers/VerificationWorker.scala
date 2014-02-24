@@ -195,7 +195,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       var toGenerate = Set[FunDef]()
       val oldVerifOverView = verifOverview
 
-      val verifFunctions = program.definedFunctions.filter(fd => fd.hasBody).toSet
+      val verifFunctions = cstate.functions.filter(fd => fd.hasBody).toSet
 
       // Generate VCs
       for (f <- verifFunctions) {

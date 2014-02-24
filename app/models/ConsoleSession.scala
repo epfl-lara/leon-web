@@ -170,7 +170,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         saveCode(code)
 
         val compReporter = new CompilingWSReporter(channel)
-        var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
+        var compContext  = leon.Main.processOptions(List("--library")).copy(reporter = compReporter)
         //var synthContext = compContext.copy(reporter = reporter)
 
         val pipeline = TemporaryInputPhase andThen 
@@ -246,7 +246,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
   def notifyMainOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
-      val facts = for (fd <- cstate.program.definedFunctions.toList.sortWith(_.getPos < _.getPos)) yield {
+      val facts = for (fd <- cstate.functions) yield {
         toJson(Map(
           "name"        -> toJson(fd.id.name),
           "displayName" -> toJson(fd.orig.getOrElse(fd).id.name),

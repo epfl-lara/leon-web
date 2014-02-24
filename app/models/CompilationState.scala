@@ -25,6 +25,14 @@ case class CompilationState (
   def functionWasLoop(fd: FunDef): Boolean =
     wasLoop.contains(fd.orig.getOrElse(fd))
 
+  def filterFunction(fd: FunDef): Boolean = {
+    !(fd.annotations contains "verified")
+  }
+
+  def functions = {
+    program.definedFunctions.toList.filter(filterFunction).sortWith(_.getPos < _.getPos)
+  }
+
 }
 
 
