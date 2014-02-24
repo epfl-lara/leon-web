@@ -125,7 +125,6 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               throw new Exception("WWOT")
           }
 
-
           solution match {
             case Some(sol) =>
               val solCode = sol.toSimplifiedExpr(ctx, prog)
@@ -156,6 +155,12 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           }
         } catch {
           case t: Throwable =>
+            event("synthesis_result", Map(
+              "result" -> toJson("failure"),
+              "closed" -> toJson(1),
+              "total" -> toJson(1)
+            ))
+
             notifyError("Internal error :(")
             logInfo("Synthesis Rule Application crashed", t)
         }
@@ -198,6 +203,9 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
         } catch {
           case t: Throwable =>
+            event("synthesis_rulesToApply", Map("fname"     -> toJson(fname),
+                                                "cid"       -> toJson(cid),
+                                                "rulesApps" -> toJson(Seq[String]())))
             notifyError("Woops, I crashed: "+t.getMessage())
             t.printStackTrace()
             logInfo("Synthesis RulesList crashed", t)
