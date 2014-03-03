@@ -1,5 +1,5 @@
-import leon.Annotations._
-import leon.Utils._
+import leon.lang._
+import leon.annontation._
 
 object RedBlackTree { 
   sealed abstract class Color

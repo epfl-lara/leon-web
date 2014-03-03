@@ -1,5 +1,5 @@
-import leon.Utils._
-import leon.Annotations._
+import leon.lang._
+import leon.annontation._
 
 object PropositionalLogic {
 

@@ -1,4 +1,6 @@
-import leon.Utils._
+import leon.lang._
+import leon.annontation._
+
 object Numerals {
   sealed abstract class Num
   case object Z extends Num
