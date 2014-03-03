@@ -9,6 +9,7 @@ if [ $# -eq 0 ] ; then
 fi
 
 LEON_PATH=`readlink -m $1`
+LEON_VERSION="2.3"
 
 echo "Setting up environment for web..."
 echo "LEON_PATH=$LEON_PATH"
@@ -31,7 +32,7 @@ if [ ! -n "$SCALA_HOME" ]; then
     return;
 fi
 
-LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-2.2.jar"
+LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-${LEON_VERSION}.jar"
 SCALAZ3_DEP="$LEON_PATH/unmanaged/64/scalaz3-unix-64b-2.1.jar"
 CAFEBABE_DEP="$LEON_PATH/unmanaged/64/cafebabe_2.10-1.2.jar"
 
