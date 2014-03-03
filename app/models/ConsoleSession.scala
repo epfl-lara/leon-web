@@ -171,9 +171,8 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(List("--library")).copy(reporter = compReporter)
-        //var synthContext = compContext.copy(reporter = reporter)
 
-        val pipeline = TemporaryInputPhase andThen 
+        val pipeline = TemporaryInputPhase andThen
                        ExtractionPhase andThen
                        MethodLifting andThen
                        SubtypingPhase andThen

@@ -1,5 +1,5 @@
 import leon.lang._
-import leon.annontation._
+import leon.annotation._
 
 object Diff {
   sealed abstract class List
