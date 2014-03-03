@@ -1194,65 +1194,9 @@ $(document).ready(function() {
         currentMousePos = { x: event.pageX, y: event.pageY };
     });
 
-    function verifyCurrentFun() {
-        var cursor = editorSession.selection.getCursor()
-
-        var res = editor.find('def', {
-            backwards: true,
-            wholeWord: true
-        });
-
-        editorSession.selection.moveCursorToPosition(cursor)
-        editorSession.selection.clearSelection();
-
-        var found = false;
-        var annots = editorSession.getAnnotations();
-        for (var i = 0; i < annots.length && !found; i++) {
-            if (annots[i].row == res.end.row) {
-                found = true;
-            }
-        }
-
-        if (found) {
-            var tokens    = editorSession.getTokens(res.end.row)
-            var pastDef   = false
-            var fname     = null;
-            for (var i = 0; i < tokens.length && fname == null; i++) {
-                if (tokens[i].type == "keyword" && tokens[i].value == "def") {
-                    pastDef = true
-                } else if(pastDef && tokens[i].type == "identifier") {
-                    fname = tokens[i].value
-                }
-            }
-
-            if (fname != null) {
-                verifyFun(fname)
-            }
-        }
-    }
-
     function openVerifyDialog(cancelOnClose) {
         $("#verifyDialog").modal("show")
     }
-
-    function verifyFun(fname) {
-        var msg = JSON.stringify(
-          {action: "verification_doVerify", module: "verification", fname: fname}
-        )
-
-        leonSocket.send(msg)
-
-        var pb = $("#verifyProgress")
-        var pbb = $("#verifyProgress .bar")
-
-        pbb.html("Verifying...");
-        pb.addClass("active progress-striped")
-
-        $("#verifyResults").hide();
-
-        openVerifyDialog(fname)
-    }
-
 
     var storedCode = localStorage.getItem("leonEditorCode")
 

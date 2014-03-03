@@ -139,14 +139,8 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
     event("update_overview", Map("module" -> toJson("verification"), "overview" -> fvcs))
   }
 
-  def doVerify(cstate: CompilationState, initvctx: VerificationContext, funs: Set[FunDef], standalone: Boolean) {
+  def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean) {
     try {
-      val verifTimeout = 3000L // 3sec
-
-      val solvers = List(SolverFactory(() => (new FairZ3Solver(initvctx.context, cstate.program) with TimeoutSolver).setTimeout(verifTimeout)))
-
-      val vctx = initvctx.copy(solvers = solvers)
-
       val vcs = verifOverview.collect {
         case (fd, vcs) if funs(fd) => fd -> vcs
       }
@@ -216,7 +210,13 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val vctx = VerificationContext(ctx, cstate.program, Nil, reporter)
+      val verifTimeout = 3000L // 3sec
+
+      val solver = SolverFactory[TimeoutSolver](() => new FairZ3Solver(ctx, cstate.program) with TimeoutSolver)
+
+      val tsolver = new TimeoutSolverFactory(solver, verifTimeout)
+
+      val vctx = VerificationContext(ctx, cstate.program, tsolver, reporter)
 
       if (!toGenerate.isEmpty) {
         clientLog("Generating VCs...")
@@ -244,18 +244,6 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
-        case "doVerify" =>
-          val fname = (event \ "fname").as[String]
-
-          verifOverview.keySet.find(_.id.name == fname) match {
-            case Some(fd) =>
-              val vctx = VerificationContext(ctx, cstate.program, Nil, reporter)
-
-              doVerify(cstate, vctx, Set(fd) ++ cstate.innerFunctionsOf(fd), true)
-            case None =>
-              logInfo("Function "+fname+" not found!")
-          }
-
         case action =>
           notifyError("Received unknown action: "+action)
       }
