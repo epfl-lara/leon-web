@@ -35,6 +35,7 @@ fi
 LEON_DEP="$LEON_PATH/target/scala-2.10/leon_2.10-${LEON_VERSION}.jar"
 SCALAZ3_DEP="$LEON_PATH/unmanaged/64/scalaz3-unix-64b-2.1.jar"
 CAFEBABE_DEP="$LEON_PATH/unmanaged/64/cafebabe_2.10-1.2.jar"
+VANUATOO_DEP="$LEON_PATH/unmanaged/common/vanuatoo_2.10-0.1.jar"
 
 if [ ! -f "$LEON_DEP" ]; then
     echo "Could not find leon package in: $LEON_DEP"
@@ -51,6 +52,12 @@ if [ ! -f "$SCALAZ3_DEP" ]; then
     return;
 fi
 
+
+if [ ! -f "$VANUATOO_DEP" ]; then
+    echo "Could not find Vanuatoo package in: $VANUATOO_DEP"
+    return;
+fi
+
 echo "Creating symlinks to external libs..."
 
 mkdir -p lib
@@ -58,5 +65,6 @@ mkdir -p lib
 ln -sf "$LEON_DEP"      lib/leon.jar
 ln -sf "$SCALAZ3_DEP"   lib/scalaz3.jar
 ln -sf "$CAFEBABE_DEP"  lib/cafebabe.jar
+ln -sf "$VANUATOO_DEP"  lib/vanuatoo.jar
 
 echo "Done."

@@ -29,7 +29,7 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
 
     if (cstate.isCompiled) {
       for ((tfd, args) <- explorationTargets) {
-        val tracingEval = new TracingEvaluator(ctx, cstate.program)
+        val tracingEval = new TracingEvaluator(ctx, cstate.program, 10000)
 
         val positionedArgs = (args zip tfd.params).map { case (a, ad) => a.setPos(ad) }.toList
 

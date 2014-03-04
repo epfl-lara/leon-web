@@ -10,6 +10,7 @@ import leon.utils._
 import leon.verification._
 import leon.xlang.XlangAnalysisPhase
 import leon.solvers._
+import leon.solvers.combinators.PortfolioSolver
 import leon.solvers.z3._
 import leon.purescala._
 import leon.purescala.Common._
@@ -210,9 +211,14 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val verifTimeout = 3000L // 3sec
+      val verifTimeout = 5000L // 5sec
 
-      val solver = SolverFactory[TimeoutSolver](() => new FairZ3Solver(ctx, cstate.program) with TimeoutSolver)
+      val allSolvers = List(
+        SolverFactory(() => new FairZ3Solver(ctx, program)),
+        SolverFactory(() => new EnumerationSolver(ctx, program))
+      )
+
+      val solver = SolverFactory[TimeoutSolver]( () => new PortfolioSolver(ctx, allSolvers) with TimeoutSolver)
 
       val tsolver = new TimeoutSolverFactory(solver, verifTimeout)
 
