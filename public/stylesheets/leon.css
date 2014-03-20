@@ -578,6 +578,10 @@ div#codebox .tooltip-inner {
     padding: 1px 3px;
 }
 
+body.presentation div#codebox .tooltip-inner {
+    font-size: 1.5em;
+}
+
 div#codebox .tooltip {
     position: fixed;
 }

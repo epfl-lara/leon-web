@@ -4,7 +4,7 @@ import play.Project._
 
 object ApplicationBuild extends Build {
 
-    val appName         = "leon-web"
+    val appName         = "leonWeb"
     val appVersion      = "1.0-SNAPSHOT"
 
     val appDependencies = Seq(
@@ -14,9 +14,11 @@ object ApplicationBuild extends Build {
       anorm
     )
 
+    val leon = RootProject(file("leon"))
+
     val main = play.Project(appName, appVersion, appDependencies).settings(
       // Add your own project settings here      
       scalaVersion := "2.10.2"
-    )
+    ).dependsOn(leon)
 
 }

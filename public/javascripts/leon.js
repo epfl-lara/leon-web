@@ -942,19 +942,28 @@ $(document).ready(function() {
         }
 
         if(hash) {
-            if (hash.indexOf("#link/") == 0) {
-                var msg = JSON.stringify(
-                  {action: "accessPermaLink", module: "main", link: hash.substr("#link/".length)}
-                )
-
-                leonSocket.send(msg);
-
-                window.location.hash = "";
-            }
+            loadStaticLink(hash)
         } else {
             recompile()
         }
     }
+
+    function loadStaticLink(hash) {
+        if (hash.indexOf("#link/") == 0) {
+            var msg = JSON.stringify(
+              {action: "accessPermaLink", module: "main", link: hash.substr("#link/".length)}
+            )
+
+            leonSocket.send(msg);
+
+            window.location.hash = "";
+        }
+    }
+
+    $(window).on('hashchange', function() {
+        var hash = window.location.hash;
+        loadStaticLink(hash);
+    });
 
     var lastReconnectDelay = 0;
     var reconnectIn = 0;
