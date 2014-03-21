@@ -22,7 +22,8 @@ import leon.xlang._
 import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
 import leon.purescala._
-import leon.utils.SubtypingPhase
+import leon.synthesis.ConvertHoles
+import leon.utils.TypingPhase
 
 import leon.web.workers._
 
@@ -172,50 +173,57 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(List("--library")).copy(reporter = compReporter)
 
-        val pipeline = TemporaryInputPhase andThen
-                       ExtractionPhase andThen
-                       MethodLifting andThen
-                       SubtypingPhase andThen
-                       CompleteAbstractDefinitions
 
+        val opgm = try {
+          // First we extract Leon program
+          val extraction = TemporaryInputPhase andThen
+                           ExtractionPhase andThen
+                           MethodLifting andThen
+                           TypingPhase andThen
+                           CompleteAbstractDefinitions andThen
+                           ConvertHoles
 
-        try {
-          val pgm0 = pipeline.run(compContext)((code, Nil))
+          val pgm0 = extraction.run(compContext)((code, Nil))
           val pgm1 = ArrayTransformation(compContext, pgm0)
           val pgm2 = EpsilonElimination(compContext, pgm1)
-          val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
-          val pgm4 = FunctionClosure.run(compContext)(pgm3)
+          //val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
+          val pgm4 = FunctionClosure.run(compContext)(pgm2)
 
-          val program = pgm4
 
-          val cstate = CompilationState(
-            optProgram = Some(program),
-            code = Some(code),
-            compResult = "success",
-            wasLoop = Set()
-          )
-
-          lastCompilationState = cstate
-
-          println(ScalaPrinter(program))
-
-          event("compilation", Map("status" -> toJson("success")))
-
-          clientLog("Compilation successful!")
-
-          notifyMainOverview(cstate)
-
-          notifyAnnotations(Seq())
-
-          modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
-
+          Some(pgm4)
         } catch {
           case t: Throwable =>
-            logInfo("Compilation failed: "+t.getMessage)
-            t.printStackTrace
+            logInfo("Failed to compile and/or extract")
+            None
+        }
+
+        opgm match {
+          case Some(program) =>
+
+
+            val cstate = CompilationState(
+              optProgram = Some(program),
+              code = Some(code),
+              compResult = "success",
+              wasLoop = Set()
+            )
+
+            lastCompilationState = cstate
+
+            event("compilation", Map("status" -> toJson("success")))
+
+            clientLog("Compilation successful!")
+
+            notifyMainOverview(cstate)
+
+            notifyAnnotations(Seq())
+
+            modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
+          case None =>
             for ((l,e) <- compReporter.errors) {
               logInfo("  "+e.mkString("\n  "))
             }
+
             clientLog("Compilation failed!")
 
             event("compilation", Map("status" -> toJson("failure")))
@@ -227,8 +235,6 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
             notifyAnnotations(annotations)
 
             lastCompilationState = CompilationState.failure(code)
-
-
         }
       } else {
         val cstate = lastCompilationState
