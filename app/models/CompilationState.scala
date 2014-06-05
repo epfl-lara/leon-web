@@ -26,7 +26,7 @@ case class CompilationState (
     wasLoop.contains(fd.orig.getOrElse(fd))
 
   def filterFunction(fd: FunDef): Boolean = {
-    !(fd.annotations contains "verified")
+    !(fd.annotations contains "library")
   }
 
   def functions = {

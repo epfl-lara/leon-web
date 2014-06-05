@@ -35,17 +35,16 @@ class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReport
     }
   }
 
-  override def errorFunction(msg: Any) = {
-    errors = extractMessage(msg, errors);
-    super.errorFunction(msg)
+  override def account(msg: Message): Message = {
+    msg.severity match {
+      case ERROR =>
+        errors = extractMessage(msg.msg, errors)
+      case WARNING =>
+        warnings = extractMessage(msg.msg, warnings)
+      case INFO =>
+        infos = extractMessage(msg.msg, infos)
+      case _ =>
+    }
+    super.account(msg)
   }
-  override def warningFunction(msg: Any) = {
-    warnings = extractMessage(msg, warnings);
-    super.warningFunction(msg)
-  }
-  override def infoFunction(msg: Any) = {
-    infos  = extractMessage(msg,infos);
-    super.infoFunction(msg)
-  }
-
 }

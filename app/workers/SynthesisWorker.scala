@@ -82,7 +82,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
   def doApplyRule(cstate: CompilationState, fname: String, cid: Int, rid: Int) {
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci @ ChooseInfo(ctx, prog, fd, pc, ch, _), search)) =>
+      case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, _), search)) =>
         try {
           val path = List(rid)
 
@@ -131,7 +131,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               val fInt = new FileInterface(new MuteReporter())
 
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                            ci.ch,
+                                            src,
                                             solCode)
 
               val (closed, total) = search.g.getStatus
@@ -217,7 +217,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
   def doSearch(cstate: CompilationState, fname: String, cid: Int) {
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci @ ChooseInfo(ctx, prog, fd, _, ch, _), search)) =>
+      case Some((ci @ ChooseInfo(ctx, prog, fd, _, src, ch, _), search)) =>
         try {
           event("synthesis_result", Map(
             "result" -> toJson("init"),
@@ -259,7 +259,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               val oldFd = ci.fd
               val newFd = ci.fd.duplicate
-              newFd.body = newFd.body.map(b => replace(Map(ci.ch -> solCode), b))
+              newFd.body = newFd.body.map(b => replace(Map(src -> solCode), b))
 
               val resFd = flattenFunctions(newFd)
               println(ScalaPrinter(resFd))

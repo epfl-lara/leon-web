@@ -9,23 +9,15 @@ import leon.Reporter
 import leon.Settings
 
 class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter(Settings()) {
-  def infoFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> (msg.toString))))
-  }
+  def emit(msg: Message) = {
+    val prefix = msg.severity match {
+      case INFO => ""
+      case WARNING => "Warning: "
+      case ERROR => "Warning: "
+      case FATAL => "Fatal: "
+      case DEBUG(_) => "Debug: "
+    }
 
-  def warningFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> ("Warning: "+msg.toString))))
-  }
-
-  def errorFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> ("Error: "+msg.toString))))
-  }
-
-  def debugFunction(msg: Any) : Unit = {
-    channel.push(toJson(Map("kind" -> "log", "message" -> ("Debug: "+msg.toString))))
-  }
-
-  def fatalErrorFunction(msg: Any) : Nothing = {
-    sys.error("FATAL: "+msg)
+    channel.push(toJson(Map("kind" -> "log", "message" -> (prefix + msg.msg.toString))))
   }
 }

@@ -232,7 +232,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         }
 
         // Generate VCs
-        val fvcs = AnalysisPhase.generateVerificationConditions(vctx, toGenerate.map(_.id.name))
+        val fvcs = AnalysisPhase.generateVerificationConditions(vctx, Some(toGenerate.map(_.id.name).toSeq))
 
         for ((f, vcs) <- fvcs) {
           verifOverview += f -> vcs

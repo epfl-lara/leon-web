@@ -7,7 +7,7 @@ import play.api.libs.json.Json._
 
 class SimpleWebSearch(cs: BaseActor,
                       synth: Synthesizer,
-                      problem: Problem) extends SimpleSearch(synth, problem, synth.rules, synth.options.costModel) {
+                      problem: Problem) extends SimpleSearch(synth, problem, synth.options.costModel) {
 
   override def searchStep() {
     super.searchStep()

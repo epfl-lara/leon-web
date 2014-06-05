@@ -22,8 +22,7 @@ import leon.xlang._
 import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
 import leon.purescala._
-import leon.synthesis.ConvertHoles
-import leon.utils.TypingPhase
+import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 
@@ -178,10 +177,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           // First we extract Leon program
           val extraction = TemporaryInputPhase andThen
                            ExtractionPhase andThen
-                           MethodLifting andThen
-                           TypingPhase andThen
-                           CompleteAbstractDefinitions andThen
-                           ConvertHoles
+                           PreprocessingPhase
 
           val pgm0 = extraction.run(compContext)((code, Nil))
           val pgm1 = ArrayTransformation(compContext, pgm0)

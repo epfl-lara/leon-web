@@ -11,23 +11,15 @@ import models._
 class WorkerReporter(session: ActorRef) extends Reporter(Settings()) {
   import ConsoleProtocol.NotifyClient
 
-  def infoFunction(msg: Any) : Unit = {
-    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (msg.toString))))
-  }
+  def emit(msg: Message) = {
+    val prefix = msg.severity match {
+      case INFO => ""
+      case WARNING => "Warning: "
+      case ERROR => "Warning: "
+      case FATAL => "Fatal: "
+      case DEBUG(_) => "Debug: "
+    }
 
-  def warningFunction(msg: Any) : Unit = {
-    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> ("Warning: "+msg.toString))))
-  }
-
-  def errorFunction(msg: Any) : Unit = {
-    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> ("Error: "+msg.toString))))
-  }
-
-  def debugFunction(msg: Any) : Unit = {
-    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> ("Debug: "+msg.toString))))
-  }
-
-  def fatalErrorFunction(msg: Any) : Nothing = {
-    sys.error("FATAL: "+msg)
+    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (prefix + msg.toString))))
   }
 }
