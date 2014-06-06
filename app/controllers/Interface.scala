@@ -23,14 +23,20 @@ import akka.pattern.ask
 
 object Interface extends Controller {
 
-  val allExamples = List(
+  val normalExamples = List(
     "Verification" -> new FileExamples("verification").allExamples,
-    "Synthesis"    -> new FileExamples("synthesis").allExamples,
+    "Synthesis"    -> new FileExamples("synthesis").allExamples
+  )
+
+  val tutorialExamples = List(
     "Tutorials"    -> new FileExamples("tutorials").allExamples
   )
 
-  val tutorialExamples = allExamples.filter(_._1 == "Tutorials")
-  val otherExamples    = allExamples.filter(_._1 != "Tutorials")
+  val demosExamples = List(
+    "Demos"    -> new FileExamples("demos").allExamples
+  )
+
+  val allExamples = normalExamples ++ tutorialExamples ++ demosExamples
 
   def getLeonRelease: String = {
     import java.io.File
@@ -48,7 +54,7 @@ object Interface extends Controller {
     val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(otherExamples, otherExamples.tail.head._2(1), prefix, url, getLeonRelease))
+    Ok(views.html.index(normalExamples, normalExamples.tail.head._2(1), prefix, url, getLeonRelease))
   }
 
   def tutorials() = Action { implicit request =>
@@ -56,6 +62,13 @@ object Interface extends Controller {
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
     Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, prefix, url, getLeonRelease))
+  }
+
+  def demos() = Action { implicit request =>
+    val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
+    val url    = Play.current.configuration.getString("app.url").getOrElse("/")
+
+    Ok(views.html.index(demosExamples, demosExamples.head._2.head, prefix, url, getLeonRelease))
   }
 
   def getExample(kind: String, id: Int) = Action { 

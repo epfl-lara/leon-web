@@ -5,6 +5,7 @@
 # Home page
 GET   /                             leon.web.controllers.Interface.index
 GET   /tutorials                    leon.web.controllers.Interface.tutorials
+GET   /demos                        leon.web.controllers.Interface.demos
 
 GET   /ajax/getExample/:group/:id   leon.web.controllers.Interface.getExample(group: String, id: Int)
 GET   /openConsole                  leon.web.controllers.Interface.openConsole

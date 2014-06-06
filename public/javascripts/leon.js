@@ -955,7 +955,10 @@ $(document).ready(function() {
             )
 
             leonSocket.send(msg);
-
+            window.location.hash = "";
+        }
+        if (hash.indexOf("#demo/") == 0) {
+            loadExample("demo", hash.substr("#demo/".length))
             window.location.hash = "";
         }
     }
@@ -1117,15 +1120,18 @@ $(document).ready(function() {
         localStorage.setItem("leonEditorCode", editor.getValue());
     }
 
-    function loadExample() {
+    function loadSelectedExample() {
         var selected = $('#example-loader').find(":selected")
 
+        var id = selected.attr("id")
         var group = selected.attr("group")
-        var value = selected.attr("id")
 
-        if (value) {
+        loadExample(group, id)
+    }
+    function loadExample(group, id) {
+        if (id) {
             $.ajax({
-              url: _leon_prefix+'/ajax/getExample/'+group+'/'+value,
+              url: _leon_prefix+'/ajax/getExample/'+group+'/'+id,
               dataType: "json",
               success: function(data, textStatus, jqXHR) {
                 if (data.status == "success") {
@@ -1146,7 +1152,7 @@ $(document).ready(function() {
         }
     }
 
-    $("#example-loader").change(loadExample);
+    $("#example-loader").change(loadSelectedExample);
 
     var editorSession = editor.getSession();
 

@@ -20,6 +20,6 @@ class WorkerReporter(session: ActorRef) extends Reporter(Settings()) {
       case DEBUG(_) => "Debug: "
     }
 
-    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (prefix + msg.toString))))
+    session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (prefix + msg.msg.toString))))
   }
 }
