@@ -1121,7 +1121,7 @@ $(document).ready(function() {
     }
 
     function loadSelectedExample() {
-        var selected = $('#example-loader').find(":selected")
+        var selected = $('#example-loader').find(":selected[id]")
 
         var id = selected.attr("id")
         var group = selected.attr("group")
