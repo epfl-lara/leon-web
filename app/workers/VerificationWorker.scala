@@ -157,7 +157,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       for ((f, vcs) <- report.fvcs) {
         verifOverview += f -> vcs
 
-        for (vc <- vcs if vc.kind == VCKind.Postcondition) vc.counterExample match {
+        for (vc <- vcs if vc.kind == VCPostcondition) vc.counterExample match {
           case Some(ce) =>
             val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
             val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)

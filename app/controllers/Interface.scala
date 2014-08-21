@@ -51,24 +51,21 @@ object Interface extends Controller {
   }
 
   def index() = Action { implicit request =>
-    val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(normalExamples, normalExamples.tail.head._2(1), prefix, url, getLeonRelease))
+    Ok(views.html.index(normalExamples, normalExamples.tail.head._2(1), url, getLeonRelease))
   }
 
   def tutorials() = Action { implicit request =>
-    val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, prefix, url, getLeonRelease))
+    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, url, getLeonRelease))
   }
 
   def demos() = Action { implicit request =>
-    val prefix = Play.current.configuration.getString("app.prefix").getOrElse("")
     val url    = Play.current.configuration.getString("app.url").getOrElse("/")
 
-    Ok(views.html.index(demosExamples, demosExamples.head._2.head, prefix, url, getLeonRelease))
+    Ok(views.html.index(demosExamples, demosExamples.head._2.head, url, getLeonRelease))
   }
 
   def getExample(kind: String, id: Int) = Action { 
