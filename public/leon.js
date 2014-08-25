@@ -322,14 +322,14 @@ $(document).ready(function() {
           compilationStatus = 1
 
           e.addClass("success")
-          e.html('<i class="fa fa-check" title="Compilation succeeded"></i>')
+          e.html('Compiled <i class="fa fa-check" title="Compilation succeeded"></i>')
 
           codebox.removeClass("compilation-error")
         } else if (status == "failure") {
           compilationStatus = -1
 
           e.addClass("failure")
-          e.html('<span class="compilation-error">Compilation Failed <i class="fa fa-bolt" title="Compilation failed"></i></span>')
+          e.html('Compilation Failed <i class="fa fa-warning" title="Compilation failed"></i>')
 
           codebox.addClass("compilation-error")
 
@@ -345,7 +345,7 @@ $(document).ready(function() {
         } else if (status == "unknown") {
           compilationStatus = 0
 
-          e.html('<i class="fa fa-refresh fa-spin" title="Compiling..."></i>')
+          e.html('Compiling <i class="fa fa-refresh fa-spin" title="Compiling..."></i>')
         } else {
           alert("Unknown status: "+status)
         }
@@ -421,16 +421,16 @@ $(document).ready(function() {
                         vstatus = '<i class="fa fa-refresh fa-spin" title="Verifying..."></i>';
                         break;
                       case "cond-valid":
-                        vstatus = "<i class=\"fa fa-warning\" title=\"Cond-Valid\"></i>";
+                        vstatus = '<span class="text-success" title="Conditionally valid">(<i class="fa fa-check"></i>)</span>';
                         break;
                       case "valid":
-                        vstatus = "<i class=\"fa fa-check text-success\" title=\"Valid\"></i>";
+                        vstatus = '<i class="fa fa-check text-success" title="Valid"></i>';
                         break;
                       case "invalid":
-                        vstatus = "<i class=\"fa fa-exclamation-circle text-danger\" title=\"Invalid\"></i>";
+                        vstatus = '<i class="fa fa-exclamation-circle text-danger" title="Invalid"></i>';
                         break;
                       case "timeout":
-                        vstatus = "<i class=\"fa fa-clock-o text-warning\" title=\"Timeout\"></i>";
+                        vstatus = '<i class="fa fa-clock-o text-warning" title="Timeout"></i>';
                         break;
                     }
 

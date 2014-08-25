@@ -147,7 +147,6 @@ div.compilation-status {
 
 div.compilation-status.failure {
     color: red;
-    font-weight: bold;
 }
 
 select#example-loader {

@@ -150,23 +150,27 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       val evaluator = new CodeGenEvaluator(vctx.context, cstate.program, params)
 
       verifCrashed = false
-      val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
+      vcs.groupBy(_._1).foreach {
+        case (fd, vcs) =>
+          val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
-      val report = XlangAnalysisPhase.completeVerificationReport(vr, cstate.functionWasLoop _)
+          val report = XlangAnalysisPhase.completeVerificationReport(vr, cstate.functionWasLoop _)
 
-      for ((f, vcs) <- report.fvcs) {
-        verifOverview += f -> vcs
+          for ((f, vcs) <- report.fvcs) {
+            verifOverview += f -> vcs
 
-        for (vc <- vcs if vc.kind == VCPostcondition) vc.counterExample match {
-          case Some(ce) =>
-            val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
-            val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)
+            for (vc <- vcs if vc.kind == VCPostcondition) vc.counterExample match {
+              case Some(ce) =>
+                val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
+                val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)
 
-            ceExecResults += vc -> evaluator.eval(callExpr)
+                ceExecResults += vc -> evaluator.eval(callExpr)
 
-          case _ =>
-            ceExecResults -= vc
-        }
+              case _ =>
+                ceExecResults -= vc
+            }
+          }
+          notifyVerifOverview(cstate)
       }
     } catch {
       case t: Throwable =>
