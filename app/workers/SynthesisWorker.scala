@@ -7,6 +7,8 @@ import play.api.libs.json.Json._
 
 import models._
 import leon.utils._
+import leon.purescala.PrinterOptions
+import leon.purescala.PrinterContext
 import leon.purescala.ScalaPrinter
 import leon.synthesis._
 import leon.purescala.Common._
@@ -91,6 +93,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
+          println("Path: "+path)
+
           val solution: Option[Solution] = search.traversePath(path) match {
             case Some(an: search.g.AndNode) =>
               logInfo("Applying :"+an.task.app.toString)
@@ -125,14 +129,34 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               throw new Exception("WWOT")
           }
 
-          solution match {
-            case Some(sol) =>
+          (ci.synthesizer.functionContext, solution) match {
+            case (Some(fd), Some(sol)) =>
+              import leon.purescala.PrinterHelpers._
+
               val solCode = sol.toSimplifiedExpr(ctx, prog)
+
+              val (defs, expr) = liftClosures(solCode)
+
               val fInt = new FileInterface(new MuteReporter())
 
+              fd.body = fd.body.map(postMap{
+                case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
+                  Some(expr)
+                case _ =>
+                  None
+              })
+
+              val fds = fd :: defs.toList.sortBy(_.id.name)
+
+              val p = new ScalaPrinter(PrinterOptions())
+
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                            src,
-                                            solCode)
+                                            fd,
+                                            (indent) => {
+                implicit val pctx = PrinterContext(fd, None, indent, p)
+                p"${nary(fds, "\n\n")}"
+                p.toString
+              })
 
               val (closed, total) = search.g.getStatus
 
@@ -145,13 +169,18 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               ))
               logInfo("Application successful!")
 
-            case None =>
+            case (ofd, _) =>
               event("synthesis_result", Map(
                 "result" -> toJson("failure"),
                 "closed" -> toJson(1),
                 "total" -> toJson(1)
               ))
-              logInfo("Application failed!")
+
+              if (ofd.isDefined) {
+                logInfo("Application failed!")
+              } else {
+                logInfo("No function context?!")
+              }
           }
         } catch {
           case t: Throwable =>

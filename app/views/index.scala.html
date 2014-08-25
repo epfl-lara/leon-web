@@ -13,8 +13,8 @@
             <input type="text" value="" />
             <a id="button-permalink-close" href="#"><i class="fa fa-ban"></i></a>
         </div>
-        <a id="button-console" class="disabled menu-button" ref="console-action" href="#"><i class="fa fa-list-alt"></i> <span>Console</span></a>
-        <a id="button-params" class="disabled menu-button" ref="params-action" href="#"><i class="fa fa-cog"></i> <span>Params</span></a>
+        <a id="button-console" class="disabled menu-button" ref="console-panel" href="#"><i class="fa fa-list-alt"></i> <span>Console</span></a>
+        <a id="button-params" class="disabled menu-button" ref="params-panel" href="#"><i class="fa fa-cog"></i> <span>Params</span></a>
       </div>
     </div>
     <script>
@@ -28,10 +28,10 @@
             <div id="codebox">@default.code</div>
           </form>
         </div>
-        <div id="actionscolumn" class="col-lg-3 col-sm-4 col-xs-12">
-          <div id="selectcolumn" class="action">
+        <div id="panelscolumn" class="col-lg-3 col-sm-4 col-xs-12">
+          <div id="selectcolumn" class="panel">
             <h3 class="std-background"><i class="icon-upload"></i> Load a Program:</h3>
-            <select id="example-loader" name="codeexample">
+            <select id="example-loader" class="form-control" name="codeexample">
               <option value="">-- Select a Program --</option>
               @exGroups.collect{ case (group, es) =>
                 <option value="" disabled="disabled">@group</option>
@@ -43,35 +43,35 @@
 
           </div>
 
-          <div id="overview" class="action">
-            <div class="compilation-status"></div>
-            <h3 class="std-background"><i class="icon-search"></i> Analysis Results</h3>
+          <div id="overview" class="panel">
+            <div class="compilation-status pull-right"></div>
+            <h3><i class="icon-search"></i> Analysis Results</h3>
             <div class="results_table">
-                <table id="overview_table">
+                <table id="overview_table" class="table table-hover table-condensed">
                 </table>
             </div>
           </div>
 
-          <div id="synthesis" class="action">
-            <h3 class="std-background"><i class="icon-magic"></i> Synthesis</h3>
+          <div id="synthesis" class="panel">
+            <h3><i class="icon-magic"></i> Synthesis</h3>
             <div class="results_table">
-                <table id="synthesis_table">
+                <table id="synthesis_table" class="table table-hover table-condensed">
                 </table>
             </div>
           </div>
 
-          <div class="action" id="console-action">
-              <h3 class="std-background"><i class="icon-comments-alt"></i> Console:</h3>
+          <div class="panel" id="console-panel">
+              <h3><i class="icon-comments-alt"></i> Console:</h3>
               <div id="console"></div>
           </div>
 
-          <div class="action" id="params-action">
+          <div class="panel" id="params-panel">
               <h3 class="std-background"><i class="icon-wrench"></i> Features:</h3>
               <ul>
               </ul>
           </div>
 
-          <div id="disconnectError" class="error alert alert-error fade hide in">
+          <div id="disconnectError" class="error alert alert-danger">
               <a class="close" data-dismiss="alert" href="#">&times;</a>
               <h4>Failed to connect</h4>
               <p>The Leon server appears to be unreachable right now.</p>
@@ -79,7 +79,7 @@
               <p></p>
           </div>
 
-          <div id="connectError" class="error alert alert-error fade hide in">
+          <div id="connectError" class="error alert alert-danger">
               <a class="close" data-dismiss="alert" href="#">&times;</a>
               <h4>Failed to connect</h4>
               <p>Leon failed to contact the mothership :(</p>
@@ -91,58 +91,70 @@
         </div>
       </div>
     </div>
-    <div id="synthesisDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true" cid="0" data-backdrop="static">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-        <h3>Synthesis</h3>
-      </div>
-      <div class="modal-body">
-        <h4>Synthesis Problem:</h4>
-        <pre class="problem code prettyprint lang-scala">
-        </pre>
-        <div id="synthesisProgressBox">
-            <h4>Progress:</h4>
-            <div id="synthesisProgress" class="progress progress-striped active"><div class="bar" style="width: 0%;"></div></div>
-        </div>
-        <div id="synthesisResults">
-            <h4>Solution:</h4>
-            <pre class="code solution prettyprint lang-scala">
+    <div id="synthesisDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" cid="0" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Synthesis</h3>
+          </div>
+          <div class="modal-body">
+            <h4>Synthesis Problem:</h4>
+            <pre class="problem code prettyprint lang-scala">
             </pre>
+            <div id="synthesisProgressBox">
+                <h4>Progress:</h4>
+                <div id="synthesisProgress" class="progress">
+                  <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+                </div>
+            </div>
+            <div id="synthesisResults">
+                <h4>Solution:</h4>
+                <pre class="code solution prettyprint lang-scala">
+                </pre>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import Code</button>
+            <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
+            <button class="btn closeButton" data-dismiss="modal" aria-hidden="true">Close</button>
+          </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import Code</button>
-        <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
-        <button class="btn closeButton" data-dismiss="modal" aria-hidden="true">Close</button>
       </div>
     </div>
-    <div id="verifyDialog" class="modal hide fade" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
-      <div class="modal-header">
-        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
-        <h3>Verification</h3>
-      </div>
-      <div class="modal-body">
-        <p>
-            Leon verifies the validity all the verification conditions found in the selected function.
-        </p>
-        <div id="verifyProgress" class="progress progress-striped active"><div class="bar" style="width: 40%;"></div></div>
-        <div id="verifyResults">
-            <table class="allResults">
-                <thead>
-                    <tr>
-                        <th>Function</th>
-                        <th>Kind</th>
-                        <th>Result</th>
-                        <th>Time</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
+    <div id="verifyDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Verification</h3>
+          </div>
+          <div class="modal-body">
+            <p>
+                Leon verifies the validity all the verification conditions found in the selected function.
+            </p>
+            <div id="verifyProgress" class="progress">
+              <div class="progress-bar progress-bar-success progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+            </div>
+            <div id="verifyResults">
+                <table class="allResults table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Function</th>
+                            <th>Kind</th>
+                            <th>Result</th>
+                            <th>Time</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+          </div>
         </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
       </div>
     </div>
   </div>

@@ -20,31 +20,11 @@ $(document).ready(function() {
 
     var headerHeight = $("#title").height()+20
 
-    var mode = "normal"
-
-    function toggleMenuDisplay() {
-        if (mode == "normal") {
-            $("#actionscolumn").hide()
-            $("#codecolumn").removeClass("span8").addClass("span12")
-
-            mode = "presentation"
-        } else {
-            $("#codecolumn").removeClass("span12").addClass("span8")
-            $("#actionscolumn").show()
-
-            mode = "normal"
-        }
-        resizeEditor()
-    }
-
     var lastRange = null;
     var lastProcessedRange = null;
     var lastDisplayedRange = null;
 
-    var explorationFacts = [
-        {range: new aceRange(8, 2, 8, 10), res: "Yay"},
-        {range: new aceRange(9, 6, 9, 10), res: "Yay2"},
-    ];
+    var explorationFacts = [ ];
 
     var lastMarker = -1;
 
@@ -335,29 +315,39 @@ $(document).ready(function() {
         var codebox = $("div#codebox")
         var boxes = $(".results_table")
 
+        e.attr("class", "compilation-status pull-right");
+        $(".results_table > .overlay").remove();
+
         if (status == "success") {
-          e.attr("class", "compilation-status success")
           compilationStatus = 1
-          e.html('<i class="icon-ok" title="Compilation succeeded"></i>')
+
+          e.addClass("success")
+          e.html('<i class="fa fa-check" title="Compilation succeeded"></i>')
+
           codebox.removeClass("compilation-error")
-          $(".results_table > .overlay").remove();
         } else if (status == "failure") {
-          e.attr("class", "compilation-status failure")
           compilationStatus = -1
-          e.html('<span class="compilation-error">Compilation Failed <i class="icon-exclamation" title="Compilation failed"></i></span>')
+
+          e.addClass("failure")
+          e.html('<span class="compilation-error">Compilation Failed <i class="fa fa-bolt" title="Compilation failed"></i></span>')
+
           codebox.addClass("compilation-error")
-          $(".results_table > .overlay").remove();
+
           boxes.append('<div class="overlay" />')
         } else if (status == "disconnected") {
-          e.attr("class", "compilation-status failure")
           compilationStatus = 0
-          e.html('<i class="icon-unlink" title="Disconnected from server"></i>')
+
+          e.addClass("failure")
+          e.html('Disconnected <i class="fa fa-unlink"></i>')
+
+          boxes.append('<div class="overlay" />')
+
         } else if (status == "unknown") {
-          e.attr("class", "compilation-status")
           compilationStatus = 0
-          e.html('<i class="icon-spinner" title="Compiling..."></i>')
+
+          e.html('<i class="fa fa-refresh fa-spin" title="Compiling..."></i>')
         } else {
-            alert("Unknown status: "+status)
+          alert("Unknown status: "+status)
         }
 
         updateExplorationHighlights();
@@ -375,9 +365,9 @@ $(document).ready(function() {
     var features = {
         verification:   {active: true, name: "Verification"},
         synthesis:      {active: true, name: "Synthesis"},
-        termination:    {active: false, name: "Termination <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
+        termination:    {active: false, name: "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
         presentation:   {active: false, name: "Presentation Mode"},
-        execution:      {active: true, name: "Execution <i class=\"icon-beaker\" title=\"Beta version\"></i>"},
+        execution:      {active: true, name: "Execution <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
     }
 
     var localFeatures = localStorage.getItem("leonFeatures")
@@ -390,7 +380,7 @@ $(document).ready(function() {
         }
     }
 
-    var fts = $("#params-action ul")
+    var fts = $("#params-panel ul")
     for (var f in features) {
         fts.append('<li><label class="checkbox"><input id="feature-'+f+'" class=\"feature\" ref=\"'+f+'\" type="checkbox"'+(features[f].active ? ' checked="checked"' : "")+'>'+features[f].name+'</label></li>')
     }
@@ -421,33 +411,33 @@ $(document).ready(function() {
             verification: {
                 column: "Verif.",
                 html: function(name, d) {
-                    var vstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying...\" />"
+                    var vstatus = '<i class="fa fa-refresh fa-spin" title="Verifying..."></i>';
 
                     switch(d.status) {
                       case "crashed":
-                        vstatus = "<i class=\"icon-bolt\" title=\"Unnexpected error during verification\"></i>";
+                        vstatus = '<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>';
                         break;
                       case "undefined":
-                        vstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying...\" />";
+                        vstatus = '<i class="fa fa-refresh fa-spin" title="Verifying..."></i>';
                         break;
                       case "cond-valid":
-                        vstatus = "<i class=\"icon-exclamation-sign\" title=\"Cond-Valid\"></i>";
+                        vstatus = "<i class=\"fa fa-warning\" title=\"Cond-Valid\"></i>";
                         break;
                       case "valid":
-                        vstatus = "<i class=\"icon-ok-sign\" title=\"Valid\"></i>";
+                        vstatus = "<i class=\"fa fa-check text-success\" title=\"Valid\"></i>";
                         break;
                       case "invalid":
-                        vstatus = "<i class=\"icon-remove-sign\" title=\"Invalid\"></i>";
+                        vstatus = "<i class=\"fa fa-exclamation-circle text-danger\" title=\"Invalid\"></i>";
                         break;
                       case "timeout":
-                        vstatus = "<i class=\"icon-time\" title=\"Timeout\"></i>";
+                        vstatus = "<i class=\"fa fa-clock-o text-warning\" title=\"Timeout\"></i>";
                         break;
                     }
 
                     return "<td class=\"status verif\" fname=\""+name+"\">"+vstatus+"</td>"
                 },
                 missing: function(name) {
-                    return "<td class=\"status verif\" fname=\""+name+"\"><i class=\"icon-question-sign\" title=\"unknown\"></i></td>"
+                    return "<td class=\"status verif\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
                 },
                 handlers: function() {
                     $("td.verif").click(function () {
@@ -469,24 +459,24 @@ $(document).ready(function() {
             termination: {
                 column: "Term.",
                 html: function(name, d) {
-                    var tstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Verifying\"/>"
+                    var tstatus = '<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>';
 
                     switch(d.status) {
                         case "unknown":
-                            tstatus = "<img src=\""+_leon_prefix+"/assets/images/loader.gif\" title=\"Unknown\" />";
+                            tstatus = "<i class=\"fa fa-question\" title=\"Unknown\" />";
                             break;
                         case "terminates":
-                            tstatus = "<i class=\"icon-ok-sign\" title=\"Termination guaranteed\"></i>";
+                            tstatus = "<i class=\"fa fa-check text-success\" title=\"Termination guaranteed\"></i>";
                             break;
                         case "noguarantee":
-                            tstatus = "<i class=\"icon-question-sign\" title=\"No termination guarantee\"></i>";
+                            tstatus = "<i class=\"fa fa-exclamation-circle text-danger\" title=\"No termination guarantee\"></i>";
                             break;
                     }
 
                     return "<td class=\"status termin\" fname=\""+name+"\">"+tstatus+"</td>"
                 },
                 missing: function(name) {
-                    return "<td class=\"status termin\" fname=\""+name+"\"><i class=\"icon-question-sign\" title=\"Unknown\"></i></td>"
+                    return "<td class=\"status termin\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
                 },
                 handlers: function() { }
             },
@@ -532,14 +522,14 @@ $(document).ready(function() {
             var id = 'menu'+fname+index
 
             html += ' <div class="dropdown">'
-            html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown">'+description+'</a>'
+            html += '  <a id="'+id+'" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-magic"></i> '+description+'</a>'
             html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
             if (compilationStatus == 1) {
                 html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid="'+index+'">Search</a></li>'
                 html += '    <li role="presentation" class="divider"></li>'
-                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="'+_leon_prefix+'/assets/images/loader.gif" /></a></li>'
+                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="/assets/images/loader.gif" /></a></li>'
             } else {
-                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="icon-exclamation"></i> Not compiled</a></li>'
+                html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="fa fa-ban"></i> Not compiled</a></li>'
             }
 
             html += '  </ul>'
@@ -593,12 +583,8 @@ $(document).ready(function() {
     function setPresentationMode() {
         if(features["presentation"].active) {
             $("body").addClass("presentation")
-            $("#codecolumn").removeClass("span8").addClass("span9")
-            $("#actionscolumn").removeClass("span4").addClass("span3")
         } else {
             $("body").removeClass("presentation")
-            $("#codecolumn").removeClass("span9").addClass("span8")
-            $("#actionscolumn").removeClass("span3").addClass("span4")
         }
         resizeEditor()
     }
@@ -702,7 +688,7 @@ $(document).ready(function() {
 
     handlers["synthesis_result"] = function(data) {
         var pb = $("#synthesisProgress")
-        var pbb = $("#synthesisProgress .bar")
+        var pbb = $("#synthesisProgress .progress-bar")
 
         // setup and open pane
         if (data.result == "init") {
@@ -715,15 +701,14 @@ $(document).ready(function() {
             prettyPrint();
             $("#synthesisDialog").modal("show")
 
-            pb.addClass("active progress-striped")
-            pbb.removeClass("bar-success bar-danger")
-            pbb.addClass("bar-init")
+            pbb.addClass("active progress-bar-striped")
+            pbb.removeClass("progress-bar-success progress-bar-danger")
             pbb.width("100%")
             pbb.html("Synthesizing...");
 
             $("#synthesisProgressBox").show()
             synthesizing = true;
-            $('#synthesisDialog').unbind('hidden').on('hidden', function () {
+            $('#synthesisDialog').on('hide.bs.modal', function () {
                 if (synthesizing) {
                     var msg = JSON.stringify({
                         module: "main",
@@ -734,31 +719,27 @@ $(document).ready(function() {
                 }
             })
         } else if (data.result == "progress") {
-            pbb.removeClass("bar-init")
-
             var pc = (data.closed*100)/data.total;
             pbb.width(pc+"%")
             pbb.html(data.closed+"/"+data.total);
 
         } else if (data.result == "failure") {
-            pb.removeClass("active progress-striped")
+            pbb.removeClass("active progress-bar-striped")
 
             pbb.width("100%")
             pbb.html("Failed to apply");
-            pbb.removeClass("bar-init")
-            pbb.addClass("bar-danger")
+            pbb.addClass("progress-bar-danger")
 
             $("#synthesisDialog .cancelButton").hide()
             $("#synthesisDialog .closeButton").show()
             synthesizing = false;
 
         } else if (data.result == "success") {
-            pb.removeClass("active progress-striped")
+            pbb.removeClass("active progress-bar-striped")
 
             pbb.width("100%")
             pbb.html(data.closed+"/"+data.total);
-            pbb.removeClass("bar-init")
-            pbb.addClass("bar-success")
+            pbb.addClass("progress-bar-success")
 
             if (data.total == 1) {
                 $("#synthesisProgressBox").hide()
@@ -793,7 +774,7 @@ $(document).ready(function() {
                 var clazz = "temp"
 
                 if (app.status == "closed") {
-                    statusIcon = '<i class="icon-exclamation-sign"></i> '
+                    statusIcon = '<i class="fa fa-exclamation-circle"></i> '
                     clazz += ' disabled'
                 }
                 html += '<li role="presentation" class="'+clazz+'"><a role="menuitem" tabindex="-1" href="#" action="rule" cid="'+cid+'" rid="'+app.id+'">'+statusIcon+app.name+'</a></li>'
@@ -825,38 +806,38 @@ $(document).ready(function() {
 
     function displayVerificationDetails(status, vcs) {
         var pb = $("#verifyProgress")
-        var pbb = pb.children(".bar")
+        var pbb = pb.children(".progress-bar")
 
         pbb.width("100%")
         pb.removeClass("active")
-        pb.addClass("progress-striped")
+        pb.addClass("progress-bar-striped")
 
-        pbb.removeClass("bar-warning bar-success bar-danger")
+        pbb.removeClass("progress-bar-warning progress-bar-success progress-bar-danger")
 
         switch (status) {
             case "cond-valid":
                 pbb.html("Conditionally Valid!")
-                pbb.addClass("bar-warning")
+                pbb.addClass("progress-bar-warning")
                 break;
 
             case "valid":
                 pbb.html("Valid!")
-                pbb.addClass("bar-success")
+                pbb.addClass("progress-bar-success")
                 break;
 
             case "invalid":
                 pbb.html("Invalid!")
-                pbb.addClass("bar-danger")
+                pbb.addClass("progress-bar-danger")
                 break;
 
             case "unknown":
                 pbb.html("Unknown ?!")
-                pbb.addClass("bar-warning")
+                pbb.addClass("progress-bar-warning")
                 break;
 
             case "timeout":
                 pbb.html("Timeout!")
-                pbb.addClass("bar-warning")
+                pbb.addClass("progress-bar-warning")
                 break;
         }
 
@@ -865,30 +846,40 @@ $(document).ready(function() {
 
         for (var i = 0; i < vcs.length; i++) {
             var vc = vcs[i];
-            var icon = "ok"
+            var icon = "check"
             if (vc.status == "invalid") {
-                icon = "remove"
+                icon = "warning"
             } else if (vc.status == "unknown") {
-                icon = "time"
+                icon = "question"
+            }
+            var clas = "success"
+            if (vc.status == "invalid") {
+              clas = "danger"
+            } else if (vc.status == "unknown") {
+              clas = "warning"
             }
 
 
-            tbl.append("<tr class=\""+((i%2 == 0) ? "odd " : "")+vc.status+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"icon-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
+            tbl.append("<tr class=\""+clas+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"fa fa-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
 
             if ("counterExample" in vc) {
-                var html = "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example input\"><td colspan=\"4\"><div><p>The following inputs violate the VC:</p><div><table>";
-
+                var html = "<tr class=\""+clas+" counter-example\"><td colspan=\"4\">"
+                html += "<div>"
+                html += "  <p>The following inputs violate the VC:</p>";
+                html += "  <table class=\"input\">";
                 for (var v in vc.counterExample) {
                     html += "<tr><td>"+v+"</td><td>&nbsp;:=&nbsp;</td><td>"+vc.counterExample[v]+"</td></tr>";
                 }
-                html += "</table></div></td></tr>"
-                    
+                html += "  </table>"
+
                 if ("execution" in vc && vc.execution.result == "success" && features["execution"].active) {
-                    html += "<tr class=\""+((i%2 == 0) ? "odd " : "")+"counter-example output\"><td colspan=\"4\"><div><p>It produced the following output:</p>";
-                    html += "<div>"+vc.execution.output+"</div>"
-                    html += "</div></td></tr>"
+                    html += "  <p>It produced the following output:</p>";
+                    html += "  <div class=\"output\">"+vc.execution.output+"</div>"
                 }
 
+                html += "    </div>"
+                html += "  </td>"
+                html += "</tr>"
 
                 tbl.append(html)
             }
@@ -923,6 +914,9 @@ $(document).ready(function() {
 
     var connected = false
 
+    var lastReconnectDelay = 0;
+    var reconnectIn = 0;
+
     var closeEvent = function(event) {
         if (connected) {
             setDisconnected()
@@ -930,8 +924,13 @@ $(document).ready(function() {
     }
 
     var openEvent = function(event) {
+        if (lastReconnectDelay != 0) {
+          notify("And we are back online!", "success")
+          updateCompilationStatus("unknown")
+        }
+
+        console.log("Connected!")
         setConnected()
-        leonSocket.onmessage = receiveEvent;
 
         for (var f in features) {
             var msg = JSON.stringify(
@@ -968,19 +967,6 @@ $(document).ready(function() {
         loadStaticLink(hash);
     });
 
-    var lastReconnectDelay = 0;
-    var reconnectIn = 0;
-
-    var reconnectEvent = function(event) {
-        setConnected()
-        leonSocket.onmessage = receiveEvent;
-
-        notify("And we are back online!", "success")
-
-
-        recompile()
-    }
-
     function setDisconnected() {
         connected = false
         updateCompilationStatus("disconnected")
@@ -1005,8 +991,8 @@ $(document).ready(function() {
             reconnectIn = -1;
             $("#disconnectError #disconnectMsg").html("Attempting reconnection...");
 
+            console.log("Checking connection...")
             connectWS()
-            leonSocket.onmessage = reconnectEvent
 
             // If still not connected after 2 seconds, consider failed
             setTimeout(function() {
@@ -1021,7 +1007,7 @@ $(document).ready(function() {
                 }
             }, 2000);
         } else if (reconnectIn > 0) {
-            $("#disconnectError #disconnectMsg").html('Retrying in '+reconnectIn+' seconds... <button id="tryReconnect" class="btn btn-danger btn-mini">Try now</button>');
+            $("#disconnectError #disconnectMsg").html('Retrying in '+reconnectIn+' seconds... <button id="tryReconnect" class="btn btn-danger btn-xs">Try now</button>');
 
             $("#tryReconnect").click(function() {
                 reconnectIn = 0;
@@ -1034,7 +1020,7 @@ $(document).ready(function() {
         }
     }
 
-    setInterval(function () { checkDisconnectStatus() }, 1000);
+    setInterval(function () { checkDisconnectStatus() }, 2000);
 
     var errorEvent = function(event) {
         console.log("ERROR")
@@ -1050,8 +1036,10 @@ $(document).ready(function() {
     }, 3000);
 
     function connectWS() {
+        console.log("Connecting..")
         leonSocket = new WS(_leon_websocket_url)
-        leonSocket.onmessage = openEvent
+        leonSocket.onopen = openEvent
+        leonSocket.onmessage = receiveEvent;
         leonSocket.onclose = closeEvent
         leonSocket.onerror = errorEvent
     }
@@ -1131,7 +1119,7 @@ $(document).ready(function() {
     function loadExample(group, id) {
         if (id) {
             $.ajax({
-              url: _leon_prefix+'/ajax/getExample/'+group+'/'+id,
+              url: '/ajax/getExample/'+group+'/'+id,
               dataType: "json",
               success: function(data, textStatus, jqXHR) {
                 if (data.status == "success") {
@@ -1185,7 +1173,7 @@ $(document).ready(function() {
         var w = $("#codecolumn").width()
 
         $('#codecolumn').height(h);
-        $('#actionscolumn').height(h);
+        $('#panelscolumn').height(h);
         $('#leoninput').height(h).width(w);
         $('#codebox').height(h).width(w);
 
@@ -1209,7 +1197,7 @@ $(document).ready(function() {
         currentMousePos = { x: event.pageX, y: event.pageY };
     });
 
-    function openVerifyDialog(cancelOnClose) {
+    function openVerifyDialog() {
         $("#verifyDialog").modal("show")
     }
 
@@ -1279,7 +1267,7 @@ $(document).ready(function() {
                 html     += '    '+demo.content
                 html     += '  </div>'
                 html     += '  <div class="modal-footer">'
-                html     += '    <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="icon-play"></i></button>'
+                html     += '    <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="fa fa-play"></i></button>'
                 html     += '    <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>'
                 html     += '  </div>'
                 html     += '</div>'
@@ -1318,7 +1306,7 @@ $(document).ready(function() {
                     content += '    <button class="btn btn-success" demo-action="close">Ok!</button>';
                 } else {
                     content += '    <button class="btn" demo-action="close">Got it</button>';
-                    content += '    <button class="btn btn-success" demo-action="next">Next <i class="icon-step-forward"></i></button>';
+                    content += '    <button class="btn btn-success" demo-action="next">Next <i class="fa fa-forward"></i></button>';
                 }
                 content += '  </div>'
                 content += '</div>'
@@ -1332,9 +1320,9 @@ $(document).ready(function() {
                 var progress = ""
                 for (var i = 0; i < demos.length-1; i++) {
                     if (i < id) {
-                        progress += '<i class="icon-circle"></i>'
+                        progress += '<i class="fa fa-circle"></i>'
                     } else {
-                        progress += '<i class="icon-circle-blank"></i>'
+                        progress += '<i class="fa fa-circle-o"></i>'
                     }
                 }
 

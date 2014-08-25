@@ -73,8 +73,6 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
       logInfo("New client")
 
-      event("connected", Map())
-
     case DoCancel =>
       cancelledWorkers = Set()
       logInfo("Starting Cancel Procedure...")
@@ -171,7 +169,6 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(List("--library")).copy(reporter = compReporter)
-
 
         val opgm = try {
           // First we extract Leon program
