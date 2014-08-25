@@ -1271,20 +1271,23 @@ $(document).ready(function() {
         function showDemo(id) {
             var demo = demos[id]
 
-
             if (demo.placement == "modal") {
                 // Assume only the first demo is modal
-                var html  = '<div id="demoPane" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">'
-                html     += '  <div class="modal-header">'
-                html     += '    <button type="button" class="close" demo-action="close" data-dismiss="modal" aria-hidden="true">×</button>'
-                html     += '    <h3 id="demoModal">'+demo.title+'</h3>'
-                html     += '  </div>'
-                html     += '  <div class="modal-body">'
-                html     += '    '+demo.content
-                html     += '  </div>'
-                html     += '  <div class="modal-footer">'
-                html     += '    <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="fa fa-play"></i></button>'
-                html     += '    <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>'
+                var html  = '<div id="demoPane" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">'
+                html     += '  <div class="modal-dialog">'
+                html     += '    <div class="modal-content">'
+                html     += '      <div class="modal-header">'
+                html     += '        <button type="button" class="close" demo-action="close" data-dismiss="modal" aria-hidden="true">×</button>'
+                html     += '        <h3 id="demoModal">'+demo.title+'</h3>'
+                html     += '      </div>'
+                html     += '      <div class="modal-body">'
+                html     += '        '+demo.content
+                html     += '      </div>'
+                html     += '      <div class="modal-footer">'
+                html     += '        <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="fa fa-play"></i></button>'
+                html     += '        <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>'
+                html     += '      </div>'
+                html     += '    </div>'
                 html     += '  </div>'
                 html     += '</div>'
 
@@ -1293,18 +1296,13 @@ $(document).ready(function() {
                 $("#demoPane").modal("show")
 
                 var action = "close"
-                $("#demoPane button[demo-action=\"close\"]").click(function() {
-                    console.log("Closing..");
+
+                $("#demoPane button").click(function() {
+                    action = $(this).attr("demo-action")
                     hideDemo(id)
-                    action = "close"
                 })
 
-                $("#demoPane button[demo-action=\"next\"]").click(function() {
-                    console.log("Nexting..");
-                    hideDemo(id)
-                    action = "next"
-                })
-                $('#demoPane').on('hide', function () {
+                $('#demoPane').on('hide.bs.modal', function () {
                     if (action == "next") {
                         localStorage.setItem("leonSeenDemo", id+1)
                         setTimeout(function() { showDemo(id+1) }, 500)
@@ -1331,7 +1329,12 @@ $(document).ready(function() {
 
                 lastDemo = where;
 
-                console.log(where)
+                if (where.length == 0) {
+                  localStorage.setItem("leonSeenDemo", id+1)
+                  hideDemo(id)
+                  showDemo(id+1)
+                  return;
+                }
 
                 var progress = ""
                 for (var i = 0; i < demos.length-1; i++) {
@@ -1354,8 +1357,8 @@ $(document).ready(function() {
                 where.popover("show")
 
                 $("#demoPane button[demo-action=\"close\"]").click(function() {
-                    hideDemo(id)
                     localStorage.setItem("leonSeenDemo", 100)
+                    hideDemo(id)
                 })
 
                 $("#demoPane button[demo-action=\"next\"]").click(function() {
