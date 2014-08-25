@@ -165,6 +165,21 @@ select#example-loader {
     margin: 5px;
 }
 
+ul#annotations {
+  margin: 0px;
+  padding: 0px;
+  list-style: none;
+}
+
+ul#annotations li {
+  border-top: 1px solid #666;
+}
+
+ul#annotations code {
+  white-space: pre;
+  background: white;
+}
+
 /* Panels */
 div#console-panel, div#params-panel {
     display: none;
@@ -220,6 +235,13 @@ div.overlay {
   display: none;
 }
 
+div#codebox.compilation-error div.ace_gutter {
+    background-color: rgba(255, 0, 0, 0.3) !important;
+}
+div#codebox.compilation-error div.ace_gutter-active-line {
+    background: #E75555;
+}
+
 /* modals */
 
 #synthesisProgress, #verifyProgress {
@@ -270,6 +292,31 @@ table#synthesis_table td.subproblem {
 
 #synthesisDialog pre.problem {
   padding: 5px;
+}
+
+/* Execution */
+
+.ace_marker-layer .leon-explore-location {
+    background: rgba(0, 255, 0, 0.1);
+    position: absolute;
+    z-index: 2;
+}
+
+div#codebox .tooltip-inner {
+    max-width: 600px;
+    padding: 1px 3px;
+}
+
+body.presentation div#codebox .tooltip-inner {
+    font-size: 1.5em;
+}
+
+div#codebox .tooltip {
+    position: fixed;
+}
+div#codebox .tooltip.in{
+    opacity: 0.8;
+    filter: alpha(opacity=80);
 }
 
 /*
@@ -557,37 +604,9 @@ span.compilation-error {
     font-weight: bold;
 }
 
-div#codebox.compilation-error div.ace_gutter {
-    background-color: rgba(255, 0, 0, 0.3) !important;
-}
-div#codebox.compilation-error div.ace_gutter-active-line {
-    background: #E75555;
-}
 
 div#codebox .ace_gutter-tooltip {
 }
 
 
-.ace_marker-layer .leon-explore-location {
-    background: rgba(0, 255, 0, 0.1);
-    position: absolute;
-    z-index: 2;
-}
-
-div#codebox .tooltip-inner {
-    max-width: 600px;
-    padding: 1px 3px;
-}
-
-body.presentation div#codebox .tooltip-inner {
-    font-size: 1.5em;
-}
-
-div#codebox .tooltip {
-    position: fixed;
-}
-div#codebox .tooltip.in{
-    opacity: 0.8;
-    filter: alpha(opacity=80);
-}
 */

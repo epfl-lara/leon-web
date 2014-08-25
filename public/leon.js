@@ -633,15 +633,9 @@ $(document).ready(function() {
             }
         }
 
-        $(".hovertoline[line]").hover(function() {
-            var line = $(this).attr("line")
-            editor.gotoLine(line);
-        }, function() {})
 
-        $(".clicktoline[line]").click(function() {
-            var line = $(this).attr("line")
-            editor.gotoLine(line);
-        })
+        addClickToLine("#overview_table");
+        addHoverToLine("#overview_table");
 
         if (Object.keys(overview.functions).length == 0) {
             t.hide()
@@ -650,11 +644,27 @@ $(document).ready(function() {
         }
     }
 
+    function addClickToLine(within) {
+      $(within+" .clicktoline[line]").click(function() {
+          var line = $(this).attr("line")
+          editor.gotoLine(line);
+      })
+    }
+
+    function addHoverToLine(within) {
+      $(within+" .hovertoline[line]").hover(function() {
+          var line = $(this).attr("line")
+          editor.gotoLine(line);
+      }, function() {})
+    }
+
     handlers["editor"] = function (data) {
         if ("annotations" in data) {
             var session = editor.getSession();
 
             context = "unknown";
+
+            $("#annotations").html("");
 
             for (var i = 0; i < data.annotations.length; i++) {
                 var a = data.annotations[i];
@@ -668,9 +678,17 @@ $(document).ready(function() {
                     session.addGutterDecoration(a.row, "leon_gutter_"+a.type)
                     a.type = "info";
                 }
+
+                if (a.type == "error") {
+                  var line = a.row+1
+                  $("#annotations").append("<li class=\"clicktoline\" line=\""+line+"\"><code><i class=\"fa fa-warning\"></i> "+line+":"+a.text+"</code></li>")
+                }
             }
 
+
+            addClickToLine("#annotations");
             session.setAnnotations(data.annotations);
+            resizeEditor();
         }
     }
 
@@ -929,7 +947,6 @@ $(document).ready(function() {
           updateCompilationStatus("unknown")
         }
 
-        console.log("Connected!")
         setConnected()
 
         for (var f in features) {
@@ -991,7 +1008,6 @@ $(document).ready(function() {
             reconnectIn = -1;
             $("#disconnectError #disconnectMsg").html("Attempting reconnection...");
 
-            console.log("Checking connection...")
             connectWS()
 
             // If still not connected after 2 seconds, consider failed
@@ -1169,13 +1185,13 @@ $(document).ready(function() {
     function resizeEditor() {
 
         var h = $(window).height()-$("#title").height()-6
-        //var w = $(window).width()
+        var ah = $("#annotations").height()
         var w = $("#codecolumn").width()
 
         $('#codecolumn').height(h);
         $('#panelscolumn').height(h);
-        $('#leoninput').height(h).width(w);
-        $('#codebox').height(h).width(w);
+        $('#leoninput').height(h-ah).width(w);
+        $('#codebox').height(h-ah).width(w);
 
         editor.resize();
     };
