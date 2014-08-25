@@ -24,7 +24,7 @@ body#leon {
 }
 
 .panel h3, #title {
-    background: #000050 !important;
+    background: #19214F !important;
 }
 
 div#title {
@@ -107,7 +107,7 @@ div.toolbox a:hover span {
 
 div.toolbox {
     white-space: nowrap;
-    margin: 12px 0px 0px 30px;
+    margin: 5px 0px 0px 30px;
     float: left;
     font-size: 1em;
 }
