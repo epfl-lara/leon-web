@@ -45,6 +45,7 @@ body#leon {
 
 #overview .progress {
   height: 28px;
+  margin: 0px;
   border-radius: 0px;
   background: #4A548C;
 }
@@ -52,7 +53,7 @@ body#leon {
 #overview .compilation-status {
   position: absolute;
   top: 0px;
-  right: 4px;
+  right: 0px;
 }
 
 div#title {
