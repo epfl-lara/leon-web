@@ -310,12 +310,16 @@ $(document).ready(function() {
      * Compilation
      */
 
+    function updateCompilationProgress(percents) {
+      $("#overview .progress-bar").css("width", percents+"%");
+    }
+
     function updateCompilationStatus(status) {
         var e = $(".compilation-status")
         var codebox = $("div#codebox")
         var boxes = $(".results_table")
 
-        e.attr("class", "compilation-status pull-right");
+        e.attr("class", "compilation-status");
         $(".results_table > .overlay").remove();
 
         if (status == "success") {
@@ -323,6 +327,7 @@ $(document).ready(function() {
 
           e.addClass("success")
           e.html('Compiled <i class="fa fa-check" title="Compilation succeeded"></i>')
+
 
           codebox.removeClass("compilation-error")
         } else if (status == "failure") {
@@ -350,8 +355,18 @@ $(document).ready(function() {
           alert("Unknown status: "+status)
         }
 
+        if (status == "unknown") {
+          updateCompilationProgress(0);
+        } else {
+          updateCompilationProgress(100);
+        }
+
         updateExplorationHighlights();
         drawSynthesisOverview()
+    }
+
+    handlers["compilation_progress"] = function (data) {
+      updateCompilationProgress(Math.round((data.current*100)/data.total))
     }
 
     handlers["compilation"] = function (data) {
@@ -1108,6 +1123,7 @@ $(document).ready(function() {
             lastSavedChange = lastChange;
             updateSaveButton();
             leonSocket.send(msg)
+            updateCompilationProgress(0)
         }
     }
 

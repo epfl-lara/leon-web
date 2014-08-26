@@ -35,6 +35,12 @@ class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReport
     }
   }
 
+  override def onCompilerProgress(current: Int, total: Int) {
+    channel.push(toJson(Map("kind" -> toJson("compilation_progress"),
+                            "current" -> toJson(current),
+                            "total" -> toJson(total))))
+  }
+
   override def account(msg: Message): Message = {
     msg.severity match {
       case ERROR =>

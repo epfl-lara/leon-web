@@ -27,6 +27,34 @@ body#leon {
     background: #19214F !important;
 }
 
+#overview {
+  position: relative;
+}
+
+
+#overview h3 {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+  background: none !important;
+}
+
+#overview .progress-bar {
+  background-color: #19214F;
+}
+
+#overview .progress {
+  height: 28px;
+  border-radius: 0px;
+  background: #4A548C;
+}
+
+#overview .compilation-status {
+  position: absolute;
+  top: 0px;
+  right: 4px;
+}
+
 div#title {
     padding: 3px;
     overflow: hidden;
