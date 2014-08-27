@@ -93,8 +93,6 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
-          println("Path: "+path)
-
           val solution: Option[Solution] = search.traversePath(path) match {
             case Some(an: search.g.AndNode) =>
               logInfo("Applying :"+an.task.app.toString)
@@ -139,12 +137,12 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               val fInt = new FileInterface(new MuteReporter())
 
-              fd.body = fd.body.map(postMap{
+              fd.body = fd.body.map(b => Simplifiers.bestEffort(ctx, prog)(postMap{
                 case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
                   Some(expr)
                 case _ =>
                   None
-              })
+              }(b)))
 
               val fds = fd :: defs.toList.sortBy(_.id.name)
 
