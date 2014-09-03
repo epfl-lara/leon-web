@@ -377,6 +377,11 @@ $(document).ready(function() {
         }
     }
 
+    handlers["move_cursor"] = function (data) {
+      editor.selection.clearSelection();
+      editor.gotoLine(data.line, data.column);
+    }
+
     var features = {
         verification:   {active: true, name: "Verification"},
         synthesis:      {active: true, name: "Synthesis"},
@@ -785,6 +790,7 @@ $(document).ready(function() {
             $("#synthesisDialog .importButton").show()
             $("#synthesisDialog .importButton").unbind('click').click(function () {
                 handlers["replace_code"]({ newCode: data.allCode })
+                handlers["move_cursor"](data.cursor)
             })
             $("#synthesisDialog .cancelButton").hide()
             $("#synthesisDialog .closeButton").show()

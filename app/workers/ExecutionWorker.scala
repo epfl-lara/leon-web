@@ -35,7 +35,7 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
 
         tracingEval.eval(FunctionInvocation(tfd, positionedArgs).setPos(tfd))
 
-        tracingEval.lastGlobalContext match {
+        tracingEval.lastGC match {
           case Some(gc) =>
             for ((v, res) <- gc.values) {
               v.getPos match {
