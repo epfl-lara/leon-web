@@ -53,10 +53,17 @@ $(document).ready(function() {
     }
 
     function hideHighlight() {
-        if (lastMarker > 0) {
+        if (lastMarker >= 0) {
             editor.getSession().removeMarker(lastMarker);
-            $(".leon-explore-location.ace_start").tooltip("destroy");
-            lastMarker = 0;
+            var found = false;
+            $(".leon-explore-location.ace_start").each(function() {
+              found = true;
+              $(this).tooltip("destroy");
+            });
+
+            $("#codebox .tooltip.in").remove();
+
+            lastMarker = -1;
         }
         lastDisplayedRange = null;
     }
@@ -165,7 +172,7 @@ $(document).ready(function() {
 
     function showHighlight(range, content) {
         if (range != lastDisplayedRange) {
-            if (lastMarker > 0) {
+            if (lastMarker >= 0) {
                 editor.getSession().removeMarker(lastMarker);
                 $(".leon-explore-location.ace_start").tooltip("destroy");
             }
@@ -379,7 +386,7 @@ $(document).ready(function() {
 
     handlers["move_cursor"] = function (data) {
       editor.selection.clearSelection();
-      editor.gotoLine(data.line, data.column);
+      editor.gotoLine(data.line, data.column, true);
     }
 
     var features = {
@@ -790,7 +797,9 @@ $(document).ready(function() {
             $("#synthesisDialog .importButton").show()
             $("#synthesisDialog .importButton").unbind('click').click(function () {
                 handlers["replace_code"]({ newCode: data.allCode })
-                handlers["move_cursor"](data.cursor)
+                if ("cursor" in data) {
+                  handlers["move_cursor"](data.cursor)
+                }
             })
             $("#synthesisDialog .cancelButton").hide()
             $("#synthesisDialog .closeButton").show()
