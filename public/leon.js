@@ -61,8 +61,6 @@ $(document).ready(function() {
               $(this).tooltip("destroy");
             });
 
-            $("#codebox .tooltip.in").remove();
-
             lastMarker = -1;
         }
         lastDisplayedRange = null;
@@ -175,6 +173,7 @@ $(document).ready(function() {
             if (lastMarker >= 0) {
                 editor.getSession().removeMarker(lastMarker);
                 $(".leon-explore-location.ace_start").tooltip("destroy");
+                $("#codebox .tooltip.in").remove();
             }
 
             lastDisplayedRange = range;
@@ -239,9 +238,16 @@ $(document).ready(function() {
     var searchFinished = false
     var context = "unknown";
 
+    var maxHistory = 20;
     // Undo/Redo
-    var backwardChanges = []
-    var forwardChanges  = []
+    var backwardChanges = JSON.parse(localStorage.getItem("backwardChanges"))
+    if (!backwardChanges) {
+      backwardChanges = []
+    }
+    var forwardChanges  = JSON.parse(localStorage.getItem("forwardChanges"))
+    if (!forwardChanges) {
+      forwardChanges = []
+    }
 
     function doUndo() {
       forwardChanges.push(editor.getValue());
@@ -290,6 +296,17 @@ $(document).ready(function() {
       } else {
         rb.addClass("disabled") 
       }
+
+      if (backwardChanges.length > maxHistory) {
+        backwardChanges.splice(0, backwardChanges.length-maxHistory)
+      }
+
+      if (forwardChanges.length > maxHistory) {
+        forwardChanges.splice(0, forwardChanges.length-maxHistory)
+      }
+
+      localStorage.setItem("backwardChanges", JSON.stringify(backwardChanges));
+      localStorage.setItem("forwardChanges",  JSON.stringify(forwardChanges));
     }
 
     updateUndoRedo()
@@ -386,7 +403,7 @@ $(document).ready(function() {
 
     handlers["move_cursor"] = function (data) {
       editor.selection.clearSelection();
-      editor.gotoLine(data.line, data.column, true);
+      editor.gotoLine(data.line);
     }
 
     var features = {
@@ -798,7 +815,9 @@ $(document).ready(function() {
             $("#synthesisDialog .importButton").unbind('click').click(function () {
                 handlers["replace_code"]({ newCode: data.allCode })
                 if ("cursor" in data) {
-                  handlers["move_cursor"](data.cursor)
+                  setTimeout(function() {
+                    handlers["move_cursor"](data.cursor)
+                  }, 100);
                 }
             })
             $("#synthesisDialog .cancelButton").hide()
@@ -1082,7 +1101,6 @@ $(document).ready(function() {
     }, 3000);
 
     function connectWS() {
-        console.log("Connecting..")
         leonSocket = new WS(_leon_websocket_url)
         leonSocket.onopen = openEvent
         leonSocket.onmessage = receiveEvent;

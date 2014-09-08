@@ -306,6 +306,10 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                 "proven" -> toJson(succeeded),
                 "solCode" -> toJson(ScalaPrinter(solCode)),
                 "allCode" -> toJson(allCode),
+                "cursor" -> toJson(Map(
+                  "line"   -> oldFd.getPos.line,
+                  "column" -> (oldFd.getPos.col-1)
+                )),
                 "closed" -> toJson(closed),
                 "total" -> toJson(total)
               ))
