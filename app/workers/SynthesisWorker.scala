@@ -151,7 +151,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                             fd,
                                             (indent) => {
-                implicit val pctx = PrinterContext(fd, None, indent, p)
+                implicit val pctx = PrinterContext(fd, None, None, indent, p)
                 p"${nary(fds, "\n\n")}"
                 p.toString
               })
@@ -297,7 +297,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                             oldFd,
-                                            resFd)
+                                            resFd,
+                                            oldFd.owner.get)
 
               val (closed, total) = search.g.getStatus
 

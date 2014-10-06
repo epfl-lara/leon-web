@@ -17,7 +17,7 @@ case class CompilationState (
 
   def isCompiled = optProgram.isDefined
 
-  lazy val toInner = program.definedFunctions.filter(_.parent.isDefined).groupBy(_.parent.get)
+  lazy val toInner = program.definedFunctions.filter(_.owner.isDefined).groupBy(_.owner.get)
   def innerFunctionsOf(fd: FunDef): Set[FunDef] = {
     toInner.getOrElse(fd, Set()).toSet
   }
