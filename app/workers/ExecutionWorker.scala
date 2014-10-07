@@ -33,7 +33,12 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
 
         val positionedArgs = (args zip tfd.params).map { case (a, ad) => a.setPos(ad) }.toList
 
-        tracingEval.eval(FunctionInvocation(tfd, positionedArgs).setPos(tfd))
+        try {
+          tracingEval.eval(FunctionInvocation(tfd, positionedArgs).setPos(tfd))
+        } catch {
+          case e: StackOverflowError =>
+            notifyError("Stack Overflow when exploring expression!")
+        }
 
         tracingEval.lastGC match {
           case Some(gc) =>

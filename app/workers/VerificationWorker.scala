@@ -164,7 +164,12 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
                 val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
                 val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)
 
-                ceExecResults += vc -> evaluator.eval(callExpr)
+                try {
+                  ceExecResults += vc -> evaluator.eval(callExpr)
+                } catch {
+                  case e: StackOverflowError =>
+                    notifyError("Stack Overflow while testing counter example.")
+                }
 
               case _ =>
                 ceExecResults -= vc
