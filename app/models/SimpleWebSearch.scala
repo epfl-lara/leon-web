@@ -1,18 +1,19 @@
 package leon.web
 package models
 
+import leon._
 import leon.synthesis._
-import leon.synthesis.search._
+import leon.synthesis.graph._
 import play.api.libs.json.Json._
 
 class SimpleWebSearch(cs: BaseActor,
-                      synth: Synthesizer,
-                      problem: Problem) extends SimpleSearch(synth, problem, synth.options.costModel) {
+                      ctx: LeonContext,
+                      problem: Problem) extends SimpleSearch(ctx, problem, CostModel.default, Some(200)) {
 
-  override def searchStep() {
-    super.searchStep()
+  override def doStep(n: g.Node, sctx: SynthesisContext) = {
+    super.doStep(n, sctx);
 
-    val (closed, total) = g.getStatus
+    val (closed, total) = g.getStats()
 
     cs.event("synthesis_result", Map(
       "result" -> toJson("progress"),
@@ -20,5 +21,4 @@ class SimpleWebSearch(cs: BaseActor,
       "total" -> toJson(total)
     ))
   }
-
 }

@@ -370,6 +370,22 @@ span.demo-progress i {
     background-color: #ccc;
 }
 
+/* Exploration */
+
+pre.exploreBlock.prettyprint {
+  margin: 0px;
+  padding: 2px 2px 2px 20px;
+}
+
+pre.exploreBlock .header {
+  white-space: normal;
+  display: block;
+  font-style: italic;
+}
+
+pre.exploreBlock .header .name span {
+  color: #666 !important
+}
 /*
 div.results_table > table {
     width: 100%;

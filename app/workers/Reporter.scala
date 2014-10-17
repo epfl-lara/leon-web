@@ -3,6 +3,7 @@ package web
 package workers
 
 import akka.actor._
+import play.api._
 import play.api.libs.json._
 import play.api.libs.json.Json._
 
@@ -21,5 +22,6 @@ class WorkerReporter(session: ActorRef) extends Reporter(Settings()) {
     }
 
     session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (prefix + msg.msg.toString))))
+    Logger.info((prefix + msg.msg.toString))
   }
 }

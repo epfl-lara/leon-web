@@ -120,9 +120,34 @@
             </div>
           </div>
           <div class="modal-footer">
+            <button class="btn btn-primary exploreButton" aria-hidden="true">Explore</button>
             <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import Code</button>
             <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
             <button class="btn closeButton" data-dismiss="modal" aria-hidden="true">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="synthesisExploreDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" cid="0" data-backdrop="static">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Synthesis</h3>
+          </div>
+          <div class="modal-body">
+            <div id="synthesisTree">
+                <h4>Exploration:</h4>
+                <div class="solution">
+                  <pre class="exploreBlock" path="">
+                  </pre>
+                </div>
+                </pre>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary importButton" data-dismiss="modal">Import Code</button>
+            <button class="btn closeButton" data-dismiss="modal">Close</button>
           </div>
         </div>
       </div>

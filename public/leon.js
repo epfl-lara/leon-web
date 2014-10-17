@@ -570,6 +570,7 @@ $(document).ready(function() {
             html += '  <ul class="dropdown-menu" role="menu" aria-labelledby="'+id+'">'
             if (compilationStatus == 1) {
                 html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid="'+index+'">Search</a></li>'
+                html += '    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="explore" cid="'+index+'">Explore</a></li>'
                 html += '    <li role="presentation" class="divider"></li>'
                 html += '    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="/assets/images/loader.gif" /></a></li>'
             } else {
@@ -755,6 +756,9 @@ $(document).ready(function() {
         // setup and open pane
         if (data.result == "init") {
             $("#synthesisResults").hide()
+            $("#synthesisDialog").attr("cid", data.cid)
+            $("#synthesisDialog").attr("fname", data.fname)
+            $("#synthesisDialog .exploreButton").hide()
             $("#synthesisDialog .importButton").hide()
             $("#synthesisDialog .closeButton").hide()
             $("#synthesisDialog .cancelButton").show()
@@ -792,6 +796,8 @@ $(document).ready(function() {
             pbb.html("Failed to apply");
             pbb.addClass("progress-bar-danger")
 
+            $("#synthesisDialog .importButton").hide()
+            $("#synthesisDialog .exploreButton").hide()
             $("#synthesisDialog .cancelButton").hide()
             $("#synthesisDialog .closeButton").show()
             synthesizing = false;
@@ -803,14 +809,11 @@ $(document).ready(function() {
             pbb.html(data.closed+"/"+data.total);
             pbb.addClass("progress-bar-success")
 
-            if (data.total == 1) {
-                $("#synthesisProgressBox").hide()
-            }
-
             $("#synthesisResults .code.solution").removeClass("prettyprinted")
             $("#synthesisResults .code.solution").html(data.solCode)
             $("#synthesisResults").show()
             prettyPrint();
+            $("#synthesisDialog .exploreButton").show()
             $("#synthesisDialog .importButton").show()
             $("#synthesisDialog .importButton").unbind('click').click(function () {
                 handlers["replace_code"]({ newCode: data.allCode })
@@ -820,10 +823,57 @@ $(document).ready(function() {
                   }, 100);
                 }
             })
+            $("#synthesisDialog .exploreButton").unbind('click').click(function () {
+              var cid    = 1*$("#synthesisDialog").attr("cid")
+              var fname  = $("#synthesisDialog").attr("fname")
+
+              $("#synthesisDialog").modal("hide")
+
+              var msg = JSON.stringify(
+                {action: "doExplore", module: "synthesis", fname: fname, cid: cid, offset: 0, path: []}
+              )
+
+              leonSocket.send(msg)
+            })
             $("#synthesisDialog .cancelButton").hide()
             $("#synthesisDialog .closeButton").show()
             synthesizing = false;
         }
+    }
+
+    handlers["synthesis_exploration"] = function(data) {
+        var d = $("#synthesisExploreDialog");
+
+        prettyPrint();
+        console.log(data);
+
+        if (!d.is(":visible")) {
+            d.modal("show")
+        }
+
+        var node = d.find(".exploreBlock[path=\""+data.from.join("-")+"\"]")
+        node.replaceWith(data.html)
+        prettyPrint();
+
+        d.find(".knob").unbind('click').click(function() {
+          $(this).removeClass("fa-caret-right", "fa-caret-left").addClass("fa-spin fa-refresh")
+
+          var b = $(this).closest(".exploreBlock")
+          var path = []
+          if (b.attr("path") != "") {
+            path = b.attr("path").split("-").map(function(e) {
+              return 1*e;
+            })
+          }
+
+          var offset = 1*$(this).attr("offset")
+
+          var msg = JSON.stringify(
+            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, offset: offset, path: path}
+          )
+
+          leonSocket.send(msg)
+        })
     }
 
     handlers["synthesis_rulesToApply"] = function(data) {
@@ -856,6 +906,13 @@ $(document).ready(function() {
         $(selector+" li a[action=\"search\"]").unbind('click').click(function() {
             var msg = JSON.stringify(
               {action: "doSearch", module: "synthesis", fname: fname, cid: cid}
+            )
+
+            leonSocket.send(msg)
+        })
+        $(selector+" li a[action=\"explore\"]").unbind('click').click(function() {
+            var msg = JSON.stringify(
+              {action: "doExplore", module: "synthesis", fname: fname, cid: cid, offset: 0, path: []}
             )
 
             leonSocket.send(msg)
