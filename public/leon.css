@@ -374,9 +374,13 @@ span.demo-progress i {
 
 pre.exploreBlock.prettyprint {
   margin: 0px;
-  padding: 2px 2px 2px 20px;
+  padding: 4px;
 }
 
+pre.exploreBlock {
+  display: inline-block;
+  max-width: 100%;
+}
 pre.exploreBlock .header {
   white-space: normal;
   display: block;

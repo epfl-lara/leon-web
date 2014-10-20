@@ -40,6 +40,12 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     }
 
   }
+  abstract class ExploreAction;
+  case class ExploreSelect(selected: Int) extends ExploreAction
+  case object ExploreNextSolution extends ExploreAction
+  case object ExplorePreviousSolution extends ExploreAction
+  case object ExploreAsChoose extends ExploreAction
+  case object ExploreNoop extends ExploreAction
 
   def receive = {
     case OnUpdateCode(cstate) =>
@@ -73,9 +79,6 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
           doApplyRule(cstate, fname, chooseId, ruleId)
 
-        case "doNextSolution" =>
-          getNextSolution(cstate)
-
         case "doSearch" =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
@@ -85,24 +88,37 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
         case "doExplore" =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
-          val offset = (event \ "offset").as[Int]
           val path = (event \ "path").as[List[Int]]
 
-          doExploreNext(cstate, fname, chooseId, path, offset)
+          val action = (event \ "explore-action").as[String] match {
+            case "select-alternative" =>
+              val s = (event \ "select").as[Int]
+              if (s < 0) {
+                ExploreAsChoose
+              } else {
+                ExploreSelect(s)
+              }
+            case "next-solution" =>
+              ExploreNextSolution
+            case "previous-solution" =>
+              ExplorePreviousSolution
+            case "init" =>
+              ExploreNoop
+          }
+
+          doExplore(cstate, fname, chooseId, path, action)
       }
 
     case _ =>
   }
 
-  var savedCI: Option[ChooseInfo] = None
-  var savedSolutions: Stream[Solution] = Stream.empty
-
-  def doExploreNext(cstate: CompilationState, fname: String, cid: Int, path: List[Int], offset: Int) {
+  def doExplore(cstate: CompilationState, fname: String, cid: Int, path: List[Int], action: ExploreAction) {
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
         import search.g.{OrNode, AndNode, Node}
 
         val sctx = SynthesisContext(ctx, sopts, Some(fd), prog, ctx.reporter)
+        val simplifier = Simplifiers.namePreservingBestEffort(ctx, prog) _
 
         try {
           search.traversePath(path) match {
@@ -111,41 +127,64 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                 n.expand(sctx)
               }
 
-              if (offset != 0) {
-                if (n.solutions.isDefined) {
-                  if (n.solutions.get.isDefinedAt(n.selectedSolution + offset)) {
-                    n.selectedSolution += offset                  
-                  }
-                } else {
-                  n.descendents.zipWithIndex.find { case(d, i) => n.selected contains d } match {
-                    case Some((d, i)) =>
-                      var continue = true;
-                      var ni = i + offset;
-                      while (continue) {
-                        continue = false;
+              action match {
+                case ExploreAsChoose =>
+                  n.selected = Nil
+                  // as choose
 
-                        if (n.descendents.isDefinedAt(ni)) {
-                          val nd = n.descendents(ni)
-
-                          if (!nd.isExpanded) {
-                            nd.expand(sctx)
-                            if (nd.isClosed) {
-                              continue = true;
-                              ni += offset
-                            }
-                          }
-
-                          if (!nd.isClosed) {
-                            n.selected = List(nd);
-                          }
-                        }
+                case ExploreSelect(selected) =>
+                  n.descendents.zipWithIndex.find { case (d, i) => i == selected } match {
+                    case Some((d, _)) =>
+                      n.selected = List(d)
+                      if (!d.isExpanded) {
+                        d.expand(sctx)
                       }
-                    case None =>
-                      println("Woot")
-                      //woot
+                    case _ =>
+                      notifyError("Not found")
                   }
-                }
+
+                case ExplorePreviousSolution =>
+                  n.solutions match {
+                    case Some(sols) if sols.isDefinedAt(n.selectedSolution - 1) =>
+                      n.selectedSolution -= 1
+                    case _ =>
+                      notifyError("No more solutions..")
+                  }
+
+                case ExploreNextSolution =>
+                  n.solutions match {
+                    case Some(sols) if sols.isDefinedAt(n.selectedSolution + 1) =>
+                      n.selectedSolution += 1
+                    case _ =>
+                      notifyError("No more solutions..")
+                  }
+                case _ =>
+
               }
+
+              def solutionOf(n: Node): Option[Solution] = {
+                n.solutions.flatMap ( sols => 
+                  if (sols.isDefinedAt(n.selectedSolution)) {
+                    Some(sols(n.selectedSolution))
+                  } else {
+                    None
+                  }).orElse {
+                    if (n.isClosed) {
+                      Some(Solution.failed(n.p))
+                    } else {
+                      if (n.selected == Nil || !n.isExpanded) {
+                        Some(Solution.choose(n.p))
+                      } else {
+                        val subSols = n.descendents.zipWithIndex.collect {
+                          case (d, i) if n.selected contains d =>
+                            solutionOf(d).toStream
+                        }
+                        n.composeSolutions(subSols).headOption
+                      }
+                    }
+                  }
+              }
+
 
               def solutionsTree(n: Node, path: List[Int]): String = {
 
@@ -156,7 +195,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                     None
                   }).orElse {
                     if (n.isClosed) {
-                      Some(Solution(BooleanLiteral(true), Set(), Error("Failed")))
+                      Some(Solution.failed(n.p))
                     } else {
                       val subSols = n.descendents.zipWithIndex.collect {
                         case (d, i) if n.selected contains d =>
@@ -167,7 +206,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                   }
                 
 
-                val sol = osol.getOrElse(Solution.choose(n.p)).toSimplifiedExpr(ctx, prog)
+                val sol = simplifier(osol.getOrElse(Solution.choose(n.p)).toExpr)
 
                 var code = ScalaPrinter(sol)
 
@@ -179,33 +218,58 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
                 val hpath = path.reverse.mkString("-")
 
-                def block(name: String, code: String) = {
-                  s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath"><span class="header">
-                        <span class="knob fa fa-caret-left" offset="-1"></span>
-                        <span class="knob fa fa-caret-right" offset="1"></span>
-                        <span class="name">$name</span>
-                      </span>$code</pre>"""
-                }
                 n match {
                   case on: OrNode =>
-                    on.selected match {
-                      case List(an: AndNode) =>
-                        block(an.ri.toString, code)
-                      case _ =>
-                        block("?", code)
+                    if (!on.isExpanded) {
+                      on.expand(sctx)
                     }
+
+                    val options = on.descendents.zipWithIndex.map { case (d: AndNode, i) =>
+                      val name = if (d.isClosed) {
+                        d.ri+" (failed)"
+                      } else {
+                        d.ri
+                      }
+                      if (on.selected contains d) {
+                        s"""<option value="$i" selected="selected">$name</option>"""
+                      } else {
+                        s"""<option value="$i">$name</option>"""
+                      }
+                    }.mkString
+
+                    s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath"><span class="header">
+                        <select class="knob" data-action="select-alternative">
+                          <option value="-1">As choose</option>
+                          $options
+                        </select>
+                        </span>$code</pre>"""
                   case an: AndNode if an.solutions.isDefined =>
-                    block("Solutions of "+an.ri, code)
+                    val sols = an.solutions.get
+                    if (sols.hasDefiniteSize && sols.size <= 1) {
+                      code
+                    } else {
+                      val tot = if (sols.hasDefiniteSize) sols.size else "?"
+
+                      s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath"><span class="header">
+                            <span class="knob fa fa-arrow-left" data-action="previous-solution"></span>
+                            <span class="knob fa fa-arrow-right" data-action="next-solution"></span>
+                            <span class="name">Solutions of ${an.ri.toString} (${an.selectedSolution+1}/$tot)</span>
+                          </span>$code</pre>"""
+                    }
                   case _ =>
                     code
                 }
               }
 
+              val allSol  = solutionOf(search.g.root)
+              val (_, allCode) = solutionCode(cstate, ci, allSol.getOrElse(Solution.failed(ci.problem)))
+
               event("synthesis_exploration", Map(
                 "from"  -> toJson(path),
                 "fname" -> toJson(fname),
                 "cid"   -> toJson(cid),
-                "html"  -> toJson(solutionsTree(n, path.reverse))
+                "html"  -> toJson(solutionsTree(n, path.reverse)),
+                "allCode" -> toJson(allCode)
               ))
 
             case None =>
@@ -223,9 +287,6 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   }
 
   def doApplyRule(cstate: CompilationState, fname: String, cid: Int, rid: Int) {
-    savedCI        = None
-    savedSolutions = Stream.empty
-
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
         try {
@@ -239,8 +300,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
-          savedCI        = Some(ci);
-          savedSolutions = search.traversePath(path) match {
+          val osol = search.traversePath(path) match {
             case Some(an: search.g.AndNode) =>
               logInfo("Applying :"+an.ri.toString)
               
@@ -252,14 +312,14 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                 an.composeSolutions(an.descendents.map { d =>
                   Stream(Solution.choose(d.p))
                 })
-              }
+              }.headOption
 
             case _ =>
               logInfo("Path "+path+" did not lead to an and node!")
-              throw new Exception("WWOT")
+              None
           }
 
-          sendSolution(cstate)
+          sendSolution(cstate, ci, osol)
 
         } catch {
           case t: Throwable =>
@@ -277,45 +337,48 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     }
   }
 
-  def getNextSolution(cstate: CompilationState) {
-    sendSolution(cstate)
+  def solutionCode(cstate: CompilationState, ci: ChooseInfo, sol: Solution): (Expr, String) = {
+    import leon.purescala.PrinterHelpers._
+
+    val ChooseInfo(ctx, prog, fd, pc, src, ch, _) = ci
+
+    val solCode = sol.toSimplifiedExpr(ctx, prog)
+
+    val (defs, expr) = liftClosures(solCode)
+
+    val fInt = new FileInterface(new MuteReporter())
+
+    val nfd = fd.duplicate
+
+    nfd.body = nfd.body.map(b => Simplifiers.bestEffort(ctx, prog)(postMap{
+      case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
+        Some(expr)
+      case _ =>
+        None
+    }(b)))
+
+    val fds = nfd :: defs.toList.sortBy(_.id.name)
+
+    val p = new ScalaPrinter(PrinterOptions())
+
+    val allCode = fInt.substitute(cstate.code.getOrElse(""),
+                                  fd,
+                                  (indent) => {
+      implicit val pctx = PrinterContext(fd, None, None, indent, p)
+      p"${nary(fds, "\n\n")}"
+      p.toString
+    })
+
+    (solCode, allCode)
   }
 
-  def sendSolution(cstate: CompilationState) {
-    val osol = savedSolutions.headOption
-    savedSolutions = if (osol.isDefined) savedSolutions.tail else Stream.empty
-
-    val ci = savedCI.get
+  def sendSolution(cstate: CompilationState, ci: ChooseInfo, osol: Option[Solution]) {
     val ChooseInfo(ctx, prog, fd, pc, src, ch, _) = ci
 
     (ci.synthesizer.functionContext, osol) match {
       case (Some(fd), Some(sol)) =>
-        import leon.purescala.PrinterHelpers._
 
-        val solCode = sol.toSimplifiedExpr(ctx, prog)
-
-        val (defs, expr) = liftClosures(solCode)
-
-        val fInt = new FileInterface(new MuteReporter())
-
-        fd.body = fd.body.map(b => Simplifiers.bestEffort(ctx, prog)(postMap{
-          case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
-            Some(expr)
-          case _ =>
-            None
-        }(b)))
-
-        val fds = fd :: defs.toList.sortBy(_.id.name)
-
-        val p = new ScalaPrinter(PrinterOptions())
-
-        val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                      fd,
-                                      (indent) => {
-          implicit val pctx = PrinterContext(fd, None, None, indent, p)
-          p"${nary(fds, "\n\n")}"
-          p.toString
-        })
+        val (solCode, allCode) = solutionCode(cstate, ci, sol)
 
         event("synthesis_result", Map(
           "result" -> toJson("success"),

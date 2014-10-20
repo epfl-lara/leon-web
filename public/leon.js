@@ -830,7 +830,7 @@ $(document).ready(function() {
               $("#synthesisDialog").modal("hide")
 
               var msg = JSON.stringify(
-                {action: "doExplore", module: "synthesis", fname: fname, cid: cid, offset: 0, path: []}
+                {action: "doExplore", module: "synthesis", fname: fname, cid: cid, 'explore-action': "init", path: []}
               )
 
               leonSocket.send(msg)
@@ -845,7 +845,6 @@ $(document).ready(function() {
         var d = $("#synthesisExploreDialog");
 
         prettyPrint();
-        console.log(data);
 
         if (!d.is(":visible")) {
             d.modal("show")
@@ -855,24 +854,50 @@ $(document).ready(function() {
         node.replaceWith(data.html)
         prettyPrint();
 
-        d.find(".knob").unbind('click').click(function() {
-          $(this).removeClass("fa-caret-right", "fa-caret-left").addClass("fa-spin fa-refresh")
-
-          var b = $(this).closest(".exploreBlock")
+        var pathOf = function(e) {
+          var b = $(e).closest(".exploreBlock")
           var path = []
           if (b.attr("path") != "") {
             path = b.attr("path").split("-").map(function(e) {
               return 1*e;
             })
           }
+          return path;
+        }
 
-          var offset = 1*$(this).attr("offset")
+        d.find('select[data-action="select-alternative"]').unbind('change').change(function() {
 
+          $(this).after(' <span class="fa fa-spin fa-circle-o-notch"></span>');
           var msg = JSON.stringify(
-            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, offset: offset, path: path}
+            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this),
+             'explore-action': $(this).attr("data-action"),
+             select: 1*$(this).val()
+            }
           )
 
           leonSocket.send(msg)
+        });
+
+        d.find('span.knob').unbind('click').click(function() {
+          $(this).removeClass("fa-arrow-right", "fa-arrow-left").addClass("fa-spin fa-refresh")
+
+          var msg = JSON.stringify(
+            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this),
+             'explore-action': $(this).attr("data-action")
+            }
+          )
+
+          leonSocket.send(msg)
+        });
+
+        console.log(data.allCode)
+        d.find(".importButton").unbind('click').click(function () {
+            handlers["replace_code"]({ newCode: data.allCode })
+            if ("cursor" in data) {
+              setTimeout(function() {
+                handlers["move_cursor"](data.cursor)
+              }, 100);
+            }
         })
     }
 
@@ -912,7 +937,7 @@ $(document).ready(function() {
         })
         $(selector+" li a[action=\"explore\"]").unbind('click').click(function() {
             var msg = JSON.stringify(
-              {action: "doExplore", module: "synthesis", fname: fname, cid: cid, offset: 0, path: []}
+              {action: "doExplore", module: "synthesis", fname: fname, cid: cid, 'explore-action': "init", path: []}
             )
 
             leonSocket.send(msg)
@@ -1183,6 +1208,10 @@ $(document).ready(function() {
             fade = 3000
         }
 
+        if (type == "error") {
+          type = "danger"
+        }
+
         var note = $("<div>", {
             "class": "alert fade in alert-"+type
         }).html('<button type="button" class="close" data-dismiss="alert">×</button>'+content)
@@ -1205,7 +1234,7 @@ $(document).ready(function() {
             }
         }
 
-        if (connected) {
+        if (connected && oldCode != currentCode) {
             var msg = JSON.stringify(
               {action: "doUpdateCode", module: "main", code: currentCode}
             )
@@ -1221,10 +1250,10 @@ $(document).ready(function() {
         var now = new Date().getTime()
 
         if (lastChange < (now - timeWindow)) {
-            lastChange = new Date().getTime();
-            if (lastChange > 0) {
-                recompile()
+            if(lastChange > 0) { 
+              recompile()
             }
+            lastChange = new Date().getTime();
         }
 
         localStorage.setItem("leonEditorCode", editor.getValue());
@@ -1279,12 +1308,12 @@ $(document).ready(function() {
     editor.commands.removeCommand('transposeletters');
 
     editorSession.on('change', function(e) {
-        lastChange = new Date().getTime();
-        updateSaveButton();
         var currentCode = editor.getValue()
         if (currentCode != oldCode) {
             updateCompilationStatus("unknown")
         }
+        lastChange = new Date().getTime();
+        updateSaveButton();
         setTimeout(onCodeUpdate, timeWindow+50)
     });
 
