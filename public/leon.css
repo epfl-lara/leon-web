@@ -372,14 +372,25 @@ span.demo-progress i {
 
 /* Exploration */
 
+pre.exploreBlock select.knob {
+  border: 1px solid #ccc;
+  background: #fff;
+  padding: 3px;
+  min-width: 300px;
+}
 pre.exploreBlock.prettyprint {
   margin: 0px;
   padding: 4px;
+  border: 0px;
+  border-left: 3px solid #336699;
+  background: white;
+  background:rgba(0,0,0,0.05);
 }
 
 pre.exploreBlock {
-  display: inline-block;
+  display: block;
   max-width: 100%;
+  border: 0px;
 }
 pre.exploreBlock .header {
   white-space: normal;

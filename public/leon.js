@@ -830,7 +830,7 @@ $(document).ready(function() {
               $("#synthesisDialog").modal("hide")
 
               var msg = JSON.stringify(
-                {action: "doExplore", module: "synthesis", fname: fname, cid: cid, 'explore-action': "init", path: []}
+                {action: "doExplore", module: "synthesis", fname: fname, cid: cid, 'explore-action': "init", path: [], ws: 0}
               )
 
               leonSocket.send(msg)
@@ -854,6 +854,11 @@ $(document).ready(function() {
         node.replaceWith(data.html)
         prettyPrint();
 
+        var wsOf = function(e) {
+          var b = $(e).closest(".exploreBlock")
+          return 1*b.attr("ws");
+        }
+
         var pathOf = function(e) {
           var b = $(e).closest(".exploreBlock")
           var path = []
@@ -869,7 +874,7 @@ $(document).ready(function() {
 
           $(this).after(' <span class="fa fa-spin fa-circle-o-notch"></span>');
           var msg = JSON.stringify(
-            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this),
+            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this), ws: wsOf(this),
              'explore-action': $(this).attr("data-action"),
              select: 1*$(this).val()
             }
@@ -882,7 +887,7 @@ $(document).ready(function() {
           $(this).removeClass("fa-arrow-right", "fa-arrow-left").addClass("fa-spin fa-refresh")
 
           var msg = JSON.stringify(
-            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this),
+            {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this), ws: wsOf(this),
              'explore-action': $(this).attr("data-action")
             }
           )
@@ -937,7 +942,7 @@ $(document).ready(function() {
         })
         $(selector+" li a[action=\"explore\"]").unbind('click').click(function() {
             var msg = JSON.stringify(
-              {action: "doExplore", module: "synthesis", fname: fname, cid: cid, 'explore-action': "init", path: []}
+              {action: "doExplore", module: "synthesis", fname: fname, cid: cid, 'explore-action': "init", path: [], ws: 0}
             )
 
             leonSocket.send(msg)
@@ -1076,6 +1081,7 @@ $(document).ready(function() {
         if (lastReconnectDelay != 0) {
           notify("And we are back online!", "success")
           updateCompilationStatus("unknown")
+          oldCode = ""
         }
 
         setConnected()
@@ -1308,10 +1314,6 @@ $(document).ready(function() {
     editor.commands.removeCommand('transposeletters');
 
     editorSession.on('change', function(e) {
-        var currentCode = editor.getValue()
-        if (currentCode != oldCode) {
-            updateCompilationStatus("unknown")
-        }
         lastChange = new Date().getTime();
         updateSaveButton();
         setTimeout(onCodeUpdate, timeWindow+50)

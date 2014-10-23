@@ -89,6 +89,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
           val path = (event \ "path").as[List[Int]]
+          val ws = (event \ "ws").as[Int]
 
           val action = (event \ "explore-action").as[String] match {
             case "select-alternative" =>
@@ -106,13 +107,13 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               ExploreNoop
           }
 
-          doExplore(cstate, fname, chooseId, path, action)
+          doExplore(cstate, fname, chooseId, path, ws, action)
       }
 
     case _ =>
   }
 
-  def doExplore(cstate: CompilationState, fname: String, cid: Int, path: List[Int], action: ExploreAction) {
+  def doExplore(cstate: CompilationState, fname: String, cid: Int, path: List[Int], ws: Int, action: ExploreAction) {
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
         import search.g.{OrNode, AndNode, Node}
@@ -186,7 +187,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               }
 
 
-              def solutionsTree(n: Node, path: List[Int]): String = {
+              def solutionsTree(n: Node, path: List[Int], ws: Int): String = {
 
                 val osol = n.solutions.flatMap ( sols => 
                   if (sols.isDefinedAt(n.selectedSolution)) {
@@ -210,11 +211,20 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
                 var code = ScalaPrinter(sol)
 
-                n.descendents.zipWithIndex.map{ case (d, i) =>
-                  if (n.selected contains d) {
-                    code = code.replaceAll("@"+i, solutionsTree(d, i:: path)) 
-                  }
+                val result = new StringBuffer()
+
+                import java.util.regex._
+                val pattern = Pattern.compile("( *)@(\\d+)")
+
+                val matcher = pattern.matcher(code)
+                while (matcher.find()) {
+                  val ws = matcher.group(1).size
+                  val i = matcher.group(2).toInt
+                  matcher.appendReplacement(result, solutionsTree(n.descendents(i), i:: path, ws)) 
                 }
+                matcher.appendTail(result);
+
+                code = result.toString
 
                 val hpath = path.reverse.mkString("-")
 
@@ -237,7 +247,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                       }
                     }.mkString
 
-                    s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath"><span class="header">
+                    s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath" ws="$ws" style="margin-left: ${ws}ch"><span class="header">
                         <select class="knob" data-action="select-alternative">
                           <option value="-1">As choose</option>
                           $options
@@ -250,7 +260,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                     } else {
                       val tot = if (sols.hasDefiniteSize) sols.size else "?"
 
-                      s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath"><span class="header">
+                      s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath" ws="$ws" style="margin-left: ${ws}ch"><span class="header">
                             <span class="knob fa fa-arrow-left" data-action="previous-solution"></span>
                             <span class="knob fa fa-arrow-right" data-action="next-solution"></span>
                             <span class="name">Solutions of ${an.ri.toString} (${an.selectedSolution+1}/$tot)</span>
@@ -268,7 +278,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                 "from"  -> toJson(path),
                 "fname" -> toJson(fname),
                 "cid"   -> toJson(cid),
-                "html"  -> toJson(solutionsTree(n, path.reverse)),
+                "html"  -> toJson(solutionsTree(n, path.reverse, ws)),
                 "allCode" -> toJson(allCode)
               ))
 
