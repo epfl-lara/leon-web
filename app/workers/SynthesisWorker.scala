@@ -118,7 +118,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
         import search.g.{OrNode, AndNode, Node}
 
-        val sctx = SynthesisContext(ctx, sopts, Some(fd), prog, ctx.reporter)
+        val sctx = SynthesisContext(ctx, sopts, fd, prog, ctx.reporter)
         val simplifier = Simplifiers.namePreservingBestEffort(ctx, prog) _
 
         try {
@@ -300,7 +300,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
         try {
-          val sctx = SynthesisContext(ctx, sopts, Some(fd), prog, ctx.reporter)
+          val sctx = SynthesisContext(ctx, sopts, fd, prog, ctx.reporter)
           val path = List(rid)
 
           event("synthesis_result", Map(
@@ -385,8 +385,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   def sendSolution(cstate: CompilationState, ci: ChooseInfo, osol: Option[Solution]) {
     val ChooseInfo(ctx, prog, fd, pc, src, ch, _) = ci
 
-    (ci.synthesizer.functionContext, osol) match {
-      case (Some(fd), Some(sol)) =>
+    osol match {
+      case Some(sol) =>
 
         val (solCode, allCode) = solutionCode(cstate, ci, sol)
 
@@ -403,18 +403,14 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
         ))
         logInfo("Application successful!")
 
-      case (ofd, _) =>
+      case None =>
         event("synthesis_result", Map(
           "result" -> toJson("failure"),
           "closed" -> toJson(1),
           "total" -> toJson(1)
         ))
 
-        if (ofd.isDefined) {
-          logInfo("Application failed!")
-        } else {
-          logInfo("No function context?!")
-        }
+        logInfo("Application failed!")
     }
   }
 
@@ -422,7 +418,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci, search)) =>
         try {
-          val sctx = SynthesisContext(ci.ctx, ci.options, Some(ci.fd), ci.prog, ci.ctx.reporter)
+          val sctx = SynthesisContext(ci.ctx, ci.options, ci.fd, ci.prog, ci.ctx.reporter)
           val orNode = search.g.root
           
           if (!orNode.isExpanded) {
@@ -475,7 +471,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
-          val sctx = SynthesisContext(ci.ctx, ci.options, Some(ci.fd), ci.prog, ci.ctx.reporter)
+          val sctx = SynthesisContext(ci.ctx, ci.options, ci.fd, ci.prog, ci.ctx.reporter)
 
           search.search(sctx) match {
             case _ if interruptManager.isInterrupted =>

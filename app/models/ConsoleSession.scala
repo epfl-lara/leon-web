@@ -168,7 +168,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         saveCode(code)
 
         val compReporter = new CompilingWSReporter(channel)
-        var compContext  = leon.Main.processOptions(List("--library=no")).copy(reporter = compReporter)
+        var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
 
         val opgm = try {
           // First we extract Leon program
