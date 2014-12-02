@@ -583,7 +583,14 @@ $(document).ready(function() {
 
         var data = synthesisOverview
 
+        var fnames = []
         for (var f in data.functions) {
+          fnames.push(f)
+        }
+        fnames.sort()
+
+        for (var fi = 0; fi < fnames.length; fi++) {
+            var  f = fnames[fi];
             if (data.functions[f].length == 1) {
                 var sp = data.functions[f][0]
                 html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"

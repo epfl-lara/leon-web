@@ -8,9 +8,12 @@ import play.api.libs.json.Json._
 
 class SimpleWebSearch(cs: BaseActor,
                       ctx: LeonContext,
-                      problem: Problem) extends SimpleSearch(ctx, problem, CostModel.default, Some(200)) {
+                      p: Problem,
+                      costModel: CostModel,
+                      bound: Option[Int]
+                      ) extends SimpleSearch(ctx, p, costModel, bound) {
 
-  override def doStep(n: g.Node, sctx: SynthesisContext) = {
+  override def doStep(n: Node, sctx: SynthesisContext) = {
     super.doStep(n, sctx);
 
     val (closed, total) = g.getStats()

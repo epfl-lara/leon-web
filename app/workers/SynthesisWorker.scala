@@ -38,8 +38,8 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
       event("update_synthesis_overview", Map("functions" -> toJson(facts)))
     }
-
   }
+
   abstract class ExploreAction;
   case class ExploreSelect(selected: Int) extends ExploreAction
   case object ExploreNextSolution extends ExploreAction
@@ -53,11 +53,20 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       val reporter = new WorkerReporter(session)
       var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
-      choosesInfo = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
+      val repairInfos = cstate.program.definedFunctions.filter(_.annotations("repair")).flatMap {
+        case fd =>
+          getRepairInfos(fd)
+      }
+
+      val synthesisInfos = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
         case ci =>
-          val search = new SimpleWebSearch(this, context, ci.problem)
+          val search = new SimpleWebSearch(this, context, ci.problem, CostModels.default, Some(200))
           (ci, search)
-      }.groupBy(_._1.fd.id.name)
+      }
+
+      choosesInfo = (synthesisInfos ++ repairInfos).groupBy(_._1.fd.id.name)
+
+
 
       notifySynthesisOverview(cstate)
 
@@ -84,6 +93,9 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           val chooseId = (event \ "cid").as[Int]
 
           doSearch(cstate, fname, chooseId)
+
+        case "doRepair" =>
+          val fname = (event \ "fname").as[String]
 
         case "doExplore" =>
           val fname = (event \ "fname").as[String]
@@ -113,10 +125,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     case _ =>
   }
 
+  import leon.synthesis.graph._
+
   def doExplore(cstate: CompilationState, fname: String, cid: Int, path: List[Int], ws: Int, action: ExploreAction) {
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
-        import search.g.{OrNode, AndNode, Node}
 
         val sctx = SynthesisContext(ctx, sopts, fd, prog, ctx.reporter)
         val simplifier = Simplifiers.namePreservingBestEffort(ctx, prog) _
@@ -234,7 +247,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                       on.expand(sctx)
                     }
 
-                    val options = on.descendents.zipWithIndex.map { case (d: AndNode, i) =>
+                    val options = on.descendents.zipWithIndex.collect { case (d: AndNode, i) =>
                       val name = if (d.isClosed) {
                         d.ri+" (failed)"
                       } else {
@@ -311,7 +324,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           ))
 
           val osol = search.traversePath(path) match {
-            case Some(an: search.g.AndNode) =>
+            case Some(an: AndNode) =>
               logInfo("Applying :"+an.ri.toString)
               
               if (!an.isExpanded) {
@@ -426,7 +439,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           }
 
           val andNodes = orNode.descendents.collect {
-            case n: search.g.AndNode =>
+            case n: AndNode =>
               n
           }
 
@@ -555,5 +568,9 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }
+  }
+
+  private def getRepairInfos(fd: FunDef): Option[(ChooseInfo, SimpleWebSearch)] = {
+    None
   }
 }

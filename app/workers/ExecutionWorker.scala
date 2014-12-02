@@ -46,7 +46,7 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
               v.getPos match {
                 case RangePosition(fromLine, fromCol, _, toLine, toCol, _, _) =>
                   val sentRes = res match {
-                    case Error(msg) =>
+                    case Error(tpe, msg) =>
                       "Error: "+msg
                     case e => e.toString
                   }
