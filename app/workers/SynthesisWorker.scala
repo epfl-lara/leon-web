@@ -6,6 +6,8 @@ import play.api.libs.json._
 import play.api.libs.json.Json._
 
 import models._
+import leon.LeonContext
+import leon.refactor._
 import leon.utils._
 import leon.purescala.PrinterOptions
 import leon.purescala.PrinterContext
@@ -53,15 +55,16 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       val reporter = new WorkerReporter(session)
       var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
-      val repairInfos = cstate.program.definedFunctions.filter(_.annotations("repair")).flatMap {
-        case fd =>
-          getRepairInfos(fd)
-      }
 
       val synthesisInfos = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
         case ci =>
           val search = new SimpleWebSearch(this, context, ci.problem, CostModels.default, Some(200))
           (ci, search)
+      }
+
+      val repairInfos = cstate.program.definedFunctions.filter(_.annotations("repair")).flatMap {
+        case fd =>
+          getRepairInfos(context, cstate.program, fd)
       }
 
       choosesInfo = (synthesisInfos ++ repairInfos).groupBy(_._1.fd.id.name)
@@ -187,7 +190,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                       Some(Solution.failed(n.p))
                     } else {
                       if (n.selected == Nil || !n.isExpanded) {
-                        Some(Solution.choose(n.p))
+                        Some(Solution.chooseComplete(n.p))
                       } else {
                         val subSols = n.descendents.zipWithIndex.collect {
                           case (d, i) if n.selected contains d =>
@@ -220,7 +223,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                   }
                 
 
-                val sol = simplifier(osol.getOrElse(Solution.choose(n.p)).toExpr)
+                val sol = simplifier(osol.getOrElse(Solution.chooseComplete(n.p)).toExpr)
 
                 var code = ScalaPrinter(sol)
 
@@ -570,7 +573,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     }
   }
 
-  private def getRepairInfos(fd: FunDef): Option[(ChooseInfo, SimpleWebSearch)] = {
-    None
+  private def getRepairInfos(ctx: LeonContext, program: Program, fd: FunDef): Option[(ChooseInfo, SimpleWebSearch)] = {
+    val rm     = new Repairman(ctx, program, fd)
+    val ci     = rm.getChooseInfo()
+    val search = new SimpleWebSearch(this, ctx, ci.problem, CostModels.default, Some(200))
+
+    Some((ci, search))
   }
 }
