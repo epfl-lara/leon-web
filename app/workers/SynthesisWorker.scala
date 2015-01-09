@@ -7,7 +7,7 @@ import play.api.libs.json.Json._
 
 import models._
 import leon.LeonContext
-import leon.refactor._
+import leon.repair._
 import leon.utils._
 import leon.purescala.PrinterOptions
 import leon.purescala.PrinterContext
@@ -51,7 +51,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
   def receive = {
     case OnUpdateCode(cstate) =>
-      var options = SynthesisOptions().copy(cegisGenerateFunCalls = true)
+      var options = SynthesisSettings().copy(cegisGenerateFunCalls = true)
       val reporter = new WorkerReporter(session)
       var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
@@ -434,7 +434,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
       case Some((ci, search)) =>
         try {
-          val sctx = SynthesisContext(ci.ctx, ci.options, ci.fd, ci.prog, ci.ctx.reporter)
+          val sctx = SynthesisContext(ci.ctx, ci.settings, ci.fd, ci.prog, ci.ctx.reporter)
           val orNode = search.g.root
           
           if (!orNode.isExpanded) {
@@ -487,7 +487,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
-          val sctx = SynthesisContext(ci.ctx, ci.options, ci.fd, ci.prog, ci.ctx.reporter)
+          val sctx = SynthesisContext(ci.ctx, ci.settings, ci.fd, ci.prog, ci.ctx.reporter)
 
           search.search(sctx) match {
             case _ if interruptManager.isInterrupted =>
@@ -574,10 +574,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   }
 
   private def getRepairInfos(ctx: LeonContext, program: Program, fd: FunDef): Option[(ChooseInfo, SimpleWebSearch)] = {
-    val rm     = new Repairman(ctx, program, fd)
-    val ci     = rm.getChooseInfo()
-    val search = new SimpleWebSearch(this, ctx, ci.problem, CostModels.default, Some(200))
+    None
+    //val rm     = new Repairman(ctx, program, fd)
+    //val ci     = rm.getChooseInfo()
+    //val search = new SimpleWebSearch(this, ctx, ci.problem, CostModels.default, Some(200))
 
-    Some((ci, search))
+    //Some((ci, search))
   }
 }
