@@ -8,10 +8,11 @@ import play.api.libs.json.Json._
 
 class SimpleWebSearch(cs: BaseActor,
                       ctx: LeonContext,
+                      ci: ChooseInfo,
                       p: Problem,
                       costModel: CostModel,
                       bound: Option[Int]
-                      ) extends SimpleSearch(ctx, p, costModel, bound) {
+                      ) extends SimpleSearch(ctx, ci, p, costModel, bound) {
 
   override def doStep(n: Node, sctx: SynthesisContext) = {
     super.doStep(n, sctx);

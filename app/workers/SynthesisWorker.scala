@@ -21,12 +21,13 @@ import leon.purescala.Definitions._
 class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
 
-  var choosesInfo = Map[String, Seq[(ChooseInfo, SimpleWebSearch)]]()
+  var searchesState = Map[String, Seq[WebSynthesizer]]()
 
   def notifySynthesisOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
-      val facts = for ((fname, sps) <- choosesInfo) yield {
-        val problems = for (((ci, search), i) <- sps.zipWithIndex) yield {
+      val facts = for ((fname, sps) <- searchesState) yield {
+        val problems = for ((synth, i) <- sps.zipWithIndex) yield {
+          val ci = synth.ci
           Map(
             "description" -> toJson("Problem #"+(i+1)),
             "problem" -> toJson(ci.problem.toString),
@@ -56,18 +57,15 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
 
-      val synthesisInfos = ChooseInfo.extractFromProgram(context, cstate.program, options).map {
-        case ci =>
-          val search = new SimpleWebSearch(this, context, ci.problem, CostModels.default, Some(200))
-          (ci, search)
+      val synthesisInfos = ChooseInfo.extractFromProgram(cstate.program).map {
+        case ci => new WebSynthesizer(this, context, cstate.program, ci, options)
       }
 
       val repairInfos = cstate.program.definedFunctions.filter(_.annotations("repair")).flatMap {
-        case fd =>
-          getRepairInfos(context, cstate.program, fd)
+        case fd => getRepairInfos(context, cstate.program, fd)
       }
 
-      choosesInfo = (synthesisInfos ++ repairInfos).groupBy(_._1.fd.id.name)
+      searchesState = (synthesisInfos ++ repairInfos).groupBy(_.ci.fd.id.name)
 
 
 
@@ -131,17 +129,18 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   import leon.synthesis.graph._
 
   def doExplore(cstate: CompilationState, fname: String, cid: Int, path: List[Int], ws: Int, action: ExploreAction) {
-    choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
-
-        val sctx = SynthesisContext(ctx, sopts, fd, prog, ctx.reporter)
-        val simplifier = Simplifiers.namePreservingBestEffort(ctx, prog) _
+    searchesState.get(fname).flatMap(_.lift.apply(cid)) match {
+      case Some(synth) =>
+        val search     = synth.getSearch()
+        val simplifier = Simplifiers.namePreservingBestEffort(synth.context, synth.program) _
 
         try {
           search.traversePath(path) match {
             case Some(n) =>
+              val hctx = SearchContext(synth.sctx, synth.ci, n, search)
+
               if (!n.isExpanded) {
-                n.expand(sctx)
+                n.expand(hctx)
               }
 
               action match {
@@ -154,7 +153,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                     case Some((d, _)) =>
                       n.selected = List(d)
                       if (!d.isExpanded) {
-                        d.expand(sctx)
+                        d.expand(hctx)
                       }
                     case _ =>
                       notifyError("Not found")
@@ -186,7 +185,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                   } else {
                     None
                   }).orElse {
-                    if (n.isClosed) {
+                    if (n.isDeadEnd) {
                       Some(Solution.failed(n.p))
                     } else {
                       if (n.selected == Nil || !n.isExpanded) {
@@ -205,13 +204,15 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               def solutionsTree(n: Node, path: List[Int], ws: Int): String = {
 
+                val hctx = SearchContext(synth.sctx, synth.ci, n, search)
+
                 val osol = n.solutions.flatMap ( sols => 
                   if (sols.isDefinedAt(n.selectedSolution)) {
                     Some(sols(n.selectedSolution))
                   } else {
                     None
                   }).orElse {
-                    if (n.isClosed) {
+                    if (n.isDeadEnd) {
                       Some(Solution.failed(n.p))
                     } else {
                       val subSols = n.descendents.zipWithIndex.collect {
@@ -247,11 +248,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                 n match {
                   case on: OrNode =>
                     if (!on.isExpanded) {
-                      on.expand(sctx)
+                      on.expand(hctx)
                     }
 
                     val options = on.descendents.zipWithIndex.collect { case (d: AndNode, i) =>
-                      val name = if (d.isClosed) {
+                      val name = if (d.isDeadEnd) {
                         d.ri+" (failed)"
                       } else {
                         d.ri
@@ -288,7 +289,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               }
 
               val allSol  = solutionOf(search.g.root)
-              val (_, allCode) = solutionCode(cstate, ci, allSol.getOrElse(Solution.failed(ci.problem)))
+              val (_, allCode) = solutionCode(cstate, synth, allSol.getOrElse(Solution.failed(synth.problem)))
 
               event("synthesis_exploration", Map(
                 "from"  -> toJson(path),
@@ -313,25 +314,28 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   }
 
   def doApplyRule(cstate: CompilationState, fname: String, cid: Int, rid: Int) {
-    choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci @ ChooseInfo(ctx, prog, fd, pc, src, ch, sopts), search)) =>
+    searchesState.get(fname).flatMap(_.lift.apply(cid)) match {
+      case Some(synth) =>
         try {
-          val sctx = SynthesisContext(ctx, sopts, fd, prog, ctx.reporter)
+          val sctx = synth.sctx
+          val search = synth.getSearch()
           val path = List(rid)
 
           event("synthesis_result", Map(
             "result" -> toJson("init"),
             "fname" -> toJson(fname),
             "cid" -> toJson(cid),
-            "problem" -> toJson(ScalaPrinter(ci.ch))
+            "problem" -> toJson(ScalaPrinter(synth.ci.ch))
           ))
 
           val osol = search.traversePath(path) match {
             case Some(an: AndNode) =>
               logInfo("Applying :"+an.ri.toString)
               
+
               if (!an.isExpanded) {
-                an.expand(sctx)
+                val hctx = SearchContext(sctx, synth.ci, an, search)
+                an.expand(hctx)
               }
 
               an.solutions.getOrElse {
@@ -345,7 +349,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               None
           }
 
-          sendSolution(cstate, ci, osol)
+          sendSolution(cstate, synth, osol)
 
         } catch {
           case t: Throwable =>
@@ -363,12 +367,13 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     }
   }
 
-  def solutionCode(cstate: CompilationState, ci: ChooseInfo, sol: Solution): (Expr, String) = {
+  def solutionCode(cstate: CompilationState, synth: Synthesizer, sol: Solution): (Expr, String) = {
     import leon.purescala.PrinterHelpers._
 
-    val ChooseInfo(ctx, prog, fd, pc, src, ch, _) = ci
+    val ci = synth.ci
+    val ChooseInfo(fd, pc, src, ch) = ci
 
-    val solCode = sol.toSimplifiedExpr(ctx, prog)
+    val solCode = sol.toSimplifiedExpr(synth.context, synth.program)
 
     val (defs, expr) = liftClosures(solCode)
 
@@ -376,7 +381,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
     val nfd = fd.duplicate
 
-    nfd.body = nfd.body.map(b => Simplifiers.bestEffort(ctx, prog)(postMap{
+    nfd.body = nfd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
       case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
         Some(expr)
       case _ =>
@@ -398,13 +403,13 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     (solCode, allCode)
   }
 
-  def sendSolution(cstate: CompilationState, ci: ChooseInfo, osol: Option[Solution]) {
-    val ChooseInfo(ctx, prog, fd, pc, src, ch, _) = ci
+  def sendSolution(cstate: CompilationState, synth: Synthesizer, osol: Option[Solution]) {
+    val fd = synth.ci.fd
 
     osol match {
       case Some(sol) =>
 
-        val (solCode, allCode) = solutionCode(cstate, ci, sol)
+        val (solCode, allCode) = solutionCode(cstate, synth, sol)
 
         event("synthesis_result", Map(
           "result" -> toJson("success"),
@@ -431,14 +436,15 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   }
 
   def getRulesToApply(cstate: CompilationState, fname: String, cid: Int) {
-    choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci, search)) =>
+    searchesState.get(fname).flatMap(_.lift.apply(cid)) match {
+      case Some(synth) =>
         try {
-          val sctx = SynthesisContext(ci.ctx, ci.settings, ci.fd, ci.prog, ci.ctx.reporter)
+          val search = synth.search
           val orNode = search.g.root
           
           if (!orNode.isExpanded) {
-            orNode.expand(sctx)
+            val hctx = SearchContext(synth.sctx, synth.ci, orNode, synth.search)
+            orNode.expand(hctx)
           }
 
           val andNodes = orNode.descendents.collect {
@@ -447,7 +453,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           }
 
           val rulesApps = for ((t, i) <- andNodes.zipWithIndex) yield {
-            val status = if (t.isClosed) {
+            val status = if (t.isDeadEnd) {
               "closed"
             } else {
               "open"
@@ -477,9 +483,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   }
 
   def doSearch(cstate: CompilationState, fname: String, cid: Int) {
-    choosesInfo.get(fname).flatMap(_.lift.apply(cid)) match {
-      case Some((ci @ ChooseInfo(ctx, prog, fd, _, src, ch, _), search)) =>
+    searchesState.get(fname).flatMap(_.lift.apply(cid)) match {
+      case Some(synth) =>
         try {
+          val ci = synth.ci
+
           event("synthesis_result", Map(
             "result" -> toJson("init"),
             "fname" -> toJson(fname),
@@ -487,9 +495,11 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             "problem" -> toJson(ScalaPrinter(ci.ch))
           ))
 
-          val sctx = SynthesisContext(ci.ctx, ci.settings, ci.fd, ci.prog, ci.ctx.reporter)
+         val search = synth.search
+         val ctx    = synth.context
+         val prog   = synth.program
 
-          search.search(sctx) match {
+         search.search(synth.sctx) match {
             case _ if interruptManager.isInterrupted =>
               val (closed, total) = search.g.getStats()
 
@@ -506,7 +516,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               val (newSol, succeeded) = if (!sol.isTrusted) {
                 // Validate solution
                 event("synthesis_proof", Map("status" -> toJson("init")))
-                ci.synthesizer.validateSolution(search, sol, 2000L) match {
+                synth.validateSolution(search, sol, 2000L) match {
                   case (sol, true) =>
                     event("synthesis_proof", Map("status" -> toJson("success")))
                     (sol, true)
@@ -524,7 +534,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               val oldFd = ci.fd
               val newFd = ci.fd.duplicate
-              newFd.body = newFd.body.map(b => replace(Map(src -> solCode), b))
+              newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
 
               val resFd = flattenFunctions(newFd, ctx, prog)
               println(ScalaPrinter(resFd))
@@ -573,7 +583,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     }
   }
 
-  private def getRepairInfos(ctx: LeonContext, program: Program, fd: FunDef): Option[(ChooseInfo, SimpleWebSearch)] = {
+  private def getRepairInfos(ctx: LeonContext, program: Program, fd: FunDef): Option[WebSynthesizer] = {
     None
     //val rm     = new Repairman(ctx, program, fd)
     //val ci     = rm.getChooseInfo()
