@@ -243,11 +243,14 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   }
 
   def notifyMainOverview(cstate: CompilationState) {
+    def decodeName(name: String): String = {
+      scala.reflect.NameTransformer.decode(name).replaceAll("\\$", ".")
+    }
     if (cstate.isCompiled) {
       val facts = for (fd <- cstate.functions) yield {
         toJson(Map(
           "name"        -> toJson(fd.id.name),
-          "displayName" -> toJson(fd.orig.getOrElse(fd).id.name),
+          "displayName" -> toJson(decodeName(fd.orig.getOrElse(fd).id.name)),
           "line"        -> toJson(fd.getPos.line),
           "column"      -> toJson(fd.getPos.col)
         ))

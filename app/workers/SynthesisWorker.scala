@@ -7,7 +7,6 @@ import play.api.libs.json.Json._
 
 import models._
 import leon.LeonContext
-import leon.repair._
 import leon.utils._
 import leon.purescala.PrinterOptions
 import leon.purescala.PrinterContext
@@ -61,13 +60,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
         case ci => new WebSynthesizer(this, context, cstate.program, ci, options)
       }
 
-      val repairInfos = cstate.program.definedFunctions.filter(_.annotations("repair")).flatMap {
-        case fd => getRepairInfos(context, cstate.program, fd)
-      }
-
-      searchesState = (synthesisInfos ++ repairInfos).groupBy(_.ci.fd.id.name)
-
-
+      searchesState = synthesisInfos.groupBy(_.ci.fd.id.name)
 
       notifySynthesisOverview(cstate)
 
@@ -94,9 +87,6 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
           val chooseId = (event \ "cid").as[Int]
 
           doSearch(cstate, fname, chooseId)
-
-        case "doRepair" =>
-          val fname = (event \ "fname").as[String]
 
         case "doExplore" =>
           val fname = (event \ "fname").as[String]
@@ -581,14 +571,5 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }
-  }
-
-  private def getRepairInfos(ctx: LeonContext, program: Program, fd: FunDef): Option[WebSynthesizer] = {
-    None
-    //val rm     = new Repairman(ctx, program, fd)
-    //val ci     = rm.getChooseInfo()
-    //val search = new SimpleWebSearch(this, ctx, ci.problem, CostModels.default, Some(200))
-
-    //Some((ci, search))
   }
 }

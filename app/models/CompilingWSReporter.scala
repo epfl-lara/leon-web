@@ -12,27 +12,18 @@ class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReport
 
   val colIndicator = """(\s*\^\s*)""".r
 
-  def extractMessage(msg: Any, to: Map[Int, Seq[String]]) : Map[Int, Seq[String]] = {
+  def extractMessage(msg: Message, to: Map[Int, Seq[String]]) : Map[Int, Seq[String]] = {
+
+    val line = msg.position.line
+
     val parts = msg.toString.split(":", 2).toList
 
-    parts match {
-      case List(l, a) => 
-        try {
-          val line = l.toInt
+    val msgLines = msg.msg.toString.split("\n").toList.filter { _ match {
+      case colIndicator(_) => false
+      case _ => true
+    }}
 
-          val msgLines = a.split("\n").toList.filter { _ match {
-            case colIndicator(_) => false
-            case _ => true
-          }}
-
-          to + (line -> (to.getOrElse(line, Nil) :+ msgLines.mkString("\n")))
-        } catch {
-          case t: Throwable =>
-            to
-        }
-      case _ =>
-        to
-    }
+    to + (line -> (to.getOrElse(line, Nil) :+ msgLines.mkString("\n")))
   }
 
   override def onCompilerProgress(current: Int, total: Int) {
@@ -44,11 +35,11 @@ class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReport
   override def account(msg: Message): Message = {
     msg.severity match {
       case ERROR =>
-        errors = extractMessage(msg.msg, errors)
+        errors = extractMessage(msg, errors)
       case WARNING =>
-        warnings = extractMessage(msg.msg, warnings)
+        warnings = extractMessage(msg, warnings)
       case INFO =>
-        infos = extractMessage(msg.msg, infos)
+        infos = extractMessage(msg, infos)
       case _ =>
     }
     super.account(msg)
