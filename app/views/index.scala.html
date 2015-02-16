@@ -1,6 +1,6 @@
-@(exGroups: List[(String, List[leon.web.models.Example])], default: leon.web.models.Example, url: String, release: String)(implicit request: RequestHeader)
+@(webconfig: leon.web.models.LeonWebConfig)(implicit request: RequestHeader)
 
-@main("Leon Online", url) {
+@main("Leon Online", webconfig) {
   <div id="allcontent">
     <div id="title" class="std-background">
     <h1>Leon</h1>
@@ -19,14 +19,14 @@
       </div>
     </div>
     <script>
-        var _leon_websocket_url = "@leon.web.controllers.routes.Interface.openConsole().webSocketURL(true)";
+        var _leon_websocket_url = "@leon.web.controllers.routes.Interface.openConsole().webSocketURL(webconfig.isSSL)";
     </script>
 
     <div class="container-fluid">
       <div class="row">
         <div id="codecolumn" class="col-lg-9 col-sm-9 col-xs-12">
           <form id="leoninput" method="POST" action="">
-            <div id="codebox">@default.code</div>
+            <div id="codebox">@webconfig.default.code</div>
           </form>
           <ul id="annotations"></ul>
         </div>
@@ -35,7 +35,7 @@
             <h3 class="std-background"><i class="icon-upload"></i> Load a Program:</h3>
             <select id="example-loader" class="form-control" name="codeexample">
               <option value="">-- Select a Program --</option>
-              @exGroups.collect{ case (group, es) =>
+              @webconfig.examples.collect{ case (group, es) =>
                 <option value="" disabled="disabled">@group</option>
                 @es.zipWithIndex.collect { case (ex, i) =>
                   <option group="@group" id="@i">&nbsp;&nbsp;@ex.title</option>
@@ -189,5 +189,5 @@
       </div>
     </div>
   </div>
-  <div id="release">@release &copy; EPFL, Lausanne 2009-2015 </div>
+  <div id="release">@webconfig.release &copy; EPFL, Lausanne 2009-2015 </div>
 }

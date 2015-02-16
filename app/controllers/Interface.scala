@@ -11,6 +11,7 @@ import play.api.libs.json.Writes._
 
 import models.FileExamples
 import models.ConsoleProtocol._
+import models.LeonWebConfig
 
 import akka.actor._
 import scala.concurrent.duration._
@@ -38,34 +39,23 @@ object Interface extends Controller {
 
   val allExamples = normalExamples ++ tutorialExamples ++ demosExamples
 
-  def getLeonRelease: String = {
-    import java.io.File
-    import scala.io.Source
-
-    val f = new File("./version")
-    if (f.isFile) {
-      Source.fromFile(f).getLines.toList.headOption.getOrElse("")
-    } else {
-      ""
-    }
-  }
 
   def index() = Action { implicit request =>
-    val url    = Play.current.configuration.getString("app.url").getOrElse("/")
+    val webconfig = LeonWebConfig.fromCurrent(normalExamples)
 
-    Ok(views.html.index(normalExamples, normalExamples.tail.head._2(1), url, getLeonRelease))
+    Ok(views.html.index(webconfig))
   }
 
   def tutorials() = Action { implicit request =>
-    val url    = Play.current.configuration.getString("app.url").getOrElse("/")
+    val webconfig = LeonWebConfig.fromCurrent(tutorialExamples)
 
-    Ok(views.html.index(tutorialExamples, tutorialExamples.head._2.head, url, getLeonRelease))
+    Ok(views.html.index(webconfig))
   }
 
   def demos() = Action { implicit request =>
-    val url    = Play.current.configuration.getString("app.url").getOrElse("/")
+    val webconfig = LeonWebConfig.fromCurrent(demosExamples)
 
-    Ok(views.html.index(demosExamples, demosExamples.head._2.head, url, getLeonRelease))
+    Ok(views.html.index(webconfig))
   }
 
   def getExample(kind: String, id: Int) = Action { 
