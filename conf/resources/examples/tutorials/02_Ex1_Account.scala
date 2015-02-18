@@ -6,9 +6,9 @@
 
 object Account2 {
   sealed abstract class AccLike
-  case class Acc(checking : Int, savings : Int) extends AccLike
+  case class Acc(checking : BigInt, savings : BigInt) extends AccLike
 
-  def toSavings(x : Int, a : Acc) : Acc = {
+  def toSavings(x : BigInt, a : Acc) : Acc = {
     require (notRed(a) && a.checking >= x)
     Acc(a.checking - x, a.savings + x)
   } ensuring (res => (notRed(res) && sameTotal(a, res)))

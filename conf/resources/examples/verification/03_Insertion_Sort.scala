@@ -3,19 +3,19 @@ import leon.annotation._
 
 object InsertionSort {
   sealed abstract class List
-  case class Cons(head:Int,tail:List) extends List
+  case class Cons(head:BigInt,tail:List) extends List
   case object Nil extends List
 
   sealed abstract class OptInt
-  case class Some(value: Int) extends OptInt
+  case class Some(value: BigInt) extends OptInt
   case object None extends OptInt
 
-  def size(l : List) : Int = (l match {
+  def size(l : List) : BigInt = (l match {
     case Nil => 0
     case Cons(_, xs) => 1 + size(xs)
   }) ensuring(_ >= 0)
 
-  def contents(l: List): Set[Int] = l match {
+  def contents(l: List): Set[BigInt] = l match {
     case Nil => Set.empty
     case Cons(x,xs) => contents(xs) ++ Set(x)
   }
@@ -28,7 +28,7 @@ object InsertionSort {
 
   /* Inserting element 'e' into a sorted list 'l' produces a sorted list with
    * the expected content and size */
-  def sortedIns(e: Int, l: List): List = {
+  def sortedIns(e: BigInt, l: List): List = {
     require(isSorted(l))
     l match {
       case Nil => Cons(e,Nil)
@@ -40,7 +40,7 @@ object InsertionSort {
             )
 
   /* A counterexample is found when we forget to specify the precondition */
-  def buggySortedIns(e: Int, l: List): List = {
+  def buggySortedIns(e: BigInt, l: List): List = {
     l match {
       case Nil => Cons(e,Nil)
       case Cons(x,xs) => if (x <= e) Cons(x,buggySortedIns(e, xs)) else Cons(e, l)

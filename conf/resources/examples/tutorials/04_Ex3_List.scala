@@ -17,7 +17,7 @@ import leon.Utils._
 
 object ListWithSize {
     sealed abstract class List
-    case class Cons(head: Int, tail: List) extends List
+    case class Cons(head: BigInt, tail: List) extends List
     case class Nil() extends List
 
     sealed abstract class IntPairList
@@ -25,15 +25,15 @@ object ListWithSize {
     case class IPNil() extends IntPairList
 
     sealed abstract class IntPair
-    case class IP(fst: Int, snd: Int) extends IntPair
+    case class IP(fst: BigInt, snd: BigInt) extends IntPair
 
     
-    def size(l: List) : Int = (l match {
+    def size(l: List) : BigInt = (l match {
         case Nil() => 0
         case Cons(_, t) => 1 + size(t)
     })
 
-    def iplSize(l: IntPairList) : Int = (l match {
+    def iplSize(l: IntPairList) : BigInt = (l match {
       case IPNil() => 0
       case IPCons(_, xs) => 1 + iplSize(xs)
     })
@@ -48,8 +48,8 @@ object ListWithSize {
       }
     } ensuring(iplSize(_) == size(l1))
 
-    def sizeTailRec(l: List) : Int = sizeTailRecAcc(l, 0)
-    def sizeTailRecAcc(l: List, acc: Int) : Int = {
+    def sizeTailRec(l: List) : BigInt = sizeTailRecAcc(l, 0)
+    def sizeTailRecAcc(l: List, acc: BigInt) : BigInt = {
      l match {
        case Nil() => acc
        case Cons(_, xs) => sizeTailRecAcc(xs, acc+1)
@@ -61,13 +61,13 @@ object ListWithSize {
       size(l) == sizeTailRec(l)
     } holds
 
-    def content(l: List) : Set[Int] = l match {
-      case Nil() => Set.empty[Int]
+    def content(l: List) : Set[BigInt] = l match {
+      case Nil() => Set.empty[BigInt]
       case Cons(x, xs) => Set(x) ++ content(xs)
     }
 
     def sizeAndContent(l: List) : Boolean = {
-      size(l) == 0 || content(l) != Set.empty[Int]
+      size(l) == 0 || content(l) != Set.empty[BigInt]
     } holds
     
     def drunk(l : List) : List = (l match {
@@ -76,7 +76,7 @@ object ListWithSize {
     }) // TODO: find postcondition
 
     
-    def funnyCons(x: Int, l: List) : List = (l match {
+    def funnyCons(x: BigInt, l: List) : List = (l match {
         case Nil() => Cons(x, Nil())
         case c @ Cons(_,_) => Cons(x, c)
     }) ensuring(size(_) > 0)

@@ -16,8 +16,8 @@ object Tokens {
   case object TRightBrace extends Token
   case object TLeftPar extends Token
   case object TRightPar extends Token
-  case class TInt(v: Int) extends Token
-  case class TId(name: Int) extends Token // All variables are : Int
+  case class TInt(v: BigInt) extends Token
+  case class TId(name: BigInt) extends Token // All variables are : BigInt
 }
 
 object Trees {
@@ -26,8 +26,8 @@ object Trees {
   case class Plus(lhs: Expr, rhs: Expr) extends Expr
   case class And(lhs: Expr, rhs: Expr) extends Expr
   case class Or(lhs: Expr, rhs: Expr) extends Expr
-  case class Var(id: Int) extends Expr
-  case class IntLiteral(v: Int) extends Expr
+  case class Var(id: BigInt) extends Expr
+  case class IntLiteral(v: BigInt) extends Expr
   case class LessThan(lhs: Expr, rhs: Expr) extends Expr
   case class Ite(cond: Expr, thn: Expr, els: Expr) extends Expr
 }
@@ -159,7 +159,7 @@ object Simplifier {
   import Runtime._
   
   //  Constant folding +  tautologies
-  def simplify(e: Expr)(implicit m: Map[Int, Int]): Expr = (e match {
+  def simplify(e: Expr)(implicit m: Map[BigInt, BigInt]): Expr = (e match {
     // Special cases
     case Plus(IntLiteral(a), IntLiteral(b)) => IntLiteral(a+b)
     case LessThan(Var(id1), Var(id2)) if id1 == id2 => IntLiteral(0)
@@ -181,7 +181,7 @@ object Simplifier {
 object Runtime {
   import Trees._
   
-  def run(e: Expr)(implicit m: Map[Int, Int]): Int = e match {
+  def run(e: Expr)(implicit m: Map[BigInt, BigInt]): BigInt = e match {
     case Times(lhs, rhs) => run(lhs) * run(rhs)
     case Plus(lhs, rhs) => run(lhs) + run(rhs)
     case And(lhs, rhs) => run(lhs) * run(rhs)

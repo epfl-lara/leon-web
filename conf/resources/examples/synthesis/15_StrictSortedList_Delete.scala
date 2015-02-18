@@ -4,16 +4,16 @@ import leon.annotation._
 
 object Delete {
   sealed abstract class List
-  case class Cons(head: Int, tail: List) extends List
+  case class Cons(head: BigInt, tail: List) extends List
   case object Nil extends List
 
-  def size(l: List) : Int = (l match {
+  def size(l: List) : BigInt = (l match {
       case Nil => 0
       case Cons(_, t) => 1 + size(t)
   }) ensuring(res => res >= 0)
 
-  def content(l: List): Set[Int] = l match {
-    case Nil => Set.empty[Int]
+  def content(l: List): Set[BigInt] = l match {
+    case Nil => Set.empty[BigInt]
     case Cons(i, t) => Set(i) ++ content(t)
   }
 
@@ -24,7 +24,7 @@ object Delete {
     case Cons(_, xs) => isSorted(xs)
   }
 
-  def insert(in1: List, v: Int): List = {
+  def insert(in1: List, v: BigInt): List = {
     require(isSorted(in1))
     in1 match {
       case Cons(h, t) =>
@@ -41,7 +41,7 @@ object Delete {
 
   } ensuring { res => (content(res) == content(in1) ++ Set(v)) && isSorted(res) }
 
-  def delete(in1: List, v: Int) = {
+  def delete(in1: List, v: BigInt) = {
     require(isSorted(in1))
     choose { (out : List) =>
       (content(out) == content(in1) -- Set(v)) && isSorted(out)

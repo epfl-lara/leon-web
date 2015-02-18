@@ -8,7 +8,7 @@ import leon.Utils._
 
 object Add {
 
-  def add(x : Int, y : Int): Int = ({
+  def add(x : BigInt, y : BigInt): BigInt = ({
     var r = x
     if(y < 0) {
       var n = y

@@ -8,7 +8,7 @@ import leon.Utils._
 
 object Mult {
 
-  def mult(x : Int, y : Int): Int = ({
+  def mult(x : BigInt, y : BigInt): BigInt = ({
     var r = 0
     if(y < 0) {
       var n = y

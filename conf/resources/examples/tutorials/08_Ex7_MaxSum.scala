@@ -9,7 +9,7 @@ import leon.Utils._
 
 object MaxSum {
 
-  def maxSum(a: Array[Int]): (Int, Int) = ({
+  def maxSum(a: Array[BigInt]): (BigInt, BigInt) = ({
     require(a.length >= 0 && isPositive(a))
     var sum = 0
     var max = 0
@@ -24,9 +24,9 @@ object MaxSum {
   }) ensuring(res => res._1 <= a.length * res._2)
 
 
-  def isPositive(a: Array[Int]): Boolean = {
+  def isPositive(a: Array[BigInt]): Boolean = {
     require(a.length >= 0)
-    def rec(i: Int): Boolean = {
+    def rec(i: BigInt): Boolean = {
       require(i >= 0)
       if(i >= a.length) 
         true 

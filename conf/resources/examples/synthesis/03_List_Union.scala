@@ -4,24 +4,24 @@ import leon.annotation._
 
 object Union {
   sealed abstract class List
-  case class Cons(head: Int, tail: List) extends List
+  case class Cons(head: BigInt, tail: List) extends List
   case object Nil extends List
 
-  def size(l: List) : Int = (l match {
+  def size(l: List) : BigInt = (l match {
       case Nil => 0
       case Cons(_, t) => 1 + size(t)
   }) ensuring(res => res >= 0)
 
-  def content(l: List): Set[Int] = l match {
-    case Nil => Set.empty[Int]
+  def content(l: List): Set[BigInt] = l match {
+    case Nil => Set.empty[BigInt]
     case Cons(i, t) => Set(i) ++ content(t)
   }
 
-  def insert(in1: List, v: Int): List = {
+  def insert(in1: List, v: BigInt): List = {
     Cons(v, in1)
   } ensuring { content(_) == content(in1) ++ Set(v) }
 
-  def delete(in1: List, v: Int): List = {
+  def delete(in1: List, v: BigInt): List = {
     in1 match {
       case Cons(h,t) =>
         if (h == v) {

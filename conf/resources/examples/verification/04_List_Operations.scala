@@ -3,7 +3,7 @@ import leon.annotation._
 
 object ListOperations {
     sealed abstract class List
-    case class Cons(head: Int, tail: List) extends List
+    case class Cons(head: BigInt, tail: List) extends List
     case object Nil extends List
 
     sealed abstract class IntPairList
@@ -11,14 +11,14 @@ object ListOperations {
     case object IPNil extends IntPairList
 
     sealed abstract class IntPair
-    case class IP(fst: Int, snd: Int) extends IntPair
+    case class IP(fst: BigInt, snd: BigInt) extends IntPair
 
-    def size(l: List) : Int = (l match {
+    def size(l: List) : BigInt = (l match {
         case Nil => 0
         case Cons(_, t) => 1 + size(t)
     }) ensuring(res => res >= 0)
 
-    def iplSize(l: IntPairList) : Int = (l match {
+    def iplSize(l: IntPairList) : BigInt = (l match {
       case IPNil => 0
       case IPCons(_, xs) => 1 + iplSize(xs)
     }) ensuring(_ >= 0)
@@ -36,8 +36,8 @@ object ListOperations {
       }
     } ensuring(iplSize(_) == size(l1))
 
-    def sizeTailRec(l: List) : Int = sizeTailRecAcc(l, 0)
-    def sizeTailRecAcc(l: List, acc: Int) : Int = {
+    def sizeTailRec(l: List) : BigInt = sizeTailRecAcc(l, 0)
+    def sizeTailRecAcc(l: List, acc: BigInt) : BigInt = {
      require(acc >= 0)
      l match {
        case Nil => acc
@@ -49,13 +49,13 @@ object ListOperations {
       size(l) == sizeTailRec(l)
     } holds
 
-    def content(l: List) : Set[Int] = l match {
-      case Nil => Set.empty[Int]
+    def content(l: List) : Set[BigInt] = l match {
+      case Nil => Set.empty[BigInt]
       case Cons(x, xs) => Set(x) ++ content(xs)
     }
 
     def sizeAndContent(l: List) : Boolean = {
-      size(l) == 0 || content(l) != Set.empty[Int]
+      size(l) == 0 || content(l) != Set.empty[BigInt]
     } holds
     
     def drunk(l : List) : List = (l match {
@@ -81,7 +81,7 @@ object ListOperations {
     def appendAssoc(xs : List, ys : List, zs : List) : Boolean =
       (append(append(xs, ys), zs) == append(xs, append(ys, zs))) holds
 
-    def revAuxBroken(l1 : List, e : Int, l2 : List) : Boolean = {
+    def revAuxBroken(l1 : List, e : BigInt, l2 : List) : Boolean = {
       (append(reverse(l1), Cons(e,l2)) == reverse0(l1, l2))
     } holds
 

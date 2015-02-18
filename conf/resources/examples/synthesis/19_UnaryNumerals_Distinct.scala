@@ -7,7 +7,7 @@ object Numerals {
   case object Z extends Num
   case class  S(pred: Num) extends Num
 
-  def value(n:Num) : Int = {
+  def value(n:Num) : BigInt = {
     n match {
       case Z => 0
       case S(p) => 1 + value(p)

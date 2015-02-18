@@ -3,7 +3,7 @@ import leon.lang.synthesis._
 import leon.annotation._
 object Sort {
 /*
-  def sort2(x : Int, y : Int) = choose{(res: (Int,Int)) =>
+  def sort2(x : BigInt, y : BigInt) = choose{(res: (BigInt,BigInt)) =>
     Set(x,y) == Set(res._1, res._2) && res._1 <= res._2
   }
 */
@@ -11,9 +11,9 @@ object Sort {
 /*
   sealed abstract class List
   case object Nil extends List
-  case class Cons(head: Int, tail: List) extends List
+  case class Cons(head: BigInt, tail: List) extends List
 
-  def size(l: List) : Int = (l match {
+  def size(l: List) : BigInt = (l match {
       case Nil => 0
       case Cons(x, rest) => x + size(rest)
   }) 
@@ -23,7 +23,7 @@ object Sort {
   // def s1 = size(Cons(10, Cons(1000, Nil)))
 
 /*
-  def content(l: List): Set[Int] = l match {
+  def content(l: List): Set[BigInt] = l match {
     case Nil => Set()
     case Cons(i, t) => Set(i) ++ content(t)
   }
@@ -41,7 +41,7 @@ object Sort {
   //def t2 = isSorted(Cons(15, Cons(15, Nil)))
 
 /*
-  def sInsert(x : Int, l : List) : List = {
+  def sInsert(x : BigInt, l : List) : List = {
     require(isSorted(l))
     l match {
       case Nil => Cons(x, Nil)
@@ -56,10 +56,10 @@ object Sort {
 */
 
 /*  
-  def insertMagic(x: Int, l: List): List = {
+  def insertMagic(x: BigInt, l: List): List = {
     require(isSorted(l))
     choose {(res: List) => 
-      isSorted(res) && content(res) == content(l) ++ Set[Int](x)
+      isSorted(res) && content(res) == content(l) ++ Set[BigInt](x)
     }
   }
 */

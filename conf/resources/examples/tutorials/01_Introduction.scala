@@ -9,7 +9,7 @@ object Introduction {
    * You can define Algebraic Data Types using abstract classes and case classes.
    */
   abstract class Tree
-  case class Node(left: Tree, v: Int, right: Tree) extends Tree
+  case class Node(left: Tree, v: BigInt, right: Tree) extends Tree
   case object Leaf extends Tree
 
 
@@ -17,7 +17,7 @@ object Introduction {
    * You can define functions. Functions should be purely functionnal. Note
    * that some imperative constructs such as 'var' or while loops will be handled.
    */
-  def content(t: Tree): Set[Int] = t match {
+  def content(t: Tree): Set[BigInt] = t match {
     case Node(l, v, r) => content(l) ++ content(r) ++ Set(v)
     case Leaf => Set()
   }
@@ -55,7 +55,7 @@ object Introduction {
   /**
    * You can specify post-conditions using "ensuring".
    */
-  def contains(what: Int, t: Tree): Boolean = (t match {
+  def contains(what: BigInt, t: Tree): Boolean = (t match {
     case Leaf =>
       false
 
@@ -67,7 +67,7 @@ object Introduction {
   /**
    * Can you spot the bug in this implementation of contains? Leon can.
    */
-  def containsBuggy(what: Int, t: Tree): Boolean = (t match {
+  def containsBuggy(what: BigInt, t: Tree): Boolean = (t match {
     case Leaf =>
       false
 

@@ -13,7 +13,7 @@ object PropositionalLogic {
   case class Or(lhs: Formula, rhs: Formula) extends Formula
   case class Implies(lhs: Formula, rhs: Formula) extends Formula
   case class Not(f: Formula) extends Formula
-  case class Literal(id: Int) extends Formula  
+  case class Literal(id: BigInt) extends Formula  
 
 
   def simplify(f: Formula): Formula = (f match {
@@ -44,7 +44,7 @@ object PropositionalLogic {
     
   }
 
-  def evalLit(id : Int) : Boolean = (id == 42) // could be any function
+  def evalLit(id : BigInt) : Boolean = (id == 42) // could be any function
   def eval(f: Formula) : Boolean = f match {
     case And(lhs, rhs) => eval(lhs) && eval(rhs)
     case Or(lhs, rhs) => eval(lhs) || eval(rhs)
@@ -59,14 +59,14 @@ object PropositionalLogic {
   } holds
 
   // Note that matching is exhaustive due to precondition.
-  def vars(f: Formula): Set[Int] = {
+  def vars(f: Formula): Set[BigInt] = {
     require(isNNF(f))
     f match {
       case And(lhs, rhs) => vars(lhs) ++ vars(rhs)
       case Or(lhs, rhs) => vars(lhs) ++ vars(rhs)
       case Implies(lhs, rhs) => vars(lhs) ++ vars(rhs)
-      case Not(Literal(i)) => Set[Int](i)
-      case Literal(i) => Set[Int](i)
+      case Not(Literal(i)) => Set[BigInt](i)
+      case Literal(i) => Set[BigInt](i)
     }
   }
 

@@ -7,15 +7,15 @@ import leon.Utils._
 object ListImp {
 
   sealed abstract class List
-  case class Cons(head: Int, tail: List) extends List
+  case class Cons(head: BigInt, tail: List) extends List
   case class Nil() extends List
 
-  def content(l: List) : Set[Int] = l match {
-    case Nil() => Set.empty[Int]
+  def content(l: List) : Set[BigInt] = l match {
+    case Nil() => Set.empty[BigInt]
     case Cons(x, xs) => Set(x) ++ content(xs)
   }
 
-  def size(l: List) : Int = {
+  def size(l: List) : BigInt = {
     var r = 0
     (while(!l.isInstanceOf[Nil]) {
       r = r+1
