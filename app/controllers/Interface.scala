@@ -24,42 +24,27 @@ import akka.pattern.ask
 
 object Interface extends Controller {
 
-  val normalExamples = List(
-    "Verification" -> new FileExamples("verification").allExamples,
-    "Synthesis"    -> new FileExamples("synthesis").allExamples
-  )
-
-  val tutorialExamples = List(
-    "Tutorials"    -> new FileExamples("tutorials").allExamples
-  )
-
-  val demosExamples = List(
-    "Demos"    -> new FileExamples("demos").allExamples
-  )
-
-  val allExamples = normalExamples ++ tutorialExamples ++ demosExamples
-
-
-  def index() = Action { implicit request =>
-    val webconfig = LeonWebConfig.fromCurrent(normalExamples)
-
-    Ok(views.html.index(webconfig))
+  def getExamples(dir: String) = {
+    List(
+      dir -> new FileExamples(dir).allExamples
+    )
   }
 
-  def tutorials() = Action { implicit request =>
-    val webconfig = LeonWebConfig.fromCurrent(tutorialExamples)
 
-    Ok(views.html.index(webconfig))
-  }
+  def index(dir: String) = Action { implicit request =>
+    val examples = if (dir == "") {
+      getExamples("verification") ++ getExamples("synthesis")
+    } else {
+      getExamples(dir)
+    }
 
-  def demos() = Action { implicit request =>
-    val webconfig = LeonWebConfig.fromCurrent(demosExamples)
+    val webconfig = LeonWebConfig.fromCurrent(examples)
 
     Ok(views.html.index(webconfig))
   }
 
   def getExample(kind: String, id: Int) = Action { 
-    allExamples.toMap.get(kind).flatMap(_.lift.apply(id)) match {
+    getExamples(kind).headOption.flatMap(_._2.lift.apply(id)) match {
       case Some(ex) =>
         Ok(toJson(Map("status" -> "success", "code" -> ex.code)))
       case None =>

@@ -185,6 +185,10 @@ select#example-loader {
     font-size: 14px;
 }
 
+select#example-loader span.examples-group {
+  text-transform: capitalize;
+}
+
 #release {
     position: fixed;
     bottom: 0;

@@ -36,7 +36,7 @@
             <select id="example-loader" class="form-control" name="codeexample">
               <option value="">-- Select a Program --</option>
               @webconfig.examples.collect{ case (group, es) =>
-                <option value="" disabled="disabled">@group</option>
+              <option value="" disabled="disabled">@{group(0).toUpper+group.tail.mkString}</option>
                 @es.zipWithIndex.collect { case (ex, i) =>
                   <option group="@group" id="@i">&nbsp;&nbsp;@ex.title</option>
                 }
