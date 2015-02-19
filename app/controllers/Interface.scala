@@ -52,7 +52,7 @@ object Interface extends Controller {
     }
   }
 
-  def openConsole() = WebSocket.async[JsValue] { request =>
+  def openConsole() = WebSocket.tryAccept[JsValue] { request =>
     import play.api.Play.current
 
     val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress)))
@@ -67,7 +67,7 @@ object Interface extends Controller {
           session ! Quit
         }
 
-        (iteratee,enumerator)
+        Right((iteratee,enumerator))
 
       case InitFailure(error: String) =>
         // Connection error
@@ -80,7 +80,7 @@ object Interface extends Controller {
           Map("kind" -> "error", "message" -> error)
         )).andThen(Enumerator.enumInput(Input.EOF))
 
-        (iteratee,enumerator)
+        Right((iteratee,enumerator))
     }
   }
 
