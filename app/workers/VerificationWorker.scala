@@ -220,7 +220,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val verifTimeout = 5000L // 5sec
+      val verifTimeout = 50000L // 5sec
 
       val allSolvers = List(
         SolverFactory(() => new FairZ3Solver(ctx, program)),
