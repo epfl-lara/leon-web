@@ -16,6 +16,8 @@ if [ ! -d "$LEON_PATH" ]; then
     return;
 fi
 
+export _JAVA_OPTIONS="-Xmx4096m"
+
 rm -rf leon
 ln -sf $LEON_PATH leon
 
