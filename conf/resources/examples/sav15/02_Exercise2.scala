@@ -11,7 +11,7 @@ object PropositionalLogic {
   def nnf(formula: Formula): Formula = (formula match {
     case And(lhs, rhs) => And(nnf(lhs), nnf(rhs))
     case Or(lhs, rhs) => Or(nnf(lhs), nnf(rhs))
-    case Implies(lhs, rhs) => Implies(nnf(lhs), nnf(rhs))
+    case Implies(lhs, rhs) => nnf(Or(Not(lhs), rhs))
     case Not(And(lhs, rhs)) => Or(nnf(Not(lhs)), nnf(Not(rhs)))
     case Not(Or(lhs, rhs)) => And(nnf(Not(lhs)), nnf(Not(rhs)))
     case Not(Implies(lhs, rhs)) => And(nnf(lhs), nnf(Not(rhs)))
@@ -30,7 +30,6 @@ object PropositionalLogic {
     f match {
       case And(lhs, rhs) => vars(lhs) ++ vars(rhs)
       case Or(lhs, rhs) => vars(lhs) ++ vars(rhs)
-      case Implies(lhs, rhs) => vars(lhs) ++ vars(rhs)
       case Not(Literal(i)) => Set[BigInt](i)
       case Literal(i) => Set[BigInt](i)
     }
