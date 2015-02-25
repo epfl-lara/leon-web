@@ -1,25 +1,20 @@
 import leon.lang._
-
+import leon.collection._
+import leon._
 /**
  * 1) Implement the isSearchTree property that checks bounds of elements in a
  *    search tree. Assume that the tree is strictly sorted (no dupplicates)
+ *
  * 2) Implement operations on Binary Search Trees as efficiently as you can.
  *    These operations will likely not verify, but make sure that leon does not
  *    find counter-examples within a reasonnable timeout (e.g. --timeout=5 )
  *
  *    You do not need to change the pre-/post-conditions
+ *
+ * 3) Implement toList to return a sorted list from a search tree.
  */
 
 object BinaryTree {
-  abstract class Option[T] {
-    def getOrElse(default: T) = this match {
-      case Some(v) => v
-      case None() => default
-    }
-  }
-  case class Some[T](v: T) extends Option[T]
-  case class None[T]() extends Option[T]
-
 
   abstract class Tree {
     def content: Set[BigInt] = {
@@ -71,6 +66,13 @@ object BinaryTree {
       res => res == (content contains x)
     }
 
+    def toList: List[BigInt] = {
+      require(isBT)
+      Nil() // TODO
+    } ensuring {
+      res => res.content == this.content && isSorted(res)
+    }
+
     // Properties
 
     def isBT: Boolean = {
@@ -89,5 +91,14 @@ object BinaryTree {
   case object Empty extends Tree
   case class Node(l: Tree, v: BigInt, r: Tree) extends Tree
 
+
+  def isSorted(l: List[BigInt]): Boolean = {
+    l match {
+      case Cons(v1, t @ Cons(v2, _)) if v1 >= v2 => false
+      case Cons(h, t) => isSorted(t)
+      case Nil() => true
+    }
+  }
 }
+
 
