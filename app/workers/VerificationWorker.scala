@@ -8,7 +8,7 @@ import play.api.libs.json.Json._
 import models._
 import leon.utils._
 import leon.verification._
-import leon.xlang.XlangAnalysisPhase
+import leon.xlang.XLangAnalysisPhase
 import leon.solvers._
 import leon.solvers.combinators.PortfolioSolver
 import leon.solvers.z3._
@@ -154,7 +154,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         case (fd, vcs) =>
           val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
-          val report = XlangAnalysisPhase.completeVerificationReport(vr, cstate.functionWasLoop _)
+          val report = XLangAnalysisPhase.completeVerificationReport(vr, cstate.functionWasLoop _)
 
           for ((f, vcs) <- report.fvcs) {
             verifOverview += f -> vcs
