@@ -8,6 +8,8 @@ GET   /ajax/getExample/:group/:id   leon.web.controllers.Interface.getExample(gr
 GET   /openConsole                  leon.web.controllers.Interface.openConsole
 
 # Map static resources from the /public folder to the /assets URL path
+GET   /doc/                         leon.web.controllers.Doc.index()
+GET   /doc/*file                    leon.web.controllers.Doc.at(file)
 GET   /assets/*file                 controllers.Assets.at(path="/public", file)
 
 GET   /$dir<[a-z0-9]*>              leon.web.controllers.Interface.index(dir: String)
