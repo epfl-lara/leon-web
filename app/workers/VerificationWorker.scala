@@ -10,7 +10,8 @@ import leon.utils._
 import leon.verification._
 import leon.xlang.XLangAnalysisPhase
 import leon.solvers._
-import leon.solvers.combinators.PortfolioSolver
+import leon.solvers.combinators._
+import leon.solvers.smtlib._
 import leon.solvers.z3._
 import leon.purescala._
 import leon.purescala.Common._
@@ -222,8 +223,8 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       val verifTimeout = 5000L // 5sec
 
-      val allSolvers = List(
-        SolverFactory(() => new FairZ3Solver(ctx, program)),
+      val allSolvers = List[SolverFactory[Solver with Interruptible]](
+        SolverFactory(() => new UnrollingSolver(ctx, program, new SMTLIBSolver(ctx, program) with SMTLIBZ3Target)),
         SolverFactory(() => new EnumerationSolver(ctx, program))
       )
 

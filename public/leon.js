@@ -591,19 +591,21 @@ $(document).ready(function() {
 
         for (var fi = 0; fi < fnames.length; fi++) {
             var  f = fnames[fi];
-            if (data.functions[f].length == 1) {
-                var sp = data.functions[f][0]
-                html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-                addMenu(sp.index, f, overview.functions[f].displayName)
-                html += "</td></tr>"
-            } else {
-                html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions[f].line+"\">"+overview.functions[f].displayName+"</td></tr>"
-                for (var i = 0; i < data.functions[f].length; i++) {
-                    var sp = data.functions[f][i]
-                    html += "<tr>"
-                    html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-                    addMenu(sp.index, f, sp.description)
+            if (f in overview.functions) {
+                if (data.functions[f].length == 1) {
+                    var sp = data.functions[f][0]
+                    html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+                    addMenu(sp.index, f, overview.functions[f].displayName)
                     html += "</td></tr>"
+                } else {
+                    html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions[f].line+"\">"+overview.functions[f].displayName+"</td></tr>"
+                    for (var i = 0; i < data.functions[f].length; i++) {
+                        var sp = data.functions[f][i]
+                        html += "<tr>"
+                        html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+                        addMenu(sp.index, f, sp.description)
+                        html += "</td></tr>"
+                    }
                 }
             }
         }
