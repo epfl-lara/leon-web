@@ -117,7 +117,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
       vcs.find(_.counterExample.isDefined) match {
         case Some(vc) =>
           val ce = vc.counterExample.get
-          val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
+          val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.getType)))
 
           Some(vc.funDef.typed(vc.funDef.tparams.map(_.tp)) -> callArgs)
 
@@ -162,7 +162,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
             for (vc <- vcs if vc.kind == VCPostcondition) vc.counterExample match {
               case Some(ce) =>
-                val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.tpe)))
+                val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.getType)))
                 val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)
 
                 try {

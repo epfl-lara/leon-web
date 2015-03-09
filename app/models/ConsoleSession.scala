@@ -172,18 +172,20 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
         val opgm = try {
           // First we extract Leon program
-          val extraction = TemporaryInputPhase andThen
-                           ExtractionPhase andThen
-                           PreprocessingPhase
-
-          val pgm0 = extraction.run(compContext)((code, Nil))
-          val pgm1 = ArrayTransformation(compContext, pgm0)
-          val pgm2 = EpsilonElimination(compContext, pgm1)
-          //val (pgm3, wasLoop) = ImperativeCodeElimination.run(compContext)(pgm2)
-          val pgm4 = FunctionClosure.run(compContext)(pgm2)
+          val pipeline = TemporaryInputPhase andThen
+                         ExtractionPhase andThen
+                         PreprocessingPhase andThen
+                         ArrayTransformation andThen
+                         EpsilonElimination andThen
+                         FunctionClosure andThen
+                         NoXLangFeaturesChecking
 
 
-          Some(pgm4)
+          val pgm = pipeline.run(compContext)((code, Nil))
+          compReporter.terminateIfError
+
+
+          Some(pgm)
         } catch {
           case t: Throwable =>
             logInfo("Failed to compile and/or extract")
@@ -192,7 +194,6 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
         opgm match {
           case Some(program) =>
-
 
             val cstate = CompilationState(
               optProgram = Some(program),
