@@ -13,8 +13,8 @@ import leon.purescala.PrinterContext
 import leon.purescala.ScalaPrinter
 import leon.synthesis._
 import leon.purescala.Common._
-import leon.purescala.TreeOps._
-import leon.purescala.Trees._
+import leon.purescala.ExprOps._
+import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 
 class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {

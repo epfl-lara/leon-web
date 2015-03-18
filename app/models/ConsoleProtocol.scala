@@ -7,7 +7,7 @@ import play.api.libs.json._
 import play.api.libs.iteratee._
 import leon.synthesis.Solution
 import leon.purescala.Definitions._
-import leon.purescala.Trees._
+import leon.purescala.Expressions._
 
 object ConsoleProtocol {
   case object Init

@@ -16,8 +16,8 @@ import leon.solvers.z3._
 import leon.purescala._
 import leon.purescala.Common._
 import leon.purescala.Definitions._
-import leon.purescala.Trees._
-import leon.purescala.TreeOps._
+import leon.purescala.ExprOps._
+import leon.purescala.Expressions._
 
 class VerificationWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
@@ -223,12 +223,14 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       val verifTimeout = 5000L // 5sec
 
-      val allSolvers = List[SolverFactory[Solver with Interruptible]](
-        SolverFactory(() => new UnrollingSolver(ctx, program, new SMTLIBSolver(ctx, program) with SMTLIBZ3Target)),
-        SolverFactory(() => new EnumerationSolver(ctx, program))
-      )
+      //val allSolvers = List[SolverFactory[Solver with Interruptible]](
+      //  SolverFactory(() => new UnrollingSolver(ctx, program, new SMTLIBSolver(ctx, program) with SMTLIBZ3Target)),
+      //  SolverFactory(() => new EnumerationSolver(ctx, program))
+      //)
 
-      val solver = SolverFactory[TimeoutSolver]( () => new PortfolioSolver(ctx, allSolvers) with TimeoutSolver)
+      //val solver = SolverFactory[TimeoutSolver]( () => new PortfolioSolver(ctx, allSolvers) with TimeoutSolver)
+
+      val solver = SolverFactory[TimeoutSolver](() => new UnrollingSolver(ctx, program, new SMTLIBSolver(ctx, program) with SMTLIBZ3Target) with TimeoutSolver)
 
       val tsolver = new TimeoutSolverFactory(solver, verifTimeout)
 

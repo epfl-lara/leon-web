@@ -7,7 +7,7 @@ import play.api.libs.json.Json._
 
 import models._
 import leon.utils._
-import leon.purescala.Trees._
+import leon.purescala.Expressions._
 import leon.purescala.Definitions.TypedFunDef
 
 class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
