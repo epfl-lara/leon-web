@@ -1,4 +1,4 @@
-conf/local.conf
+conf/setup.conf
 logs
 project/project
 project/target
