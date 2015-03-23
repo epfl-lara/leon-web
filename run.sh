@@ -3,4 +3,6 @@ if [ "$PORT" == "" ]; then
     PORT=9000
 fi
 
+./gen_version.sh
+
 activator "run $PORT"

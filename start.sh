@@ -3,6 +3,8 @@ if [ "$PORT" == "" ]; then
     PORT=9000
 fi
 
+./gen_version.sh
+
 while [ /bin/true ]; do
     activator "start $PORT"
     sleep 5

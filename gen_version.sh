@@ -1,11 +1,14 @@
 #!/bin/bash
 
-isdev=`pwd | grep "\\-dev"`;
+isdev=`pwd | grep -q "\\-dev"`;
 
-leon=`(cd leon; git log --date=short --format="%h-%ad") | head -n 1`
+isdev=$?
 
-if [[ $? == 0 ]]; then
-    echo "Leon-$leon-dev" > version
+hash=`(cd leon; git log --date=short --format="%h") | head -n 1`
+date=`(cd leon; git log --date=short --format="%ad") | head -n 1`
+
+if [[ $isdev -eq 0 ]]; then
+    echo "Leon-dev-$hash (Built $date)" > version
 else
-    echo "Leon-$leon" > version
+    echo "Leon-$v (Built $date)" > version
 fi
