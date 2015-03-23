@@ -21,7 +21,7 @@ class FileExamples(subdir: String) {
     if (d != null) {
       d.getProtocol() match {
         case "jar" =>
-          val examples = new ArrayBuffer[Example]()
+          val examples = new ArrayBuffer[(String, Example)]()
 
           val src = this.getClass.getProtectionDomain().getCodeSource();
           if (src ne null) {
@@ -34,12 +34,12 @@ class FileExamples(subdir: String) {
               if (name.startsWith(target) && name.size > target.size+1) {
                 val content = Source.fromInputStream(zf.getInputStream(ze)).mkString
 
-                examples += Example(titleOf(name), content)
+                examples += (name -> Example(titleOf(name), content))
               }
               ze = zis.getNextEntry()
             }
 
-            examples.toList
+            examples.toList.sortBy(_._1).map(_._2)
           } else {
             Nil
           }
