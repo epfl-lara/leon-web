@@ -17,8 +17,9 @@ object Insert {
     case Cons(i, t) => Set(i) ++ content(t)
   }
 
-  def insert(in1: List, v: BigInt) = choose {
-    (out : List) =>
+  def insert(in1: List, v: BigInt) = {
+    choose { (out : List) =>
       content(out) == content(in1) ++ Set(v)
+    }
   }
 }

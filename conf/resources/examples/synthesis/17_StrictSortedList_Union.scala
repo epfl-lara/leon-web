@@ -41,22 +41,6 @@ object Complete {
 
   } ensuring { res => (content(res) == content(in1) ++ Set(v)) && isSorted(res) }
 
-  def delete(in1: List, v: BigInt): List = {
-    require(isSorted(in1))
-    in1 match {
-      case Cons(h,t) =>
-        if (h < v) {
-          Cons(h, delete(t, v))
-        } else if (h == v) {
-          t
-        } else {
-          in1
-        }
-      case Nil =>
-        Nil
-    }
-  } ensuring { res => content(res) == content(in1) -- Set(v) && isSorted(res) }
-
   def union(in1: List, in2: List) = {
     require(isSorted(in1) && isSorted(in2))
     choose { (out : List) =>

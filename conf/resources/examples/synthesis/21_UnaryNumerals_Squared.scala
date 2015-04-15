@@ -14,11 +14,6 @@ object Numerals {
     }
   } ensuring (_ >= 0)
 
-  def add(x : Num, y : Num) : Num = (x match {
-    case Z => y
-    case S(p) => add(p, S(y))
-  }) ensuring (value(_) == value(x) + value(y))
-
   def mult(x: Num, y: Num): Num = (y match {
     case S(p) =>
       add(mult(x, p), x)
@@ -27,7 +22,7 @@ object Numerals {
   }) ensuring { value(_) == value(x) * value(y) }
 
   def squared(x: Num): Num = {
-    choose { (r : Num) =>
+    choose { (r: Num) =>
       value(r) == value(x) * value(x)
     }
   }

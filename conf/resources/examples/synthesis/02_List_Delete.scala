@@ -17,12 +17,9 @@ object Delete {
     case Cons(i, t) => Set(i) ++ content(t)
   }
 
-  def insert(in1: List, v: BigInt): List = {
-    Cons(v, in1)
-  } ensuring { content(_) == content(in1) ++ Set(v) }
-
-  def delete(in1: List, v: BigInt) = choose {
-    (out : List) =>
+  def delete(in1: List, v: BigInt) = {
+    choose { (out : List) =>
       content(out) == content(in1) -- Set(v)
+    }
   }
 }
