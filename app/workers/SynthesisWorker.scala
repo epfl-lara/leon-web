@@ -51,7 +51,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
   def receive = {
     case OnUpdateCode(cstate) =>
-      var options = SynthesisSettings().copy(cegisGenerateFunCalls = true)
+      var options = SynthesisSettings()
       val reporter = new WorkerReporter(session)
       var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 

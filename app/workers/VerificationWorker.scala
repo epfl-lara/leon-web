@@ -147,7 +147,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         case (fd, vcs) if funs(fd) => fd -> vcs
       }
 
-      val params = CodeGenParams(maxFunctionInvocations = 5000, checkContracts = false)
+      val params = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
       val evaluator = new CodeGenEvaluator(vctx.context, cstate.program, params)
 
       verifCrashed = false

@@ -10,7 +10,7 @@ object ApplicationBuild extends Build {
 
     val appDependencies = Seq(
       "joda-time" % "joda-time" % "2.1",
-      "org.scala-lang" % "scala-compiler" % "2.11.2",
+      "org.scala-lang" % "scala-compiler" % "2.11.6",
       "com.h2database" % "h2" % "1.3.158",
       jdbc,
       anorm,
@@ -28,7 +28,7 @@ object ApplicationBuild extends Build {
     val main = Project(appName, file(".")).enablePlugins(play.PlayScala).settings(
       version := appVersion,
       libraryDependencies ++= appDependencies,
-      scalaVersion := "2.11.2"
+      scalaVersion := "2.11.6"
     ).dependsOn(leon)
 
 }

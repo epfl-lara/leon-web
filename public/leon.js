@@ -783,7 +783,7 @@ $(document).ready(function() {
 
             $("#synthesisProgressBox").show()
             synthesizing = true;
-            $('#synthesisDialog').on('hide.bs.modal', function () {
+            $('#synthesisDialog').unbind('hide.bs.modal').on('hide.bs.modal', function () {
                 if (synthesizing) {
                     var msg = JSON.stringify({
                         module: "main",
@@ -859,6 +859,19 @@ $(document).ready(function() {
             d.modal("show")
         }
 
+        var working = false
+
+        d.unbind('hide.bs.modal').on('hide.bs.modal', function () {
+          if (working) {
+            var msg = JSON.stringify({
+                module: "main",
+                action: "doCancel"
+            })
+
+            leonSocket.send(msg)
+          }
+        })
+
         var node = d.find(".exploreBlock[path=\""+data.from.join("-")+"\"]")
         node.replaceWith(data.html)
         prettyPrint();
@@ -901,10 +914,12 @@ $(document).ready(function() {
             }
           )
 
+
           leonSocket.send(msg)
+
+          working = true
         });
 
-        console.log(data.allCode)
         d.find(".importButton").unbind('click').click(function () {
             handlers["replace_code"]({ newCode: data.allCode })
             if ("cursor" in data) {
@@ -1448,7 +1463,7 @@ $(document).ready(function() {
                     hideDemo(id)
                 })
 
-                $('#demoPane').on('hide.bs.modal', function () {
+                $('#demoPane').unbind('hide.bs.modal').on('hide.bs.modal', function () {
                     if (action == "next") {
                         localStorage.setItem("leonSeenDemo", id+1)
                         setTimeout(function() { showDemo(id+1) }, 500)
