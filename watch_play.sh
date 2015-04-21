@@ -1,8 +1,8 @@
 #!/bin/sh
-open=`netstat -tlunp 2>/dev/null| grep :9000 | wc -l`
+open=`netstat -tlunp 2>/dev/null| grep :9900 | wc -l`
 if [ "$open" -eq 1 ]; then
     #test request
-    curl --silent -f laraserver.epfl.ch:9000  -o /dev/null
+    curl --silent -f localhost:9900  -o /dev/null
     if [ "$?" -eq 0 ]; then
         echo "Process up and running.."
         exit 0;
