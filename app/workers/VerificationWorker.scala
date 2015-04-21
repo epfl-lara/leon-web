@@ -24,159 +24,185 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
   import leon.evaluators._
   import leon.codegen._
 
+  implicit val erWrites = new Writes[EvaluationResults.Result] {
+    def writes(er: EvaluationResults.Result) = er match {
+      case EvaluationResults.Successful(ex) =>
+        Json.obj(
+          "result" -> "success",
+          "output" -> ScalaPrinter(ex)
+        )
+
+      case EvaluationResults.RuntimeError(msg) =>
+        Json.obj(
+          "result" -> "error",
+          "error"  -> msg
+        )
+
+      case EvaluationResults.EvaluatorError(msg) =>
+        Json.obj(
+          "result" -> "error",
+          "error"  -> msg
+        )
+    }
+  }
+
+  implicit val exWrites = new Writes[Map[Identifier, Expr]] {
+    def writes(ex: Map[Identifier, Expr]) = Json.obj(
+      ex.toSeq.sortBy(_._1.name).map {
+        case (id, expr) => id.toString -> (ScalaPrinter(expr): JsValueWrapper)
+      } :_*
+    )
+  }
+
+  implicit val vrWrites = new Writes[(VC, VCResult)] {
+    def writes(vr: (VC, VCResult)) = {
+      val (vc, res) = vr
+
+      val timeSec = res.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
+
+      val base = Json.obj(
+        "kind"   -> vc.kind.toString,
+        "fun"    -> vc.fd.orig.getOrElse(vc.fd).id.name,
+        "status" -> res.status.name,
+        "time"   -> timeSec
+      )
+
+      res.status match {
+        case VCStatus.Invalid(cex) =>
+          ceExecResults.get(vc) match {
+            case Some(er) =>
+              base ++ Json.obj(
+                "counterExample" -> cex,
+                "execution"      -> er
+              )
+            case _ =>
+              base ++ Json.obj(
+                "counterExample" -> cex
+              )
+          }
+        case _ =>
+          base
+      }
+    }
+  }
+
+  implicit val fvWrites = new Writes[FunVerifStatus] {
+    def writes(fv: FunVerifStatus) = Json.obj(
+      "status" -> fv.status,
+      "time"   -> fv.totalTime,
+      "vcs"    -> fv.vrs.toSeq
+    )
+  }
+
+
+
+  case class FunVerifStatus(fd: FunDef, results: Map[VC, Option[VCResult]], isCondValid: Boolean = false) {
+    def vrs = results.mapValues(_.getOrElse(VCResult.unknown))
+
+    lazy val totalTime: Long = vrs.flatMap(_._2.timeMs).foldLeft(0L)(_ + _)
+
+    lazy val overallStatus = {
+      val rs = vrs.map(_._2)
+
+      if (rs.exists(_.isInvalid)) {
+        "invalid"
+      } else if (rs.exists(_.status == VCStatus.Timeout)) {
+        "timeout"
+      } else if (vrs.isEmpty || rs.forall(_.isValid)) {
+        "valid"
+      } else if (verifCrashed) {
+        "crashed"
+      } else {
+        "undefined"
+      }
+    }
+
+    lazy val status: String = {
+      if (isCondValid && overallStatus == "valid") {
+        "cond-valid"
+      } else {
+        overallStatus
+      }
+    }
+  }
+
   var verifCrashed   = false
-  var verifOverview  = Map[FunDef, List[VerificationCondition]]()
-  var ceExecResults  = Map[VerificationCondition, EvaluationResults.Result]()
-
-  def evrToJson(er: EvaluationResults.Result): JsValue = er match {
-    case EvaluationResults.Successful(ex) =>
-      toJson(Map(
-        "result" -> toJson("success"),
-        "output" -> toJson(ScalaPrinter(ex))
-      ))
-
-    case EvaluationResults.RuntimeError(msg) =>
-      toJson(Map(
-        "result" -> toJson("error"),
-        "error" -> toJson(msg)
-      ))
-
-    case EvaluationResults.EvaluatorError(msg) =>
-      toJson(Map(
-        "result" -> toJson("error"),
-        "error" -> toJson(msg)
-      ))
-  }
-
-  def vcToJson(cstate: CompilationState, vc: VerificationCondition): JsValue = {
-    def ceToJson(ce: Map[Identifier, Expr]): JsValue = {
-      toJson(ce.map{ case (id, ex) =>
-        id.toString -> toJson(ScalaPrinter(ex))
-      })
-    }
-
-    val base = Map(
-      "kind"   -> toJson(vc.kind.toString),
-      "fun"    -> toJson(vc.funDef.orig.getOrElse(vc.funDef).id.name),
-      "status" -> toJson(vc.status),
-      "time"   -> toJson(vc.time.map("%-3.3f".format(_)).getOrElse("")))
-
-    vc.counterExample match {
-      case Some(ce) =>
-        ceExecResults.get(vc) match {
-          case Some(er) =>
-            toJson(base + ("counterExample" -> ceToJson(ce), "execution" -> evrToJson(er)))
-          case _ =>
-            toJson(base + ("counterExample" -> ceToJson(ce)))
-        }
-      case None =>
-        toJson(base)
-    }
-  }
+  var verifOverview  = Map[FunDef, FunVerifStatus]()
+  var ceExecResults  = Map[VC, EvaluationResults.Result]()
 
   def notifyVerifOverview(cstate: CompilationState) {
-    case class FunVerif(fd: FunDef, vcs: List[VerificationCondition]) {
-      val totalTime = vcs.flatMap(_.time).foldLeft(0d)(_ + _)
-      var status = getOverallVCsStatus(vcs)
-
-      def getOverallVCsStatus(vcs: Seq[VerificationCondition]) = {
-        var c: Option[String] = None
-
-        for (vc <- vcs if vc.hasValue) {
-          if (vc.value == Some(true) && c == None) {
-            c = Some("valid")
-          }
-          if (vc.value == Some(false)) {
-            c = Some("invalid")
-          }
-          if (vc.value == None && c != Some("invalid")) {
-            c = Some("timeout")
-          }
-        }
-        if (vcs.isEmpty) {
-          c = Some("valid")
-        }
-
-        c.getOrElse(if (verifCrashed) "crashed" else "undefined")
-      }
-    }
-
-    var verifResults = verifOverview.map { case (fd, vcs) =>
-      (fd, FunVerif(fd, vcs))
-    }
 
     if (cstate.isCompiled) {
-      for ((fd, fv) <- verifResults if fv.status != "valid") {
-        for (cfd <- cstate.program.callGraph.transitiveCallers(fd) if verifResults.get(cfd).map(_.status) == Some("valid")) {
-          verifResults(cfd).status = "cond-valid"
+      verifOverview = verifOverview.mapValues(_.copy(isCondValid = false))
+
+      // Cond-valid-ify if a valid function depends on an invalid one
+      for ((fd, fv) <- verifOverview if fv.status == "invalid") {
+        for (cfd <- cstate.program.callGraph.transitiveCallers(fd)) {
+          verifOverview.get(cfd) match {
+            case Some(vf) =>
+              verifOverview += cfd -> vf.copy(isCondValid = true)
+            case None =>
+              // ?!?
+          }
         }
       }
     }
 
-    val allCEs = verifOverview.flatMap { case (fd, vcs) =>
-      vcs.find(_.counterExample.isDefined) match {
-        case Some(vc) =>
-          val ce = vc.counterExample.get
-          val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.getType)))
-
-          Some(vc.funDef.typed(vc.funDef.tparams.map(_.tp)) -> callArgs)
-
-        case None =>
-          None
-      }
+    val allCEs = verifOverview.flatMap { case (fd, fv) =>
+      fv.vrs.collect {
+        case (vc, VCResult(VCStatus.Invalid(ce), _, _)) =>
+          val callArgs = vc.fd.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.getType)))
+          vc.fd.typed(vc.fd.tparams.map(_.tp)) -> callArgs
+      }.headOption
     }.toMap
 
     sender ! DispatchTo("execution", NewCounterExamples(cstate, allCEs))
 
-    val fvcs = toJson(verifResults.toSeq.sortWith{ (a,b) => a._1.getPos < b._1.getPos }.map{ case (fd, fv) =>
-      val v = toJson(Map(
-        "status" -> toJson(fv.status),
-        "time" -> toJson(fv.totalTime),
-        "vcs"  -> toJson(fv.vcs.map(vcToJson(cstate, _)))
-      ))
-
-      fv.fd.id.name -> v
-    }.toMap)
+    val fvcs = Json.obj(
+      verifOverview.toSeq.sortBy(_._1.getPos).map{ case (fd, fv) =>
+        fd.id.name -> (fv: JsValueWrapper)
+      } : _*
+    )
 
     event("update_overview", Map("module" -> toJson("verification"), "overview" -> fvcs))
   }
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean) {
     try {
-      val vcs = verifOverview.collect {
-        case (fd, vcs) if funs(fd) => fd -> vcs
-      }
-
       val params = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
       val evaluator = new CodeGenEvaluator(vctx.context, cstate.program, params)
 
       verifCrashed = false
-      vcs.groupBy(_._1).foreach {
-        case (fd, vcs) =>
-          val vr = AnalysisPhase.checkVerificationConditions(vctx, vcs)
 
-          val report = XLangAnalysisPhase.completeVerificationReport(vr, cstate.functionWasLoop _)
+      // Keep only C-EX that are not verified here
+      ceExecResults = ceExecResults.filterKeys(vc => !funs(vc.fd))
 
-          for ((f, vcs) <- report.fvcs) {
-            verifOverview += f -> vcs
+      for ((f, fv) <- verifOverview if funs(f)) {
+        val vcs = fv.vrs.map(_._1).toSeq
+        val vr = AnalysisPhase.checkVCs(vctx, vcs)
 
-            for (vc <- vcs if vc.kind == VCPostcondition) vc.counterExample match {
-              case Some(ce) =>
-                val callArgs = vc.funDef.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.getType)))
-                val callExpr = FunctionInvocation(vc.funDef.typed(vc.funDef.tparams.map(_.tp)), callArgs)
+        for ((vc, ovr) <- vr.results) {
+          ovr.map(_.status) match {
+            case Some(VCStatus.Invalid(ce)) =>
+              val callArgs = vc.fd.params.map(ad => ce.getOrElse(ad.id, simplestValue(ad.getType)))
+              val callExpr = FunctionInvocation(vc.fd.typed(vc.fd.tparams.map(_.tp)), callArgs)
 
-                try {
-                  ceExecResults += vc -> evaluator.eval(callExpr)
-                } catch {
-                  case e: StackOverflowError =>
-                    notifyError("Stack Overflow while testing counter example.")
-                }
+              try {
+                ceExecResults += vc -> evaluator.eval(callExpr)
+              } catch {
+                case e: StackOverflowError =>
+                  notifyError("Stack Overflow while testing counter example.")
+              }
 
-              case _ =>
-                ceExecResults -= vc
-            }
+            case _ =>
           }
+        }
+
+        val nfv = FunVerifStatus(f, vr.results)
+        if (nfv != fv) {
+          verifOverview += f -> nfv
           notifyVerifOverview(cstate)
+        }
       }
     } catch {
       case t: Throwable =>
@@ -184,8 +210,6 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         logInfo("[!] Verification crashed!", t)
         clientLog("Verification crashed: "+t.getMessage())
     }
-
-    notifyVerifOverview(cstate)
   }
 
   val reporter = new WorkerReporter(session)
@@ -221,18 +245,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val verifTimeout = 5000L // 5sec
-
-      //val allSolvers = List[SolverFactory[Solver with Interruptible]](
-      //  SolverFactory(() => new UnrollingSolver(ctx, program, new SMTLIBSolver(ctx, program) with SMTLIBZ3Target)),
-      //  SolverFactory(() => new EnumerationSolver(ctx, program))
-      //)
-
-      //val solver = SolverFactory[TimeoutSolver]( () => new PortfolioSolver(ctx, allSolvers) with TimeoutSolver)
-
-      val solver = SolverFactory[TimeoutSolver](() => new UnrollingSolver(ctx, program, new SMTLIBSolver(ctx, program) with SMTLIBZ3Target) with TimeoutSolver)
-
-      val tsolver = new TimeoutSolverFactory(solver, verifTimeout)
+      val tsolver = SolverFactory.getFromName(ctx, program)("smt-z3").withTimeout(5000L)
 
       val vctx = VerificationContext(ctx, cstate.program, tsolver, reporter)
 
@@ -244,13 +257,18 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         }
 
         // Generate VCs
-        val fvcs = AnalysisPhase.generateVerificationConditions(vctx, Some(toGenerate.map(_.id.name).toSeq))
+        val fvcs = AnalysisPhase.generateVCs(vctx, Some(toGenerate.map(_.id.name).toSeq))
+        val fvcsMap = fvcs.groupBy(_.fd.id.fullName)
 
-        for ((f, vcs) <- fvcs) {
-          verifOverview += f -> vcs
+
+        for (f <- toGenerate) {
+          val vcs = fvcsMap.getOrElse(f.id.fullName, Seq()).map {
+            v => (v -> (None: Option[VCResult]))
+          }
+          verifOverview += f -> FunVerifStatus(f, vcs.toMap)
         }
 
-        clientLog("Done!")
+        clientLog("Generated "+fvcs.size+" VC(s) for "+fvcsMap.size+" function(s)!")
 
         notifyVerifOverview(cstate)
       }
@@ -269,4 +287,6 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
     case _ =>
 
   }
+
+
 }
