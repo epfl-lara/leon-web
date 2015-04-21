@@ -4,6 +4,7 @@ package workers
 import akka.actor._
 import play.api.libs.json._
 import play.api.libs.json.Json._
+import scala.concurrent.duration._
 
 import models._
 import leon.LeonContext
@@ -506,7 +507,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               val (newSol, succeeded) = if (!sol.isTrusted) {
                 // Validate solution
                 event("synthesis_proof", Map("status" -> toJson("init")))
-                synth.validateSolution(search, sol, 2000L) match {
+                synth.validateSolution(search, sol, 2.seconds) match {
                   case (sol, true) =>
                     event("synthesis_proof", Map("status" -> toJson("success")))
                     (sol, true)
