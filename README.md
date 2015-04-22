@@ -1,19 +1,21 @@
 # HOW TO RUN LEON ONLINE
 
-## Step 1
+## Step 1 (only once)
 
-    $ cd path/to/leon
-    $ sbt package script
+Setup link to leon from leon-web:
+
     $ cd path/to/leon-web
     $ source setupweb.sh /path/to/leon
 
-## Step 2
+Write conf/setup.conf and add the following lines, for example:
 
-### On laraserver
+    http.port=9999
+    app.url="http://localhost:9999/"
 
-    $ export LD_LIBRARY_PATH=/localhome/leonweb/git/z3/build/
-    $ play "start -Dapp.prefix=/leon/ -Dapp.url=http://lara.epfl.ch"
 
-### Locally
+## Step 2 (to start leon-web)
 
-    $ play run
+You need typesafe activator, i.e. "activator" in the PATH. Then
+
+    $ ./run.sh
+
