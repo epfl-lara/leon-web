@@ -9,7 +9,7 @@ import play.api.libs.json.Json._
 
 import models._
 
-class WorkerReporter(session: ActorRef) extends Reporter(Settings()) {
+class WorkerReporter(session: ActorRef) extends Reporter(Set()) {
   import ConsoleProtocol.NotifyClient
 
   def emit(msg: Message) = {

@@ -6,9 +6,8 @@ import play.api.libs.json._
 import play.api.libs.json.Json.toJson
 
 import leon.Reporter
-import leon.Settings
 
-class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter(Settings()) {
+class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter(Set()) {
   def emit(msg: Message) = {
     val prefix = msg.severity match {
       case INFO => ""
