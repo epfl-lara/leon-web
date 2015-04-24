@@ -25,7 +25,7 @@ object Doc extends Controller {
   def at(path: String) = Action {
     try {
        val f = new File(dir, prefix+path)
-       Ok.sendFile(f, inline = true).withHeaders(CACHE_CONTROL -> "max-age=3600")
+       Ok.sendFile(f, inline = true)//.withHeaders(CACHE_CONTROL -> "max-age=3600")
     } catch {
       case _: java.io.FileNotFoundException =>
         NotFound("File not found")
