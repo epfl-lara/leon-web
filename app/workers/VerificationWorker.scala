@@ -245,7 +245,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val tsolver = SolverFactory.getFromName(ctx, program)("smt-z3").withTimeout(5000L)
+      val tsolver = SolverFactory.getFromName(ctx, program)("smt-z3").withTimeout(20000L)
 
       val vctx = VerificationContext(ctx, cstate.program, tsolver, reporter)
 
