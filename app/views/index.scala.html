@@ -32,6 +32,14 @@
           <ul id="annotations"></ul>
         </div>
         <div id="panelscolumn" class="col-lg-3 col-sm-3 col-xs-12">
+          @for(msg <- request.flash.get("error")) {
+            <div class="alert alert-dismissible panel">
+              <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                  <span aria-hidden="true">&times;</span>
+              </button>
+              <strong>Error:</strong> @msg
+            </div>
+          }
           <div id="selectcolumn" class="panel">
             <h3 class="std-background"><i class="icon-upload"></i> Load a Program:</h3>
             <select id="example-loader" class="form-control" name="codeexample">

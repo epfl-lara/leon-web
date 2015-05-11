@@ -38,9 +38,16 @@ object Interface extends Controller {
       getExamples(dir)
     }
 
-    val webconfig = LeonWebConfig.fromCurrent(examples)
+    LeonWebConfig.fromCurrent(examples) match {
+      case Some(webconfig) =>
+        Ok(views.html.index(webconfig))
 
-    Ok(views.html.index(webconfig))
+      case None =>
+        Redirect(routes.Interface.index("")).flashing {
+          "error" -> s"Page '$dir' not found"
+        }
+    }
+
   }
 
   def getExample(kind: String, id: Int) = Action { 

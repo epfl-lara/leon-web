@@ -15,7 +15,11 @@ object LeonWebConfig {
   def fromCurrent(exs: List[(String, List[Example])]) = {
     val url = Play.current.configuration.getString("app.url").getOrElse("/")
     val ssl = Play.current.configuration.getBoolean("app.ssl").getOrElse(true)
-    LeonWebConfig(exs, exs.head._2.head, url, ssl, getLeonRelease)
+    if (exs.head._2.isEmpty) {
+      None
+    } else {
+      Some(LeonWebConfig(exs, exs.head._2.head, url, ssl, getLeonRelease))
+    }
   }
 
   def getLeonRelease: String = {
