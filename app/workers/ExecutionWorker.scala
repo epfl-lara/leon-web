@@ -22,7 +22,7 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
     var allFacts = List[JsValue]()
 
     val autoTargets = cstate.program.definedFunctions.collect {
-      case fd if fd.params.isEmpty => (fd.typed(fd.tparams.map(_.tp)), Nil)
+      case fd if fd.params.isEmpty && !fd.annotations("library") => (fd.typed(fd.tparams.map(_.tp)), Nil)
     }.toMap
 
     val explorationTargets = autoTargets ++ manualTargets
@@ -32,6 +32,7 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
         val tracingEval = new TracingEvaluator(ctx, cstate.program, 10000)
 
         val positionedArgs = (args zip tfd.params).map { case (a, ad) => a.setPos(ad) }.toList
+
 
         try {
           tracingEval.eval(FunctionInvocation(tfd, positionedArgs).setPos(tfd))
