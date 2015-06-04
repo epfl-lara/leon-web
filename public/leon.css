@@ -241,7 +241,7 @@ div.panel .table {
     padding-left: 30px;
 }
 
-#overview_table td.status.verif i {
+#overview_table td.status.verif i, #overview_table td.status.termin i {
     cursor: pointer;
 }
 
@@ -276,11 +276,11 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 
 /* modals */
 
-#synthesisProgress, #verifyProgress {
+#synthesisProgress, #verifyProgress, #terminationProgress {
     height: 30px;
 }
 
-#synthesisProgress .progress-bar, #verifyProgress .progress-bar {
+#synthesisProgress .progress-bar, #verifyProgress .progress-bar, #terminationProgress .progress-bar {
     text-align: center;
     padding-top: 4px;
     text-shadow: 1px 1px 0 #000;
@@ -306,9 +306,11 @@ tr.counter-example table.input td {
     padding: 4px 1px;
     vertical-align: middle;
 }
+/*
 tr.counter-example table.input td:first-child {
     text-align: right;
 }
+*/
 
 /* Synthesis */
 

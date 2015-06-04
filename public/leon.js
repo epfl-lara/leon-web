@@ -409,7 +409,7 @@ $(document).ready(function() {
     var features = {
         verification:   {active: true, name: "Verification"},
         synthesis:      {active: true, name: "Synthesis"},
-        termination:    {active: false, name: "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
+        termination:    {active: true, name: "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
         presentation:   {active: false, name: "Presentation Mode"},
         execution:      {active: true, name: "Execution <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
     }
@@ -503,17 +503,23 @@ $(document).ready(function() {
             termination: {
                 column: "Term.",
                 html: function(name, d) {
-                    var tstatus = '<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>';
+                    var tstatus = '<i class="fa fa-question" title="Unknown" />';
 
                     switch(d.status) {
-                        case "unknown":
-                            tstatus = "<i class=\"fa fa-question\" title=\"Unknown\" />";
+                        case "wip":
+                            tstatus = '<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>';
                             break;
                         case "terminates":
-                            tstatus = "<i class=\"fa fa-check text-success\" title=\"Termination guaranteed\"></i>";
+                            tstatus = '<i class="fa fa-check text-success" title="Termination guaranteed"></i>';
+                            break;
+                        case "loopsfor":
+                            tstatus = '<i class="fa fa-exclamation-circle text-danger" title="Non-terminating"></i>';
+                            break;
+                        case "callsnonterminating":
+                            tstatus = '<span class="text-success" title="Calls non-terminating functions">(<i class="fa fa-check text-success"></i>)</span>';
                             break;
                         case "noguarantee":
-                            tstatus = "<i class=\"fa fa-exclamation-circle text-danger\" title=\"No termination guarantee\"></i>";
+                            tstatus = '<i class="fa fa-question text-danger" title="No termination guarantee"></i>';
                             break;
                     }
 
@@ -522,7 +528,18 @@ $(document).ready(function() {
                 missing: function(name) {
                     return "<td class=\"status termin\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
                 },
-                handlers: function() { }
+                handlers: function() {
+                    $("td.termin").click(function () {
+                        var fname = $(this).attr("fname")
+                        openTerminationDialog()
+                        if (fname in overview.data["termination"]) {
+                            var d = overview.data["termination"][fname]
+                            displayTerminationDetails(d.status, d)
+                        } else {
+                            displayTerminationDetails("unknown", null)
+                        }
+                    });
+                }
             },
         },
         functions: {},
@@ -1076,6 +1093,68 @@ $(document).ready(function() {
         displayVerificationDetails(data.status, data.vcs)
     }
 
+    function displayTerminationDetails(status, fdata) {
+        var pb = $("#terminationProgress")
+        var pbb = pb.children(".progress-bar")
+
+        pbb.width("100%")
+        pb.removeClass("active")
+        pb.addClass("progress-bar-striped")
+
+        pbb.removeClass("progress-bar-warning progress-bar-success progress-bar-danger")
+
+        var tbl = $("#terminationResults table")
+        tbl.html("");
+
+        switch (status) {
+            case "terminates":
+                pbb.html("Terminates!")
+                pbb.addClass("progress-bar-success")
+                tbl.append('<tr class="success"> <td>This function terminates for all inputs.</td> </tr>');
+                break;
+
+            case "loopsfor":
+                pbb.html("Non-terminating!")
+                pbb.addClass("progress-bar-danger")
+                var html = '<tr class="danger counter-example"><td><div>'
+                html += "<p>The function does not terminate for the following call:</p>";
+                html += "<table class=\"input\">";
+                html += "  <tr><td>"+fdata.call+"</td></tr>";
+                html += "</table>"
+                html += "</div></td></tr>"
+                tbl.append(html);
+                break;
+
+            case "callsnonterminating":
+                pbb.html("Calls non-terminating functions!")
+                pbb.addClass("progress-bar-warning")
+                var html = '<tr class="warning counter-example"><td><div>'
+                html += "<p>The function calls the following non-terminating function(s):</p>";
+                html += "<table class=\"input\">";
+                for (var i = 0; i < fdata.calls.length; i++) {
+                    html += "<tr><td>"+fdata.calls[i]+"</td></tr>";
+                }
+                html += "</table>"
+                html += "</div></td></tr>"
+                tbl.append(html);
+                break;
+
+            case "noguarantee":
+                pbb.html("No guarantee!")
+                pbb.addClass("progress-bar-warning")
+                tbl.append('<tr class="warning"> <td>Leon could not determine whether or not this function terminates.</td> </tr>');
+                break;
+
+            default:
+                pbb.html("Unknown!")
+                pbb.addClass("progress-bar-warning")
+                break;
+        }
+
+        $("div[aria-describedby='terminationDialog'] span.ui-button-text").html("Close")
+        $("#terminationResults").show("fade");
+    }
+
     function error(msg) {
         alert(msg);
     }
@@ -1376,6 +1455,10 @@ $(document).ready(function() {
 
     function openVerifyDialog() {
         $("#verifyDialog").modal("show")
+    }
+
+    function openTerminationDialog() {
+        $("#terminationDialog").modal("show")
     }
 
     var storedCode = localStorage.getItem("leonEditorCode")

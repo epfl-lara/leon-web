@@ -171,7 +171,7 @@
           </div>
           <div class="modal-body">
             <p>
-                Leon verifies the validity all the verification conditions found in the selected function.
+                Leon verifies the validity of all the verification conditions found in the selected function.
             </p>
             <div id="verifyProgress" class="progress">
               <div class="progress-bar progress-bar-success progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
@@ -188,6 +188,31 @@
                     </thead>
                     <tbody>
                     </tbody>
+                </table>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="terminationDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Termination Checker</h3>
+          </div>
+          <div class="modal-body">
+            <p>
+                Leon checks if the selected function terminates for all inputs.
+            </p>
+            <div id="terminationProgress" class="progress">
+              <div class="progress-bar progress-bar-success progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+            </div>
+            <div id="terminationResults">
+                <table class="allResults table table-hover">
                 </table>
             </div>
           </div>
