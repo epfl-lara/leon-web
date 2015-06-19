@@ -19,6 +19,8 @@ import leon.purescala.Definitions._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 
+import scala.concurrent.duration._
+
 class VerificationWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
   import ConsoleProtocol._
   import leon.evaluators._
@@ -245,7 +247,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val tsolver = SolverFactory.default(ctx, program).withTimeout(20000L)
+      val tsolver = SolverFactory.default(ctx, program).withTimeout(5.seconds)
 
       val vctx = VerificationContext(ctx, cstate.program, tsolver, reporter)
 

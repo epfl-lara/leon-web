@@ -1046,11 +1046,14 @@ $(document).ready(function() {
                 icon = "warning"
             } else if (vc.status == "unknown") {
                 icon = "question"
+            } else if (vc.status == "timeout") {
+                icon = "clock-o"
             }
+
             var clas = "success"
             if (vc.status == "invalid") {
               clas = "danger"
-            } else if (vc.status == "unknown") {
+            } else if (vc.status == "unknown" || vc.status == "timeout") {
               clas = "warning"
             }
 
