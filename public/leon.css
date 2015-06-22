@@ -222,7 +222,7 @@ div.panels {
 }
 
 div#panelscolumn {
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 div #console {
