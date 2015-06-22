@@ -217,6 +217,10 @@ div#console-panel, div#params-panel {
     display: none;
 }
 
+div#panelscolumn {
+  overflow-y: scroll;
+}
+
 div #console {
     font-family: "Lucida Console", monospace;
     font-size: 12px;

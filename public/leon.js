@@ -409,7 +409,7 @@ $(document).ready(function() {
     var features = {
         verification:   {active: true, name: "Verification"},
         synthesis:      {active: true, name: "Synthesis"},
-        termination:    {active: true, name: "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
+        termination:    {active: false, name: "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
         presentation:   {active: false, name: "Presentation Mode"},
         execution:      {active: true, name: "Execution <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
     }
