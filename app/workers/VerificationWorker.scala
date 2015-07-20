@@ -8,7 +8,6 @@ import play.api.libs.json.Json._
 import models._
 import leon.utils._
 import leon.verification._
-import leon.xlang.XLangAnalysisPhase
 import leon.solvers._
 import leon.solvers.combinators._
 import leon.solvers.smtlib._
@@ -64,7 +63,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       val base = Json.obj(
         "kind"   -> vc.kind.toString,
-        "fun"    -> vc.fd.orig.getOrElse(vc.fd).id.name,
+        "fun"    -> vc.fd.id.name,
         "status" -> res.status.name,
         "time"   -> timeSec
       )
@@ -216,7 +215,12 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
   val reporter = new WorkerReporter(session)
 
-  val ctx = leon.Main.processOptions(List("--feelinglucky", "--evalground")).copy(interruptManager = interruptManager, reporter = reporter)
+  val ctx = leon.Main.processOptions(List(
+    "--feelinglucky",
+    "--solvers=fairz3,enum",
+    "--timeout=5",
+    "--evalground"
+  )).copy(interruptManager = interruptManager, reporter = reporter)
 
 
   def receive = {
@@ -247,7 +251,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val tsolver = SolverFactory.default(ctx, program).withTimeout(5.seconds)
+      val tsolver = SolverFactory.getFromSettings(ctx, program)
 
       val vctx = VerificationContext(ctx, cstate.program, tsolver, reporter)
 
@@ -259,12 +263,12 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
         }
 
         // Generate VCs
-        val fvcs = AnalysisPhase.generateVCs(vctx, Some(toGenerate.map(_.id.name).toSeq))
-        val fvcsMap = fvcs.groupBy(_.fd.id.fullName)
+        val fvcs = AnalysisPhase.generateVCs(vctx, toGenerate.toSeq)
+        val fvcsMap = fvcs.groupBy(_.fd.id.uniqueName)
 
 
         for (f <- toGenerate) {
-          val vcs = fvcsMap.getOrElse(f.id.fullName, Seq()).map {
+          val vcs = fvcsMap.getOrElse(f.id.uniqueName, Seq()).map {
             v => (v -> (None: Option[VCResult]))
           }
           verifOverview += f -> FunVerifStatus(f, vcs.toMap)

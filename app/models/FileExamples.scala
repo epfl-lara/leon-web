@@ -22,7 +22,7 @@ class FileExamples(subdir: String) {
   lazy val allExamples: List[Example] = {
     val d = new File(dir+prefix+subdir)
     if (d.isDirectory) {
-      d.listFiles().sortBy(_.getPath()).toList.map { case f =>
+      d.listFiles().sortBy(_.getPath()).toList.collect { case f  if f.getPath.endsWith(".scala") =>
         Example(titleOf(f.getName), Source.fromFile(f.getPath).mkString)
       }
     } else {

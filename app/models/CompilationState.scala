@@ -17,13 +17,19 @@ case class CompilationState (
 
   def isCompiled = optProgram.isDefined
 
-  lazy val toInner = program.definedFunctions.filter(_.owner.isDefined).groupBy(_.owner.get)
+ // lazy val toInner = program.definedFunctions.filter(_.owner.isDefined).groupBy(_.owner.get)
+
   def innerFunctionsOf(fd: FunDef): Set[FunDef] = {
-    toInner.getOrElse(fd, Set()).toSet
+    Set()
+    //toInner.getOrElse(fd, Set()).toSet
   }
 
-  def functionWasLoop(fd: FunDef): Boolean =
-    wasLoop.contains(fd.orig.getOrElse(fd))
+  def functionWasLoop(fd: FunDef): Boolean = {
+    fd.flags.exists {
+      case IsLoop(_) => true
+      case _ => false
+    }
+  }
 
   def filterFunction(fd: FunDef): Boolean = {
     !(fd.annotations contains "library")

@@ -284,11 +284,17 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 
 /* modals */
 
-#synthesisProgress, #verifyProgress, #terminationProgress {
+#synthesisProgress,
+#verifyProgress,
+#terminationProgress,
+#repairProgress {
     height: 30px;
 }
 
-#synthesisProgress .progress-bar, #verifyProgress .progress-bar, #terminationProgress .progress-bar {
+#synthesisProgress .progress-bar,
+#verifyProgress .progress-bar,
+#terminationProgress .progress-bar,
+#repairProgress .progress-bar {
     text-align: center;
     padding-top: 4px;
     text-shadow: 1px 1px 0 #000;

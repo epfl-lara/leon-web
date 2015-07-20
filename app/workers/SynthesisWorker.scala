@@ -57,7 +57,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
       var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
 
-      val synthesisInfos = ChooseInfo.extractFromProgram(cstate.program).map {
+      val synthesisInfos = ChooseInfo.extractFromProgram(context, cstate.program).map {
         case ci => new WebSynthesizer(this, context, cstate.program, ci, options)
       }
 
@@ -140,7 +140,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                   // as choose
 
                 case ExploreSelect(selected) =>
-                  n.descendents.zipWithIndex.find { case (d, i) => i == selected } match {
+                  n.descendants.zipWithIndex.find { case (d, i) => i == selected } match {
                     case Some((d, _)) =>
                       n.selected = List(d)
                       if (!d.isExpanded) {
@@ -182,7 +182,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                       if (n.selected == Nil || !n.isExpanded) {
                         Some(Solution.chooseComplete(n.p))
                       } else {
-                        val subSols = n.descendents.zipWithIndex.collect {
+                        val subSols = n.descendants.zipWithIndex.collect {
                           case (d, i) if n.selected contains d =>
                             solutionOf(d).toStream
                         }
@@ -206,7 +206,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                     if (n.isDeadEnd) {
                       Some(Solution.failed(n.p))
                     } else {
-                      val subSols = n.descendents.zipWithIndex.collect {
+                      val subSols = n.descendants.zipWithIndex.collect {
                         case (d, i) if n.selected contains d =>
                           Stream(Solution(BooleanLiteral(true), Set(), FreshIdentifier("@"+i).toVariable))
                       }
@@ -228,7 +228,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                 while (matcher.find()) {
                   val ws = matcher.group(1).size
                   val i = matcher.group(2).toInt
-                  matcher.appendReplacement(result, solutionsTree(n.descendents(i), i:: path, ws)) 
+                  matcher.appendReplacement(result, solutionsTree(n.descendants(i), i:: path, ws)) 
                 }
                 matcher.appendTail(result);
 
@@ -242,7 +242,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
                       on.expand(hctx)
                     }
 
-                    val options = on.descendents.zipWithIndex.collect { case (d: AndNode, i) =>
+                    val options = on.descendants.zipWithIndex.collect { case (d: AndNode, i) =>
                       val name = if (d.isDeadEnd) {
                         d.ri+" (failed)"
                       } else {
@@ -330,7 +330,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
               }
 
               an.solutions.getOrElse {
-                an.composeSolutions(an.descendents.map { d =>
+                an.composeSolutions(an.descendants.map { d =>
                   Stream(Solution.choose(d.p))
                 })
               }.headOption
@@ -362,7 +362,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
     import leon.purescala.PrinterHelpers._
 
     val ci = synth.ci
-    val ChooseInfo(fd, pc, src, ch) = ci
+    val ChooseInfo(fd, pc, src, ch, tb) = ci
 
     val solCode = sol.toSimplifiedExpr(synth.context, synth.program)
 
@@ -381,12 +381,12 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
     val fds = nfd :: defs.toList.sortBy(_.id.name)
 
-    val p = new ScalaPrinter(PrinterOptions())
+    val p = new ScalaPrinter(PrinterOptions(), cstate.optProgram)
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                   fd,
                                   (indent) => {
-      implicit val pctx = PrinterContext(fd, None, None, indent, p)
+      implicit val pctx = PrinterContext(fd, Nil, indent, p)
       p"${nary(fds, "\n\n")}"
       p.toString
     })
@@ -438,7 +438,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
             orNode.expand(hctx)
           }
 
-          val andNodes = orNode.descendents.collect {
+          val andNodes = orNode.descendants.collect {
             case n: AndNode =>
               n
           }
@@ -532,8 +532,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                             oldFd,
-                                            resFd,
-                                            oldFd.owner.get)
+                                            resFd)
 
               val (closed, total) = search.g.getStats()
 

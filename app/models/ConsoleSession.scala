@@ -70,6 +70,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
       modules += "synthesis"    -> ModuleContext("synthesis",    Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
       modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
+      modules += "repair"       -> ModuleContext("repair",       Akka.system.actorOf(Props(new RepairWorker(self, interruptManager))))
 
       logInfo("New client")
 
@@ -175,13 +176,14 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           val pipeline = TemporaryInputPhase andThen
                          ExtractionPhase andThen
                          PreprocessingPhase andThen
-                         ArrayTransformation andThen
-                         EpsilonElimination andThen
+                         //ArrayTransformation andThen
+                         //EpsilonElimination andThen
                          FunctionClosure andThen
                          NoXLangFeaturesChecking
 
 
           val pgm = pipeline.run(compContext)((code, Nil))
+
           compReporter.terminateIfError
 
 
@@ -251,7 +253,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       val facts = for (fd <- cstate.functions) yield {
         toJson(Map(
           "name"        -> toJson(fd.id.name),
-          "displayName" -> toJson(decodeName(fd.orig.getOrElse(fd).id.name)),
+          "displayName" -> toJson(decodeName(fd.id.name)),
           "line"        -> toJson(fd.getPos.line),
           "column"      -> toJson(fd.getPos.col)
         ))

@@ -28,7 +28,7 @@ object ApplicationBuild extends Build {
     val main = Project(appName, file(".")).enablePlugins(play.PlayScala).settings(
       version := appVersion,
       libraryDependencies ++= appDependencies,
-      scalaVersion := "2.11.6"
+      scalaVersion := "2.11.7"
     ).dependsOn(leon)
 
 }

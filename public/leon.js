@@ -411,7 +411,8 @@ $(document).ready(function() {
         synthesis:      {active: true, name: "Synthesis"},
         termination:    {active: false, name: "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
         presentation:   {active: false, name: "Presentation Mode"},
-        execution:      {active: true, name: "Execution <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
+        execution:      {active: true, name: "Execution"},
+        repair:         {active: true, name: "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"},
     }
 
     var localFeatures = localStorage.getItem("leonFeatures")
@@ -999,6 +1000,75 @@ $(document).ready(function() {
         })
     }
 
+    handlers["repair_result"] = function(data) {
+        var pb = $("#repairProgress")
+        var pbb = $("#repairProgress .progress-bar")
+
+        // setup and open pane
+        if (data.result == "init") {
+            $("#repairResults").hide()
+            $("#repairFocused").hide()
+            $("#repairDialog .importButton").hide()
+            $("#repairDialog .closeButton").hide()
+            $("#repairDialog .cancelButton").show()
+            $("#repairDialog").modal("show")
+
+            $('#repairDialog').unbind('hide.bs.modal').on('hide.bs.modal', function () {
+                if (synthesizing) {
+                    var msg = JSON.stringify({
+                        module: "repair",
+                        action: "doCancel"
+                    })
+
+                    leonSocket.send(msg)
+                }
+            })
+        } else if (data.result == "progress") {
+            pbb.addClass("active progress-bar-striped")
+            pbb.removeClass("progress-bar-success progress-bar-danger")
+            pbb.width("100%")
+            pbb.html(data.progress);
+
+            $("#repairProgressBox").show()
+        } else if (data.result == "error") {
+            pbb.removeClass("active progress-bar-striped")
+
+            pbb.width("100%")
+            pbb.html(data.error);
+            pbb.addClass("progress-bar-danger")
+
+            $("#repairDialog .cancelButton").hide()
+            $("#repairDialog .closeButton").show()
+        } else if (data.result == "focused") {
+            $("#repairFocused .code.focused").removeClass("prettyprinted")
+            $("#repairFocused .code.focused").html(data.focused)
+            $("#repairFocused").show()
+            prettyPrint();
+        } else if (data.result == "success") {
+            pbb.removeClass("active progress-bar-striped")
+
+            pbb.width("100%")
+            pbb.html(data.success);
+            pbb.addClass("progress-bar-success")
+
+            $("#repairResults .code.solution").removeClass("prettyprinted")
+            $("#repairResults .code.solution").html(data.solCode)
+            $("#repairResults").show()
+            prettyPrint();
+            $("#repairDialog .importButton").show()
+            $("#repairDialog .importButton").unbind('click').click(function () {
+                handlers["replace_code"]({ newCode: data.allCode })
+                if ("cursor" in data) {
+                  setTimeout(function() {
+                    handlers["move_cursor"](data.cursor)
+                  }, 100);
+                }
+            })
+            $("#repairDialog .cancelButton").hide()
+            $("#repairDialog .closeButton").show()
+        }
+    }
+
     function displayVerificationDetails(status, vcs) {
         var pb = $("#verifyProgress")
         var pbb = pb.children(".progress-bar")
@@ -1008,6 +1078,8 @@ $(document).ready(function() {
         pb.addClass("progress-bar-striped")
 
         pbb.removeClass("progress-bar-warning progress-bar-success progress-bar-danger")
+
+        var canRepair = false
 
         switch (status) {
             case "cond-valid":
@@ -1023,6 +1095,7 @@ $(document).ready(function() {
             case "invalid":
                 pbb.html("Invalid!")
                 pbb.addClass("progress-bar-danger")
+                canRepair = true
                 break;
 
             case "unknown":
@@ -1088,6 +1161,24 @@ $(document).ready(function() {
         }
 
         $("div[aria-describedby='verifyDialog'] span.ui-button-text").html("Close")
+
+        if (canRepair && features["repair"].active) {
+          $(".repairButton").unbind('click').click(function () {
+              var fname = vc.fun
+
+              var msg = JSON.stringify(
+                {action: "doRepair", module: "repair", fname: fname}
+              )
+
+              leonSocket.send(msg)
+
+              $("#verifyDialog").modal("hide")
+          });
+          $(".repairButton").show();
+        } else {
+          $(".repairButton").hide();
+        }
+
         $("#verifyResults").show("fade");
 
     }

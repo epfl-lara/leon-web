@@ -163,6 +163,38 @@
         </div>
       </div>
     </div>
+    <div id="repairDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Repair</h3>
+          </div>
+          <div class="modal-body">
+            <div id="repairProgressBox">
+                <div id="repairProgress" class="progress">
+                  <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+                </div>
+            </div>
+            <div id="repairFocused">
+              <h4>Localized Error:</h4>
+              <pre class="focused code prettyprint lang-scala">
+              </pre>
+            </div>
+            <div id="repairResults">
+                <h4>Solution:</h4>
+                <pre class="code solution prettyprint lang-scala">
+                </pre>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import Code</button>
+            <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
+            <button class="btn closeButton" data-dismiss="modal" aria-hidden="true">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div id="verifyDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" data-backdrop="static">
       <div class="modal-dialog">
         <div class="modal-content">
@@ -193,6 +225,7 @@
             </div>
           </div>
           <div class="modal-footer">
+            <button class="btn btn-primary repairButton" aria-hidden="true">Repair</button>
             <button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
           </div>
         </div>
