@@ -217,8 +217,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
   val ctx = leon.Main.processOptions(List(
     "--feelinglucky",
-    "--solvers=fairz3,enum",
-    "--timeout=5",
+    "--solvers=smt-cvc4,smt-z3,enum",
     "--evalground"
   )).copy(interruptManager = interruptManager, reporter = reporter)
 
@@ -251,7 +250,7 @@ class VerificationWorker(val session: ActorRef, interruptManager: InterruptManag
 
       toGenerate ++= toInvalidate
 
-      val tsolver = SolverFactory.getFromSettings(ctx, program)
+      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(5.seconds)
 
       val vctx = VerificationContext(ctx, cstate.program, tsolver, reporter)
 
