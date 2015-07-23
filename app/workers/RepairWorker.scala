@@ -95,6 +95,9 @@ class RepairWorker(val session: ActorRef, interruptManager: InterruptManager) ex
                     val (sol, isTrusted) = solutions.last
                     val expr = sol.toSimplifiedExpr(ctx, program)
 
+                    val fdDup = fd.duplicate
+                    fdDup.body = Some(expr)
+
                     val p = new ScalaPrinter(PrinterOptions(), Some(program))
 
                     val allCode = try {
@@ -102,8 +105,8 @@ class RepairWorker(val session: ActorRef, interruptManager: InterruptManager) ex
 
                       fInt.substitute(
                         cstate.code.getOrElse(""),
-                        synth.ci.source,
-                        expr
+                        fd,
+                        fdDup
                       )
                     } catch {
                       case t: Throwable =>
