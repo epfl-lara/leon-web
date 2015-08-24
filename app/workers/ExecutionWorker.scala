@@ -10,29 +10,35 @@ import leon.utils._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions.TypedFunDef
 
-class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
+class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites {
   import ConsoleProtocol._
   import leon.codegen._
   import leon.evaluators._
 
-  val reporter = new WorkerReporter(session)
-  var ctx      = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
-  def doExplore(cstate: CompilationState, manualTargets: Map[TypedFunDef, Seq[Expr]] ) = {
-    var allFacts = List[JsValue]()
+  def receive = {
+    case OnUpdateCode(cstate) =>
+      val groundFunctions = cstate.functions.collect {
+        case fd if fd.params.isEmpty => fd.typed -> Seq[Expr]()
+      }.toMap
 
-    val autoTargets = cstate.program.definedFunctions.collect {
-      case fd if fd.params.isEmpty && !fd.annotations("library") => (fd.typed(fd.tparams.map(_.tp)), Nil)
-    }.toMap
+      doEval(cstate, groundFunctions)
 
-    val explorationTargets = autoTargets ++ manualTargets
+    case DoCancel =>
+      sender ! Cancelled(this)
 
+    case NewCounterExamples(cstate, ceMap) =>
+      doEval(cstate, ceMap)
+
+    case _ =>
+  }
+
+  def doEval(cstate: CompilationState, targets: Map[TypedFunDef, Seq[Expr]]) = {
     if (cstate.isCompiled) {
-      for ((tfd, args) <- explorationTargets) {
+      for ((tfd, args) <- targets.toSeq.sortBy(_._1.getPos)) {
         val tracingEval = new TracingEvaluator(ctx, cstate.program, 10000)
 
         val positionedArgs = (args zip tfd.params).map { case (a, ad) => a.setPos(ad) }.toList
-
 
         try {
           tracingEval.eval(FunctionInvocation(tfd, positionedArgs).setPos(tfd))
@@ -43,47 +49,32 @@ class ExecutionWorker(val session: ActorRef, interruptManager: InterruptManager)
 
         tracingEval.lastGC match {
           case Some(gc) =>
-            for ((v, res) <- gc.values) {
+            val facts = for((v, res) <- gc.values.toSeq) yield {
               v.getPos match {
-                case RangePosition(fromLine, fromCol, _, toLine, toCol, _, _) =>
-                  val sentRes = res match {
+                case rp: RangePosition =>
+                  res match {
                     case Error(tpe, msg) =>
-                      "Error: "+msg
-                    case e => e.toString
+                      val err = "Error: "+msg
+                      if (rp == tfd.getPos) {
+                        // We don't want to report the global "Postcondition error" for the entire function
+                        None
+                      } else {
+                        Some(rp -> err)
+                      }
+                    case e =>
+                      Some(rp -> e.asString)
                   }
-                  allFacts ::= toJson(Map(
-                    "fromRow"     -> toJson(fromLine-1),
-                    "fromColumn"  -> toJson(fromCol-1),
-                    "toRow"       -> toJson(toLine-1),
-                    "toColumn"    -> toJson(toCol-1),
-                    "result"      -> toJson(sentRes)
-                  ))
-
-                case NoPosition =>
-                  //println("@"*80)
-                  //println("Expr: "+v+" ("+v.getClass+") has no position")
 
                 case _ =>
+                  None
               }
             }
+
+            event("update_exploration_facts", Map("newFacts" -> toJson(facts.flatten)))
+
           case _ =>
         }
       }
     }
-
-    event("update_exploration_facts", Map("newFacts" -> toJson(allFacts)))
-  }
-
-  def receive = {
-    case OnUpdateCode(cstate) =>
-      doExplore(cstate, Map())
-
-    case DoCancel =>
-      sender ! Cancelled(this)
-
-    case NewCounterExamples(cstate, ceMap) =>
-      doExplore(cstate, ceMap)
-
-    case _ =>
   }
 }

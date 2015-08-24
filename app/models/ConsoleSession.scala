@@ -182,7 +182,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
                          NoXLangFeaturesChecking
 
 
-          val pgm = pipeline.run(compContext)((code, Nil))
+          val pgm = pipeline.run(compContext)((List(code), Nil))
 
           compReporter.terminateIfError
 

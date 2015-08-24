@@ -28,7 +28,7 @@ $(document).ready(function() {
 
     var lastMarker = -1;
 
-    function updateExplorationFacts(newResults) {
+    function clearExplorationFacts() {
         lastRange = null;
         lastProcessedRange = null;
 
@@ -36,15 +36,18 @@ $(document).ready(function() {
 
         lastMarker = -1
 
-        //console.log("New Exploration facts: ");
         explorationFacts = [];
-        for (i in newResults) {
+    }
+
+    function updateExplorationFacts(newResults) {
+        //console.log("New Exploration facts: ");
+        for (var i = 0; i < newResults.length; i++) {
             var n = newResults[i];
 
-            explorationFacts[i] = {
+            explorationFacts.push({
                 range: new aceRange(n.fromRow, n.fromColumn, n.toRow, n.toColumn),
                 res: n.result
-            };
+            });
 
             //console.log(" - "+explorationFacts[i].range.toString()+"   -->   "+n.result)
         }
@@ -161,12 +164,6 @@ $(document).ready(function() {
         displayExplorationFacts();
     })
 
-    function updateExplorationHighlights() {
-        if (compilationStatus != 1) {
-            explorationFacts = [];
-            hideHighlight();
-        }
-    }
 
     function showHighlight(range, content) {
         if (range != lastDisplayedRange) {
@@ -385,7 +382,7 @@ $(document).ready(function() {
           updateCompilationProgress(100);
         }
 
-        updateExplorationHighlights();
+        clearExplorationFacts();
         drawSynthesisOverview()
     }
 
@@ -1445,6 +1442,7 @@ $(document).ready(function() {
             lastSavedChange = lastChange;
             updateSaveButton();
             leonSocket.send(msg)
+            updateCompilationStatus("unknown")
             updateCompilationProgress(0)
         }
     }

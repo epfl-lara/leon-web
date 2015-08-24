@@ -18,7 +18,7 @@ import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 
-class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
+class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
   var searchesState = Map[String, Seq[WebSynthesizer]]()
@@ -53,12 +53,9 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
   def receive = {
     case OnUpdateCode(cstate) =>
       var options = SynthesisSettings()
-      val reporter = new WorkerReporter(session)
-      var context = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
-
-      val synthesisInfos = ChooseInfo.extractFromProgram(context, cstate.program).map {
-        case ci => new WebSynthesizer(this, context, cstate.program, ci, options)
+      val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
+        case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
       }
 
       searchesState = synthesisInfos.groupBy(_.ci.fd.id.name)
@@ -532,7 +529,7 @@ class SynthesisWorker(val session: ActorRef, interruptManager: InterruptManager)
 
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                             oldFd,
-                                            resFd)
+                                            resFd)(ctx)
 
               val (closed, total) = search.g.getStats()
 

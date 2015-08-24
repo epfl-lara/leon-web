@@ -7,10 +7,16 @@ import play.api.libs.json.Json._
 
 import models._
 
-trait WorkerActor extends BaseActor {
+import leon._
+import leon.utils._
+
+abstract class WorkerActor(val session: ActorRef, val interruptManager: InterruptManager)  extends BaseActor {
   import ConsoleProtocol._
 
-  def session: ActorRef
+  val reporter = new WorkerReporter(session)
+
+  lazy implicit val ctx = LeonContext(reporter = reporter,
+                                      interruptManager = interruptManager)
 
   def pushMessage(v: JsValue) = session ! NotifyClient(v)
 }

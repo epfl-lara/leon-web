@@ -10,7 +10,7 @@ import leon.termination._
 import leon.purescala.Common._
 import leon.purescala.Definitions._
 
-class TerminationWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
+class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
   def tgToJson(fd: FunDef, tgo: Option[TerminationGuarantee]): JsValue = tgo match {

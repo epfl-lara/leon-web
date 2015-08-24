@@ -19,7 +19,7 @@ import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 
-class RepairWorker(val session: ActorRef, interruptManager: InterruptManager) extends Actor with WorkerActor {
+class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
   def receive = {
@@ -43,8 +43,6 @@ class RepairWorker(val session: ActorRef, interruptManager: InterruptManager) ex
   def doRepair(cstate: CompilationState, fname: String) {
     try {
       val program = cstate.program
-      val reporter = new WorkerReporter(session)
-      var ctx = leon.Main.processOptions(Nil).copy(interruptManager = interruptManager, reporter = reporter)
 
       def progress(name: String) {
         event("repair_result", Map(
@@ -107,7 +105,7 @@ class RepairWorker(val session: ActorRef, interruptManager: InterruptManager) ex
                         cstate.code.getOrElse(""),
                         fd,
                         fdDup
-                      )
+                      )(ctx)
                     } catch {
                       case t: Throwable =>
                         notifyError("Could not substitute repair solution back in code")
