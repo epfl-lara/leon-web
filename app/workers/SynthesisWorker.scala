@@ -448,7 +448,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             }
 
             toJson(Map("id" -> toJson(i),
-                       "name" -> toJson(t.ri.toString),
+                       "name" -> toJson(t.ri.asString),
                        "status" -> toJson(status)))
           }
 
