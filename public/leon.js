@@ -22,25 +22,21 @@ $(document).ready(function() {
 
     var lastRange = null;
     var lastProcessedRange = null;
-    var lastDisplayedRange = null;
 
-    var explorationFacts = [ ];
+    var explorationFacts = [];
 
-    var lastMarker = -1;
+    var displayedMarker = -1;
 
     function clearExplorationFacts() {
-        lastRange = null;
-        lastProcessedRange = null;
+      lastRange = null;
+      lastProcessedRange = null;
 
-        hideHighlight();
+      hideHighlight();
 
-        lastMarker = -1
-
-        explorationFacts = [];
+      explorationFacts = [];
     }
 
     function updateExplorationFacts(newResults) {
-        //console.log("New Exploration facts: ");
         for (var i = 0; i < newResults.length; i++) {
             var n = newResults[i];
 
@@ -48,25 +44,45 @@ $(document).ready(function() {
                 range: new aceRange(n.fromRow, n.fromColumn, n.toRow, n.toColumn),
                 res: n.result
             });
-
-            //console.log(" - "+explorationFacts[i].range.toString()+"   -->   "+n.result)
         }
 
         displayExplorationFacts()
     }
 
-    function hideHighlight() {
-        if (lastMarker >= 0) {
-            editor.getSession().removeMarker(lastMarker);
-            var found = false;
-            $(".leon-explore-location.ace_start").each(function() {
-              found = true;
-              $(this).tooltip("destroy");
-            });
+    var lastDisplayedRange = null;
 
-            lastMarker = -1;
-        }
-        lastDisplayedRange = null;
+    function showHighlight(range, content) {
+      if (range != lastDisplayedRange) {
+        hideHighlight()
+
+        lastDisplayedRange = range;
+
+        displayedMarker = editor.getSession().addMarker(range, "leon-explore-location", "text", true);
+
+        setTimeout(function() {
+          $(".leon-explore-location.ace_start").tooltip({
+              title: content,
+              container: "#codebox",
+              placement: "top",
+              trigger: "manual"
+          })
+          $(".leon-explore-location.ace_start").tooltip("show");
+        }, 50);
+      }
+    }
+
+    function hideHighlight() {
+      if (displayedMarker > 0) {
+        editor.getSession().removeMarker(displayedMarker);
+
+        $(".leon-explore-location.ace_start").each(function() {
+          $(this).tooltip("destroy");
+        });
+
+      }
+
+      lastDisplayedRange = null;
+      displayedMarker = -1
     }
 
     editor.getSession().on("changeScrollTop", function() {
@@ -82,7 +98,7 @@ $(document).ready(function() {
     }
 
     function displayExplorationFacts() {
-        if (features["execution"].active) {
+        if (features["execution"].active && explorationFacts.length > 0) {
             var lastRange = editor.selection.getRange();
 
             if (!lastProcessedRange || !lastRange.isEqual(lastProcessedRange)) {
@@ -165,29 +181,6 @@ $(document).ready(function() {
     })
 
 
-    function showHighlight(range, content) {
-        if (range != lastDisplayedRange) {
-            if (lastMarker >= 0) {
-                editor.getSession().removeMarker(lastMarker);
-                $(".leon-explore-location.ace_start").tooltip("destroy");
-                $("#codebox .tooltip.in").remove();
-            }
-
-            lastDisplayedRange = range;
-
-            lastMarker = editor.getSession().addMarker(range, "leon-explore-location", "text", true);
-
-            setTimeout(function() {
-                $(".leon-explore-location.ace_start").tooltip({
-                    title: content,
-                    container: "#codebox",
-                    placement: "top",
-                    trigger: "manual"
-                })
-                $(".leon-explore-location.ace_start").tooltip("show");
-            }, 50);
-        }
-    }
 
     $(".menu-button").click(function(event) {
         var target = $(this).attr("ref")
