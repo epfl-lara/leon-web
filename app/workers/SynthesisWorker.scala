@@ -54,6 +54,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     case OnUpdateCode(cstate) =>
       var options = SynthesisSettings()
 
+      options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
+
       val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
         case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
       }
@@ -241,9 +243,9 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
                     val options = on.descendants.zipWithIndex.collect { case (d: AndNode, i) =>
                       val name = if (d.isDeadEnd) {
-                        d.ri+" (failed)"
+                        d.ri.asString+" (failed)"
                       } else {
-                        d.ri
+                        d.ri.asString
                       }
                       if (on.selected contains d) {
                         s"""<option value="$i" selected="selected">$name</option>"""
