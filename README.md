@@ -19,3 +19,8 @@ You need typesafe activator, i.e. "activator" in the PATH. Then
 
     $ ./run.sh
 
+## Notes for windows (64 bits)
+
+You will need to clone the `leon` project as a subfolder of `leon-web`, since hard links are currently not supported on Windows.
+
+Before running leon-web through `activator run`, double click on the file `windows\installX64.bat`. This will copy the libraries `z3`, `scalaz3` and `cvc4` to the root folder ofr `leon-web`.

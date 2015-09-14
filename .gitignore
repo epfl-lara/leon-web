@@ -17,3 +17,8 @@ dist
 /database
 /lib
 version
+
+/cvc4.exe
+/z3.exe
+/libz3.*
+/scalaz3.*
