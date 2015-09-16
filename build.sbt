@@ -1,3 +1,4 @@
+import sbt.Keys._
 import sbt.Project.projectToRef
 
 val appName         = "leonWeb"
@@ -15,52 +16,44 @@ val appDependencies = Seq(
   "org.webjars" % "bootstrap" % "3.2.0",
   "org.webjars" % "jquery" % "2.1.1",
   "org.webjars" % "font-awesome" % "4.1.0",
-  "org.webjars" % "prettify" % "4-Mar-2013"
+  "org.webjars" % "prettify" % "4-Mar-2013",
+  "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"
 )
 
 lazy val leon = RootProject(file("leon"))
 
 scalaVersion := "2.11.7"
-    
-lazy val jsProjects = Seq(client)
-    
+
 lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
   aggregate(aceJsProject, client).settings(
   version := appVersion,
   libraryDependencies ++= appDependencies,
-  scalaJSProjects := jsProjects,
-  pipelineStages := Seq(scalaJSProd)
-).dependsOn(leon, shared)
+  scalaJSProjects := Seq(client)
+).dependsOn(leon, sharedJvm)
 
 lazy val aceJsProject = RootProject(uri("https://github.com/MikaelMayer/scalajs-ace.git"))
 
-lazy val client = (project in file("client")).enablePlugins(ScalaJSPlugin, ScalaJSPlay).settings(
+lazy val client = (project in file("client")).settings(
   libraryDependencies ++= Seq("org.scala-js" %%% "scalajs-dom" % "0.8.0",
   "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
   "com.github.japgolly.scalajs-react" %%% "core" % "0.9.2"),
+  persistLauncher := true,
   jsDependencies +=
   "org.webjars" % "react" % "0.12.2" / "react-with-addons.js" commonJSName "React",
-  unmanagedSourceDirectories in Compile += baseDirectory.value / "../shared/src",
-  (fastOptJS in Compile) <<= (fastOptJS in Compile) map { result =>
-    val inDir = file(".") / "client" / "target" / "scala-2.11"
-    val outDir = file(".") / "public"
-    val copy = Seq(
-      ("client-fastopt.js", "leon.js"),
-      ("client-fastopt.js.map", "leon.js.map"),
-      ("client-jsdeps.js", "leon-deps.js")
-    )
-    val files = copy map (p => (inDir / p._1, outDir / p._2))
-    IO.copy(files, true)
-    result
-  }
-).dependsOn(aceJsProject)
+  skip in packageJSDependencies := false
+).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(aceJsProject, sharedJs)
 
 scalaVersion in client := "2.11.7"
-    
-lazy val shared = (project in file("shared"))
-scalaVersion in shared := "2.11.7"
+
+lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared")).
+  settings(scalaVersion := "2.11.7").
+  jsConfigure(_ enablePlugins ScalaJSPlay)
+
+lazy val sharedJvm = shared.jvm
+lazy val sharedJs = shared.js
 
 watchSources := watchSources.value.filter ( source =>
-  Seq("js-fastopt.js", "js-fastopt.js.map", "js-jsdeps.js"
+  Seq("client-fastopt.js", "client-fastopt.js.map", "client-jsdeps.js"
+  ,  "leon.js", "leon.js.map", "leon-deps.js"
   ).indexOf(source.getName) == -1 )
 
