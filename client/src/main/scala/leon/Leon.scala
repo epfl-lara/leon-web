@@ -4,6 +4,7 @@ import japgolly.scalajs.react.React
 import japgolly.scalajs.react.vdom.prefix_<^._
 import org.scalajs.dom
 import dom.html.Element
+import dom.document
 import scala.collection.mutable.ListBuffer
 import scala.scalajs.js
 import scala.collection.mutable.{HashMap => MMap}
@@ -12,6 +13,7 @@ import com.scalawarrior.scalajs.ace._
 import org.scalajs.jquery.{jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject}
 
 import js.Dynamic.{global => g, literal => l}
+import js.JSConverters._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -33,6 +35,7 @@ object Main extends js.JSApp {
   import JQueryExtended._
   import js.JSON
   import dom.alert
+  import dom.console
   def window = g
 
   @JSExport
@@ -59,9 +62,9 @@ object Main extends js.JSApp {
   editor.setHighlightActiveLine(false);
   editor.getSession().setTabSize(2)
 
-  var hash = window.location.hash
+  var hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
 
-  var WS = js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
+  @JSExport var WS = js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
   var leonSocket: js.Dynamic = null
 
   var headerHeight = $("#title").height()+20
@@ -146,14 +149,14 @@ object Main extends js.JSApp {
   });
 
   def rangeScore(start: Position, end: Position): Double = {
-      if (start.row == end.row) {
-          return (end.row - start.row)*80 + end.column - start.column;
-      } else {
-          return (end.row - start.row)*80 + end.column - start.column;
-      }
+    if (start.row == end.row) {
+      (end.row - start.row)*80 + end.column - start.column;
+    } else {
+      (end.row - start.row)*80 + end.column - start.column;
+    }
   }
   
-  val features = l(
+  val _features = l(
     verification=   Feature(active= true, name= "Verification"),
     synthesis=      Feature(active= true, name= "Synthesis"),
     termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"),
@@ -161,9 +164,11 @@ object Main extends js.JSApp {
     execution=      Feature(active= true, name= "Execution"),
     repair=         Feature(active= true, name= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
   )
+  
+  def features = _features.asInstanceOf[js.Dictionary[Feature]]
 
   def displayExplorationFacts() = {
-      if (features.execution.active && explorationFacts.length > 0) {
+      if (_features.execution.active && explorationFacts.length > 0) {
           var lastRange = editor.selection.getRange();
 
           if (js.isUndefined(lastProcessedRange) || !lastRange.isEqual(lastProcessedRange)) {
@@ -278,10 +283,10 @@ object Main extends js.JSApp {
 
   def hasLocalStorage(): Boolean = {
     try {
-      return !js.isUndefined(window.localStorage) && window.localStorage != null;
+      !js.isUndefined(window.localStorage) && window.localStorage != null;
     } catch {
       case e: Exception =>
-      return false;
+      false
     }
   }
 
@@ -451,8 +456,10 @@ object Main extends js.JSApp {
           updateCompilationStatus("failure")
       }
   }
+  
+  trait HMoveCursor { val line: Double }
 
-  handlers("move_cursor") = (data: { val line: Double }) => {
+  handlers("move_cursor") = (data: HMoveCursor) => {
     editor.selection.clearSelection();
     editor.gotoLine(data.line);
   }
@@ -464,27 +471,27 @@ object Main extends js.JSApp {
     var locFeatures = JSON.parse(localFeatures) //TODO: Better serialization
     for (f <- js.Object.keys(locFeatures.asInstanceOf[js.Object])) {
       if (!js.isUndefined(features(f))) {
-          features.asInstanceOf[js.Dictionary[Feature]](f).active = locFeatures(f).active
+          features(f).active = locFeatures(f).active
       }
     }
   }
 
   var fts = $("#params-panel ul")
   for (f <- js.Object.keys(features.asInstanceOf[js.Object])) {
-      fts.append("""<li><label class="checkbox"><input id="feature-""""+f+" class=\"feature\" ref=\""+f+"\" type=\"checkbox\""+(features.asInstanceOf[js.Dictionary[Feature]](f).active ? """ checked="checked"""" | "")+">"+features.asInstanceOf[js.Dictionary[Feature]](f).name+"</label></li>")
+      fts.append("""<li><label class="checkbox"><input id="feature-""""+f+" class=\"feature\" ref=\""+f+"\" type=\"checkbox\""+(features(f).active ? """ checked="checked"""" | "")+">"+features(f).name+"</label></li>")
   }
 
   $(".feature").click(((self: Element) => {
       var f = $(self).attr("ref")
-      features.asInstanceOf[js.Dictionary[Feature]](f).active = !features.asInstanceOf[js.Dictionary[Feature]](f).active
+      features(f).active = !features(f).active
 
       var msg = JSON.stringify(
-        l(action= "featureSet", module= "main", feature= f, active= features.asInstanceOf[js.Dictionary[Feature]](f).active)
+        l(action= "featureSet", module= "main", feature= f, active= features(f).active)
       )
       leonSocket.send(msg)
 
 
-      localStorage.setItem("leonFeatures", JSON.stringify(features.asInstanceOf[js.Dictionary[Feature]]));
+      localStorage.setItem("leonFeatures", JSON.stringify(features));
 
       recompile()
 
@@ -497,14 +504,14 @@ object Main extends js.JSApp {
 
   @ScalaJSDefined
   trait Overview extends js.Object {
-    val modules: js.Dynamic
-    val data: js.Dynamic
-    val functions: js.Dynamic
+    val modules: js.Dictionary[js.Dynamic]
+    val data: js.Dictionary[js.Dynamic]
+    var functions: js.Dictionary[js.Dynamic]
   }
   
   trait D {
     val status: String
-    val vcs: js.Array[Any]
+    val vcs: VCS
   }
   
   val overview: Overview = new Overview {
@@ -546,7 +553,7 @@ object Main extends js.JSApp {
                       } else {
                           openVerifyDialog()
 
-                          displayVerificationDetails("unknown", new js.Array[Any]())
+                          displayVerificationDetails("unknown", new VCS())
                       }
                   }): js.ThisFunction)
               }
@@ -580,62 +587,57 @@ object Main extends js.JSApp {
                       openTerminationDialog()
                       if (!js.isUndefined(overview.data("termination")(fname))) {
                           var d = overview.data("termination")(fname).asInstanceOf[D]
-                          displayTerminationDetails(d.status, d)
+                          displayTerminationDetails(d.status, d.asInstanceOf[{val call: String; val calls: scala.scalajs.js.Array[String]}]) // Comes from javascript. Is it correct?
                       } else {
                           displayTerminationDetails("unknown", null)
                       }
                   }): js.ThisFunction);
               }
           )
-      )
-      val functions= l()
+      ).asInstanceOf[js.Dictionary[js.Dynamic]]
+      var functions= js.Dictionary.empty[js.Dynamic]
       val data= l(
           verification= l(),
           termination= l()
-      )
+      ).asInstanceOf[js.Dictionary[js.Dynamic]]
   }
-  println("until here now !!!")
-  def recompile() = {} //Mock
-  def displayVerificationDetails(status: String, vcs: js.Array[Any]) {}  //Mock
-  def drawSynthesisOverview() {}  //Mock
-  def drawOverView() {} // Mock
-  def setPresentationMode() {} // Mock
-  def openVerifyDialog() {} // Mock
-  def openTerminationDialog() {} // Mock
-  def displayTerminationDetails(s: String, d: D) {} // Mock
-  /*
+  
+  type DataOverView = js.Array[{val name: String}]
+  trait HUpdateOverview {
+    val module: String
+    val overview: DataOverView
+  }
 
-  handlers("update_overview") = function(data) {
+  handlers("update_overview") = (data: HUpdateOverview) => {
       if (data.module == "main") {
-          overview.functions = {};
+          overview.functions = js.Dictionary.empty[js.Dynamic];
 
-          for (var i = 0; i < data.overview.length; i++) {
-              var fdata = data.overview[i]
+          for (i <- 0 until data.overview.length) {
+              var fdata = data.overview(i)
               var fname = fdata.name
-              overview.functions[fname] = fdata;
+              overview.functions(fname) = fdata.asInstanceOf[js.Dynamic]
           }
       } else {
-          overview.data[data.module] = data.overview
+          overview.data(data.module) = data.overview.asInstanceOf[js.Dynamic]
       }
 
       drawOverView()
   }
 
-  var synthesisOverview = {}
+  var synthesisOverview = js.Dictionary.empty[js.Dynamic]
 
-  handlers("update_synthesis_overview") = function(data) {
+  handlers("update_synthesis_overview") = (data: js.Dictionary[js.Dynamic]) => {
       if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
           synthesisOverview = data;
           drawSynthesisOverview();
       }
   }
 
-
-  function drawSynthesisOverview() {
-      var t = $("#synthesis_table")
+  def drawSynthesisOverview(): Unit = {
+      val t = $("#synthesis_table")
       var html = "";
 
-      function addMenu(index, fname, description) {
+      def addMenu(index: Int, fname: String, description: String): Unit = {
           var id = """menu"""+fname+index
 
           html += """ <div class="dropdown">"""
@@ -656,59 +658,60 @@ object Main extends js.JSApp {
 
       var data = synthesisOverview
 
-      var fnames = []
-      for (var f in data.functions) {
+      var fnames = new js.Array[String]
+      for (f <- js.Object.keys(data("functions").asInstanceOf[js.Object])) {
         fnames.push(f)
       }
       fnames.sort()
-
-      for (var fi = 0; fi < fnames.length; fi++) {
-          var  f = fnames[fi];
-          if (f in overview.functions) {
-              if (data.functions[f].length == 1) {
-                  var sp = data.functions[f][0]
-                  html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-                  addMenu(sp.index, f, overview.functions[f].displayName)
-                  html += "</td></tr>"
-              } else {
-                  html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions[f].line+"\">"+overview.functions[f].displayName+"</td></tr>"
-                  for (var i = 0; i < data.functions[f].length; i++) {
-                      var sp = data.functions[f][i]
-                      html += "<tr>"
-                      html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-                      addMenu(sp.index, f, sp.description)
-                      html += "</td></tr>"
-                  }
-              }
+      trait SP {val index: Int; val line: Int; val description: String }
+      for (fi <- 0 until fnames.length) {
+          var  f = fnames(fi);
+        if (!js.isUndefined(overview.functions(f))) {
+          if (data("functions").asInstanceOf[js.Dictionary[js.Dynamic]](f).length == 1) {
+            var sp = data("functions").asInstanceOf[js.Dictionary[js.Dynamic]](f)(0).asInstanceOf[SP]
+            html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+            addMenu(sp.index, f, overview.functions(f).displayName.asInstanceOf[String])
+            html += "</td></tr>"
+          } else {
+            html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions(f).line+"\">"+overview.functions(f).displayName+"</td></tr>"
+            val spArray = data("functions")(f).asInstanceOf[js.Array[SP]]
+            for (i <- 0 until spArray.length) {
+              var sp = spArray(i)
+              html += "<tr>"
+              html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+              addMenu(sp.index, f, sp.description)
+              html += "</td></tr>"
+            }
           }
+        }
       }
 
       t.html(html);
 
       if (compilationStatus == 1) {
-          $("#synthesis .dropdown-toggle").click(function(e) {
-              var p = $(this).parents(".problem")
+          $("#synthesis .dropdown-toggle").click(((self: Element, e: JQueryEventObject) => {
+              val p = $(self).parents(".problem")
 
-              var msg = JSON.stringify({
-                  module: "synthesis",
-                  action: "getRulesToApply",
-                  fname: p.attr("fname"),
-                  cid: 1*p.attr("cid"),
-              })
+              val msg = JSON.stringify(l(
+                  module= "synthesis",
+                  action= "getRulesToApply",
+                  fname= p.attr("fname"),
+                  cid= p.attr("cid").toInt
+              ))
 
               leonSocket.send(msg)
-          })
+          }): js.ThisFunction)
       }
 
-      if (data.functions && Object.keys(data.functions).length > 0 && features["synthesis"].active) {
+      if (!js.isUndefined(data("functions")) && js.Object.keys(data("functions").asInstanceOf[js.Object]).length > 0 && features("synthesis").active) {
           $("#synthesis").show()
       } else {
           $("#synthesis").hide()
       }
   }
 
-  function setPresentationMode() {
-      if(features["presentation"].active) {
+  def setPresentationMode() {
+      if(features("presentation").active) {
           $("body").addClass("presentation")
       } else {
           $("body").removeClass("presentation")
@@ -716,97 +719,104 @@ object Main extends js.JSApp {
       resizeEditor()
   }
 
-  handlers("update_exploration_facts") = (data: js.Dynamic) => {
+  handlers("update_exploration_facts") = (data: {val newFacts: js.Array[NewResult]}) => {
       updateExplorationFacts(data.newFacts);
   }
 
-  function drawOverView() {
-      var t = $("#overview_table")
-      var html = "";
+  def drawOverView() {
+    val t = $("#overview_table")
+    var html = "";
+
+    html += "<tr>"
+    html += "<th>Function</th>"
+    for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
+        if (features(m).active) {
+            html += "<th>"+overview.modules(m).column+"</th>"
+        }
+    }
+    html += "</tr>"
+
+    for (fname <- js.Object.keys(overview.functions.asInstanceOf[js.Object])) {
+      var fdata = overview.functions(fname)
 
       html += "<tr>"
-      html += "<th>Function</th>"
-      for (var m in overview.modules) {
-          if (features[m].active) {
-              html += "<th>"+overview.modules[m].column+"</th>"
+      html += "  <td class=\"fname clicktoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
+      for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
+        if (features(m).active) {
+          var mod = overview.modules(m)
+          var data = overview.data(m).asInstanceOf[js.Dictionary[js.Any]]
+          if (!js.isUndefined(data(fname))) {
+            html += mod.html(fname, data(fname))
+          } else {
+            html += mod.missing(fname)
           }
+        }
       }
       html += "</tr>"
+    }
 
-      for (var fname in overview.functions) {
-          var fdata = overview.functions[fname]
+    t.html(html);
 
-          html += "<tr>"
-          html += "  <td class=\"fname clicktoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
-          for (var m in overview.modules) {
-              if (features[m].active) {
-                  var mod = overview.modules[m]
-                  var data = overview.data[m]
-                  if (fname in data) {
-                      html += mod.html(fname, data[fname])
-                  } else {
-                      html += mod.missing(fname)
-                  }
-              }
-          }
-          html += "</tr>"
+    for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
+      if (!js.isUndefined(overview.modules(m)("handlers"))) {
+        overview.modules(m).handlers()
       }
-
-      t.html(html);
-
-      for (var m in overview.modules) {
-          if ("handlers" in overview.modules[m]) {
-              overview.modules[m].handlers()
-          }
-      }
+    }
 
 
-      addClickToLine("#overview_table");
-      addHoverToLine("#overview_table");
+    addClickToLine("#overview_table");
+    addHoverToLine("#overview_table");
 
-      if (Object.keys(overview.functions).length == 0) {
-          t.hide()
-      } else {
-          t.show()
-      }
+    if (js.Object.keys(overview.functions.asInstanceOf[js.Object]).length == 0) {
+      t.hide()
+    } else {
+      t.show()
+    }
   }
 
-  function addClickToLine(within) {
-    $(within+" .clicktoline[line]").click(function() {
-        var line = $(this).attr("line")
+  def addClickToLine(within: String) {
+    $(within+" .clicktoline[line]").click(((_this: Element) => {
+        var line = $(_this).attr("line").toDouble
         editor.gotoLine(line);
-    })
+    }): js.ThisFunction)
   }
 
-  function addHoverToLine(within) {
-    $(within+" .hovertoline[line]").hover(function() {
-        var line = $(this).attr("line")
-        editor.gotoLine(line);
-    }, function() {})
+  def addHoverToLine(within: String): Unit = {
+    $("").click(((_this: Element, event: JQueryEventObject) => {
+      }): js.ThisFunction)
+ 
+    $(within+" .hovertoline[line]").hover((((_this: Element, event: JQueryEventObject) => {
+        var line = $(_this).attr("line").toDouble
+        editor.gotoLine(line).asInstanceOf[js.Any]
+    }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject,scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
+  }
+  
+  trait HEditor {
+     val annotations: js.Array[Annotation]
   }
 
-  handlers("editor") = function (data) {
-      if ("annotations" in data) {
+  handlers("editor") = (data: HEditor) => {
+      if (!js.isUndefined(data.annotations)) {
           var session = editor.getSession();
 
           context = "unknown";
 
           $("#annotations").html("");
 
-          for (var i = 0; i < data.annotations.length; i++) {
-              var a = data.annotations[i];
-              if (a.type == "verification") {
+          for (i <- 0 until data.annotations.length) {
+              var a = data.annotations(i);
+              if (a.`type` == "verification") {
                   context = "verification";
-              } else if (a.type == "synthesis") {
+              } else if (a.`type` == "synthesis") {
                   context = "synthesis";
               }
 
-              if (a.type != "info" && a.type != "error") {
-                  session.addGutterDecoration(a.row, "leon_gutter_"+a.type)
-                  a.type = "info";
+              if (a.`type` != "info" && a.`type` != "error") {
+                  session.addGutterDecoration(a.row, "leon_gutter_"+a.`type`)
+                  a.`type` = "info";
               }
 
-              if (a.type == "error") {
+              if (a.`type` == "error") {
                 var line = a.row+1
                 $("#annotations").append("<li class=\"clicktoline\" line=\""+line+"\"><code><i class=\"fa fa-warning\"></i> "+line+":"+a.text+"</code></li>")
               }
@@ -819,19 +829,32 @@ object Main extends js.JSApp {
       }
   }
 
-  handlers("notification") = function (data) {
-      notify(data.content, data.type);
+  handlers("notification") = (data: {val content: String; val `type`: String}) => {
+      notify(data.content, data.`type`);
   }
 
-  handlers("log") = function (data) {
+  handlers("log") = (data: {val message: String}) => {
       var txt = $("#console")
       txt.append(data.message+"\n");
-      txt.scrollTop(txt[0].scrollHeight - txt.height())
+      txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
   }
 
   var synthesizing = false;
 
-  handlers("synthesis_result") = function(data) {
+  @ScalaJSDefined
+  trait HSynthesisResult extends js.Any {
+    val result: String;
+    val cid: String;
+    val fname: String;
+    val problem: String;
+    val closed: Double;
+    val total: Double;
+    val solCode: String;
+    val allCode: String;
+    val cursor: js.UndefOr[String]
+  }
+  
+  handlers("synthesis_result") = (data: HSynthesisResult) => {
       var pb = $("#synthesisProgress")
       var pbb = $("#synthesisProgress .progress-bar")
 
@@ -846,7 +869,7 @@ object Main extends js.JSApp {
           $("#synthesisDialog .cancelButton").show()
           $("#synthesisDialog .code.problem").removeClass("prettyprinted")
           $("#synthesisDialog .code.problem").html(data.problem)
-          prettyPrint();
+          g.prettyPrint();
           $("#synthesisDialog").modal("show")
 
           pbb.addClass("active progress-bar-striped")
@@ -856,12 +879,12 @@ object Main extends js.JSApp {
 
           $("#synthesisProgressBox").show()
           synthesizing = true;
-          $("#synthesisDialog").unbind("hide.bs.modal").on("hide.bs.modal", function () {
+          $("#synthesisDialog").unbind("hide.bs.modal").on("hide.bs.modal",  () => {
               if (synthesizing) {
-                  var msg = JSON.stringify({
-                      module: "main",
-                      action: "doCancel"
-                  })
+                  var msg = JSON.stringify(l(
+                      module= "main",
+                      action= "doCancel"
+                  ))
 
                   leonSocket.send(msg)
               }
@@ -894,25 +917,25 @@ object Main extends js.JSApp {
           $("#synthesisResults .code.solution").removeClass("prettyprinted")
           $("#synthesisResults .code.solution").html(data.solCode)
           $("#synthesisResults").show()
-          prettyPrint();
+          g.prettyPrint();
           $("#synthesisDialog .exploreButton").show()
           $("#synthesisDialog .importButton").show()
-          $("#synthesisDialog .importButton").unbind("click").click(function () {
-              handlers("replace_code")({ newCode: data.allCode })
-              if ("cursor" in data) {
-                setTimeout(function() {
-                  handlers("move_cursor")(data.cursor)
-                }, 100);
+          $("#synthesisDialog .importButton").unbind("click").click(() =>{
+              handlers("replace_code").asInstanceOf[Function1[HReplaceCode, Unit]](new HReplaceCode { val newCode= data.allCode })
+              if (data.cursor.isDefined) {
+                js.timers.setTimeout(100){
+                  handlers("move_cursor").asInstanceOf[Function1[HMoveCursor, Unit]](data.cursor.get.asInstanceOf[HMoveCursor])
+                }
               }
           })
-          $("#synthesisDialog .exploreButton").unbind("click").click(function () {
-            var cid    = 1*$("#synthesisDialog").attr("cid")
+          $("#synthesisDialog .exploreButton").unbind("click").click(() => {
+            var cid    = $("#synthesisDialog").attr("cid").toInt
             var fname  = $("#synthesisDialog").attr("fname")
 
             $("#synthesisDialog").modal("hide")
 
-            var msg = JSON.stringify(
-              {action: "doExplore", module: "synthesis", fname: fname, cid: cid, "explore-action": "init", path: [], ws: 0}
+            val msg = JSON.stringify(
+              l(action= "doExplore", module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[js.Any](), ws= 0)
             )
 
             leonSocket.send(msg)
@@ -923,10 +946,17 @@ object Main extends js.JSApp {
       }
   }
 
-  handlers("synthesis_exploration") = function(data) {
+  handlers("synthesis_exploration") = (data: {
+    val html: String
+    val fname: String
+    val cid: String
+    val from: js.Array[String]
+    val allCode: String
+    val cursor: js.UndefOr[String]
+  }) => {
       var d = $("#synthesisExploreDialog");
 
-      prettyPrint();
+      g.prettyPrint();
 
       if (!d.is(":visible")) {
           d.modal("show")
@@ -934,12 +964,12 @@ object Main extends js.JSApp {
 
       var working = false
 
-      d.unbind("hide.bs.modal").on("hide.bs.modal", function () {
+      d.unbind("hide.bs.modal").on("hide.bs.modal", () => {
         if (working) {
-          var msg = JSON.stringify({
-              module: "main",
-              action: "doCancel"
-          })
+          var msg = JSON.stringify(l(
+              module= "main",
+              action= "doCancel"
+          ))
 
           leonSocket.send(msg)
         }
@@ -947,63 +977,67 @@ object Main extends js.JSApp {
 
       var node = d.find(".exploreBlock[path=\""+data.from.join("-")+"\"]")
       node.replaceWith(data.html)
-      prettyPrint();
+      g.prettyPrint();
 
-      var wsOf = function(e) {
+      var wsOf = (e: Element) => {
         var b = $(e).closest(".exploreBlock")
-        return 1*b.attr("ws");
+        b.attr("ws").toInt
       }
 
-      var pathOf = function(e) {
+      var pathOf = (e: Element) => {
         var b = $(e).closest(".exploreBlock")
-        var path = []
+        var path = js.Array[Int]()
         if (b.attr("path") != "") {
-          path = b.attr("path").split("-").map(function(e) {
-            return 1*e;
-          })
+          path = b.attr("path").split("-").toJSArray.map((e: String) => e.toInt)
         }
-        return path;
+        path
       }
 
-      d.find("""select[data-action="select-alternative"]""").unbind("change").change(function() {
+      d.find("""select[data-action="select-alternative"]""").unbind("change").change(((_this: Element) => {
 
-        $(this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
+        $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
         var msg = JSON.stringify(
-          {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this), ws: wsOf(this),
-           "explore-action": $(this).attr("data-action"),
-           select: 1*$(this).value()
-          }
+          l(action= "doExplore", module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(_this), ws= wsOf(_this),
+           `explore-action`= $(_this).attr("data-action"),
+           select= $(_this).value().toInt
+          )
         )
 
         leonSocket.send(msg)
-      });
+      }): js.ThisFunction);
 
-      d.find("span.knob").unbind("click").click(function() {
-        $(this).removeClass("fa-arrow-right", "fa-arrow-left").addClass("fa-spin fa-refresh")
+      d.find("span.knob").unbind("click").click(((self: Element) => {
+        $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
 
         var msg = JSON.stringify(
-          {action: "doExplore", module: "synthesis", fname: data.fname, cid: data.cid, path: pathOf(this), ws: wsOf(this),
-           "explore-action": $(this).attr("data-action")
-          }
+          l(action= "doExplore", module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(self), ws= wsOf(self),
+           `explore-action`= $(self).attr("data-action")
+          )
         )
 
 
         leonSocket.send(msg)
 
         working = true
-      });
+      }): js.ThisFunction);
 
-      d.find(".importButton").unbind("click").click(function () {
-          handlers("replace_code")({ newCode: data.allCode })
-          if ("cursor" in data) {
-            setTimeout(function() {
-              handlers("move_cursor")(data.cursor)
-            }, 100);
+      d.find(".importButton").unbind("click").click(() => {
+          handlers("replace_code").asInstanceOf[Function1[HReplaceCode, Unit]](new HReplaceCode { val newCode= data.allCode })
+          if (data.cursor.isDefined) {
+            js.timers.setTimeout(100){
+              handlers("move_cursor").asInstanceOf[Function1[HMoveCursor, Unit]](data.cursor.get.asInstanceOf[HMoveCursor])
+            }
           }
       })
   }
 
-  handlers("synthesis_rulesToApply") = function(data) {
+  trait HSynthesisRulesToApply {
+    val fname: String
+    val cid: String
+    val rulesApps: js.Array[{val status: String; val id: String; val name: String}]
+  }
+  
+  handlers("synthesis_rulesToApply") = (data: HSynthesisRulesToApply) => {
       var fname       = data.fname
       var cid         = data.cid
       var rulesApps   = data.rulesApps
@@ -1012,8 +1046,8 @@ object Main extends js.JSApp {
 
       // Start by removing temp content
       if (compilationStatus == 1) {
-          for (var i = 0; i < rulesApps.length; i++) {
-              var app = rulesApps[i];
+          for (i <- 0 until rulesApps.length) {
+              var app = rulesApps(i);
               var statusIcon = ""
               var clazz = "temp"
 
@@ -1030,101 +1064,121 @@ object Main extends js.JSApp {
       var selector = "#synthesis .problem[fname=\""+fname+"\"][cid=\""+cid+"\"] ul"
       $(selector+" li.temp").remove()
       $(selector).append(html)
-      $(selector+" li a[action=\"search\"]").unbind("click").click(function() {
+      $(selector+" li a[action=\"search\"]").unbind("click").click(() => {
           var msg = JSON.stringify(
-            {action: "doSearch", module: "synthesis", fname: fname, cid: cid}
+            l(action= "doSearch", module= "synthesis", fname= fname, cid= cid)
           )
 
           leonSocket.send(msg)
       })
-      $(selector+" li a[action=\"explore\"]").unbind("click").click(function() {
+      $(selector+" li a[action=\"explore\"]").unbind("click").click(() => {
           var msg = JSON.stringify(
-            {action: "doExplore", module: "synthesis", fname: fname, cid: cid, "explore-action": "init", path: [], ws: 0}
+            l(action= "doExplore", module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[Any](), ws= 0)
           )
 
           leonSocket.send(msg)
       })
-      $(selector+" li a[action=\"rule\"]").click(function() {
-          var rid = 1*$(this).attr("rid")
+      $(selector+" li a[action=\"rule\"]").click(((self: Element) => {
+          var rid = $(self).attr("rid").toInt
 
           var msg = JSON.stringify(
-            {action: "doApplyRule", module: "synthesis",  fname: fname, cid: cid, rid: rid}
+            l(action= "doApplyRule", module= "synthesis",  fname= fname, cid= cid, rid= rid)
           )
 
           leonSocket.send(msg)
-      })
+      }): js.ThisFunction)
   }
 
-  handlers("repair_result") = function(data) {
-      var pb = $("#repairProgress")
-      var pbb = $("#repairProgress .progress-bar")
+  handlers("repair_result") = (data : {
+    val result: String
+    val progress: String
+    val error: String
+    val focused: String
+    val success: String
+    val solCode: String
+    val allCode: String
+    val cursor: js.UndefOr[String]
+  }) => {
+    var pb = $("#repairProgress")
+    var pbb = $("#repairProgress .progress-bar")
 
-      // setup and open pane
-      if (data.result == "init") {
-          $("#repairResults").hide()
-          $("#repairFocused").hide()
-          $("#repairDialog .importButton").hide()
-          $("#repairDialog .closeButton").hide()
-          $("#repairDialog .cancelButton").show()
-          $("#repairDialog").modal("show")
+    // setup and open pane
+    if (data.result == "init") {
+      $("#repairResults").hide()
+      $("#repairFocused").hide()
+      $("#repairDialog .importButton").hide()
+      $("#repairDialog .closeButton").hide()
+      $("#repairDialog .cancelButton").show()
+      $("#repairDialog").modal("show")
 
-          $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", function () {
-              if (synthesizing) {
-                  var msg = JSON.stringify({
-                      module: "repair",
-                      action: "doCancel"
-                  })
+      $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
+        if (synthesizing) {
+          var msg = JSON.stringify(l(
+            module= "repair",
+            action= "doCancel"
+          ))
 
-                  leonSocket.send(msg)
-              }
-          })
-      } else if (data.result == "progress") {
-          pbb.addClass("active progress-bar-striped")
-          pbb.removeClass("progress-bar-success progress-bar-danger")
-          pbb.width("100%")
-          pbb.html(data.progress);
+          leonSocket.send(msg)
+        }
+      })
+    } else if (data.result == "progress") {
+      pbb.addClass("active progress-bar-striped")
+      pbb.removeClass("progress-bar-success progress-bar-danger")
+      pbb.width("100%")
+      pbb.html(data.progress);
 
-          $("#repairProgressBox").show()
-      } else if (data.result == "error") {
-          pbb.removeClass("active progress-bar-striped")
+      $("#repairProgressBox").show()
+    } else if (data.result == "error") {
+      pbb.removeClass("active progress-bar-striped")
 
-          pbb.width("100%")
-          pbb.html(data.error);
-          pbb.addClass("progress-bar-danger")
+      pbb.width("100%")
+      pbb.html(data.error);
+      pbb.addClass("progress-bar-danger")
 
-          $("#repairDialog .cancelButton").hide()
-          $("#repairDialog .closeButton").show()
-      } else if (data.result == "focused") {
-          $("#repairFocused .code.focused").removeClass("prettyprinted")
-          $("#repairFocused .code.focused").html(data.focused)
-          $("#repairFocused").show()
-          prettyPrint();
-      } else if (data.result == "success") {
-          pbb.removeClass("active progress-bar-striped")
+      $("#repairDialog .cancelButton").hide()
+      $("#repairDialog .closeButton").show()
+    } else if (data.result == "focused") {
+      $("#repairFocused .code.focused").removeClass("prettyprinted")
+      $("#repairFocused .code.focused").html(data.focused)
+      $("#repairFocused").show()
+      g.prettyPrint();
+    } else if (data.result == "success") {
+      pbb.removeClass("active progress-bar-striped")
 
-          pbb.width("100%")
-          pbb.html(data.success);
-          pbb.addClass("progress-bar-success")
+      pbb.width("100%")
+      pbb.html(data.success);
+      pbb.addClass("progress-bar-success")
 
-          $("#repairResults .code.solution").removeClass("prettyprinted")
-          $("#repairResults .code.solution").html(data.solCode)
-          $("#repairResults").show()
-          prettyPrint();
-          $("#repairDialog .importButton").show()
-          $("#repairDialog .importButton").unbind("click").click(function () {
-              handlers("replace_code")({ newCode: data.allCode })
-              if ("cursor" in data) {
-                setTimeout(function() {
-                  handlers("move_cursor")(data.cursor)
-                }, 100);
-              }
-          })
-          $("#repairDialog .cancelButton").hide()
-          $("#repairDialog .closeButton").show()
-      }
+      $("#repairResults .code.solution").removeClass("prettyprinted")
+      $("#repairResults .code.solution").html(data.solCode)
+      $("#repairResults").show()
+      g.prettyPrint();
+      $("#repairDialog .importButton").show()
+      $("#repairDialog .importButton").unbind("click").click(() => {
+          handlers("replace_code").asInstanceOf[Function1[HReplaceCode, Unit]](new HReplaceCode { val newCode= data.allCode })
+          if (data.cursor.isDefined) {
+            js.timers.setTimeout(100){
+              handlers("move_cursor").asInstanceOf[Function1[HMoveCursor, Unit]](data.cursor.get.asInstanceOf[HMoveCursor])
+            }
+          }
+      })
+      $("#repairDialog .cancelButton").hide()
+      $("#repairDialog .closeButton").show()
+    }
   }
+  
+  trait VC extends js.Any {
+    val status: String
+    val fun: String
+    val kind: String
+    val time: Double
+    val counterExample: js.UndefOr[js.Dictionary[String]]
+    val execution: js.UndefOr[{ val result: String; val output: String}]
+  }
+  
+  type VCS = js.Array[VC]
 
-  function displayVerificationDetails(status, vcs) {
+  def displayVerificationDetails(status: String, vcs: VCS) {
       var pb = $("#verifyProgress")
       var pbb = pb.children(".progress-bar")
 
@@ -1136,98 +1190,96 @@ object Main extends js.JSApp {
 
       var canRepair = false
 
-      switch (status) {
-          case "cond-valid":
-              pbb.html("Conditionally Valid!")
-              pbb.addClass("progress-bar-warning")
-              break;
+      status match {
+      case "cond-valid" =>
+        pbb.html("Conditionally Valid!")
+        pbb.addClass("progress-bar-warning")
 
-          case "valid":
-              pbb.html("Valid!")
-              pbb.addClass("progress-bar-success")
-              break;
+      case "valid" =>
+        pbb.html("Valid!")
+        pbb.addClass("progress-bar-success")
 
-          case "invalid":
-              pbb.html("Invalid!")
-              pbb.addClass("progress-bar-danger")
-              canRepair = true
-              break;
+      case "invalid" =>
+        pbb.html("Invalid!")
+        pbb.addClass("progress-bar-danger")
+        canRepair = true
 
-          case "unknown":
-              pbb.html("Unknown ?!")
-              pbb.addClass("progress-bar-warning")
-              break;
+      case "unknown" =>
+        pbb.html("Unknown ?!")
+        pbb.addClass("progress-bar-warning")
 
-          case "timeout":
-              pbb.html("Timeout!")
-              pbb.addClass("progress-bar-warning")
-              break;
+      case "timeout" =>
+        pbb.html("Timeout!")
+        pbb.addClass("progress-bar-warning")
+          
+      case _ =>
       }
 
       var tbl = $("#verifyResults tbody")
       tbl.html("");
 
-      for (var i = 0; i < vcs.length; i++) {
-          var vc = vcs[i];
-          var icon = "check"
-          if (vc.status == "invalid") {
-              icon = "warning"
-          } else if (vc.status == "unknown") {
-              icon = "question"
-          } else if (vc.status == "timeout") {
-              icon = "clock-o"
+      var targetFunction: String = null
+      for (i <- 0 until vcs.length) {
+        val vc = vcs(i)
+        targetFunction = vc.fun
+        var icon = "check"
+        if (vc.status == "invalid") {
+            icon = "warning"
+        } else if (vc.status == "unknown") {
+            icon = "question"
+        } else if (vc.status == "timeout") {
+            icon = "clock-o"
+        }
+
+        var clas = "success"
+        if (vc.status == "invalid") {
+          clas = "danger"
+        } else if (vc.status == "unknown" || vc.status == "timeout") {
+          clas = "warning"
+        }
+
+        tbl.append("<tr class=\""+clas+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"fa fa-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
+
+        if (vc.counterExample.isDefined) {
+          var html = "<tr class=\""+clas+" counter-example\"><td colspan=\"4\">"
+          html += "<div>"
+          html += "  <p>The following inputs violate the VC:</p>";
+          html += "  <table class=\"input\">";
+          for (v <- js.Object.keys(vc.counterExample.get.asInstanceOf[js.Object])) {
+              html += "<tr><td>"+v+"</td><td>&nbsp;:=&nbsp;</td><td>"+vc.counterExample.get(v)+"</td></tr>";
+          }
+          html += "  </table>"
+
+          if (vc.execution.isDefined && vc.execution.get.result == "success" && features("execution").active) {
+              html += "  <p>It produced the following output:</p>";
+              html += "  <div class=\"output\">"+vc.execution.get.output+"</div>"
           }
 
-          var clas = "success"
-          if (vc.status == "invalid") {
-            clas = "danger"
-          } else if (vc.status == "unknown" || vc.status == "timeout") {
-            clas = "warning"
-          }
+          html += "    </div>"
+          html += "  </td>"
+          html += "</tr>"
 
-
-          tbl.append("<tr class=\""+clas+"\"> <td>"+vc.fun+"</td> <td>"+vc.kind+"</td> <td><i class=\"fa fa-"+icon+"\"></i> "+vc.status+"</td> <td>"+vc.time+"</td> </tr>")
-
-          if ("counterExample" in vc) {
-              var html = "<tr class=\""+clas+" counter-example\"><td colspan=\"4\">"
-              html += "<div>"
-              html += "  <p>The following inputs violate the VC:</p>";
-              html += "  <table class=\"input\">";
-              for (var v in vc.counterExample) {
-                  html += "<tr><td>"+v+"</td><td>&nbsp;:=&nbsp;</td><td>"+vc.counterExample[v]+"</td></tr>";
-              }
-              html += "  </table>"
-
-              if ("execution" in vc && vc.execution.result == "success" && features["execution"].active) {
-                  html += "  <p>It produced the following output:</p>";
-                  html += "  <div class=\"output\">"+vc.execution.output+"</div>"
-              }
-
-              html += "    </div>"
-              html += "  </td>"
-              html += "</tr>"
-
-              tbl.append(html)
-          }
+          tbl.append(html)
+        }
       }
 
       if (vcs.length == 0) {
-          tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
+        tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
       }
 
       $("div[aria-describedby='verifyDialog'] span.ui-button-text").html("Close")
 
-      if (canRepair && features["repair"].active) {
-        $(".repairButton").unbind("click").click(function () {
-            var fname = vc.fun
+      if (canRepair && features("repair").active) {
+        $(".repairButton").unbind("click").click(() => {
+          var fname = targetFunction
 
-            var msg = JSON.stringify(
-              {action: "doRepair", module: "repair", fname: fname}
-            )
+          var msg = JSON.stringify(
+            l(action= "doRepair", module= "repair", fname= fname)
+          )
 
-            leonSocket.send(msg)
+          leonSocket.send(msg)
 
-            $("#verifyDialog").modal("hide")
+          $("#verifyDialog").modal("hide")
         });
         $(".repairButton").show();
       } else {
@@ -1235,14 +1287,17 @@ object Main extends js.JSApp {
       }
 
       $("#verifyResults").show("fade");
-
   }
 
-  handlers("verification_result") = function (data) {
+  trait HVerification_Result {val status: String; val vcs: VCS}
+  
+  handlers("verification_result") = (data: HVerification_Result) => {
       displayVerificationDetails(data.status, data.vcs)
   }
 
-  function displayTerminationDetails(status, fdata) {
+  def displayTerminationDetails(
+    status: String,
+    fdata: {val call: String; val calls: js.Array[String]}) {
       var pb = $("#terminationProgress")
       var pbb = pb.children(".progress-bar")
 
@@ -1255,14 +1310,13 @@ object Main extends js.JSApp {
       var tbl = $("#terminationResults table")
       tbl.html("");
 
-      switch (status) {
-          case "terminates":
+      status match {
+          case "terminates" =>
               pbb.html("Terminates!")
               pbb.addClass("progress-bar-success")
-              tbl.append("""<tr class="success"> <td>This function terminates for all inputs.</td> </tr>""");
-              break;
+              tbl.append("""<tr class="success"> <td>This function terminates for all inputs.</td> </tr>""")
 
-          case "loopsfor":
+          case "loopsfor" =>
               pbb.html("Non-terminating!")
               pbb.addClass("progress-bar-danger")
               var html = """<tr class="danger counter-example"><td><div>"""
@@ -1271,47 +1325,45 @@ object Main extends js.JSApp {
               html += "  <tr><td>"+fdata.call+"</td></tr>";
               html += "</table>"
               html += "</div></td></tr>"
-              tbl.append(html);
-              break;
+              tbl.append(html)
 
-          case "callsnonterminating":
+          case "callsnonterminating" =>
               pbb.html("Calls non-terminating functions!")
               pbb.addClass("progress-bar-warning")
               var html = """<tr class="warning counter-example"><td><div>"""
               html += "<p>The function calls the following non-terminating function(s):</p>";
               html += "<table class=\"input\">";
-              for (var i = 0; i < fdata.calls.length; i++) {
-                  html += "<tr><td>"+fdata.calls[i]+"</td></tr>";
+              for (i <- 0 until fdata.calls.length) {
+                  html += "<tr><td>"+fdata.calls(i)+"</td></tr>";
               }
               html += "</table>"
               html += "</div></td></tr>"
-              tbl.append(html);
-              break;
+              tbl.append(html)
 
-          case "noguarantee":
+          case "noguarantee" =>
               pbb.html("No guarantee!")
               pbb.addClass("progress-bar-warning")
-              tbl.append("""<tr class="warning"> <td>Leon could not determine whether or not this function terminates.</td> </tr>""");
-              break;
+              tbl.append("""<tr class="warning"> <td>Leon could not determine whether or not this function terminates.</td> </tr>""")
 
-          default:
+          case _ =>
               pbb.html("Unknown!")
               pbb.addClass("progress-bar-warning")
-              break;
       }
 
       $("div[aria-describedby='terminationDialog'] span.ui-button-text").html("Close")
       $("#terminationResults").show("fade");
   }
 
-  function error(msg) {
+  def error(msg: String) {
       alert(msg);
   }
-
-  var receiveEvent = function(event) {
-      var data = JSON.parse(event.data)
-      if (data.kind in handlers) {
-          handlers[data.kind](data);
+  
+  trait Kind extends js.Any { val kind: String }
+  var receiveEvent = (event: JQueryEventObject) => {
+      
+      var data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
+      if (!js.isUndefined(handlers(data.kind))) {
+          handlers(data.kind).asInstanceOf[Function1[Kind, Unit]](data);
       } else {
           console.log("Unknown event type: "+data.kind)
           console.log(data)
@@ -1323,13 +1375,13 @@ object Main extends js.JSApp {
   var lastReconnectDelay = 0;
   var reconnectIn = 0;
 
-  var closeEvent = function(event) {
+  var closeEvent = (event: JQueryEventObject) => {
       if (connected) {
           setDisconnected()
       }
   }
 
-  var openEvent = function(event) {
+  var openEvent = (event: JQueryEventObject) => {
       if (lastReconnectDelay != 0) {
         notify("And we are back online!", "success")
         updateCompilationStatus("unknown")
@@ -1338,42 +1390,42 @@ object Main extends js.JSApp {
 
       setConnected()
 
-      for (var f in features) {
+      for (f <- js.Object.keys(_features)) {
           var msg = JSON.stringify(
-            {action: "featureSet", module: "main", feature: f, active: features[f].active}
+            l(action= "featureSet", module= "main", feature= f, active= features(f).active)
           )
 
           leonSocket.send(msg)
       }
 
-      if(hash) {
-          loadStaticLink(hash)
+      if(hash.isDefined) {
+          loadStaticLink(hash.get)
       } else {
           recompile()
       }
   }
 
-  function loadStaticLink(hash) {
+  def loadStaticLink(hash: String) {
       if (hash.indexOf("#link/") == 0) {
           var msg = JSON.stringify(
-            {action: "accessPermaLink", module: "main", link: hash.substr("#link/".length)}
+            l(action= "accessPermaLink", module= "main", link= hash.substring("#link/".length))
           )
 
-          leonSocket.send(msg);
-          window.location.hash = "";
+          leonSocket.send(msg)
+          window.location.hash = ""
       }
       if (hash.indexOf("#demo/") == 0) {
-          loadExample("demo", hash.substr("#demo/".length))
-          window.location.hash = "";
+          loadExample("demo", hash.substring("#demo/".length))
+          window.location.hash = ""
       }
   }
 
-  $(window).on("hashchange", function() {
-      var hash = window.location.hash;
+  $(window).on("hashchange", () => {
+      var hash = window.location.hash.asInstanceOf[String];
       loadStaticLink(hash);
   });
 
-  function setDisconnected() {
+  def setDisconnected() {
       connected = false
       updateCompilationStatus("disconnected")
       lastReconnectDelay = 5;
@@ -1382,7 +1434,7 @@ object Main extends js.JSApp {
       checkDisconnectStatus()
   }
 
-  function setConnected() {
+  def setConnected() {
       connected = true
 
       $("#connectError").hide();
@@ -1392,7 +1444,7 @@ object Main extends js.JSApp {
       reconnectIn = -1;
   }
 
-  function checkDisconnectStatus() {
+  def checkDisconnectStatus() {
       if (reconnectIn == 0) {
           reconnectIn = -1;
           $("#disconnectError #disconnectMsg").html("Attempting reconnection...");
@@ -1400,7 +1452,7 @@ object Main extends js.JSApp {
           connectWS()
 
           // If still not connected after 2 seconds, consider failed
-          setTimeout(function() {
+          js.timers.setTimeout(2000){
               if (!connected) {
                   if (lastReconnectDelay == 0) {
                       lastReconnectDelay = 5;
@@ -1410,11 +1462,11 @@ object Main extends js.JSApp {
 
                   reconnectIn = lastReconnectDelay;
               }
-          }, 2000);
+          }
       } else if (reconnectIn > 0) {
           $("#disconnectError #disconnectMsg").html("Retrying in "+reconnectIn+""" seconds... <button id="tryReconnect" class="btn btn-danger btn-xs">Try now</button>""");
 
-          $("#tryReconnect").click(function() {
+          $("#tryReconnect").click(() => {
               reconnectIn = 0;
               checkDisconnectStatus();
           })
@@ -1425,34 +1477,34 @@ object Main extends js.JSApp {
       }
   }
 
-  setInterval(function () { checkDisconnectStatus() }, 2000);
+  js.timers.setInterval(2000){ checkDisconnectStatus() };
 
-  var errorEvent = function(event) {
+  var errorEvent = (event: JQueryEventObject) => {
       console.log("ERROR")
       console.log(event)
   }
 
   connectWS()
-  setTimeout(function() {
+  js.timers.setTimeout(3000){
       if (!connected) {
           $("#disconnectError").hide();
           $("#connectError").show().alert();
       }
-  }, 3000);
-
-  function connectWS() {
-      leonSocket = js.Dynamic.newInstance(_leon_websocket_url)
-      leonSocket.onopen = openEvent
-      leonSocket.onmessage = receiveEvent;
-      leonSocket.onclose = closeEvent
-      leonSocket.onerror = errorEvent
   }
 
-  var lastChange      = 0;
+  def connectWS() {
+      leonSocket = js.Dynamic.newInstance(WS)(g._leon_websocket_url)
+      leonSocket.onopen = openEvent _
+      leonSocket.onmessage = receiveEvent _
+      leonSocket.onclose = closeEvent _
+      leonSocket.onerror = errorEvent _
+  }
+
+  var lastChange      = 0.0;
   var lastSavedChange = lastChange;
   var timeWindow      = 2000;
 
-  function updateSaveButton() {
+  def updateSaveButton() {
       var e = $("#button-save")
       if (lastChange == lastSavedChange) {
          e.addClass("disabled"); 
@@ -1461,24 +1513,18 @@ object Main extends js.JSApp {
       }
   }
 
-  def notify(content, type, fade) {
-      if (!fade) {
-          fade = 3000
-      }
+  def notify(content: String, _type: String, fade: Double = 3000) {
+    val `type` = if (_type == "error") "danger" else _type
 
-      if (type == "error") {
-        type = "danger"
-      }
+    var note = $("<div>", l(
+        `class`= "alert fade in alert-"+`type`
+    )).html("""<button type="button" class="close" data-dismiss="alert">×</button>"""+content)
 
-      var note = $("<div>", {
-          "class": "alert fade in alert-"+type
-      }).html("""<button type="button" class="close" data-dismiss="alert">×</button>"""+content)
+    $("#notifications").append(note);
 
-      $("#notifications").append(note);
-
-      setTimeout(function() {
-          note.hide();
-      }, fade)
+    js.timers.setTimeout(fade){
+      note.hide();
+    }
   }
 
   var oldCode = ""
@@ -1494,7 +1540,7 @@ object Main extends js.JSApp {
 
       if (connected && oldCode != currentCode) {
           var msg = JSON.stringify(
-            {action: "doUpdateCode", module: "main", code: currentCode}
+            l(action= "doUpdateCode", module= "main", code= currentCode)
           )
           oldCode = currentCode;
           lastSavedChange = lastChange;
@@ -1505,20 +1551,20 @@ object Main extends js.JSApp {
       }
   }
 
-  function onCodeUpdate() {
-      var now = new Date().getTime()
+  def onCodeUpdate() {
+    var now = new js.Date().getTime()
 
-      if (lastChange < (now - timeWindow)) {
-          if(lastChange > 0) { 
-            recompile()
-          }
-          lastChange = new Date().getTime();
+    if (lastChange < (now - timeWindow)) {
+      if(lastChange > 0) { 
+        recompile()
       }
+      lastChange = new js.Date().getTime();
+    }
 
-      localStorage.setItem("leonEditorCode", editor.getValue());
+    localStorage.setItem("leonEditorCode", editor.getValue());
   }
 
-  function loadSelectedExample() {
+  def loadSelectedExample(): Unit = {
       var selected = $("""#example-loader""").find(":selected[id]")
 
       var id = selected.attr("id")
@@ -1526,53 +1572,57 @@ object Main extends js.JSApp {
 
       loadExample(group, id)
   }
-  function loadExample(group, id) {
-      if (id) {
-          $.ajax({
-            url: "/ajax/getExample/"+group+"/"+id,
-            dataType: "json",
-            success: function(data, textStatus, jqXHR) {
-              if (data.status == "success") {
-                  storeCurrent(editorSession.getValue())
-                  editor.setValue(data.code);
-                  editor.selection.clearSelection();
-                  editor.gotoLine(0);
-                  recompile();
-                  $("#example-loader").get(0).selectedIndex = 0;
-              } else {
-                  notify("Loading example failed :(", "error")
-              }
-            },
-            error: function(jqXHR, textStatus, errorThrown) {
-              notify("Loading example failed :(", "error")
-            }
-          });
-      }
+  def loadExample(group: String, id: String) {
+    if (!js.isUndefined(id)) {
+      $.ajax(l(
+        url= "/ajax/getExample/"+group+"/"+id,
+        dataType= "json",
+        success= (data: {
+          val status: String
+          val code: String
+        }, textStatus: String, jqXHR: JQueryXHR) => {
+          if (data.status == "success") {
+            storeCurrent(editorSession.getValue())
+            editor.setValue(data.code);
+            editor.selection.clearSelection();
+            editor.gotoLine(0);
+            recompile();
+            $("#example-loader").get(0).selectedIndex = 0;
+          } else {
+            notify("Loading example failed :(", "error")
+          }
+        },
+        error= (jqXHR: JQueryXHR, textStatus: String, errorThrown: js.Dynamic) => {
+          notify("Loading example failed :(", "error")
+        }
+      ).asInstanceOf[JQueryAjaxSettings]);
+    }
   }
 
-  $("#example-loader").change(loadSelectedExample);
+  $("#example-loader").change(loadSelectedExample _);
 
   var editorSession = editor.getSession();
 
-  editor.commands.addCommand({
-      name: "save",
-      bindKey: {win: "Ctrl-S",  mac: "Command-S"},
-      exec: function(editor) {
-          recompile()
-      },
-      readOnly: true
-  });
+  editor.commands.addCommand(js.use(new js.Object {
+    var name= "save"
+    var bindKey= l(win= "Ctrl-S",  mac= "Command-S").asInstanceOf[js.Any]
+    var exec= ((editor: Editor) => {
+      recompile()
+    }).asInstanceOf[js.Function]
+    var readOnly= true
+  }).as[EditorCommand]);
 
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");
 
-  editorSession.on("change", function(e) {
-      lastChange = new Date().getTime();
+  editorSession.on("change", (e: js.Any) => {
+      lastChange = new js.Date().getTime();
       updateSaveButton();
-      setTimeout(onCodeUpdate, timeWindow+50)
+      js.timers.setTimeout(timeWindow+50){ onCodeUpdate }
+      ().asInstanceOf[js.Any]
   });
 
-  function resizeEditor() {
+  def resizeEditor() {
 
       var h = $(window).height()-$("#title").height()-6
       var ah = $("#annotations").height()
@@ -1590,200 +1640,200 @@ object Main extends js.JSApp {
 
   resizeEditor();
 
+  @ScalaJSDefined
+  trait HReplaceCode extends js.Object {val newCode: String}
 
-  handlers("replace_code") = function(data) {
-      storeCurrent(editorSession.getValue())
-      editorSession.setValue(data.newCode)
-      recompile()
+  handlers("replace_code") = (data: HReplaceCode) => {
+    storeCurrent(editorSession.getValue())
+    editorSession.setValue(data.newCode)
+    recompile()
   }
 
-  var currentMousePos = { x: -1, y: -1 };
+  var currentMousePos = l(x= -1, y= -1);
 
-  $(document).mousemove(function(event) {
-      currentMousePos = { x: event.pageX, y: event.pageY };
-  });
+  $(document).mousemove((event: JQueryEventObject) => {
+    currentMousePos = l(x= event.pageX, y= event.pageY);
+  }.asInstanceOf[js.Any]);
 
-  function openVerifyDialog() {
-      $("#verifyDialog").modal("show")
+  def openVerifyDialog() {
+    $("#verifyDialog").modal("show")
   }
 
-  function openTerminationDialog() {
-      $("#terminationDialog").modal("show")
+  def openTerminationDialog() {
+    $("#terminationDialog").modal("show")
   }
 
   var storedCode = localStorage.getItem("leonEditorCode")
 
-  var seenDemo = 1*localStorage.getItem("leonSeenDemo")
-  var demos = [
-      {
-          placement: "modal",
-          title: "Welcome to Leon!",
-          content: "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
-      },
-      {
-          where: function() { return $("#example-loader") },
-          placement: "left",
-          title: "Select from examples",
-          content: "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
-      },
-      {
-          where: function() { return $($(".ace_line_group")[13]).find("span").last() },
-          placement: "right",
-          title: "Edit at will",
-          content: "Feel free to modify or extend the selected examples with your own code."
-      },
-      {
-          where: function() { return $("#overview_table") },
-          placement: "left",
-          title: "Live results",
-          content: "Leon will verify your code in the background and display live verification results here."
-      },
-      {
-          where: function() { return $($("#overview_table td.status.verif")[2]) },
-          placement: "left",
-          title: "Display details",
-          content: "Click on the verification status of each function to get more information!"
-      },
-      {
-          where: function() { return $("#synthesis_table td.problem").first() },
-          placement: "left",
-          title: "Synthesize",
-          content: "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
-      },
-      {
-          where: function() { return $("#button-permalink") },
-          placement: "bottom",
-          title: "Permalinks",
-          content: "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
-      }
-  ];
+  var seenDemo = localStorage.getItem("leonSeenDemo").toInt
+  var demos = js.Array(
+      l(
+          placement = "modal",
+          title = "Welcome to Leon!",
+          content = "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
+      ),
+      l(
+          where = () => $("#example-loader"),
+          placement = "left",
+          title = "Select from examples",
+          content = "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
+      ),
+      l(
+          where = () => $($(".ace_line_group")(13)).find("span").last(),
+          placement = "right",
+          title = "Edit at will",
+          content = "Feel free to modify or extend the selected examples with your own code."
+      ),
+      l(
+          where = () => $("#overview_table"),
+          placement = "left",
+          title = "Live results",
+          content = "Leon will verify your code in the background and display live verification results here."
+      ),
+      l(
+          where = () => $($("#overview_table td.status.verif")(2)),
+          placement = "left",
+          title = "Display details",
+          content = "Click on the verification status of each function to get more information!"
+      ),
+      l(
+          where = () => $("#synthesis_table td.problem").first(),
+          placement = "left",
+          title = "Synthesize",
+          content = "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
+      ),
+      l(
+          where = () => $("#button-permalink"),
+          placement = "bottom",
+          title = "Permalinks",
+          content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
+      )
+  );
 
-  if (!seenDemo || (seenDemo < demos.length-1)) {
+  if (seenDemo == 0 || (seenDemo < demos.length-1)) {
 
-      var lastDemo = null
+    var lastDemo: js.Dynamic = null
 
-      function showDemo(id) {
-          var demo = demos[id]
+    def showDemo(id: Int): Unit = {
+      var demo = demos(id)
 
-          if (demo.placement == "modal") {
-              // Assume only the first demo is modal
-              var html  = """<div id="demoPane" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">"""
-              html     += """  <div class="modal-dialog">"""
-              html     += """    <div class="modal-content">"""
-              html     += """      <div class="modal-header">"""
-              html     += """        <button type="button" class="close" demo-action="close" data-dismiss="modal" aria-hidden="true">×</button>"""
-              html     += """        <h3 id="demoModal">"""+demo.title+"""</h3>"""
-              html     += """      </div>"""
-              html     += """      <div class="modal-body">"""
-              html     += """        """+demo.content
-              html     += """      </div>"""
-              html     += """      <div class="modal-footer">"""
-              html     += """        <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="fa fa-play"></i></button>"""
-              html     += """        <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>"""
-              html     += """      </div>"""
-              html     += """    </div>"""
-              html     += """  </div>"""
-              html     += """</div>"""
+      if (demo.placement == "modal") {
+        // Assume only the first demo is modal
+        var html  = """<div id="demoPane" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">"""
+        html     += """  <div class="modal-dialog">"""
+        html     += """    <div class="modal-content">"""
+        html     += """      <div class="modal-header">"""
+        html     += """        <button type="button" class="close" demo-action="close" data-dismiss="modal" aria-hidden="true">×</button>"""
+        html     += """        <h3 id="demoModal">"""+demo.title+"""</h3>"""
+        html     += """      </div>"""
+        html     += """      <div class="modal-body">"""
+        html     += """        """+demo.content
+        html     += """      </div>"""
+        html     += """      <div class="modal-footer">"""
+        html     += """        <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="fa fa-play"></i></button>"""
+        html     += """        <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>"""
+        html     += """      </div>"""
+        html     += """    </div>"""
+        html     += """  </div>"""
+        html     += """</div>"""
 
-              $("body").append(html);
+        $("body").append(html);
 
-              $("#demoPane").modal("show")
+        $("#demoPane").modal("show")
 
-              var action = "close"
+        var action = "close"
 
-              $("#demoPane button").click(function() {
-                  action = $(this).attr("demo-action")
-                  hideDemo(id)
-              })
+        $("#demoPane button").click(((self: Element) => {
+            action = $(self).attr("demo-action")
+            hideDemo(id)
+        }): js.ThisFunction)
 
-              $("#demoPane").unbind("hide.bs.modal").on("hide.bs.modal", function () {
-                  if (action == "next") {
-                      localStorage.setItem("leonSeenDemo", id+1)
-                      setTimeout(function() { showDemo(id+1) }, 500)
-                  } else {
-                      localStorage.setItem("leonSeenDemo", 100)
-                  }
-              })
+        $("#demoPane").unbind("hide.bs.modal").on("hide.bs.modal", () => {
+            if (action == "next") {
+                localStorage.setItem("leonSeenDemo", (id+1).toString)
+                js.timers.setTimeout(500){ showDemo(id+1) }
+            } else {
+                localStorage.setItem("leonSeenDemo", 100.toString)
+            }
+        })
 
-          } else {
-              var content = """<div id="demoPane" class="demo">"""
-              content += demo.content
-              content += """  <div class="demo-nav">"""
-              if (id == demos.length-1) {
-                  // last demo
-                  content += """    <button class="btn btn-success" demo-action="close">Ok!</button>""";
-              } else {
-                  content += """    <button class="btn" demo-action="close">Got it</button>""";
-                  content += """    <button class="btn btn-success" demo-action="next">Next <i class="fa fa-forward"></i></button>""";
-              }
-              content += """  </div>"""
-              content += """</div>"""
-
-              var where = demo.where()
-
-              lastDemo = where;
-
-              if (where.length == 0) {
-                localStorage.setItem("leonSeenDemo", id+1)
-                hideDemo(id)
-                showDemo(id+1)
-                return;
-              }
-
-              var progress = ""
-              for (var i = 0; i < demos.length-1; i++) {
-                  if (i < id) {
-                      progress += """<i class="fa fa-circle"></i>"""
-                  } else {
-                      progress += """<i class="fa fa-circle-o"></i>"""
-                  }
-              }
-
-              where.popover({
-                  html: true,
-                  placement: demo.placement,
-                  trigger: "manual",
-                  title: """<span class="demo-progress">"""+progress+"""</span>"""+demo.title,
-                  content: content,
-                  container: "body"
-              })
-
-              where.popover("show")
-
-              $("#demoPane button[demo-action=\"close\"]").click(function() {
-                  localStorage.setItem("leonSeenDemo", 100)
-                  hideDemo(id)
-              })
-
-              $("#demoPane button[demo-action=\"next\"]").click(function() {
-                  localStorage.setItem("leonSeenDemo", id+1)
-                  hideDemo(id)
-                  showDemo(id+1)
-              })
-          }
-
-
-      }
-
-      function hideDemo(id) {
-          var demo = demos[id]
-
-          if (demo.placement == "modal") {
-              $("#demoPane").modal("hide")
-              $("#demoPane").unbind("hidden").on("hidden", function() { $("demoPane").remove() })
-          } else {
-              lastDemo.popover("destroy")
-          }
-      }
-
-      var toShow = seenDemo? seenDemo : 0;
-      if (toShow != 0) {
-          setTimeout(function() { showDemo(toShow) }, 1000)
       } else {
-          showDemo(toShow)
-      }
+        var content = """<div id="demoPane" class="demo">"""
+        content += demo.content
+        content += """  <div class="demo-nav">"""
+        if (id == demos.length-1) {
+            // last demo
+            content += """    <button class="btn btn-success" demo-action="close">Ok!</button>""";
+        } else {
+            content += """    <button class="btn" demo-action="close">Got it</button>""";
+            content += """    <button class="btn btn-success" demo-action="next">Next <i class="fa fa-forward"></i></button>""";
+        }
+        content += """  </div>"""
+        content += """</div>"""
 
-      storedCode = null
+        var where = demo.where()
+
+        lastDemo = where;
+
+        if (where.length == 0) {
+          localStorage.setItem("leonSeenDemo", (id+1).toString)
+          hideDemo(id)
+          showDemo(id+1)
+          return;
+        }
+
+        var progress = ""
+        for (i <- 0 until (demos.length-1)) {
+          if (i < id) {
+            progress += """<i class="fa fa-circle"></i>"""
+          } else {
+            progress += """<i class="fa fa-circle-o"></i>"""
+          }
+        }
+
+        where.popover(l(
+            html = true,
+            placement = demo.placement,
+            trigger = "manual",
+            title = """<span class="demo-progress">"""+progress+"""</span>"""+demo.title,
+            content = content,
+            container = "body"
+        ))
+
+        where.popover("show")
+
+        $("#demoPane button[demo-action=\"close\"]").click(() => {
+            localStorage.setItem("leonSeenDemo", 100.toString)
+            hideDemo(id)
+        })
+
+        $("#demoPane button[demo-action=\"next\"]").click(() => {
+            localStorage.setItem("leonSeenDemo", (id+1).toString)
+            hideDemo(id)
+            showDemo(id+1)
+        })
+      }
+    }
+
+    def hideDemo(id: Int): Unit = {
+        var demo = demos(id)
+
+        if (demo.placement == "modal") {
+            $("#demoPane").modal("hide")
+            $("#demoPane").unbind("hidden").on("hidden", () => { $("demoPane").remove() })
+        } else {
+            lastDemo.popover("destroy")
+        }
+    }
+
+    var toShow = (seenDemo != 0) ? seenDemo | 0;
+    if (toShow != 0) {
+        js.timers.setTimeout(1000){ showDemo(toShow) }
+    } else {
+        showDemo(toShow)
+    }
+
+    storedCode = null
   }
 
   if (storedCode != null) {
@@ -1791,7 +1841,7 @@ object Main extends js.JSApp {
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
-
+  println("Loaded entirely")
   /*
   snowStorm.snowColor = "#ddddff";
   snowStorm.vMaxX = 2;
@@ -1801,6 +1851,5 @@ object Main extends js.JSApp {
   snowStorm.flakesMaxActive = 350;
   snowStorm.followMouse = false;
   snowStorm.stop();
-  */
   */
 }
