@@ -29,19 +29,41 @@ class Feature(_a: Boolean, _n: String) {
 object Feature { def apply(active: Boolean, name: String) = new Feature(active, name).asInstanceOf[js.Any] }
 
 
+@JSExport
+object MainDelayed extends js.JSApp {
+  @JSExport
+  def main(): Unit = {
+    $(document).ready(Main.main _)
+    println("Application starting")
+  }
+  
+  var editor = ace.edit("codebox");
+  ace.require("ace/token_tooltip");
+  editor.setTheme("ace/theme/chrome");
+  editor.getSession().setMode("ace/mode/scala")
+  editor.getSession().setUseWrapMode(true)
+  editor.setShowPrintMargin(false);
+  editor.setAutoScrollEditorIntoView();
+  editor.setHighlightActiveLine(false);
+  editor.getSession().setTabSize(2)
+  $("#codebox").show()
+}
+
 @JSExport("Main")
-object Main extends js.JSApp {
+object Main {
   import Bool._
   import JQueryExtended._
   import js.JSON
   import dom.alert
   import dom.console
   def window = g
-
-  @JSExport
-  def main(): Unit = {
-    println("Application starting")
+  var editor = MainDelayed.editor
+  var aceRange = ace.require("ace/range").Range;
+  
+  def main() = {
+    println("Just to load this code")
   }
+
   
   @ScalaJSDefined
   trait LocalStorage extends js.Any {
@@ -51,21 +73,10 @@ object Main extends js.JSApp {
   
   def localStorage = window.localStorage.asInstanceOf[LocalStorage]
   
-  var editor = ace.edit("codebox");
-  var aceRange = ace.require("ace/range").Range;
-  ace.require("ace/token_tooltip");
-  editor.setTheme("ace/theme/chrome");
-  editor.getSession().setMode("ace/mode/scala")
-  editor.getSession().setUseWrapMode(true)
-  editor.setShowPrintMargin(false);
-  editor.setAutoScrollEditorIntoView();
-  editor.setHighlightActiveLine(false);
-  editor.getSession().setTabSize(2)
-
   var hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
 
-  @JSExport var WS = js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
-  var leonSocket: js.Dynamic = null
+  @JSExport var WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
+  @JSExport("leonSocket") var leonSocket: js.Dynamic = null
 
   var headerHeight = $("#title").height()+20
 
@@ -171,7 +182,7 @@ object Main extends js.JSApp {
       if (_features.execution.active && explorationFacts.length > 0) {
           var lastRange = editor.selection.getRange();
 
-          if (js.isUndefined(lastProcessedRange) || !lastRange.isEqual(lastProcessedRange)) {
+          if (!js.isUndefined(lastProcessedRange) || !lastRange.isEqual(lastProcessedRange)) {
               var maxScore = 0.0
               var maxRes: ExplorationFact = null
 
@@ -445,11 +456,14 @@ object Main extends js.JSApp {
       clearExplorationFacts();
       drawSynthesisOverview()
   }
-  handlers("compilation_progress") = (data: { val total: Float; val current: Float } ) => {
+  @ScalaJSDefined
+  trait HCompilationProgress extends js.Object { val total: Float; val current: Float }
+  handlers("compilation_progress") = (data: HCompilationProgress ) => {
     updateCompilationProgress(Math.round((data.current*100)/data.total))
   }
-
-  handlers("compilation") = (data: { val status: String}) => {
+  @ScalaJSDefined
+  trait HCompilation extends js.Object { val status: String}
+  handlers("compilation") = (data: HCompilation) => {
       if(data.status == "success") {
           updateCompilationStatus("success")
       } else {
@@ -457,7 +471,8 @@ object Main extends js.JSApp {
       }
   }
   
-  trait HMoveCursor { val line: Double }
+  @ScalaJSDefined 
+  trait HMoveCursor extends js.Object { val line: Double }
 
   handlers("move_cursor") = (data: HMoveCursor) => {
     editor.selection.clearSelection();
@@ -509,7 +524,8 @@ object Main extends js.JSApp {
     var functions: js.Dictionary[js.Dynamic]
   }
   
-  trait D {
+  @ScalaJSDefined 
+  trait D extends js.Object {
     val status: String
     val vcs: VCS
   }
@@ -602,8 +618,12 @@ object Main extends js.JSApp {
       ).asInstanceOf[js.Dictionary[js.Dynamic]]
   }
   
-  type DataOverView = js.Array[{val name: String}]
-  trait HUpdateOverview {
+  @ScalaJSDefined
+  trait HHasName extends js.Object {var name: String}
+  
+  type DataOverView = js.Array[ HHasName ]
+  @ScalaJSDefined 
+  trait HUpdateOverview extends js.Object {
     val module: String
     val overview: DataOverView
   }
@@ -627,87 +647,92 @@ object Main extends js.JSApp {
   var synthesisOverview = js.Dictionary.empty[js.Dynamic]
 
   handlers("update_synthesis_overview") = (data: js.Dictionary[js.Dynamic]) => {
-      if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
-          synthesisOverview = data;
-          drawSynthesisOverview();
-      }
+    if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
+      synthesisOverview = data;
+      drawSynthesisOverview();
+    }
   }
 
   def drawSynthesisOverview(): Unit = {
-      val t = $("#synthesis_table")
-      var html = "";
+    val t = $("#synthesis_table")
+    var html = "";
 
-      def addMenu(index: Int, fname: String, description: String): Unit = {
-          var id = """menu"""+fname+index
+    def addMenu(index: Int, fname: String, description: String): Unit = {
+        var id = """menu"""+fname+index
 
-          html += """ <div class="dropdown">"""
-          html += """  <a id=""""+id+"""" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-magic"></i> """+description+"""</a>"""
-          html += """  <ul class="dropdown-menu" role="menu" aria-labelledby=""""+id+"""">"""
-          if (compilationStatus == 1) {
-              html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid=""""+index+"""">Search</a></li>"""
-              html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="explore" cid=""""+index+"""">Explore</a></li>"""
-              html += """    <li role="presentation" class="divider"></li>"""
-              html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="/assets/images/loader.gif" /></a></li>"""
-          } else {
-              html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="fa fa-ban"></i> Not compiled</a></li>"""
-          }
+        html += """ <div class="dropdown">"""
+        html += """  <a id=""""+id+"""" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-magic"></i> """+description+"""</a>"""
+        html += """  <ul class="dropdown-menu" role="menu" aria-labelledby=""""+id+"""">"""
+        if (compilationStatus == 1) {
+          html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid=""""+index+"""">Search</a></li>"""
+          html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="explore" cid=""""+index+"""">Explore</a></li>"""
+          html += """    <li role="presentation" class="divider"></li>"""
+          html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="/assets/images/loader.gif" /></a></li>"""
+        } else {
+          html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="fa fa-ban"></i> Not compiled</a></li>"""
+        }
 
-          html += """  </ul>"""
-          html += """ </div>"""
-      }
+        html += """  </ul>"""
+        html += """ </div>"""
+    }
 
-      var data = synthesisOverview
+    var data = synthesisOverview
 
-      var fnames = new js.Array[String]
-      for (f <- js.Object.keys(data("functions").asInstanceOf[js.Object])) {
-        fnames.push(f)
-      }
-      fnames.sort()
-      trait SP {val index: Int; val line: Int; val description: String }
-      for (fi <- 0 until fnames.length) {
-          var  f = fnames(fi);
-        if (!js.isUndefined(overview.functions(f))) {
-          if (data("functions").asInstanceOf[js.Dictionary[js.Dynamic]](f).length == 1) {
-            var sp = data("functions").asInstanceOf[js.Dictionary[js.Dynamic]](f)(0).asInstanceOf[SP]
-            html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-            addMenu(sp.index, f, overview.functions(f).displayName.asInstanceOf[String])
+    var fnames = new js.Array[String]
+    data.get("functions") match {
+      case Some(ff) =>
+        for (f <- js.Object.keys(ff.asInstanceOf[js.Object])) {
+          fnames.push(f)
+        }
+      case _ =>
+    }
+    fnames.sort()
+    @ScalaJSDefined trait SP extends js.Object {val index: Int; val line: Int; val description: String }
+    for (fi <- 0 until fnames.length) {
+        var  f = fnames(fi);
+      if (!js.isUndefined(overview.functions(f))) {
+        if (data("functions").asInstanceOf[js.Dictionary[js.Dynamic]](f).length == 1) {
+          var sp = data("functions").asInstanceOf[js.Dictionary[js.Array[SP]]](f)(0)
+          html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+          addMenu(sp.index, f, overview.functions(f).displayName.asInstanceOf[String])
+          html += "</td></tr>"
+        } else {
+          html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions(f).line+"\">"+overview.functions(f).displayName+"</td></tr>"
+          val spArray = data("functions")(f).asInstanceOf[js.Array[SP]]
+          for (i <- 0 until spArray.length) {
+            var sp = spArray(i)
+            html += "<tr>"
+            html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
+            addMenu(sp.index, f, sp.description)
             html += "</td></tr>"
-          } else {
-            html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions(f).line+"\">"+overview.functions(f).displayName+"</td></tr>"
-            val spArray = data("functions")(f).asInstanceOf[js.Array[SP]]
-            for (i <- 0 until spArray.length) {
-              var sp = spArray(i)
-              html += "<tr>"
-              html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-              addMenu(sp.index, f, sp.description)
-              html += "</td></tr>"
-            }
           }
         }
       }
+    }
 
-      t.html(html);
+    t.html(html);
 
-      if (compilationStatus == 1) {
-          $("#synthesis .dropdown-toggle").click(((self: Element, e: JQueryEventObject) => {
-              val p = $(self).parents(".problem")
+    if (compilationStatus == 1) {
+        $("#synthesis .dropdown-toggle").click(((self: Element, e: JQueryEventObject) => {
+            val p = $(self).parents(".problem")
 
-              val msg = JSON.stringify(l(
-                  module= "synthesis",
-                  action= "getRulesToApply",
-                  fname= p.attr("fname"),
-                  cid= p.attr("cid").toInt
-              ))
+            val msg = JSON.stringify(l(
+                module= "synthesis",
+                action= "getRulesToApply",
+                fname= p.attr("fname"),
+                cid= p.attr("cid").toInt
+            ))
 
-              leonSocket.send(msg)
-          }): js.ThisFunction)
-      }
+            leonSocket.send(msg)
+        }): js.ThisFunction)
+    }
 
-      if (!js.isUndefined(data("functions")) && js.Object.keys(data("functions").asInstanceOf[js.Object]).length > 0 && features("synthesis").active) {
-          $("#synthesis").show()
-      } else {
-          $("#synthesis").hide()
-      }
+    data.get("functions") match {
+      case Some(datafunctions) if js.Object.keys(datafunctions.asInstanceOf[js.Object]).length > 0 && features("synthesis").active =>
+        $("#synthesis").show()
+      case _ =>
+      $("#synthesis").hide()
+    }
   }
 
   def setPresentationMode() {
@@ -718,8 +743,8 @@ object Main extends js.JSApp {
       }
       resizeEditor()
   }
-
-  handlers("update_exploration_facts") = (data: {val newFacts: js.Array[NewResult]}) => {
+  @ScalaJSDefined trait HUpdateExplorationFacts extends js.Object {val newFacts: js.Array[NewResult]}
+  handlers("update_exploration_facts") = (data: HUpdateExplorationFacts) => {
       updateExplorationFacts(data.newFacts);
   }
 
@@ -745,10 +770,11 @@ object Main extends js.JSApp {
         if (features(m).active) {
           var mod = overview.modules(m)
           var data = overview.data(m).asInstanceOf[js.Dictionary[js.Any]]
-          if (!js.isUndefined(data(fname))) {
-            html += mod.html(fname, data(fname))
-          } else {
-            html += mod.missing(fname)
+          data.get(fname) match {
+            case Some(name) =>
+              html += mod.html(fname, name)
+            case _ =>
+              html += mod.missing(fname)
           }
         }
       }
@@ -758,7 +784,7 @@ object Main extends js.JSApp {
     t.html(html);
 
     for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
-      if (!js.isUndefined(overview.modules(m)("handlers"))) {
+      if (!js.isUndefined(overview.modules(m).handlers)) {
         overview.modules(m).handlers()
       }
     }
@@ -791,7 +817,7 @@ object Main extends js.JSApp {
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject,scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
   
-  trait HEditor {
+  @ScalaJSDefined trait HEditor extends js.Object {
      val annotations: js.Array[Annotation]
   }
 
@@ -829,11 +855,22 @@ object Main extends js.JSApp {
       }
   }
 
-  handlers("notification") = (data: {val content: String; val `type`: String}) => {
+  @ScalaJSDefined
+  trait HNotification extends js.Object {
+    val content: String
+    val `type`: String
+  }
+  
+  handlers("notification") = (data: HNotification) => {
       notify(data.content, data.`type`);
   }
+  
+  @ScalaJSDefined
+  trait HLog extends js.Object {
+    val message: String
+  }
 
-  handlers("log") = (data: {val message: String}) => {
+  handlers("log") = (data: HLog) => {
       var txt = $("#console")
       txt.append(data.message+"\n");
       txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
@@ -844,7 +881,7 @@ object Main extends js.JSApp {
   @ScalaJSDefined
   trait HSynthesisResult extends js.Any {
     val result: String;
-    val cid: String;
+    val cid: Int;
     val fname: String;
     val problem: String;
     val closed: Double;
@@ -945,15 +982,18 @@ object Main extends js.JSApp {
           synthesizing = false;
       }
   }
-
-  handlers("synthesis_exploration") = (data: {
+  
+  @ScalaJSDefined
+  trait HSynthesisExploration extends js.Object {
     val html: String
     val fname: String
-    val cid: String
+    val cid: Int
     val from: js.Array[String]
     val allCode: String
     val cursor: js.UndefOr[String]
-  }) => {
+  }
+
+  handlers("synthesis_exploration") = (data: HSynthesisExploration) => {
       var d = $("#synthesisExploreDialog");
 
       g.prettyPrint();
@@ -1031,10 +1071,16 @@ object Main extends js.JSApp {
       })
   }
 
-  trait HSynthesisRulesToApply {
+  @ScalaJSDefined trait HRulesApps extends js.Object {
+    val status: String
+    val id: Int
+    val name: String
+  }
+  
+  @ScalaJSDefined trait HSynthesisRulesToApply extends js.Object {
     val fname: String
-    val cid: String
-    val rulesApps: js.Array[{val status: String; val id: String; val name: String}]
+    val cid: Int
+    val rulesApps: js.Array[HRulesApps]
   }
   
   handlers("synthesis_rulesToApply") = (data: HSynthesisRulesToApply) => {
@@ -1089,7 +1135,8 @@ object Main extends js.JSApp {
       }): js.ThisFunction)
   }
 
-  handlers("repair_result") = (data : {
+  @ScalaJSDefined
+  trait HRepairResult extends js.Object {
     val result: String
     val progress: String
     val error: String
@@ -1098,7 +1145,8 @@ object Main extends js.JSApp {
     val solCode: String
     val allCode: String
     val cursor: js.UndefOr[String]
-  }) => {
+  }
+  handlers("repair_result") = (data : HRepairResult) => {
     var pb = $("#repairProgress")
     var pbb = $("#repairProgress .progress-bar")
 
@@ -1167,7 +1215,8 @@ object Main extends js.JSApp {
     }
   }
   
-  trait VC extends js.Any {
+  @ScalaJSDefined 
+  trait VC extends js.Object {
     val status: String
     val fun: String
     val kind: String
@@ -1289,7 +1338,7 @@ object Main extends js.JSApp {
       $("#verifyResults").show("fade");
   }
 
-  trait HVerification_Result {val status: String; val vcs: VCS}
+  @ScalaJSDefined trait HVerification_Result extends js.Object {val status: String; val vcs: VCS}
   
   handlers("verification_result") = (data: HVerification_Result) => {
       displayVerificationDetails(data.status, data.vcs)
@@ -1358,16 +1407,17 @@ object Main extends js.JSApp {
       alert(msg);
   }
   
-  trait Kind extends js.Any { val kind: String }
+  @ScalaJSDefined trait Kind extends js.Object { val kind: String }
   var receiveEvent = (event: JQueryEventObject) => {
-      
-      var data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
-      if (!js.isUndefined(handlers(data.kind))) {
-          handlers(data.kind).asInstanceOf[Function1[Kind, Unit]](data);
-      } else {
-          console.log("Unknown event type: "+data.kind)
-          console.log(data)
-      }
+    var data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
+    handlers.get(data.kind) match {
+      case Some(handler) =>
+        handler.asInstanceOf[Function1[Kind, Any]](data);
+      case _ =>
+        console.log("Unknown event type: "+data.kind)
+        console.log(data)
+    }
+    
   }
 
   var connected = false
@@ -1492,12 +1542,14 @@ object Main extends js.JSApp {
       }
   }
 
+  @JSExport
   def connectWS() {
-      leonSocket = js.Dynamic.newInstance(WS)(g._leon_websocket_url)
-      leonSocket.onopen = openEvent _
-      leonSocket.onmessage = receiveEvent _
-      leonSocket.onclose = closeEvent _
-      leonSocket.onerror = errorEvent _
+      println("Creating socket for "+g._leon_websocket_url)
+      leonSocket = js.Dynamic.newInstance(g.WebSocket/*WS*/)(g._leon_websocket_url)
+      leonSocket.onopen = openEvent
+      leonSocket.onmessage = receiveEvent
+      leonSocket.onclose = closeEvent
+      leonSocket.onerror = errorEvent
   }
 
   var lastChange      = 0.0;
@@ -1852,4 +1904,5 @@ object Main extends js.JSApp {
   snowStorm.followMouse = false;
   snowStorm.stop();
   */
+
 }
