@@ -12,6 +12,9 @@ dist
 /.idea_modules
 /.classpath
 /.project
+/client/.classpath
+/client/.project
+**/.settings/org.scala-ide.sdt.core.prefs
 /RUNNING_PID
 /database
 /lib
