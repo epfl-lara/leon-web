@@ -96,34 +96,38 @@ updateEclipse in main := {
   val jssettings = baseDirectory.value / "client/.settings/org.scala-ide.sdt.core.prefs"
   def replaceInFile(find: String, replace: String, file: File): Unit = {
     val content = IO.read(file)
-    val new_content = find.r.replaceAllIn(content, replace)
-    IO.write(file, new_content)
-    println("in " + (file.getParentFile().getName + "/" + file.getName) + ", replaced '"+find+"' by '"+replace+"'")
+    find.r.findFirstIn(content) match {
+      case Some(_) =>
+        val new_content = find.r.replaceAllIn(content, replace)
+        IO.write(file, new_content)
+        println("In " + (file.getParentFile().getName + "/" + file.getName) + ", replaced '"+find+"' by '"+replace+"'")
+      case None =>
+        println("Could not find in " + (file.getParentFile().getName + "/" + file.getName) + " the following '"+find+"'")
+    }
   }
   val sep = (if(java.io.File.separator == "\\") "\\\\" else "/")
+  val s = java.io.File.separator
   val replacements = Seq(
-    ("""<name>client</name>""", """<name>AnyWeb-client</name>""",jsp),
-    ("""<name>server</name>""", """<name>AnyWeb-server</name>""",jvmp),
+    ("""<name>client</name>""", """<name>leon-web-client</name>""",jsp),
+    ("""<name>leonWeb</name>""", """<name>leon-web-server</name>""",jvmp),
     // Shorten the reference name for the "shared" directory.
     // Remove the output tag associated to them.
-    ("""<classpathentry kind="src" path="/sharedJVM" exported="true" combineaccessrules="false"/>""", "", jvmc),
-    ("<link>\n *<name>.*AnyWeb-Play-client.*</name>\n.*\n.*\n *</link>\n *","",jvmp),
-    ("""<classpathentry kind="src" path="/sharedJS" exported="true" combineaccessrules="false"/>\n *""", "", jsc),
-    ("""<classpathentry output=".*" kind="src" path=".*AnyWeb-Play-client-src-main.*"/>
+    ("""<classpathentry kind="src" path="/sharedJvm" exported="true" combineaccessrules="false"/>
   """, "", jvmc),
-    ("""<classpathentry kind="src" path="src\\test\\resources"/>
-  ""","",jvmc),
-    /*("""(<classpathentry kind="src" path="src\\test\\scala"/>)""",
-  """<classpathentry kind="src" path="src\\main\\scala"/>
-  $1""", jsc),*/
-    //("output=[^ ]* (.*)path=\".*AnyWeb-app-shared","$1path=\"shared",jvmc),
-    // Set up the correct entry of the scalajs library
-    //("( *<classpathentry kind=\"lib\" path=\".*)" + "(scalajs-library_2.11"+sep+"jars"+sep+"scalajs-library_2.11-0.6.4.jar)(\"/>)", "$1$2$3" + IO.Newline + "$1scalajs-compiler_2.11.6"+sep+"jars"+sep+"scalajs-compiler_2.11.6-0.6.4.jar$3", jsc),
+    ("""<classpathentry kind="src" path="/Leon" exported="true" combineaccessrules="false"/>
+  """, "", jvmc),
+    //("<link>\n *<name>.*leon-web-client.*</name>\n.*\n.*\n *</link>\n *","",jvmp),
+    ("""<classpathentry kind="src" path="/sharedJs" exported="true" combineaccessrules="false"/>
+ *""", "", jsc),
+    /*("""<classpathentry output=".*" kind="src" path=".*leon-web-client-src-main.*"/>
+  """, "", jvmc),*/
+    /*("""<classpathentry kind="src" path="src"""+sep+"""test"""+sep+"""resources"/>
+  ""","",jvmc),*/
+    ("""<classpathentry kind="src" path="/Scala.js Ace" exported="true" combineaccessrules="false"/>
+  ""","",jsc)
     // Set up the correct entry for the scalajs compiler
-    //("2.11.7", "2.11.6", jssettings),
     // Remove duplicated entries in .project
-    ("""(<link>(?:(?!</link>)(?:.|\r|\n))*</link>)\s*\1""","""$1""",jsp),
-    ("""(<link>(?:(?!</link>)(?:.|\r|\n))*</link>)\s*\1""","""$1""",jvmp)
+    //("""(<link>(?:(?!</link>)(?:.|\r|\n))*</link>)\s*\1""","""$1""",jsp),//("""(<link>(?:(?!</link>)(?:.|\r|\n))*</link>)\s*\1""","""$1""",jvmp)
     // Remove dummy entries in .classpath
     //("""<classpathentry kind="src" path="shared\\main\\scala"/>\r?\n\s*""","", jsc),
     //("""<classpathentry kind="src" path="shared\\main\\scala"/>\r?\n\s*""","", jvmc)
@@ -143,13 +147,21 @@ updateEclipse in main := {
   }
   val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
   def doubleSep(path: String) = if(isWindows) "\\\\".r.replaceAllIn(path, "\\\\\\\\") else path
+  
+  val scalaJsAceFolder = doubleSep(scalajsAceLocalBase.value.getAbsolutePath())
+  val srcmainscala = sep + "src" + sep + "main" + sep + "scala"
+  
+  addClassPath(jsc, s"""
+  <classpathentry kind="lib" path="$scalaJsAceFolder"""+sep+"target"+sep+"scala-2.11"+sep+"classes"+s"""" sourcepath="$scalaJsAceFolder$srcmainscala"/>""")
+  
   def sepNormalize(path: String) = if(isWindows) "\\\\".r.replaceAllIn(path, "/") else path
   
-  val sharedSourceFolder = sepNormalize(baseDirectory.value.getAbsolutePath()) + "/shared/src/main/scala"
-  addLinkedSourceFolder(jvmp, "shared-main-scala", sharedSourceFolder)
-  addClassPath(jvmc, """<classpathentry kind="src" path="shared-main-scala"/>""")
-  addLinkedSourceFolder(jsp, "shared-main-scala", sharedSourceFolder)
-  addClassPath(jsc, """<classpathentry kind="src" path="shared-main-scala"/>""")
+  val sharedSourceFolder = sepNormalize(baseDirectory.value.getAbsolutePath()) + sep + "shared" + srcmainscala
+  
+  for((proj, clas) <- Seq((jvmp, jsp),(jsp,jsc))) {
+    addLinkedSourceFolder(proj, "shared-main-scala", sharedSourceFolder)
+    addClassPath(clas, """<classpathentry kind="src" path="shared-main-scala"/>""")
+  }
   
   if(isWindows) {
     val content = IO.read(jvmc)
@@ -160,19 +172,15 @@ updateEclipse in main := {
         case _ => println("Impossible to fix leon")
       }
     }
-    // Now for scalajs-ace.
     val leonFolder = doubleSep((baseDirectory.value / "leon").getAbsolutePath())
-    val scalaJsAceFolder = scalajsAceLocalBase.value.getAbsolutePath()
-    /*replaceInFile("""<linkedResources>""", """<linkedResources>
-    <link>
-			<name>scalajs-ace</name>
-			<type>2</type>
-			<location>"""+"\\\\".r.replaceAllIn(scalaJsAceFolder,"/")+"""/src/main/scala</location>
-		</link>""", jsp)*/
-    /*replaceInFile("""<classpathentry kind="src" path="/Scala.js Ace" exported="true" combineaccessrules="false"/>""",
-       """<classpathentry kind="src" path="scalajs-ace"/>""", jsc)*/
+    
+    // Append leon libraries at the end of vanuatoo (sub leon library).
     val toFind = """(<classpathentry kind="lib" path=".*leon.*vanuatoo_2.11-0.1.jar"/>)"""
-    val toReplace = "$1\n\t"+"""<classpathentry kind="lib" path="""" + leonFolder + """\\target\\scala-2.11\\classes" sourcepath="""" + leonFolder + """\\src\\main\\scala"/>"""
+    val toReplace = "$1\n\t<classpathentry kind=\"lib\" path=\"" +
+      leonFolder +
+      sep + "target" + sep + "scala-2.11" + sep +
+      "classes\" sourcepath=\""+s"$leonFolder$srcmainscala"+"\"/>"
+    
     replaceInFile(toFind, toReplace, jvmc)
   }
 }
