@@ -10,9 +10,10 @@ import scala.scalajs.js
 import scala.collection.mutable.{HashMap => MMap}
 import js.annotation._
 import com.scalawarrior.scalajs.ace._
-import org.scalajs.jquery.{jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject}
+import org.scalajs.jquery
+import jquery.{jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject}
 
-import js.Dynamic.{global => g, literal => l}
+import js.Dynamic.{global => g, literal => l, newInstance => jsnew}
 import js.JSConverters._
 
 @ScalaJSDefined
@@ -78,12 +79,12 @@ object Main {
   @JSExport var WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
   
   @ScalaJSDefined
-  trait LeonSocket {
+  trait LeonSocket extends js.Object {
     def send(message: String): Unit
-    var onopen: JQueryEventObject => Any
-    var onmessage: JQueryEventObject => Any
-    var onclose: JQueryEventObject => Any
-    var onerror: JQueryEventObject => Any
+    var onopen: js.Function1[JQueryEventObject, Any]
+    var onmessage: js.Function1[JQueryEventObject, Any]
+    var onclose: js.Function1[JQueryEventObject, Any]
+    var onerror: js.Function1[JQueryEventObject, Any]
   }
   @JSExport("leonSocket") var leonSocket: LeonSocket = null
 
@@ -91,7 +92,7 @@ object Main {
 
   var lastRange: Range = null;
   var lastDisplayedRange: Range = null;
-  var lastProcessedRange: Range = null;
+  var lastProcessedRange: js.UndefOr[Range] = js.undefined;
 
   var explorationFacts = new js.Array[ExplorationFact]();
 
@@ -99,7 +100,7 @@ object Main {
   
   def clearExplorationFacts() = {
     lastRange = null;
-    lastProcessedRange = null;
+    lastProcessedRange = js.undefined;
 
     hideHighlight();
 
@@ -134,7 +135,7 @@ object Main {
       var n = newResults(i);
 
       explorationFacts.push(ExplorationFact(
-        range = js.Dynamic.newInstance(aceRange)(n.fromRow, n.fromColumn, n.toRow, n.toColumn).asInstanceOf[Range],
+        range = jsnew(aceRange)(n.fromRow, n.fromColumn, n.toRow, n.toColumn).asInstanceOf[Range],
         res = n.result
       ));
     }
@@ -191,7 +192,7 @@ object Main {
       if (_features.execution.active && explorationFacts.length > 0) {
           var lastRange = editor.selection.getRange();
 
-          if (!js.isUndefined(lastProcessedRange) || !lastRange.isEqual(lastProcessedRange)) {
+          if (!lastProcessedRange.isDefined || !lastRange.isEqual(lastProcessedRange.get)) {
               var maxScore = 0.0
               var maxRes: ExplorationFact = null
 
@@ -497,17 +498,19 @@ object Main {
 
   var localFeatures = localStorage.getItem("leonFeatures")
   if (localFeatures != null) {
-    var locFeatures = JSON.parse(localFeatures) //TODO: Better serialization
-    for (f <- js.Object.keys(locFeatures.asInstanceOf[js.Object])) {
-      if (!js.isUndefined(features(f))) {
-          features(f).active = locFeatures(f).active
+    var locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]] //TODO: Better serialization
+    for ((f, locFeature) <- locFeatures) {
+      features.get(f) match {
+        case Some(feature) =>
+          feature.active = locFeature.active
+        case None =>
       }
     }
   }
 
   var fts = $("#params-panel ul")
-  for (f <- js.Object.keys(features.asInstanceOf[js.Object])) {
-      fts.append("""<li><label class="checkbox"><input id="feature-""""+f+" class=\"feature\" ref=\""+f+"\" type=\"checkbox\""+(features(f).active ? """ checked="checked"""" | "")+">"+features(f).name+"</label></li>")
+  for ((f, feature) <- features) {
+      fts.append("""<li><label class="checkbox"><input id="feature-""""+f+" class=\"feature\" ref=\""+f+"\" type=\"checkbox\""+(feature.active ? """ checked="checked"""" | "")+">"+feature.name+"</label></li>")
   }
 
   $(".feature").click(((self: Element) => {
@@ -530,25 +533,34 @@ object Main {
   }): js.ThisFunction)
 
   setPresentationMode()
-
-  @ScalaJSDefined
-  trait Overview extends js.Object {
-    val modules: js.Dictionary[js.Dynamic]
-    val data: js.Dictionary[js.Dynamic]
-    var functions: js.Dictionary[js.Dynamic]
+  
+  @ScalaJSDefined 
+  trait Status extends js.Object {
+    val status: String
   }
   
   @ScalaJSDefined 
-  trait D extends js.Object {
-    val status: String
+  trait VerificationDetails extends js.Object with Status {
     val vcs: VCS
   }
   
-  val overview: Overview = new Overview {
-      val modules= l(
-          verification= l(
-              column= "Verif.",
-              html= (name: String, d: D) => {
+  type Html = String
+  
+  object overview {
+      abstract class Module(name: String) { self =>
+        val column: String
+        def html(name: String, d: VerificationDetails): Html
+        def missing(name: String): Html
+        def handlers(): Unit
+        modules.list += name -> self
+      }
+    
+      object modules {
+          var list = Map[String, Module]() // Defined before all modules.
+        
+          val verification = new Module("verification") {
+              val column= "Verif."
+              def html(name: String, d: VerificationDetails): Html = {
                   val vstatus = d.status match {
                     case "crashed" =>
                       """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
@@ -567,30 +579,27 @@ object Main {
                   }
 
                   "<td class=\"status verif\" fname=\""+name+"\">"+vstatus+"</td>"
-              },
-              missing= (name: String) => {
+              }
+              def missing(name: String): Html = {
                   "<td class=\"status verif\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
-              },
-              handlers= () => {
+              }
+              def handlers(): Unit = {
                   $("td.verif").click(((self: Element) => {
                       var fname = $(self).attr("fname")
-                      if (!js.isUndefined(overview.data("verification")(fname))) {
-                          var d = overview.data("verification")(fname).asInstanceOf[D]
-
+                      overview.data.verification.get(fname) match {
+                        case Some(d) =>
                           openVerifyDialog()
-
                           displayVerificationDetails(d.status, d.vcs)
-                      } else {
+                        case None =>
                           openVerifyDialog()
-
                           displayVerificationDetails("unknown", new VCS())
                       }
                   }): js.ThisFunction)
               }
-          ),
-          termination= l(
-              column= "Term.",
-              html= (name: String, d: D) => {
+          }
+          val termination = new Module("termination") {
+              val column= "Term."
+              def html(name: String, d: VerificationDetails): Html = {
                   val tstatus = d.status match {
                       case "wip" =>
                           """<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>""";
@@ -607,35 +616,57 @@ object Main {
                   }
 
                   "<td class=\"status termin\" fname=\""+name+"\">"+tstatus+"</td>"
-              },
-              missing= (name: String) => {
+              }
+              def missing(name: String): Html = {
                   "<td class=\"status termin\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
-              },
-              handlers= () => {
+              }
+              def handlers(): Unit = {
                   $("td.termin").click(((self: Element) => {
                       var fname = $(self).attr("fname")
                       openTerminationDialog()
-                      if (!js.isUndefined(overview.data("termination")(fname))) {
-                          var d = overview.data("termination")(fname).asInstanceOf[D]
-                          displayTerminationDetails(d.status, d.asInstanceOf[{val call: String; val calls: scala.scalajs.js.Array[String]}]) // Comes from javascript. Is it correct?
-                      } else {
+                      overview.data.termination.get(fname) match {
+                        case Some(d) =>
+                          displayTerminationDetails(d.status, d)
+                        case None =>
                           displayTerminationDetails("unknown", null)
                       }
                   }): js.ThisFunction);
               }
-          )
-      ).asInstanceOf[js.Dictionary[js.Dynamic]]
-      var functions= js.Dictionary.empty[js.Dynamic]
-      val data= l(
-          verification= l(),
-          termination= l()
-      ).asInstanceOf[js.Dictionary[js.Dynamic]]
+          }
+      }
+      
+      var functions= js.Dictionary.empty[OverviewFunction]
+      object data {
+        var verification = js.Dictionary[VerificationDetails]()
+
+        var termination = js.Dictionary[TerminationDetails]()
+        
+        def update[A](s: String, v: A) = {
+          s match {
+            case "verification" => verification = v.asInstanceOf[js.Dictionary[VerificationDetails]]
+            case "termination" => termination = v.asInstanceOf[js.Dictionary[TerminationDetails]]
+            case _ => println(s"$s data not defined")
+          }
+        }
+        
+        def apply[A](s: String): js.Dictionary[A] = {
+          s match {
+            case "verification" => verification.asInstanceOf[js.Dictionary[A]]
+            case "termination" => termination.asInstanceOf[js.Dictionary[A]]
+            case _ => throw new Exception(s"$s data not defined")
+          }
+        }
+      }
+  }
+  @ScalaJSDefined
+  trait OverviewFunction extends js.Object {
+    val name: String
+    val displayName: String
+    val line: Int
+    val column: Int
   }
   
-  @ScalaJSDefined
-  trait HHasName extends js.Object {var name: String}
-  
-  type DataOverView = js.Array[ HHasName ]
+  type DataOverView = js.Dictionary[OverviewFunction]
   @ScalaJSDefined 
   trait HUpdateOverview extends js.Object {
     val module: String
@@ -643,24 +674,32 @@ object Main {
   }
 
   handlers("update_overview") = (data: HUpdateOverview) => {
-      if (data.module == "main") {
-          overview.functions = js.Dictionary.empty[js.Dynamic];
+    if (data.module == "main") {
+      overview.functions = js.Dictionary.empty[OverviewFunction];
 
-          for (i <- 0 until data.overview.length) {
-              var fdata = data.overview(i)
-              var fname = fdata.name
-              overview.functions(fname) = fdata.asInstanceOf[js.Dynamic]
-          }
-      } else {
-          overview.data(data.module) = data.overview.asInstanceOf[js.Dynamic]
+      for ((i, fdata)  <- data.overview) {
+        var fdata = data.overview(i)
+        var fname = fdata.name
+        overview.functions(fname) = fdata
       }
+    } else {
+      overview.data(data.module) = data.overview
+    }
 
-      drawOverView()
+    drawOverView()
   }
 
-  var synthesisOverview = js.Dictionary.empty[js.Dynamic]
+  @ScalaJSDefined trait SP extends js.Object {val index: Int; val line: Int; val description: String }
+  
+  @ScalaJSDefined trait SynthesisOverview extends js.Object {
+    val functions: js.UndefOr[js.Dictionary[js.Array[SP]]]
+  }
+  
+  var synthesisOverview: SynthesisOverview = new SynthesisOverview {
+    val functions = js.undefined
+  }
 
-  handlers("update_synthesis_overview") = (data: js.Dictionary[js.Dynamic]) => {
+  handlers("update_synthesis_overview") = (data: SynthesisOverview) => {
     if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
       synthesisOverview = data;
       drawSynthesisOverview();
@@ -693,26 +732,25 @@ object Main {
     var data = synthesisOverview
 
     var fnames = new js.Array[String]
-    data.get("functions") match {
-      case Some(ff) =>
+    if(data.functions.isDefined) {
+      val ff = data.functions.get
         for (f <- js.Object.keys(ff.asInstanceOf[js.Object])) {
           fnames.push(f)
         }
-      case _ =>
     }
     fnames.sort()
-    @ScalaJSDefined trait SP extends js.Object {val index: Int; val line: Int; val description: String }
+
     for (fi <- 0 until fnames.length) {
         var  f = fnames(fi);
       if (!js.isUndefined(overview.functions(f))) {
-        if (data("functions").asInstanceOf[js.Dictionary[js.Dynamic]](f).length == 1) {
-          var sp = data("functions").asInstanceOf[js.Dictionary[js.Array[SP]]](f)(0)
+        if (data.functions.get(f).length == 1) {
+          var sp = data.functions.get(f)(0)
           html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
-          addMenu(sp.index, f, overview.functions(f).displayName.asInstanceOf[String])
+          addMenu(sp.index, f, overview.functions(f).displayName)
           html += "</td></tr>"
         } else {
           html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions(f).line+"\">"+overview.functions(f).displayName+"</td></tr>"
-          val spArray = data("functions")(f).asInstanceOf[js.Array[SP]]
+          val spArray = data.functions.get(f)
           for (i <- 0 until spArray.length) {
             var sp = spArray(i)
             html += "<tr>"
@@ -741,10 +779,9 @@ object Main {
         }): js.ThisFunction)
     }
 
-    data.get("functions") match {
-      case Some(datafunctions) if js.Object.keys(datafunctions.asInstanceOf[js.Object]).length > 0 && features("synthesis").active =>
-        $("#synthesis").show()
-      case _ =>
+    if(data.functions.isDefined && data.functions.get.keys.nonEmpty && features("synthesis").active) {
+      $("#synthesis").show()
+    } else {
       $("#synthesis").hide()
     }
   }
@@ -764,26 +801,25 @@ object Main {
 
   def drawOverView() {
     val t = $("#overview_table")
-    var html = "";
+    var html: Html = "";
 
     html += "<tr>"
     html += "<th>Function</th>"
-    for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
-        if (features(m).active) {
-            html += "<th>"+overview.modules(m).column+"</th>"
+    for ((name, module) <- overview.modules.list) {
+        if (features(name).active) {
+            html += "<th>"+module.column+"</th>"
         }
     }
     html += "</tr>"
 
-    for (fname <- js.Object.keys(overview.functions.asInstanceOf[js.Object])) {
-      var fdata = overview.functions(fname)
+    for ((fname, fdata) <- overview.functions) {
+      val fdata = overview.functions(fname)
 
       html += "<tr>"
       html += "  <td class=\"fname clicktoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
-      for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
+      for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          var mod = overview.modules(m)
-          var data = overview.data(m).asInstanceOf[js.Dictionary[js.Any]]
+          var data = overview.data[VerificationDetails](m)
           data.get(fname) match {
             case Some(name) =>
               html += mod.html(fname, name)
@@ -797,10 +833,8 @@ object Main {
 
     t.html(html);
 
-    for (m <- js.Object.keys(overview.modules.asInstanceOf[js.Object])) {
-      if (!js.isUndefined(overview.modules(m).handlers)) {
-        overview.modules(m).handlers()
-      }
+    for ((name, m) <- overview.modules.list) {
+      m.handlers()
     }
 
 
@@ -832,19 +866,20 @@ object Main {
   }
   
   @ScalaJSDefined trait HEditor extends js.Object {
-     val annotations: js.Array[Annotation]
+     val annotations: js.UndefOr[js.Array[Annotation]]
   }
 
   handlers("editor") = (data: HEditor) => {
-      if (!js.isUndefined(data.annotations)) {
+      if (data.annotations.isDefined) {
+          val annotations = data.annotations.get
           var session = editor.getSession();
 
           context = "unknown";
 
           $("#annotations").html("");
 
-          for (i <- 0 until data.annotations.length) {
-              var a = data.annotations(i);
+          for (i <- 0 until annotations.length) {
+              var a = annotations(i);
               if (a.`type` == "verification") {
                   context = "verification";
               } else if (a.`type` == "synthesis") {
@@ -864,7 +899,7 @@ object Main {
 
 
           addClickToLine("#annotations");
-          session.setAnnotations(data.annotations);
+          session.setAnnotations(annotations);
           resizeEditor();
       }
   }
@@ -1085,8 +1120,7 @@ object Main {
       })
   }
 
-  @ScalaJSDefined trait HRulesApps extends js.Object {
-    val status: String
+  @ScalaJSDefined trait HRulesApps extends js.Object with Status {
     val id: Int
     val name: String
   }
@@ -1229,14 +1263,19 @@ object Main {
     }
   }
   
+  @ScalaJSDefined
+  trait ResultOutput extends js.Object {
+    val result: String
+    val output: String
+  }
+  
   @ScalaJSDefined 
-  trait VC extends js.Object {
-    val status: String
+  trait VC extends js.Object with Status {
     val fun: String
     val kind: String
-    val time: Double
+    val time: String
     val counterExample: js.UndefOr[js.Dictionary[String]]
-    val execution: js.UndefOr[{ val result: String; val output: String}]
+    val execution: js.UndefOr[ResultOutput]
   }
   
   type VCS = js.Array[VC]
@@ -1351,16 +1390,21 @@ object Main {
 
       $("#verifyResults").show("fade");
   }
-
-  @ScalaJSDefined trait HVerification_Result extends js.Object {val status: String; val vcs: VCS}
   
-  handlers("verification_result") = (data: HVerification_Result) => {
+  handlers("verification_result") = (data: VerificationDetails) => {
       displayVerificationDetails(data.status, data.vcs)
+  }
+  
+  @ScalaJSDefined
+  trait TerminationDetails extends js.Object {
+    val call: String
+    val calls: js.Array[String]
+    val status: String
   }
 
   def displayTerminationDetails(
     status: String,
-    fdata: {val call: String; val calls: js.Array[String]}) {
+    fdata: TerminationDetails) {
       var pb = $("#terminationProgress")
       var pbb = pb.children(".progress-bar")
 
@@ -1558,7 +1602,7 @@ object Main {
   @JSExport
   def connectWS() {
       println("Creating socket for "+g._leon_websocket_url)
-      leonSocket = js.Dynamic.newInstance(g.WebSocket/*WS*/)(g._leon_websocket_url).asInstanceOf[LeonSocket]
+      leonSocket = jsnew(g.WebSocket/*WS*/)(g._leon_websocket_url).asInstanceOf[LeonSocket]
       leonSocket.onopen = openEvent
       leonSocket.onmessage = receiveEvent
       leonSocket.onclose = closeEvent
@@ -1637,15 +1681,18 @@ object Main {
 
       loadExample(group, id)
   }
-  def loadExample(group: String, id: String) {
-    if (!js.isUndefined(id)) {
+  
+  @ScalaJSDefined trait StatusCode extends js.Object {
+    val status: String
+    val code: String
+  }
+  
+  def loadExample(group: String, id: js.UndefOr[String]) {
+    if (id.isDefined) {
       $.ajax(l(
-        url= "/ajax/getExample/"+group+"/"+id,
+        url= "/ajax/getExample/"+group+"/"+id.get,
         dataType= "json",
-        success= (data: {
-          val status: String
-          val code: String
-        }, textStatus: String, jqXHR: JQueryXHR) => {
+        success= (data: StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
           if (data.status == "success") {
             storeCurrent(editorSession.getValue())
             editor.setValue(data.code);
@@ -1730,59 +1777,75 @@ object Main {
 
   var storedCode = localStorage.getItem("leonEditorCode")
 
+  sealed class Placement(name: String) { override def toString = name }
+  object Placement {
+    case object Left extends Placement("left")
+    case object Right extends Placement("right")
+    case object Modal extends Placement("modal")
+    case object Bottom extends Placement("bottom")
+  }
+  
   var seenDemo = localStorage.getItem("leonSeenDemo").toInt
-  var demos = js.Array(
-      l(
-          placement = "modal",
-          title = "Welcome to Leon!",
-          content = "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
-      ),
-      l(
-          where = () => $("#example-loader"),
-          placement = "left",
-          title = "Select from examples",
-          content = "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
-      ),
-      l(
-          where = () => $($(".ace_line_group")(13)).find("span").last(),
-          placement = "right",
-          title = "Edit at will",
-          content = "Feel free to modify or extend the selected examples with your own code."
-      ),
-      l(
-          where = () => $("#overview_table"),
-          placement = "left",
-          title = "Live results",
-          content = "Leon will verify your code in the background and display live verification results here."
-      ),
-      l(
-          where = () => $($("#overview_table td.status.verif")(2)),
-          placement = "left",
-          title = "Display details",
-          content = "Click on the verification status of each function to get more information!"
-      ),
-      l(
-          where = () => $("#synthesis_table td.problem").first(),
-          placement = "left",
-          title = "Synthesize",
-          content = "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
-      ),
-      l(
-          where = () => $("#button-permalink"),
-          placement = "bottom",
-          title = "Permalinks",
-          content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
-      )
+  @ScalaJSDefined abstract class Demo extends js.Object {
+    def where: JQuery
+    val title: String
+    val content: String
+    val placement: Placement
+  }
+  
+  var demos = js.Array[Demo](
+      new Demo {
+          def where = $("")
+          val placement = Placement.Modal
+          val title = "Welcome to Leon!"
+          val content = "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
+      },
+      new Demo {
+          def where = $("#example-loader")
+          val placement = Placement.Left
+          val title = "Select from examples"
+          val content = "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
+      },
+      new Demo {
+          def where = $($(".ace_line_group")(13)).find("span").last()
+          val placement = Placement.Right
+          val title = "Edit at will"
+          val content = "Feel free to modify or extend the selected examples with your own code."
+      },
+      new Demo {
+          def where = $("#overview_table")
+          val placement = Placement.Left
+          val title = "Live results"
+          val content = "Leon will verify your code in the background and display live verification results here."
+      },
+      new Demo {
+          def where = $($("#overview_table td.status.verif")(2))
+          val placement = Placement.Left
+          val title = "Display details"
+          val content = "Click on the verification status of each function to get more information!"
+      },
+      new Demo {
+          def where = $("#synthesis_table td.problem").first()
+          val placement = Placement.Left
+          val title = "Synthesize"
+          val content = "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
+      },
+      new Demo {
+          def where = $("#button-permalink")
+          val placement = Placement.Bottom
+          val title = "Permalinks"
+          val content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
+      }
   );
 
   if (seenDemo == 0 || (seenDemo < demos.length-1)) {
 
-    var lastDemo: js.Dynamic = null
+    var lastDemo: JQuery = null // Do we have something better?
 
     def showDemo(id: Int): Unit = {
       var demo = demos(id)
 
-      if (demo.placement == "modal") {
+      if (demo.placement == Placement.Modal) {
         // Assume only the first demo is modal
         var html  = """<div id="demoPane" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">"""
         html     += """  <div class="modal-dialog">"""
@@ -1836,7 +1899,7 @@ object Main {
         content += """  </div>"""
         content += """</div>"""
 
-        var where = demo.where()
+        var where = demo.where
 
         lastDemo = where;
 
@@ -1858,7 +1921,7 @@ object Main {
 
         where.popover(l(
             html = true,
-            placement = demo.placement,
+            placement = demo.placement.toString,
             trigger = "manual",
             title = """<span class="demo-progress">"""+progress+"""</span>"""+demo.title,
             content = content,

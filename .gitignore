@@ -24,3 +24,5 @@ version
 /z3.exe
 /libz3.*
 /scalaz3.*
+/bin/
+/.cache-main

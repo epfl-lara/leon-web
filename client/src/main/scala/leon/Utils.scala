@@ -22,6 +22,8 @@ trait JQueryExtended extends JQuery {
   def on(e: String, f: () => Unit): JQuery = js.native
   
   def modal(e: String): JQuery = js.native
+  
+  def popover(parameters: js.Any): JQuery = js.native
 }
 
 trait JQueryEventObjectExtended extends JQueryEventObject {
