@@ -76,7 +76,16 @@ object Main {
   var hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
 
   @JSExport var WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
-  @JSExport("leonSocket") var leonSocket: js.Dynamic = null
+  
+  @ScalaJSDefined
+  trait LeonSocket {
+    def send(message: String): Unit
+    var onopen: JQueryEventObject => Any
+    var onmessage: JQueryEventObject => Any
+    var onclose: JQueryEventObject => Any
+    var onerror: JQueryEventObject => Any
+  }
+  @JSExport("leonSocket") var leonSocket: LeonSocket = null
 
   var headerHeight = $("#title").height()+20
 
@@ -389,7 +398,12 @@ object Main {
       event.preventDefault()
   }): js.ThisFunction);
 
-  handlers("permalink") = (data: js.Dynamic) => {
+  @ScalaJSDefined
+  trait HPermalink extends js.Object {
+    val link: String
+  }
+  
+  handlers("permalink") = (data: HPermalink) => {
       $("#permalink-value input").value(window._leon_url+"#link/"+data.link)
       $("#permalink-value").show()
   }
@@ -1417,7 +1431,6 @@ object Main {
         console.log("Unknown event type: "+data.kind)
         console.log(data)
     }
-    
   }
 
   var connected = false
@@ -1545,7 +1558,7 @@ object Main {
   @JSExport
   def connectWS() {
       println("Creating socket for "+g._leon_websocket_url)
-      leonSocket = js.Dynamic.newInstance(g.WebSocket/*WS*/)(g._leon_websocket_url)
+      leonSocket = js.Dynamic.newInstance(g.WebSocket/*WS*/)(g._leon_websocket_url).asInstanceOf[LeonSocket]
       leonSocket.onopen = openEvent
       leonSocket.onmessage = receiveEvent
       leonSocket.onclose = closeEvent
