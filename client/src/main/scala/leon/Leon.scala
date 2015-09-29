@@ -59,11 +59,11 @@ object MainDelayed extends js.JSApp {
 @JSExport("Main")
 object Main {
   import Bool._
-import JQueryExtended._
-import js.JSON
-import leon.web.shared.Action;
-import dom.alert
-import dom.console
+  import JQueryExtended._
+  import js.JSON
+  import leon.web.shared.Action;
+  import dom.alert
+  import dom.console
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
@@ -128,28 +128,6 @@ import dom.console
     displayedMarker = -1
   }
   
-  @ScalaJSDefined
-  trait NewResult extends js.Object {
-    val fromRow: Int
-    val fromColumn: Int
-    val toRow: Int
-    val toColumn: Int
-    val result: String
-  }
-
-  def updateExplorationFacts(newResults: js.Array[NewResult]) {
-    for (i <- 0 until newResults.length) {
-      val n = newResults(i);
-
-      explorationFacts.push(ExplorationFact(
-        range = jsnew(aceRange)(n.fromRow, n.fromColumn, n.toRow, n.toColumn).asInstanceOf[Range],
-        res = n.result
-      ));
-    }
-
-    displayExplorationFacts()
-  }
-  
   def showHighlight(range: Range, content: String) = {
     if (range != lastDisplayedRange) {
       hideHighlight()
@@ -195,7 +173,7 @@ import dom.console
   
   def features = _features.asInstanceOf[js.Dictionary[Feature]]
 
-  def displayExplorationFacts() = {
+  def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {
       if (_features.execution.active && explorationFacts.length > 0) {
           val lastRange = editor.selection.getRange();
 
@@ -268,13 +246,9 @@ import dom.console
       }
   }
 
-  $("#codecolumn").mouseup((e: JQueryEventObject) => {
-      displayExplorationFacts();
-  }.asInstanceOf[js.Any])
+  $("#codecolumn").mouseup(displayExplorationFacts _)
 
-  $("#codecolumn").keyup((e: JQueryEventObject) => {
-      displayExplorationFacts();
-  }.asInstanceOf[js.Any])
+  $("#codecolumn").keyup(displayExplorationFacts _)
 
   $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
       val target = $(self).attr("ref")
@@ -317,8 +291,9 @@ import dom.console
       false
     }
   }
-
-  val handlers = js.Dictionary.empty[Any]
+  
+  def handlers = Handlers.asInstanceOf[js.Dictionary[Any]]
+  
   var compilationStatus = 0
   val searchFinished = false
   var context = "unknown";
@@ -400,16 +375,6 @@ import dom.console
       event.preventDefault()
   }): js.ThisFunction);
 
-  @ScalaJSDefined
-  trait HPermalink extends js.Object {
-    val link: String
-  }
-  
-  handlers("permalink") = (data: HPermalink) => {
-      $("#permalink-value input").value(window._leon_url+"#link/"+data.link)
-      $("#permalink-value").show()
-  }
-
   $("#button-permalink-close").click((event: JQueryEventObject) => {
       $("#permalink-value").hide()
   })
@@ -472,34 +437,11 @@ import dom.console
       clearExplorationFacts();
       drawSynthesisOverview()
   }
-  @ScalaJSDefined
-  trait HCompilationProgress extends js.Object { val total: Float; val current: Float }
-  handlers("compilation_progress") = (data: HCompilationProgress ) => {
-    updateCompilationProgress(Math.round((data.current*100)/data.total))
-  }
-  @ScalaJSDefined
-  trait HCompilation extends js.Object { val status: String}
-  handlers("compilation") = (data: HCompilation) => {
-      if(data.status == "success") {
-          updateCompilationStatus("success")
-      } else {
-          updateCompilationStatus("failure")
-      }
-  }
-  
-  @ScalaJSDefined 
-  trait HMoveCursor extends js.Object { val line: Double }
-
-  handlers("move_cursor") = (data: HMoveCursor) => {
-    editor.selection.clearSelection();
-    editor.gotoLine(data.line);
-  }
-
   
 
   val localFeatures = localStorage.getItem("leonFeatures")
   if (localFeatures != null) {
-    val locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]] //TODO: Better serialization
+    val locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]] 
     for ((f, locFeature) <- locFeatures) {
       features.get(f) match {
         case Some(feature) =>
@@ -535,23 +477,11 @@ import dom.console
 
   setPresentationMode()
   
-  @ScalaJSDefined 
-  trait Status extends js.Object {
-    val status: String
-  }
-  
-  @ScalaJSDefined 
-  trait VerificationDetails extends js.Object with Status {
-    val vcs: VCS
-  }
-  
-  type Html = String
-  
   object overview {
       abstract class Module(name: String) { self =>
         val column: String
-        def html(name: String, d: VerificationDetails): Html
-        def missing(name: String): Html
+        def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html
+        def missing(name: String): HandlersTypes.Html
         def handlers(): Unit
         modules.list += name -> self
       }
@@ -561,7 +491,7 @@ import dom.console
         
           val verification = new Module("verification") {
               val column= "Verif."
-              def html(name: String, d: VerificationDetails): Html = {
+              def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
                   val vstatus = d.status match {
                     case "crashed" =>
                       """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
@@ -581,7 +511,7 @@ import dom.console
 
                   "<td class=\"status verif\" fname=\""+name+"\">"+vstatus+"</td>"
               }
-              def missing(name: String): Html = {
+              def missing(name: String): HandlersTypes.Html = {
                   "<td class=\"status verif\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
               }
               def handlers(): Unit = {
@@ -593,14 +523,14 @@ import dom.console
                           displayVerificationDetails(d.status, d.vcs)
                         case None =>
                           openVerifyDialog()
-                          displayVerificationDetails("unknown", new VCS())
+                          displayVerificationDetails("unknown", new HandlersTypes.VCS())
                       }
                   }): js.ThisFunction)
               }
           }
           val termination = new Module("termination") {
               val column= "Term."
-              def html(name: String, d: VerificationDetails): Html = {
+              def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
                   val tstatus = d.status match {
                       case "wip" =>
                           """<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>""";
@@ -618,7 +548,7 @@ import dom.console
 
                   "<td class=\"status termin\" fname=\""+name+"\">"+tstatus+"</td>"
               }
-              def missing(name: String): Html = {
+              def missing(name: String): HandlersTypes.Html = {
                   "<td class=\"status termin\" fname=\""+name+"\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
               }
               def handlers(): Unit = {
@@ -636,16 +566,16 @@ import dom.console
           }
       }
       
-      var functions= js.Dictionary.empty[OverviewFunction]
+      var functions= js.Dictionary.empty[HandlersTypes.OverviewFunction]
       object data {
-        var verification = js.Dictionary[VerificationDetails]()
+        var verification = js.Dictionary[HandlersTypes.VerificationDetails]()
 
-        var termination = js.Dictionary[TerminationDetails]()
+        var termination = js.Dictionary[HandlersTypes.TerminationDetails]()
         
         def update[A](s: String, v: A) = {
           s match {
-            case "verification" => verification = v.asInstanceOf[js.Dictionary[VerificationDetails]]
-            case "termination" => termination = v.asInstanceOf[js.Dictionary[TerminationDetails]]
+            case "verification" => verification = v.asInstanceOf[js.Dictionary[HandlersTypes.VerificationDetails]]
+            case "termination" => termination = v.asInstanceOf[js.Dictionary[HandlersTypes.TerminationDetails]]
             case _ => println(s"$s data not defined")
           }
         }
@@ -659,37 +589,7 @@ import dom.console
         }
       }
   }
-  @ScalaJSDefined
-  trait OverviewFunction extends js.Object {
-    val name: String
-    val displayName: String
-    val line: Int
-    val column: Int
-  }
   
-  type DataOverView = js.Dictionary[OverviewFunction]
-  @ScalaJSDefined 
-  trait HUpdateOverview extends js.Object {
-    val module: String
-    val overview: DataOverView
-  }
-
-  handlers("update_overview") = (data: HUpdateOverview) => {
-    if (data.module == "main") {
-      overview.functions = js.Dictionary.empty[OverviewFunction];
-
-      for ((i, fdata)  <- data.overview) {
-        val fdata = data.overview(i)
-        val fname = fdata.name
-        overview.functions(fname) = fdata
-      }
-    } else {
-      overview.data(data.module) = data.overview
-    }
-
-    drawOverView()
-  }
-
   @ScalaJSDefined trait SP extends js.Object {val index: Int; val line: Int; val description: String }
   
   @ScalaJSDefined trait SynthesisOverview extends js.Object {
@@ -698,13 +598,6 @@ import dom.console
   
   var synthesisOverview: SynthesisOverview = new SynthesisOverview {
     val functions = js.undefined
-  }
-
-  handlers("update_synthesis_overview") = (data: SynthesisOverview) => {
-    if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
-      synthesisOverview = data;
-      drawSynthesisOverview();
-    }
   }
 
   def drawSynthesisOverview(): Unit = {
@@ -795,14 +688,10 @@ import dom.console
       }
       resizeEditor()
   }
-  @ScalaJSDefined trait HUpdateExplorationFacts extends js.Object {val newFacts: js.Array[NewResult]}
-  handlers("update_exploration_facts") = (data: HUpdateExplorationFacts) => {
-      updateExplorationFacts(data.newFacts);
-  }
 
   def drawOverView() {
     val t = $("#overview_table")
-    var html: Html = "";
+    var html: HandlersTypes.Html = "";
 
     html += "<tr>"
     html += "<th>Function</th>"
@@ -820,7 +709,7 @@ import dom.console
       html += "  <td class=\"fname clicktoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
       for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          val data = overview.data[VerificationDetails](m)
+          val data = overview.data[HandlersTypes.VerificationDetails](m)
           data.get(fname) match {
             case Some(name) =>
               html += mod.html(fname, name)
@@ -866,422 +755,9 @@ import dom.console
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject,scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
   
-  @ScalaJSDefined trait HEditor extends js.Object {
-     val annotations: js.UndefOr[js.Array[Annotation]]
-  }
-
-  handlers("editor") = (data: HEditor) => {
-      if (data.annotations.isDefined) {
-          val annotations = data.annotations.get
-          val session = editor.getSession();
-
-          context = "unknown";
-
-          $("#annotations").html("");
-
-          for (i <- 0 until annotations.length) {
-              val a = annotations(i);
-              if (a.`type` == "verification") {
-                  context = "verification";
-              } else if (a.`type` == "synthesis") {
-                  context = "synthesis";
-              }
-
-              if (a.`type` != "info" && a.`type` != "error") {
-                  session.addGutterDecoration(a.row, "leon_gutter_"+a.`type`)
-                  a.`type` = "info";
-              }
-
-              if (a.`type` == "error") {
-                val line = a.row+1
-                $("#annotations").append("<li class=\"clicktoline\" line=\""+line+"\"><code><i class=\"fa fa-warning\"></i> "+line+":"+a.text+"</code></li>")
-              }
-          }
-
-
-          addClickToLine("#annotations");
-          session.setAnnotations(annotations);
-          resizeEditor();
-      }
-  }
-
-  @ScalaJSDefined
-  trait HNotification extends js.Object {
-    val content: String
-    val `type`: String
-  }
-  
-  handlers("notification") = (data: HNotification) => {
-      notify(data.content, data.`type`);
-  }
-  
-  @ScalaJSDefined
-  trait HLog extends js.Object {
-    val message: String
-  }
-
-  handlers("log") = (data: HLog) => {
-      val txt = $("#console")
-      txt.append(data.message+"\n");
-      txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
-  }
-
   var synthesizing = false;
 
-  @ScalaJSDefined
-  trait HSynthesisResult extends js.Any {
-    val result: String;
-    val cid: Int;
-    val fname: String;
-    val problem: String;
-    val closed: Double;
-    val total: Double;
-    val solCode: String;
-    val allCode: String;
-    val cursor: js.UndefOr[String]
-  }
-  
-  handlers("synthesis_result") = (data: HSynthesisResult) => {
-      val pb = $("#synthesisProgress")
-      val pbb = $("#synthesisProgress .progress-bar")
-
-      // setup and open pane
-      if (data.result == "init") {
-          $("#synthesisResults").hide()
-          $("#synthesisDialog").attr("cid", data.cid)
-          $("#synthesisDialog").attr("fname", data.fname)
-          $("#synthesisDialog .exploreButton").hide()
-          $("#synthesisDialog .importButton").hide()
-          $("#synthesisDialog .closeButton").hide()
-          $("#synthesisDialog .cancelButton").show()
-          $("#synthesisDialog .code.problem").removeClass("prettyprinted")
-          $("#synthesisDialog .code.problem").html(data.problem)
-          g.prettyPrint();
-          $("#synthesisDialog").modal("show")
-
-          pbb.addClass("active progress-bar-striped")
-          pbb.removeClass("progress-bar-success progress-bar-danger")
-          pbb.width("100%")
-          pbb.html("Synthesizing...");
-
-          $("#synthesisProgressBox").show()
-          synthesizing = true;
-          $("#synthesisDialog").unbind("hide.bs.modal").on("hide.bs.modal",  () => {
-              if (synthesizing) {
-                  val msg = JSON.stringify(l(
-                      module= "main",
-                      action= Action.doCancel
-                  ))
-
-                  leonSocket.send(msg)
-              }
-          })
-      } else if (data.result == "progress") {
-          val pc = (data.closed*100)/data.total;
-          pbb.width(pc+"%")
-          pbb.html(data.closed+"/"+data.total);
-
-      } else if (data.result == "failure") {
-          pbb.removeClass("active progress-bar-striped")
-
-          pbb.width("100%")
-          pbb.html("Failed to apply");
-          pbb.addClass("progress-bar-danger")
-
-          $("#synthesisDialog .importButton").hide()
-          $("#synthesisDialog .exploreButton").hide()
-          $("#synthesisDialog .cancelButton").hide()
-          $("#synthesisDialog .closeButton").show()
-          synthesizing = false;
-
-      } else if (data.result == "success") {
-          pbb.removeClass("active progress-bar-striped")
-
-          pbb.width("100%")
-          pbb.html(data.closed+"/"+data.total);
-          pbb.addClass("progress-bar-success")
-
-          $("#synthesisResults .code.solution").removeClass("prettyprinted")
-          $("#synthesisResults .code.solution").html(data.solCode)
-          $("#synthesisResults").show()
-          g.prettyPrint();
-          $("#synthesisDialog .exploreButton").show()
-          $("#synthesisDialog .importButton").show()
-          $("#synthesisDialog .importButton").unbind("click").click(() =>{
-              handlers("replace_code").asInstanceOf[Function1[HReplaceCode, Unit]](new HReplaceCode { val newCode= data.allCode })
-              if (data.cursor.isDefined) {
-                js.timers.setTimeout(100){
-                  handlers("move_cursor").asInstanceOf[Function1[HMoveCursor, Unit]](data.cursor.get.asInstanceOf[HMoveCursor])
-                }
-              }
-          })
-          $("#synthesisDialog .exploreButton").unbind("click").click(() => {
-            val cid    = $("#synthesisDialog").attr("cid").toInt
-            val fname  = $("#synthesisDialog").attr("fname")
-
-            $("#synthesisDialog").modal("hide")
-
-            val msg = JSON.stringify(
-              l(action= Action.doExplore, module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[js.Any](), ws= 0)
-            )
-
-            leonSocket.send(msg)
-          })
-          $("#synthesisDialog .cancelButton").hide()
-          $("#synthesisDialog .closeButton").show()
-          synthesizing = false;
-      }
-  }
-  
-  @ScalaJSDefined
-  trait HSynthesisExploration extends js.Object {
-    val html: String
-    val fname: String
-    val cid: Int
-    val from: js.Array[String]
-    val allCode: String
-    val cursor: js.UndefOr[String]
-  }
-
-  handlers("synthesis_exploration") = (data: HSynthesisExploration) => {
-      val d = $("#synthesisExploreDialog");
-
-      g.prettyPrint();
-
-      if (!d.is(":visible")) {
-          d.modal("show")
-      }
-
-      var working = false
-
-      d.unbind("hide.bs.modal").on("hide.bs.modal", () => {
-        if (working) {
-          val msg = JSON.stringify(l(
-              module= "main",
-              action= Action.doCancel
-          ))
-
-          leonSocket.send(msg)
-        }
-      })
-
-      val node = d.find(".exploreBlock[path=\""+data.from.join("-")+"\"]")
-      node.replaceWith(data.html)
-      g.prettyPrint();
-
-      val wsOf = (e: Element) => {
-        val b = $(e).closest(".exploreBlock")
-        b.attr("ws").toInt
-      }
-
-      val pathOf = (e: Element) => {
-        val b = $(e).closest(".exploreBlock")
-        var path = js.Array[Int]()
-        if (b.attr("path") != "") {
-          path = b.attr("path").split("-").toJSArray.map((e: String) => e.toInt)
-        }
-        path
-      }
-
-      d.find("""select[data-action="select-alternative"]""").unbind("change").change(((_this: Element) => {
-
-        $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
-        val msg = JSON.stringify(
-          l(action= Action.doExplore, module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(_this), ws= wsOf(_this),
-           `explore-action`= $(_this).attr("data-action"),
-           select= $(_this).value().toInt
-          )
-        )
-
-        leonSocket.send(msg)
-      }): js.ThisFunction);
-
-      d.find("span.knob").unbind("click").click(((self: Element) => {
-        $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
-
-        val msg = JSON.stringify(
-          l(action= Action.doExplore, module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(self), ws= wsOf(self),
-           `explore-action`= $(self).attr("data-action")
-          )
-        )
-
-
-        leonSocket.send(msg)
-
-        working = true
-      }): js.ThisFunction);
-
-      d.find(".importButton").unbind("click").click(() => {
-          handlers("replace_code").asInstanceOf[Function1[HReplaceCode, Unit]](new HReplaceCode { val newCode= data.allCode })
-          if (data.cursor.isDefined) {
-            js.timers.setTimeout(100){
-              handlers("move_cursor").asInstanceOf[Function1[HMoveCursor, Unit]](data.cursor.get.asInstanceOf[HMoveCursor])
-            }
-          }
-      })
-  }
-
-  @ScalaJSDefined trait HRulesApps extends js.Object with Status {
-    val id: Int
-    val name: String
-  }
-  
-  @ScalaJSDefined trait HSynthesisRulesToApply extends js.Object {
-    val fname: String
-    val cid: Int
-    val rulesApps: js.Array[HRulesApps]
-  }
-  
-  handlers("synthesis_rulesToApply") = (data: HSynthesisRulesToApply) => {
-      val fname       = data.fname
-      val cid         = data.cid
-      val rulesApps   = data.rulesApps
-
-      var html = "";
-
-      // Start by removing temp content
-      if (compilationStatus == 1) {
-          for (i <- 0 until rulesApps.length) {
-              val app = rulesApps(i);
-              var statusIcon = ""
-              var clazz = "temp"
-
-              if (app.status == "closed") {
-                  statusIcon = """<i class="fa fa-exclamation-circle"></i> """
-                  clazz += " disabled"
-              }
-              html += """<li role="presentation" class=""""+clazz+""""><a role="menuitem" tabindex="-1" href="#" action="rule" cid=""""+cid+"""" rid=""""+app.id+"""">"""+statusIcon+app.name+"""</a></li>"""
-          }
-      } else {
-          html += """<li role="presentation" class="temp disabled"><a role="menuitem" tabindex="-1" href="#" fname=""""+fname+"""">Not yet compiled...</a></li>"""
-      }
-
-      val selector = "#synthesis .problem[fname=\""+fname+"\"][cid=\""+cid+"\"] ul"
-      $(selector+" li.temp").remove()
-      $(selector).append(html)
-      $(selector+" li a[action=\"search\"]").unbind("click").click(() => {
-          val msg = JSON.stringify(
-            l(action= Action.doSearch, module= "synthesis", fname= fname, cid= cid)
-          )
-
-          leonSocket.send(msg)
-      })
-      $(selector+" li a[action=\"explore\"]").unbind("click").click(() => {
-          val msg = JSON.stringify(
-            l(action= Action.doExplore, module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[Any](), ws= 0)
-          )
-
-          leonSocket.send(msg)
-      })
-      $(selector+" li a[action=\"rule\"]").click(((self: Element) => {
-          val rid = $(self).attr("rid").toInt
-
-          val msg = JSON.stringify(
-            l(action= Action.doApplyRule, module= "synthesis",  fname= fname, cid= cid, rid= rid)
-          )
-
-          leonSocket.send(msg)
-      }): js.ThisFunction)
-  }
-
-  @ScalaJSDefined
-  trait HRepairResult extends js.Object {
-    val result: String
-    val progress: String
-    val error: String
-    val focused: String
-    val success: String
-    val solCode: String
-    val allCode: String
-    val cursor: js.UndefOr[String]
-  }
-  handlers("repair_result") = (data : HRepairResult) => {
-    val pb = $("#repairProgress")
-    val pbb = $("#repairProgress .progress-bar")
-
-    // setup and open pane
-    if (data.result == "init") {
-      $("#repairResults").hide()
-      $("#repairFocused").hide()
-      $("#repairDialog .importButton").hide()
-      $("#repairDialog .closeButton").hide()
-      $("#repairDialog .cancelButton").show()
-      $("#repairDialog").modal("show")
-
-      $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
-        if (synthesizing) {
-          val msg = JSON.stringify(l(
-            module= "repair",
-            action= Action.doCancel
-          ))
-
-          leonSocket.send(msg)
-        }
-      })
-    } else if (data.result == "progress") {
-      pbb.addClass("active progress-bar-striped")
-      pbb.removeClass("progress-bar-success progress-bar-danger")
-      pbb.width("100%")
-      pbb.html(data.progress);
-
-      $("#repairProgressBox").show()
-    } else if (data.result == "error") {
-      pbb.removeClass("active progress-bar-striped")
-
-      pbb.width("100%")
-      pbb.html(data.error);
-      pbb.addClass("progress-bar-danger")
-
-      $("#repairDialog .cancelButton").hide()
-      $("#repairDialog .closeButton").show()
-    } else if (data.result == "focused") {
-      $("#repairFocused .code.focused").removeClass("prettyprinted")
-      $("#repairFocused .code.focused").html(data.focused)
-      $("#repairFocused").show()
-      g.prettyPrint();
-    } else if (data.result == "success") {
-      pbb.removeClass("active progress-bar-striped")
-
-      pbb.width("100%")
-      pbb.html(data.success);
-      pbb.addClass("progress-bar-success")
-
-      $("#repairResults .code.solution").removeClass("prettyprinted")
-      $("#repairResults .code.solution").html(data.solCode)
-      $("#repairResults").show()
-      g.prettyPrint();
-      $("#repairDialog .importButton").show()
-      $("#repairDialog .importButton").unbind("click").click(() => {
-          handlers("replace_code").asInstanceOf[Function1[HReplaceCode, Unit]](new HReplaceCode { val newCode= data.allCode })
-          if (data.cursor.isDefined) {
-            js.timers.setTimeout(100){
-              handlers("move_cursor").asInstanceOf[Function1[HMoveCursor, Unit]](data.cursor.get.asInstanceOf[HMoveCursor])
-            }
-          }
-      })
-      $("#repairDialog .cancelButton").hide()
-      $("#repairDialog .closeButton").show()
-    }
-  }
-  
-  @ScalaJSDefined
-  trait ResultOutput extends js.Object {
-    val result: String
-    val output: String
-  }
-  
-  @ScalaJSDefined 
-  trait VC extends js.Object with Status {
-    val fun: String
-    val kind: String
-    val time: String
-    val counterExample: js.UndefOr[js.Dictionary[String]]
-    val execution: js.UndefOr[ResultOutput]
-  }
-  
-  type VCS = js.Array[VC]
-
-  def displayVerificationDetails(status: String, vcs: VCS) {
+  def displayVerificationDetails(status: String, vcs: HandlersTypes.VCS) {
       val pb = $("#verifyProgress")
       val pbb = pb.children(".progress-bar")
 
@@ -1392,20 +868,11 @@ import dom.console
       $("#verifyResults").show("fade");
   }
   
-  handlers("verification_result") = (data: VerificationDetails) => {
-      displayVerificationDetails(data.status, data.vcs)
-  }
-  
-  @ScalaJSDefined
-  trait TerminationDetails extends js.Object {
-    val call: String
-    val calls: js.Array[String]
-    val status: String
-  }
+
 
   def displayTerminationDetails(
     status: String,
-    fdata: TerminationDetails) {
+    fdata: HandlersTypes.TerminationDetails) {
       val pb = $("#terminationProgress")
       val pbb = pb.children(".progress-bar")
 
@@ -1683,17 +1150,12 @@ import dom.console
       loadExample(group, id)
   }
   
-  @ScalaJSDefined trait StatusCode extends js.Object {
-    val status: String
-    val code: String
-  }
-  
   def loadExample(group: String, id: js.UndefOr[String]) {
     if (id.isDefined) {
       $.ajax(l(
         url= "/ajax/getExample/"+group+"/"+id.get,
         dataType= "json",
-        success= (data: StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
+        success= (data: HandlersTypes.StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
           if (data.status == "success") {
             storeCurrent(editorSession.getValue())
             editor.setValue(data.code);
@@ -1736,7 +1198,6 @@ import dom.console
   });
 
   def resizeEditor() {
-
       val h = $(window).height()-$("#title").height()-6
       val ah = $("#annotations").height()
       val w = $("#codecolumn").width()
@@ -1749,18 +1210,9 @@ import dom.console
       editor.resize();
   };
 
-  $(window).resize(resizeEditor);
+  $(window).resize(resizeEditor _);
 
   resizeEditor();
-
-  @ScalaJSDefined
-  trait HReplaceCode extends js.Object {val newCode: String}
-
-  handlers("replace_code") = (data: HReplaceCode) => {
-    storeCurrent(editorSession.getValue())
-    editorSession.setValue(data.newCode)
-    recompile()
-  }
 
   var currentMousePos = l(x= -1, y= -1);
 
@@ -1787,56 +1239,59 @@ import dom.console
   }
   
   val seenDemo = localStorage.getItem("leonSeenDemo").toInt
-  @ScalaJSDefined abstract class Demo extends js.Object {
-    def where: JQuery
-    val title: String
-    val content: String
-    val placement: Placement
+  @ScalaJSDefined class Demo(_where: =>JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
+    def where: JQuery = _where
+    val title: String = _title 
+    val content: String = _content
+    val placement: Placement = _placement
+  }
+  object Demo {
+    def apply(where: => JQuery, title: String, content: String, placement: Placement): Demo = new Demo(where, title, content, placement)
   }
   
   val demos = js.Array[Demo](
-      new Demo {
-          def where = $("")
-          val placement = Placement.Modal
-          val title = "Welcome to Leon!"
-          val content = "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
-      },
-      new Demo {
-          def where = $("#example-loader")
-          val placement = Placement.Left
-          val title = "Select from examples"
-          val content = "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
-      },
-      new Demo {
-          def where = $($(".ace_line_group")(13)).find("span").last()
-          val placement = Placement.Right
-          val title = "Edit at will"
-          val content = "Feel free to modify or extend the selected examples with your own code."
-      },
-      new Demo {
-          def where = $("#overview_table")
-          val placement = Placement.Left
-          val title = "Live results"
-          val content = "Leon will verify your code in the background and display live verification results here."
-      },
-      new Demo {
-          def where = $($("#overview_table td.status.verif")(2))
-          val placement = Placement.Left
-          val title = "Display details"
-          val content = "Click on the verification status of each function to get more information!"
-      },
-      new Demo {
-          def where = $("#synthesis_table td.problem").first()
-          val placement = Placement.Left
-          val title = "Synthesize"
-          val content = "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
-      },
-      new Demo {
-          def where = $("#button-permalink")
-          val placement = Placement.Bottom
-          val title = "Permalinks"
-          val content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
-      }
+      Demo(
+        where = $(""),
+        placement = Placement.Modal,
+        title = "Welcome to Leon!",
+        content = "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."
+      ),
+      Demo(
+          where = $("#example-loader"),
+          placement = Placement.Left,
+          title = "Select from examples",
+          content = "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."
+      ),
+      Demo(
+          where = $($(".ace_line_group")(13)).find("span").last(),
+          placement = Placement.Right,
+          title = "Edit at will",
+          content = "Feel free to modify or extend the selected examples with your own code."
+      ),
+      Demo(
+          where = $("#overview_table"),
+          placement = Placement.Left,
+          title = "Live results",
+          content = "Leon will verify your code in the background and display live verification results here."
+      ),
+      Demo(
+          where = $($("#overview_table td.status.verif")(2)),
+          placement = Placement.Left,
+          title = "Display details",
+          content = "Click on the verification status of each function to get more information!"
+      ),
+      Demo(
+          where = $("#synthesis_table td.problem").first(),
+          placement = Placement.Left,
+          title = "Synthesize",
+          content = "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."
+      ),
+      Demo(
+          where = $("#button-permalink"),
+          placement = Placement.Bottom,
+          title = "Permalinks",
+          content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"
+      )
   );
 
   if (seenDemo == 0 || (seenDemo < demos.length-1)) {
@@ -1946,7 +1401,7 @@ import dom.console
     def hideDemo(id: Int): Unit = {
         val demo = demos(id)
 
-        if (demo.placement == "modal") {
+        if (demo.placement == Placement.Modal) {
             $("#demoPane").modal("hide")
             $("#demoPane").unbind("hidden").on("hidden", () => { $("demoPane").remove() })
         } else {
