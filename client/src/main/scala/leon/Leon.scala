@@ -38,7 +38,7 @@ object MainDelayed extends js.JSApp {
     println("Application starting")
   }
   
-  var editor = ace.edit("codebox");
+  val editor = ace.edit("codebox");
   ace.require("ace/token_tooltip");
   editor.setTheme("ace/theme/chrome");
   editor.getSession().setMode("ace/mode/scala")
@@ -58,8 +58,8 @@ object Main {
   import dom.alert
   import dom.console
   def window = g
-  var editor = MainDelayed.editor
-  var aceRange = ace.require("ace/range").Range;
+  val editor = MainDelayed.editor
+  val aceRange = ace.require("ace/range").Range;
   
   def main() = {
     println("Just to load this code")
@@ -74,9 +74,9 @@ object Main {
   
   def localStorage = window.localStorage.asInstanceOf[LocalStorage]
   
-  var hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
+  val hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
 
-  @JSExport var WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
+  @JSExport val WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
   
   @ScalaJSDefined
   trait LeonSocket extends js.Object {
@@ -88,7 +88,7 @@ object Main {
   }
   @JSExport("leonSocket") var leonSocket: LeonSocket = null
 
-  var headerHeight = $("#title").height()+20
+  val headerHeight = $("#title").height()+20
 
   var lastRange: Range = null;
   var lastDisplayedRange: Range = null;
@@ -132,7 +132,7 @@ object Main {
 
   def updateExplorationFacts(newResults: js.Array[NewResult]) {
     for (i <- 0 until newResults.length) {
-      var n = newResults(i);
+      val n = newResults(i);
 
       explorationFacts.push(ExplorationFact(
         range = jsnew(aceRange)(n.fromRow, n.fromColumn, n.toRow, n.toColumn).asInstanceOf[Range],
@@ -190,7 +190,7 @@ object Main {
 
   def displayExplorationFacts() = {
       if (_features.execution.active && explorationFacts.length > 0) {
-          var lastRange = editor.selection.getRange();
+          val lastRange = editor.selection.getRange();
 
           if (!lastProcessedRange.isDefined || !lastRange.isEqual(lastProcessedRange.get)) {
               var maxScore = 0.0
@@ -199,15 +199,15 @@ object Main {
               for(r <- explorationFacts) {
                   var score = 0.0;
 
-                  var cmp = lastRange.compareRange(r.range)
+                  val cmp = lastRange.compareRange(r.range)
 
-                  var found = ((cmp >= -1) && (cmp <= 1));
+                  val found = ((cmp >= -1) && (cmp <= 1));
 
                   if (cmp == -1) {
-                      var match_s = lastRange.start
-                      var match_e = r.range.end
-                      var before_s = r.range.start
-                      var after_e = lastRange.end
+                      val match_s = lastRange.start
+                      val match_e = r.range.end
+                      val before_s = r.range.start
+                      val after_e = lastRange.end
 
                       score = rangeScore(match_s, match_e) -
                               rangeScore(before_s, match_s) -
@@ -215,29 +215,29 @@ object Main {
 
                   } else if (cmp == 0) {
                       if (lastRange.containsRange(r.range)) {
-                          var match_s = r.range.start
-                          var match_e = r.range.end
-                          var before_s = lastRange.start
-                          var after_e = lastRange.end
+                          val match_s = r.range.start
+                          val match_e = r.range.end
+                          val before_s = lastRange.start
+                          val after_e = lastRange.end
 
                           score = rangeScore(match_s, match_e) -
                                   rangeScore(before_s, match_s) -
                                   rangeScore(match_e, after_e);
                       } else {
-                          var match_s = lastRange.start
-                          var match_e = lastRange.end
-                          var before_s = r.range.start
-                          var after_e = r.range.end
+                          val match_s = lastRange.start
+                          val match_e = lastRange.end
+                          val before_s = r.range.start
+                          val after_e = r.range.end
 
                           score = rangeScore(match_s, match_e) -
                                   rangeScore(before_s, match_s) -
                                   rangeScore(match_e, after_e);
                       }
                   } else if (cmp == 1) {
-                      var match_s = r.range.start
-                      var match_e = lastRange.end
-                      var before_s = lastRange.start
-                      var after_e = r.range.end
+                      val match_s = r.range.start
+                      val match_e = lastRange.end
+                      val before_s = lastRange.start
+                      val after_e = r.range.end
 
                       score = rangeScore(match_s, match_e) -
                               rangeScore(before_s, match_s) -
@@ -270,8 +270,8 @@ object Main {
   }.asInstanceOf[js.Any])
 
   $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
-      var target = $(self).attr("ref")
-      var sel = "#"+target
+      val target = $(self).attr("ref")
+      val sel = "#"+target
 
       if ($(sel).is(":visible")) {
           $(sel).hide()
@@ -311,25 +311,19 @@ object Main {
     }
   }
 
-  var handlers = js.Dictionary.empty[Any]
+  val handlers = js.Dictionary.empty[Any]
   var compilationStatus = 0
-  var searchFinished = false
+  val searchFinished = false
   var context = "unknown";
 
-  var maxHistory = 20;
+  val maxHistory = 20;
   // Undo/Redo
-  var backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.Array[String]]
-  if (js.isUndefined(backwardChanges)) {
-    backwardChanges = new js.Array[String]()
-  }
-  var forwardChanges  = JSON.parse(localStorage.getItem("forwardChanges").asInstanceOf[String]).asInstanceOf[js.Array[String]]
-  if (js.isUndefined(forwardChanges)) {
-    forwardChanges = new js.Array[String]()
-  }
+  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String]())
+  var forwardChanges  = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String]())
 
   def doUndo() {
     forwardChanges.push(editor.getValue());
-    var code = backwardChanges.pop();
+    val code = backwardChanges.pop();
     editor.setValue(code)
     editor.selection.clearSelection();
     editor.gotoLine(0);
@@ -339,7 +333,7 @@ object Main {
 
   def doRedo() {
     backwardChanges.push(editor.getValue());
-    var code = forwardChanges.pop();
+    val code = forwardChanges.pop();
     editor.setValue(code)
     editor.selection.clearSelection();
     editor.gotoLine(0);
@@ -360,8 +354,8 @@ object Main {
   }
 
   def updateUndoRedo() {
-    var ub = $("#button-undo") 
-    var rb = $("#button-redo") 
+    val ub = $("#button-undo") 
+    val rb = $("#button-redo") 
 
     if (backwardChanges.length > 0) {
       ub.removeClass("disabled") 
@@ -391,7 +385,7 @@ object Main {
 
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
       if (!$(self).hasClass("disabled")) {
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "storePermaLink", module= "main", code= editor.getValue())
           )
           leonSocket.send(msg)
@@ -422,9 +416,9 @@ object Main {
   }
 
   def updateCompilationStatus(status: String) {
-      var e = $(".compilation-status")
-      var codebox = $("div#codebox")
-      var boxes = $(".results_table")
+      val e = $(".compilation-status")
+      val codebox = $("div#codebox")
+      val boxes = $(".results_table")
 
       e.attr("class", "compilation-status");
       $(".results_table > .overlay").remove();
@@ -496,9 +490,9 @@ object Main {
 
   
 
-  var localFeatures = localStorage.getItem("leonFeatures")
+  val localFeatures = localStorage.getItem("leonFeatures")
   if (localFeatures != null) {
-    var locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]] //TODO: Better serialization
+    val locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]] //TODO: Better serialization
     for ((f, locFeature) <- locFeatures) {
       features.get(f) match {
         case Some(feature) =>
@@ -508,16 +502,16 @@ object Main {
     }
   }
 
-  var fts = $("#params-panel ul")
+  val fts = $("#params-panel ul")
   for ((f, feature) <- features) {
       fts.append("""<li><label class="checkbox"><input id="feature-""""+f+" class=\"feature\" ref=\""+f+"\" type=\"checkbox\""+(feature.active ? """ checked="checked"""" | "")+">"+feature.name+"</label></li>")
   }
 
   $(".feature").click(((self: Element) => {
-      var f = $(self).attr("ref")
+      val f = $(self).attr("ref")
       features(f).active = !features(f).active
 
-      var msg = JSON.stringify(
+      val msg = JSON.stringify(
         l(action= "featureSet", module= "main", feature= f, active= features(f).active)
       )
       leonSocket.send(msg)
@@ -585,7 +579,7 @@ object Main {
               }
               def handlers(): Unit = {
                   $("td.verif").click(((self: Element) => {
-                      var fname = $(self).attr("fname")
+                      val fname = $(self).attr("fname")
                       overview.data.verification.get(fname) match {
                         case Some(d) =>
                           openVerifyDialog()
@@ -622,7 +616,7 @@ object Main {
               }
               def handlers(): Unit = {
                   $("td.termin").click(((self: Element) => {
-                      var fname = $(self).attr("fname")
+                      val fname = $(self).attr("fname")
                       openTerminationDialog()
                       overview.data.termination.get(fname) match {
                         case Some(d) =>
@@ -678,8 +672,8 @@ object Main {
       overview.functions = js.Dictionary.empty[OverviewFunction];
 
       for ((i, fdata)  <- data.overview) {
-        var fdata = data.overview(i)
-        var fname = fdata.name
+        val fdata = data.overview(i)
+        val fname = fdata.name
         overview.functions(fname) = fdata
       }
     } else {
@@ -711,7 +705,7 @@ object Main {
     var html = "";
 
     def addMenu(index: Int, fname: String, description: String): Unit = {
-        var id = """menu"""+fname+index
+        val id = """menu"""+fname+index
 
         html += """ <div class="dropdown">"""
         html += """  <a id=""""+id+"""" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-magic"></i> """+description+"""</a>"""
@@ -729,9 +723,9 @@ object Main {
         html += """ </div>"""
     }
 
-    var data = synthesisOverview
+    val data = synthesisOverview
 
-    var fnames = new js.Array[String]
+    val fnames = new js.Array[String]
     if(data.functions.isDefined) {
       val ff = data.functions.get
         for (f <- js.Object.keys(ff.asInstanceOf[js.Object])) {
@@ -741,10 +735,10 @@ object Main {
     fnames.sort()
 
     for (fi <- 0 until fnames.length) {
-        var  f = fnames(fi);
+        val  f = fnames(fi);
       if (!js.isUndefined(overview.functions(f))) {
         if (data.functions.get(f).length == 1) {
-          var sp = data.functions.get(f)(0)
+          val sp = data.functions.get(f)(0)
           html += "<tr><td class=\"fname problem  clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
           addMenu(sp.index, f, overview.functions(f).displayName)
           html += "</td></tr>"
@@ -752,7 +746,7 @@ object Main {
           html += "<tr><td class=\"fname clicktoline\" line=\""+overview.functions(f).line+"\">"+overview.functions(f).displayName+"</td></tr>"
           val spArray = data.functions.get(f)
           for (i <- 0 until spArray.length) {
-            var sp = spArray(i)
+            val sp = spArray(i)
             html += "<tr>"
             html += "<td class=\"problem subproblem clicktoline\" line=\""+sp.line+"\" fname=\""+f+"\" cid=\""+sp.index+"\">"
             addMenu(sp.index, f, sp.description)
@@ -819,7 +813,7 @@ object Main {
       html += "  <td class=\"fname clicktoline\" line=\""+fdata.line+"\">"+fdata.displayName+"</td>"
       for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          var data = overview.data[VerificationDetails](m)
+          val data = overview.data[VerificationDetails](m)
           data.get(fname) match {
             case Some(name) =>
               html += mod.html(fname, name)
@@ -850,7 +844,7 @@ object Main {
 
   def addClickToLine(within: String) {
     $(within+" .clicktoline[line]").click(((_this: Element) => {
-        var line = $(_this).attr("line").toDouble
+        val line = $(_this).attr("line").toDouble
         editor.gotoLine(line);
     }): js.ThisFunction)
   }
@@ -860,7 +854,7 @@ object Main {
       }): js.ThisFunction)
  
     $(within+" .hovertoline[line]").hover((((_this: Element, event: JQueryEventObject) => {
-        var line = $(_this).attr("line").toDouble
+        val line = $(_this).attr("line").toDouble
         editor.gotoLine(line).asInstanceOf[js.Any]
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject,scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
@@ -872,14 +866,14 @@ object Main {
   handlers("editor") = (data: HEditor) => {
       if (data.annotations.isDefined) {
           val annotations = data.annotations.get
-          var session = editor.getSession();
+          val session = editor.getSession();
 
           context = "unknown";
 
           $("#annotations").html("");
 
           for (i <- 0 until annotations.length) {
-              var a = annotations(i);
+              val a = annotations(i);
               if (a.`type` == "verification") {
                   context = "verification";
               } else if (a.`type` == "synthesis") {
@@ -892,7 +886,7 @@ object Main {
               }
 
               if (a.`type` == "error") {
-                var line = a.row+1
+                val line = a.row+1
                 $("#annotations").append("<li class=\"clicktoline\" line=\""+line+"\"><code><i class=\"fa fa-warning\"></i> "+line+":"+a.text+"</code></li>")
               }
           }
@@ -920,7 +914,7 @@ object Main {
   }
 
   handlers("log") = (data: HLog) => {
-      var txt = $("#console")
+      val txt = $("#console")
       txt.append(data.message+"\n");
       txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
   }
@@ -941,8 +935,8 @@ object Main {
   }
   
   handlers("synthesis_result") = (data: HSynthesisResult) => {
-      var pb = $("#synthesisProgress")
-      var pbb = $("#synthesisProgress .progress-bar")
+      val pb = $("#synthesisProgress")
+      val pbb = $("#synthesisProgress .progress-bar")
 
       // setup and open pane
       if (data.result == "init") {
@@ -967,7 +961,7 @@ object Main {
           synthesizing = true;
           $("#synthesisDialog").unbind("hide.bs.modal").on("hide.bs.modal",  () => {
               if (synthesizing) {
-                  var msg = JSON.stringify(l(
+                  val msg = JSON.stringify(l(
                       module= "main",
                       action= "doCancel"
                   ))
@@ -976,7 +970,7 @@ object Main {
               }
           })
       } else if (data.result == "progress") {
-          var pc = (data.closed*100)/data.total;
+          val pc = (data.closed*100)/data.total;
           pbb.width(pc+"%")
           pbb.html(data.closed+"/"+data.total);
 
@@ -1015,8 +1009,8 @@ object Main {
               }
           })
           $("#synthesisDialog .exploreButton").unbind("click").click(() => {
-            var cid    = $("#synthesisDialog").attr("cid").toInt
-            var fname  = $("#synthesisDialog").attr("fname")
+            val cid    = $("#synthesisDialog").attr("cid").toInt
+            val fname  = $("#synthesisDialog").attr("fname")
 
             $("#synthesisDialog").modal("hide")
 
@@ -1043,7 +1037,7 @@ object Main {
   }
 
   handlers("synthesis_exploration") = (data: HSynthesisExploration) => {
-      var d = $("#synthesisExploreDialog");
+      val d = $("#synthesisExploreDialog");
 
       g.prettyPrint();
 
@@ -1055,7 +1049,7 @@ object Main {
 
       d.unbind("hide.bs.modal").on("hide.bs.modal", () => {
         if (working) {
-          var msg = JSON.stringify(l(
+          val msg = JSON.stringify(l(
               module= "main",
               action= "doCancel"
           ))
@@ -1064,17 +1058,17 @@ object Main {
         }
       })
 
-      var node = d.find(".exploreBlock[path=\""+data.from.join("-")+"\"]")
+      val node = d.find(".exploreBlock[path=\""+data.from.join("-")+"\"]")
       node.replaceWith(data.html)
       g.prettyPrint();
 
-      var wsOf = (e: Element) => {
-        var b = $(e).closest(".exploreBlock")
+      val wsOf = (e: Element) => {
+        val b = $(e).closest(".exploreBlock")
         b.attr("ws").toInt
       }
 
-      var pathOf = (e: Element) => {
-        var b = $(e).closest(".exploreBlock")
+      val pathOf = (e: Element) => {
+        val b = $(e).closest(".exploreBlock")
         var path = js.Array[Int]()
         if (b.attr("path") != "") {
           path = b.attr("path").split("-").toJSArray.map((e: String) => e.toInt)
@@ -1085,7 +1079,7 @@ object Main {
       d.find("""select[data-action="select-alternative"]""").unbind("change").change(((_this: Element) => {
 
         $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
-        var msg = JSON.stringify(
+        val msg = JSON.stringify(
           l(action= "doExplore", module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(_this), ws= wsOf(_this),
            `explore-action`= $(_this).attr("data-action"),
            select= $(_this).value().toInt
@@ -1098,7 +1092,7 @@ object Main {
       d.find("span.knob").unbind("click").click(((self: Element) => {
         $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
 
-        var msg = JSON.stringify(
+        val msg = JSON.stringify(
           l(action= "doExplore", module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(self), ws= wsOf(self),
            `explore-action`= $(self).attr("data-action")
           )
@@ -1132,16 +1126,16 @@ object Main {
   }
   
   handlers("synthesis_rulesToApply") = (data: HSynthesisRulesToApply) => {
-      var fname       = data.fname
-      var cid         = data.cid
-      var rulesApps   = data.rulesApps
+      val fname       = data.fname
+      val cid         = data.cid
+      val rulesApps   = data.rulesApps
 
       var html = "";
 
       // Start by removing temp content
       if (compilationStatus == 1) {
           for (i <- 0 until rulesApps.length) {
-              var app = rulesApps(i);
+              val app = rulesApps(i);
               var statusIcon = ""
               var clazz = "temp"
 
@@ -1155,27 +1149,27 @@ object Main {
           html += """<li role="presentation" class="temp disabled"><a role="menuitem" tabindex="-1" href="#" fname=""""+fname+"""">Not yet compiled...</a></li>"""
       }
 
-      var selector = "#synthesis .problem[fname=\""+fname+"\"][cid=\""+cid+"\"] ul"
+      val selector = "#synthesis .problem[fname=\""+fname+"\"][cid=\""+cid+"\"] ul"
       $(selector+" li.temp").remove()
       $(selector).append(html)
       $(selector+" li a[action=\"search\"]").unbind("click").click(() => {
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "doSearch", module= "synthesis", fname= fname, cid= cid)
           )
 
           leonSocket.send(msg)
       })
       $(selector+" li a[action=\"explore\"]").unbind("click").click(() => {
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "doExplore", module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[Any](), ws= 0)
           )
 
           leonSocket.send(msg)
       })
       $(selector+" li a[action=\"rule\"]").click(((self: Element) => {
-          var rid = $(self).attr("rid").toInt
+          val rid = $(self).attr("rid").toInt
 
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "doApplyRule", module= "synthesis",  fname= fname, cid= cid, rid= rid)
           )
 
@@ -1195,8 +1189,8 @@ object Main {
     val cursor: js.UndefOr[String]
   }
   handlers("repair_result") = (data : HRepairResult) => {
-    var pb = $("#repairProgress")
-    var pbb = $("#repairProgress .progress-bar")
+    val pb = $("#repairProgress")
+    val pbb = $("#repairProgress .progress-bar")
 
     // setup and open pane
     if (data.result == "init") {
@@ -1209,7 +1203,7 @@ object Main {
 
       $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
         if (synthesizing) {
-          var msg = JSON.stringify(l(
+          val msg = JSON.stringify(l(
             module= "repair",
             action= "doCancel"
           ))
@@ -1281,8 +1275,8 @@ object Main {
   type VCS = js.Array[VC]
 
   def displayVerificationDetails(status: String, vcs: VCS) {
-      var pb = $("#verifyProgress")
-      var pbb = pb.children(".progress-bar")
+      val pb = $("#verifyProgress")
+      val pbb = pb.children(".progress-bar")
 
       pbb.width("100%")
       pb.removeClass("active")
@@ -1317,7 +1311,7 @@ object Main {
       case _ =>
       }
 
-      var tbl = $("#verifyResults tbody")
+      val tbl = $("#verifyResults tbody")
       tbl.html("");
 
       var targetFunction: String = null
@@ -1373,9 +1367,9 @@ object Main {
 
       if (canRepair && features("repair").active) {
         $(".repairButton").unbind("click").click(() => {
-          var fname = targetFunction
+          val fname = targetFunction
 
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "doRepair", module= "repair", fname= fname)
           )
 
@@ -1405,8 +1399,8 @@ object Main {
   def displayTerminationDetails(
     status: String,
     fdata: TerminationDetails) {
-      var pb = $("#terminationProgress")
-      var pbb = pb.children(".progress-bar")
+      val pb = $("#terminationProgress")
+      val pbb = pb.children(".progress-bar")
 
       pbb.width("100%")
       pb.removeClass("active")
@@ -1414,7 +1408,7 @@ object Main {
 
       pbb.removeClass("progress-bar-warning progress-bar-success progress-bar-danger")
 
-      var tbl = $("#terminationResults table")
+      val tbl = $("#terminationResults table")
       tbl.html("");
 
       status match {
@@ -1466,8 +1460,8 @@ object Main {
   }
   
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
-  var receiveEvent = (event: JQueryEventObject) => {
-    var data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
+  val receiveEvent = (event: JQueryEventObject) => {
+    val data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
     handlers.get(data.kind) match {
       case Some(handler) =>
         handler.asInstanceOf[Function1[Kind, Any]](data);
@@ -1482,13 +1476,13 @@ object Main {
   var lastReconnectDelay = 0;
   var reconnectIn = 0;
 
-  var closeEvent = (event: JQueryEventObject) => {
+  val closeEvent = (event: JQueryEventObject) => {
       if (connected) {
           setDisconnected()
       }
   }
 
-  var openEvent = (event: JQueryEventObject) => {
+  val openEvent = (event: JQueryEventObject) => {
       if (lastReconnectDelay != 0) {
         notify("And we are back online!", "success")
         updateCompilationStatus("unknown")
@@ -1498,7 +1492,7 @@ object Main {
       setConnected()
 
       for (f <- js.Object.keys(_features)) {
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "featureSet", module= "main", feature= f, active= features(f).active)
           )
 
@@ -1514,7 +1508,7 @@ object Main {
 
   def loadStaticLink(hash: String) {
       if (hash.indexOf("#link/") == 0) {
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "accessPermaLink", module= "main", link= hash.substring("#link/".length))
           )
 
@@ -1528,7 +1522,7 @@ object Main {
   }
 
   $(window).on("hashchange", () => {
-      var hash = window.location.hash.asInstanceOf[String];
+      val hash = window.location.hash.asInstanceOf[String];
       loadStaticLink(hash);
   });
 
@@ -1586,7 +1580,7 @@ object Main {
 
   js.timers.setInterval(2000){ checkDisconnectStatus() };
 
-  var errorEvent = (event: JQueryEventObject) => {
+  val errorEvent = (event: JQueryEventObject) => {
       console.log("ERROR")
       console.log(event)
   }
@@ -1611,10 +1605,10 @@ object Main {
 
   var lastChange      = 0.0;
   var lastSavedChange = lastChange;
-  var timeWindow      = 2000;
+  val timeWindow      = 2000;
 
   def updateSaveButton() {
-      var e = $("#button-save")
+      val e = $("#button-save")
       if (lastChange == lastSavedChange) {
          e.addClass("disabled"); 
       } else {
@@ -1625,7 +1619,7 @@ object Main {
   def notify(content: String, _type: String, fade: Double = 3000) {
     val `type` = if (_type == "error") "danger" else _type
 
-    var note = $("<div>", l(
+    val note = $("<div>", l(
         `class`= "alert fade in alert-"+`type`
     )).html("""<button type="button" class="close" data-dismiss="alert">×</button>"""+content)
 
@@ -1639,7 +1633,7 @@ object Main {
   var oldCode = ""
 
   def recompile() = {
-      var currentCode = editor.getValue()
+      val currentCode = editor.getValue()
 
       if (oldCode != "" && oldCode != currentCode) {
           if (forwardChanges.length == 0) {
@@ -1648,7 +1642,7 @@ object Main {
       }
 
       if (connected && oldCode != currentCode) {
-          var msg = JSON.stringify(
+          val msg = JSON.stringify(
             l(action= "doUpdateCode", module= "main", code= currentCode)
           )
           oldCode = currentCode;
@@ -1661,7 +1655,7 @@ object Main {
   }
 
   def onCodeUpdate() {
-    var now = new js.Date().getTime()
+    val now = new js.Date().getTime()
 
     if (lastChange < (now - timeWindow)) {
       if(lastChange > 0) { 
@@ -1674,10 +1668,10 @@ object Main {
   }
 
   def loadSelectedExample(): Unit = {
-      var selected = $("""#example-loader""").find(":selected[id]")
+      val selected = $("""#example-loader""").find(":selected[id]")
 
-      var id = selected.attr("id")
-      var group = selected.attr("group")
+      val id = selected.attr("id")
+      val group = selected.attr("group")
 
       loadExample(group, id)
   }
@@ -1713,7 +1707,7 @@ object Main {
 
   $("#example-loader").change(loadSelectedExample _);
 
-  var editorSession = editor.getSession();
+  val editorSession = editor.getSession();
 
   editor.commands.addCommand(js.use(new js.Object {
     var name= "save"
@@ -1736,9 +1730,9 @@ object Main {
 
   def resizeEditor() {
 
-      var h = $(window).height()-$("#title").height()-6
-      var ah = $("#annotations").height()
-      var w = $("#codecolumn").width()
+      val h = $(window).height()-$("#title").height()-6
+      val ah = $("#annotations").height()
+      val w = $("#codecolumn").width()
 
       $("#codecolumn").height(h);
       $("#panelscolumn").height(h);
@@ -1785,7 +1779,7 @@ object Main {
     case object Bottom extends Placement("bottom")
   }
   
-  var seenDemo = localStorage.getItem("leonSeenDemo").toInt
+  val seenDemo = localStorage.getItem("leonSeenDemo").toInt
   @ScalaJSDefined abstract class Demo extends js.Object {
     def where: JQuery
     val title: String
@@ -1793,7 +1787,7 @@ object Main {
     val placement: Placement
   }
   
-  var demos = js.Array[Demo](
+  val demos = js.Array[Demo](
       new Demo {
           def where = $("")
           val placement = Placement.Modal
@@ -1843,7 +1837,7 @@ object Main {
     var lastDemo: JQuery = null // Do we have something better?
 
     def showDemo(id: Int): Unit = {
-      var demo = demos(id)
+      val demo = demos(id)
 
       if (demo.placement == Placement.Modal) {
         // Assume only the first demo is modal
@@ -1899,7 +1893,7 @@ object Main {
         content += """  </div>"""
         content += """</div>"""
 
-        var where = demo.where
+        val where = demo.where
 
         lastDemo = where;
 
@@ -1910,14 +1904,13 @@ object Main {
           return;
         }
 
-        var progress = ""
-        for (i <- 0 until (demos.length-1)) {
+        val progress = (for (i <- 0 until (demos.length-1)) yield {
           if (i < id) {
-            progress += """<i class="fa fa-circle"></i>"""
+            """<i class="fa fa-circle"></i>"""
           } else {
-            progress += """<i class="fa fa-circle-o"></i>"""
+            """<i class="fa fa-circle-o"></i>"""
           }
-        }
+        }).mkString("")
 
         where.popover(l(
             html = true,
@@ -1944,7 +1937,7 @@ object Main {
     }
 
     def hideDemo(id: Int): Unit = {
-        var demo = demos(id)
+        val demo = demos(id)
 
         if (demo.placement == "modal") {
             $("#demoPane").modal("hide")
@@ -1954,7 +1947,7 @@ object Main {
         }
     }
 
-    var toShow = (seenDemo != 0) ? seenDemo | 0;
+    val toShow = (seenDemo != 0) ? seenDemo | 0;
     if (toShow != 0) {
         js.timers.setTimeout(1000){ showDemo(toShow) }
     } else {
