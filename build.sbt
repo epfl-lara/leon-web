@@ -158,7 +158,7 @@ updateEclipse in main := {
   
   val sharedSourceFolder = sepNormalize(baseDirectory.value.getAbsolutePath()) + sep + "shared" + srcmainscala
   
-  for((proj, clas) <- Seq((jvmp, jsp),(jsp,jsc))) {
+  for((proj, clas) <- Seq((jvmp, jvmc),(jsp,jsc))) {
     addLinkedSourceFolder(proj, "shared-main-scala", sharedSourceFolder)
     addClassPath(clas, """<classpathentry kind="src" path="shared-main-scala"/>""")
   }
