@@ -194,7 +194,7 @@ object Handlers extends js.Object {
         overview.functions(fname) = fdata
       }
     } else {
-      overview.data(data.module) = data.overview
+      overview.Data(data.module) = data.overview
     }
 
     drawOverView()

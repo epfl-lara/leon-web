@@ -2,24 +2,20 @@ package leon
 
 import japgolly.scalajs.react.React
 import japgolly.scalajs.react.vdom.prefix_<^._
-
 import org.scalajs.dom
-
 import dom.html.Element
 import dom.document
 import scala.collection.mutable.ListBuffer
 import scala.scalajs.js
 import scala.collection.mutable.{ HashMap => MMap }
 import js.annotation._
-
 import com.scalawarrior.scalajs.ace._
-
 import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
-
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-
 import js.JSConverters._
+import leon.web.shared.VerifStatus
+import leon.web.shared.TerminationStatus
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -156,7 +152,7 @@ object Main {
     }
   }
 
-  @ScalaJSDefined object _features extends js.Object {
+  @ScalaJSDefined object Features extends js.Object {
     val verification=   Feature(active= true, name= "Verification")
     val synthesis=      Feature(active= true, name= "Synthesis")
     val termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
@@ -165,10 +161,10 @@ object Main {
     val repair=         Feature(active= true, name= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
  }
 
-  def features = _features.asInstanceOf[js.Dictionary[Feature]]
+  def features = Features.asInstanceOf[js.Dictionary[Feature]]
 
   def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {
-    if (_features.execution.active && explorationFacts.length > 0) {
+    if (Features.execution.active && explorationFacts.length > 0) {
       val lastRange = editor.selection.getRange();
 
       if (!lastProcessedRange.isDefined || !lastRange.isEqual(lastProcessedRange.get)) {
@@ -481,17 +477,17 @@ object Main {
         val column = "Verif."
         def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
           val vstatus = d.status match {
-            case "crashed" =>
+            case VerifStatus.crashed =>
               """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
-            case "undefined" =>
+            case VerifStatus.undefined =>
               """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
             case "cond-valid" =>
               """<span class="text-success" title="Conditionally valid">(<i class="fa fa-check"></i>)</span>"""
-            case "valid" =>
+            case VerifStatus.valid =>
               """<i class="fa fa-check text-success" title="Valid"></i>"""
-            case "invalid" =>
+            case VerifStatus.invalid =>
               """<i class="fa fa-exclamation-circle text-danger" title="Invalid"></i>""";
-            case "timeout" =>
+            case VerifStatus.timeout =>
               """<i class="fa fa-clock-o text-warning" title="Timeout"></i>"""
             case _ =>
               """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
@@ -505,7 +501,7 @@ object Main {
         def handlers(): Unit = {
           $("td.verif").click(((self: Element) => {
             val fname = $(self).attr("fname")
-            overview.data.verification.get(fname) match {
+            overview.Data.verification.get(fname) match {
               case Some(d) =>
                 openVerifyDialog()
                 displayVerificationDetails(d.status, d.vcs)
@@ -520,15 +516,15 @@ object Main {
         val column = "Term."
         def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
           val tstatus = d.status match {
-            case "wip" =>
+            case TerminationStatus.wip =>
               """<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>""";
-            case "terminates" =>
+            case TerminationStatus.terminates =>
               """<i class="fa fa-check text-success" title="Termination guaranteed"></i>""";
-            case "loopsfor" =>
+            case TerminationStatus.loopsfor =>
               """<i class="fa fa-exclamation-circle text-danger" title="Non-terminating"></i>""";
-            case "callsnonterminating" =>
+            case TerminationStatus.callsnonterminating =>
               """<span class="text-success" title="Calls non-terminating functions">(<i class="fa fa-check text-success"></i>)</span>""";
-            case "noguarantee" =>
+            case TerminationStatus.noguarantee =>
               """<i class="fa fa-question text-danger" title="No termination guarantee"></i>""";
             case _ =>
               """<i class="fa fa-question" title="Unknown" />""";
@@ -543,7 +539,7 @@ object Main {
           $("td.termin").click(((self: Element) => {
             val fname = $(self).attr("fname")
             openTerminationDialog()
-            overview.data.termination.get(fname) match {
+            overview.Data.termination.get(fname) match {
               case Some(d) =>
                 displayTerminationDetails(d.status, d)
               case None =>
@@ -555,24 +551,19 @@ object Main {
     }
 
     var functions = js.Dictionary.empty[HandlersTypes.OverviewFunction]
-    object data {
+    @ScalaJSDefined object Data extends js.Object {
       var verification = js.Dictionary[HandlersTypes.VerificationDetails]()
-
       var termination = js.Dictionary[HandlersTypes.TerminationDetails]()
 
       def update[A](s: String, v: A) = {
-        s match {
-          case "verification" => verification = v.asInstanceOf[js.Dictionary[HandlersTypes.VerificationDetails]]
-          case "termination"  => termination = v.asInstanceOf[js.Dictionary[HandlersTypes.TerminationDetails]]
-          case _              => println(s"$s data not defined")
-        }
+        Data.asInstanceOf[js.Dictionary[A]](s) = v
       }
 
+      @JSName("apply")
       def apply[A](s: String): js.Dictionary[A] = {
-        s match {
-          case "verification" => verification.asInstanceOf[js.Dictionary[A]]
-          case "termination"  => termination.asInstanceOf[js.Dictionary[A]]
-          case _              => throw new Exception(s"$s data not defined")
+        Data.asInstanceOf[js.Dictionary[js.Any]].get(s) match {
+          case Some(dict) => dict.asInstanceOf[js.Dictionary[A]]
+          case _          => throw new Exception(s"$s data not defined")
         }
       }
     }
@@ -696,7 +687,7 @@ object Main {
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          val data = overview.data[HandlersTypes.VerificationDetails](m)
+          val data = overview.Data[HandlersTypes.VerificationDetails](m)
           data.get(fname) match {
             case Some(name) =>
               html += mod.html(fname, name)
@@ -756,24 +747,24 @@ object Main {
     var canRepair = false
 
     status match {
-      case "cond-valid" =>
+      case VerifStatus.cond_valid =>
         pbb.html("Conditionally Valid!")
         pbb.addClass("progress-bar-warning")
 
-      case "valid" =>
+      case VerifStatus.valid =>
         pbb.html("Valid!")
         pbb.addClass("progress-bar-success")
 
-      case "invalid" =>
+      case VerifStatus.invalid =>
         pbb.html("Invalid!")
         pbb.addClass("progress-bar-danger")
         canRepair = true
 
-      case "unknown" =>
+      case VerifStatus.unknown =>
         pbb.html("Unknown ?!")
         pbb.addClass("progress-bar-warning")
 
-      case "timeout" =>
+      case VerifStatus.timeout =>
         pbb.html("Timeout!")
         pbb.addClass("progress-bar-warning")
 
@@ -869,12 +860,12 @@ object Main {
     tbl.html("");
 
     status match {
-      case "terminates" =>
+      case TerminationStatus.terminates =>
         pbb.html("Terminates!")
         pbb.addClass("progress-bar-success")
         tbl.append("""<tr class="success"> <td>This function terminates for all inputs.</td> </tr>""")
 
-      case "loopsfor" =>
+      case TerminationStatus.loopsfor =>
         pbb.html("Non-terminating!")
         pbb.addClass("progress-bar-danger")
         var html = """<tr class="danger counter-example"><td><div>"""
@@ -885,7 +876,7 @@ object Main {
         html += "</div></td></tr>"
         tbl.append(html)
 
-      case "callsnonterminating" =>
+      case TerminationStatus.callsnonterminating =>
         pbb.html("Calls non-terminating functions!")
         pbb.addClass("progress-bar-warning")
         var html = """<tr class="warning counter-example"><td><div>"""
@@ -898,7 +889,7 @@ object Main {
         html += "</div></td></tr>"
         tbl.append(html)
 
-      case "noguarantee" =>
+      case TerminationStatus.noguarantee =>
         pbb.html("No guarantee!")
         pbb.addClass("progress-bar-warning")
         tbl.append("""<tr class="warning"> <td>Leon could not determine whether or not this function terminates.</td> </tr>""")

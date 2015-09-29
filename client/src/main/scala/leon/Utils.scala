@@ -8,6 +8,7 @@ import js.annotation._
 /**
  * Created by Mikael on 10.08.2015.
  */
+@js.native
 trait JQueryExtended extends JQuery {
   def width(value: String): JQuery = js.native
   def alert(): JQuery = js.native
@@ -26,16 +27,20 @@ trait JQueryExtended extends JQuery {
   def popover(parameters: js.Any): JQuery = js.native
 }
 
+@js.native
 trait JQueryEventObjectExtended extends JQueryEventObject {
   val keyCode: Int = js.native
 }
 
+@js.native
 trait JQueryStaticExtended extends js.Any {
   val ui: JQueryStaticExtendedUi = js.native
 }
+@js.native
 trait JQueryStaticExtendedUi extends js.Any {
   val autocomplete: JQueryStaticExtendedUiAutoComplete = js.native
 }
+@js.native
 trait JQueryStaticExtendedUiAutoComplete extends js.Any {
   def filter(a: js.Array[String], part: String): js.Array[String] = js.native
 }

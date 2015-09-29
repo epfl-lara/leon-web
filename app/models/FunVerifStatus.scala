@@ -4,6 +4,7 @@ package models
 import leon.verification._
 import leon.purescala.Definitions._
 import leon.evaluators._
+import leon.web.shared.VerifStatus
 
 case class FunVerifStatus(fd: FunDef,
                           results: Map[VC, (Option[VCResult], Option[EvaluationResults.Result])],
@@ -20,21 +21,21 @@ case class FunVerifStatus(fd: FunDef,
     val rs = vcData.map(_._2)
 
     if (rs.exists(_.isInvalid)) {
-      "invalid"
+      VerifStatus.invalid
     } else if (rs.exists(_.status == VCStatus.Timeout)) {
-      "timeout"
+      VerifStatus.timeout
     } else if (vcData.isEmpty || rs.forall(_.isValid)) {
-      "valid"
+      VerifStatus.valid
     } else if (verifCrashed) {
-      "crashed"
+      VerifStatus.crashed
     } else {
-      "undefined"
+      VerifStatus.undefined
     }
   }
 
   lazy val status: String = {
     if (isCondValid && overallStatus == "valid") {
-      "cond-valid"
+      VerifStatus.cond_valid
     } else {
       overallStatus
     }
