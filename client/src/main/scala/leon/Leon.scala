@@ -2,18 +2,23 @@ package leon
 
 import japgolly.scalajs.react.React
 import japgolly.scalajs.react.vdom.prefix_<^._
+
 import org.scalajs.dom
+
 import dom.html.Element
 import dom.document
 import scala.collection.mutable.ListBuffer
 import scala.scalajs.js
 import scala.collection.mutable.{HashMap => MMap}
 import js.annotation._
+
 import com.scalawarrior.scalajs.ace._
+
 import org.scalajs.jquery
 import jquery.{jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject}
 
 import js.Dynamic.{global => g, literal => l, newInstance => jsnew}
+
 import js.JSConverters._
 
 @ScalaJSDefined
@@ -23,11 +28,12 @@ object ExplorationFact {
   def apply(range: Range, res: String): ExplorationFact = new ExplorationFact(range, res)
 }
 
-class Feature(_a: Boolean, _n: String) {
-  @JSExport var active: Boolean = _a
-  @JSExport val name: String = _n
+@ScalaJSDefined
+class Feature(_a: Boolean, _n: String) extends js.Object {
+  var active: Boolean = _a
+  val name: String = _n
 }
-object Feature { def apply(active: Boolean, name: String) = new Feature(active, name).asInstanceOf[js.Any] }
+object Feature { def apply(active: Boolean, name: String) = new Feature(active, name) }
 
 
 @JSExport
@@ -53,10 +59,11 @@ object MainDelayed extends js.JSApp {
 @JSExport("Main")
 object Main {
   import Bool._
-  import JQueryExtended._
-  import js.JSON
-  import dom.alert
-  import dom.console
+import JQueryExtended._
+import js.JSON
+import leon.web.shared.Action;
+import dom.alert
+import dom.console
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
@@ -177,14 +184,14 @@ object Main {
     }
   }
   
-  val _features = l(
-    verification=   Feature(active= true, name= "Verification"),
-    synthesis=      Feature(active= true, name= "Synthesis"),
-    termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>"),
-    presentation=   Feature(active= false, name= "Presentation Mode"),
-    execution=      Feature(active= true, name= "Execution"),
-    repair=         Feature(active= true, name= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
-  )
+  @ScalaJSDefined object _features extends js.Object {
+    val verification=   Feature(active= true, name= "Verification")
+    val synthesis=      Feature(active= true, name= "Synthesis")
+    val termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
+    val presentation=   Feature(active= false, name= "Presentation Mode")
+    val execution=      Feature(active= true, name= "Execution")
+    val repair=         Feature(active= true, name= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
+  }
   
   def features = _features.asInstanceOf[js.Dictionary[Feature]]
 
@@ -386,7 +393,7 @@ object Main {
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
       if (!$(self).hasClass("disabled")) {
           val msg = JSON.stringify(
-            l(action= "storePermaLink", module= "main", code= editor.getValue())
+            l(action= Action.storePermaLink, module= "main", code= editor.getValue())
           )
           leonSocket.send(msg)
       }
@@ -512,7 +519,7 @@ object Main {
       features(f).active = !features(f).active
 
       val msg = JSON.stringify(
-        l(action= "featureSet", module= "main", feature= f, active= features(f).active)
+        l(action= Action.featureSet, module= "main", feature= f, active= features(f).active)
       )
       leonSocket.send(msg)
 
@@ -764,7 +771,7 @@ object Main {
 
             val msg = JSON.stringify(l(
                 module= "synthesis",
-                action= "getRulesToApply",
+                action= Action.getRulesToApply,
                 fname= p.attr("fname"),
                 cid= p.attr("cid").toInt
             ))
@@ -963,7 +970,7 @@ object Main {
               if (synthesizing) {
                   val msg = JSON.stringify(l(
                       module= "main",
-                      action= "doCancel"
+                      action= Action.doCancel
                   ))
 
                   leonSocket.send(msg)
@@ -1015,7 +1022,7 @@ object Main {
             $("#synthesisDialog").modal("hide")
 
             val msg = JSON.stringify(
-              l(action= "doExplore", module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[js.Any](), ws= 0)
+              l(action= Action.doExplore, module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[js.Any](), ws= 0)
             )
 
             leonSocket.send(msg)
@@ -1051,7 +1058,7 @@ object Main {
         if (working) {
           val msg = JSON.stringify(l(
               module= "main",
-              action= "doCancel"
+              action= Action.doCancel
           ))
 
           leonSocket.send(msg)
@@ -1080,7 +1087,7 @@ object Main {
 
         $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
         val msg = JSON.stringify(
-          l(action= "doExplore", module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(_this), ws= wsOf(_this),
+          l(action= Action.doExplore, module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(_this), ws= wsOf(_this),
            `explore-action`= $(_this).attr("data-action"),
            select= $(_this).value().toInt
           )
@@ -1093,7 +1100,7 @@ object Main {
         $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
 
         val msg = JSON.stringify(
-          l(action= "doExplore", module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(self), ws= wsOf(self),
+          l(action= Action.doExplore, module= "synthesis", fname= data.fname, cid= data.cid, path= pathOf(self), ws= wsOf(self),
            `explore-action`= $(self).attr("data-action")
           )
         )
@@ -1154,14 +1161,14 @@ object Main {
       $(selector).append(html)
       $(selector+" li a[action=\"search\"]").unbind("click").click(() => {
           val msg = JSON.stringify(
-            l(action= "doSearch", module= "synthesis", fname= fname, cid= cid)
+            l(action= Action.doSearch, module= "synthesis", fname= fname, cid= cid)
           )
 
           leonSocket.send(msg)
       })
       $(selector+" li a[action=\"explore\"]").unbind("click").click(() => {
           val msg = JSON.stringify(
-            l(action= "doExplore", module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[Any](), ws= 0)
+            l(action= Action.doExplore, module= "synthesis", fname= fname, cid= cid, `explore-action`= "init", path= js.Array[Any](), ws= 0)
           )
 
           leonSocket.send(msg)
@@ -1170,7 +1177,7 @@ object Main {
           val rid = $(self).attr("rid").toInt
 
           val msg = JSON.stringify(
-            l(action= "doApplyRule", module= "synthesis",  fname= fname, cid= cid, rid= rid)
+            l(action= Action.doApplyRule, module= "synthesis",  fname= fname, cid= cid, rid= rid)
           )
 
           leonSocket.send(msg)
@@ -1205,7 +1212,7 @@ object Main {
         if (synthesizing) {
           val msg = JSON.stringify(l(
             module= "repair",
-            action= "doCancel"
+            action= Action.doCancel
           ))
 
           leonSocket.send(msg)
@@ -1370,7 +1377,7 @@ object Main {
           val fname = targetFunction
 
           val msg = JSON.stringify(
-            l(action= "doRepair", module= "repair", fname= fname)
+            l(action= Action.doRepair, module= "repair", fname= fname)
           )
 
           leonSocket.send(msg)
@@ -1491,9 +1498,9 @@ object Main {
 
       setConnected()
 
-      for (f <- js.Object.keys(_features)) {
+      for ((featureName, feature) <- features) {
           val msg = JSON.stringify(
-            l(action= "featureSet", module= "main", feature= f, active= features(f).active)
+            l(action= Action.featureSet, module= "main", feature= featureName, active= feature.active)
           )
 
           leonSocket.send(msg)
@@ -1509,7 +1516,7 @@ object Main {
   def loadStaticLink(hash: String) {
       if (hash.indexOf("#link/") == 0) {
           val msg = JSON.stringify(
-            l(action= "accessPermaLink", module= "main", link= hash.substring("#link/".length))
+            l(action= Action.accessPermaLink, module= "main", link= hash.substring("#link/".length))
           )
 
           leonSocket.send(msg)
@@ -1643,7 +1650,7 @@ object Main {
 
       if (connected && oldCode != currentCode) {
           val msg = JSON.stringify(
-            l(action= "doUpdateCode", module= "main", code= currentCode)
+            l(action= Action.doUpdateCode, module= "main", code= currentCode)
           )
           oldCode = currentCode;
           lastSavedChange = lastChange;

@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import leon.web.shared.Action
 
 class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   import context.dispatcher
@@ -99,19 +100,19 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         (event \ "module").as[String] match {
           case "main" =>
             (event \ "action").as[String] match {
-              case "doCancel" =>
+              case Action.doCancel =>
                 self ! DoCancel
 
-              case "doUpdateCode" =>
+              case Action.doUpdateCode =>
                 self ! UpdateCode((event \ "code").as[String])
 
-              case "storePermaLink" =>
+              case Action.storePermaLink =>
                 self ! StorePermaLink((event \ "code").as[String])
 
-              case "accessPermaLink" =>
+              case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
-              case "featureSet" =>
+              case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
 

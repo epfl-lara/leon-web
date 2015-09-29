@@ -18,6 +18,7 @@ import leon.purescala.Common._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
+import leon.web.shared.Action
 
 class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -28,7 +29,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
-        case "doRepair" =>
+        case Action.doRepair =>
           val fname = (event \ "fname").as[String]
 
           doRepair(cstate, fname)
