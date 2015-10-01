@@ -163,7 +163,7 @@ updateEclipse in main := {
     addClassPath(clas, """<classpathentry kind="src" path="shared-main-scala"/>""")
   }
   
-  if(isWindows) {
+  if(isWindows) { // Just set up the correct jars.
     val content = IO.read(jvmc)
     for(library <- Seq("cafebabe", "vanuatoo")) {
       val Re = ("<classpathentry kind=\"lib\" path=\"(.*)"+sep+"(\\d\\d)"+sep+"("+library+".*.jar)\"/>").r.unanchored
@@ -172,17 +172,17 @@ updateEclipse in main := {
         case _ => println("Impossible to fix leon")
       }
     }
-    val leonFolder = doubleSep((baseDirectory.value / "leon").getAbsolutePath())
-    
-    // Append leon libraries at the end of vanuatoo (sub leon library).
-    val toFind = """(<classpathentry kind="lib" path=".*leon.*vanuatoo_2.11-0.1.jar"/>)"""
-    val toReplace = "$1\n\t<classpathentry kind=\"lib\" path=\"" +
-      leonFolder +
-      sep + "target" + sep + "scala-2.11" + sep +
-      "classes\" sourcepath=\""+s"$leonFolder$srcmainscala"+"\"/>"
-    
-    replaceInFile(toFind, toReplace, jvmc)
   }
+  val leonFolder = doubleSep((baseDirectory.value / "leon").getAbsolutePath())
+    
+  // Append leon libraries at the end of vanuatoo (sub leon library).
+  val toFind = """(<classpathentry kind="lib" path=".*leon.*vanuatoo_2.11-0.1.jar"/>)"""
+  val toReplace = "$1\n\t<classpathentry kind=\"lib\" path=\"" +
+    leonFolder +
+    sep + "target" + sep + "scala-2.11" + sep +
+    "classes\" sourcepath=\""+s"$leonFolder$srcmainscala"+"\"/>"
+  
+  replaceInFile(toFind, toReplace, jvmc)
 }
 
 addCommandAlias("eclipseCreate", ";eclipse;updateEclipse")

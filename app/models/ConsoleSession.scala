@@ -1,4 +1,5 @@
 package leon.web
+
 package models
 
 import akka.actor._
@@ -72,6 +73,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       modules += "synthesis"    -> ModuleContext("synthesis",    Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
       modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
       modules += "repair"       -> ModuleContext("repair",       Akka.system.actorOf(Props(new RepairWorker(self, interruptManager))))
+      modules += "invariant"    -> ModuleContext("invariant",    Akka.system.actorOf(Props(new OrbWorker(self, interruptManager))))
 
       logInfo("New client")
 
@@ -176,12 +178,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           // First we extract Leon program
           val pipeline = TemporaryInputPhase andThen
                          ExtractionPhase andThen
-                         PreprocessingPhase andThen
+                         (new PreprocessingPhase(false)) andThen
                          //ArrayTransformation andThen
                          //EpsilonElimination andThen
-                         FunctionClosure andThen
+                         //FunctionClosure andThen
                          NoXLangFeaturesChecking
-
+                         // InstrumentationPhase andThen InferInvariantsPhase
 
           val pgm = pipeline.run(compContext)((List(code), Nil))
 
@@ -214,8 +216,31 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
             notifyMainOverview(cstate)
 
             notifyAnnotations(Seq())
+            
+            
+            lazy val isOnlyInvariantActivated = modules.values.forall(m =>
+                 (m.isActive && m.name == "invariant") ||
+                (!m.isActive && m.name != "invariant"))
 
-            modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
+            lazy val postConditionHasQMark =
+              program.definedFunctions.exists { funDef =>
+                if (funDef.hasPostcondition) {
+                  import leon.purescala._
+                  import Expressions._
+                  ExprOps.exists {
+                    case FunctionInvocation(callee, _) =>
+                      leon.purescala.DefOps.fullName(callee.fd)(program) == "leon.invariant.?"
+                    case _ =>
+                      false
+                  }(funDef.postcondition.get)
+                } else false
+              }
+
+            if (isOnlyInvariantActivated || postConditionHasQMark) {
+              modules("invariant").actor ! OnUpdateCode(cstate)
+            } else {
+              modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
+            }
           case None =>
             for ((l,e) <- compReporter.errors) {
               logInfo("  "+e.mkString("\n  "))

@@ -1,9 +1,7 @@
 package leon.web.shared
 
 object Constants {
-  
-  
-  
+
 }
 
 object Action {
@@ -36,5 +34,5 @@ object TerminationStatus {
   val noguarantee = "noguarantee"
   /** "work in progress", will display spinning arrows */
   val wip = "wip"
-  
+
 }

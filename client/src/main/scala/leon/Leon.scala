@@ -801,8 +801,8 @@ object Main {
         html += "<div>"
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
-        for (v <- js.Object.keys(vc.counterExample.get.asInstanceOf[js.Object])) {
-          html += "<tr><td>" + v + "</td><td>&nbsp;:=&nbsp;</td><td>" + vc.counterExample.get(v) + "</td></tr>";
+        for((variable_name, value) <- vc.counterExample.get) { 
+          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td>" + value + "</td></tr>";
         }
         html += "  </table>"
 
