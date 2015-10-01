@@ -568,4 +568,20 @@ object Handlers extends js.Object {
       updateCompilationStatus("failure")
     }
   }
+  
+  @ScalaJSDefined
+  trait HInvariantPosition extends js.Object {
+    val name: String
+    val startCol: Int
+    val startRow: Int
+    val length: Int
+    val newInvariant: String
+  }
+  
+  @ScalaJSDefined
+  type  HInvariants = js.Dictionary[HInvariantPosition]
+  
+  val invariants = (data: HInvariants) => {
+    console.log("invariants", data)
+  }
 }

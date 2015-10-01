@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import leon.web.shared.Action
+import leon.web.shared.{Action, Module}
 
 class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   import context.dispatcher
@@ -60,6 +60,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   var cancelledWorkers = Set[WorkerActor]()
   var interruptManager: InterruptManager = _
 
+  object ModuleEntry {
+    def apply(name: String, worker: =>WorkerActor): (String, ModuleContext) = {
+      name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
+    }
+  }
+  
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
@@ -68,12 +74,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
       interruptManager = new InterruptManager(reporter)
 
-      modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, interruptManager))))
-      modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
-      modules += "synthesis"    -> ModuleContext("synthesis",    Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
-      modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
-      modules += "repair"       -> ModuleContext("repair",       Akka.system.actorOf(Props(new RepairWorker(self, interruptManager))))
-      modules += "invariant"    -> ModuleContext("invariant",    Akka.system.actorOf(Props(new OrbWorker(self, interruptManager))))
+      modules += ModuleEntry(Module.verification, new VerificationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.termination , new TerminationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.synthesis   , new SynthesisWorker(self, interruptManager))
+      modules += ModuleEntry(Module.execution   , new ExecutionWorker(self, interruptManager))
+      modules += ModuleEntry(Module.repair      , new RepairWorker(self, interruptManager))
+      modules += ModuleEntry(Module.invariant   , new OrbWorker(self, interruptManager))
 
       logInfo("New client")
 
@@ -219,12 +225,13 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
             
             
             lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                 (m.isActive && m.name == "invariant") ||
-                (!m.isActive && m.name != "invariant"))
+                 (m.isActive && m.name == Module.invariant) ||
+                (!m.isActive && m.name != Module.invariant))
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>
-                if (funDef.hasPostcondition) {
+                funDef.postcondition match {
+                  case Some(postCondition) =>
                   import leon.purescala._
                   import Expressions._
                   ExprOps.exists {
@@ -232,12 +239,13 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
                       leon.purescala.DefOps.fullName(callee.fd)(program) == "leon.invariant.?"
                     case _ =>
                       false
-                  }(funDef.postcondition.get)
-                } else false
+                  }(postCondition)
+                  case None => false
+                }
               }
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
-              modules("invariant").actor ! OnUpdateCode(cstate)
+              modules(Module.invariant).actor ! OnUpdateCode(cstate)
             } else {
               modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
             }

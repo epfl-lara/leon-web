@@ -11,17 +11,23 @@ import leon.invariant.engine.InferInvariantsPhase
 import leon.invariant.util.ResultVariable
 import leon.purescala.Definitions.ValDef
 import leon.transformations.InstUtil
+import leon.transformations.InstrumentationPhase
+import shared.Module
+import models.JsonWrites
+import models.InvariantPosition
+import play.api.libs.json._
+import play.api.libs.json.Json._
 
 /**
  * @author Mikael
  */
-class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
+class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites {
   import ConsoleProtocol._
   
   def receive = {
     case OnUpdateCode(cstate) =>
-      val result = InferInvariantsPhase.run(this.ctx)(cstate.program)
-      result.conditions.map(report => report.invariant match {
+      val result = (InstrumentationPhase andThen InferInvariantsPhase).run(this.ctx)(cstate.program)
+      val report = result.conditions.flatMap(report => report.invariant match {
         case Some(s) =>
           val inv = s
           val fd = report.fd
@@ -43,9 +49,22 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
             }
           
           val funName = InstUtil.userFunctionName(fd)
-          // TODO
-        case _ =>
+          
+          val pos = fd.postcondition.map { _.getPos }.getOrElse(null)
+          val startCol = if(pos != null) pos.col else -1
+          val startRow = if(pos != null) pos.line else -1
+          val length = if(pos != null) pos.fullString.length() else -1
+          
+          List(Map("name" -> toJson(funName),
+              "startCol" -> toJson(startCol),
+              "startRow" -> toJson(startRow),
+              "length" -> toJson(length),
+              "newInvariant" -> toJson(newpost.toString())))
+        case _ => Nil
       })
+      event("invariants",
+          Map("module" -> toJson(Module.invariant),
+              "invariants" -> toJson(report)))
     case DoCancel =>
     
     case OnClientEvent(cstate, event) =>

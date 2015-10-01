@@ -16,6 +16,7 @@ import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
 import leon.web.shared.VerifStatus
 import leon.web.shared.TerminationStatus
+import leon.web.shared.{Module => ModuleName}
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -159,6 +160,7 @@ object Main {
     val presentation=   Feature(active= false, name= "Presentation Mode")
     val execution=      Feature(active= true, name= "Execution")
     val repair=         Feature(active= true, name= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
+    val invariant=      Feature(active= true, name="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
  }
 
   def features = Features.asInstanceOf[js.Dictionary[Feature]]
@@ -473,7 +475,7 @@ object Main {
     object modules {
       var list = Map[String, Module]() // Defined before all modules.
 
-      val verification = new Module("verification") {
+      val verification = new Module(ModuleName.verification) {
         val column = "Verif."
         def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
           val vstatus = d.status match {
@@ -512,7 +514,7 @@ object Main {
           }): js.ThisFunction)
         }
       }
-      val termination = new Module("termination") {
+      val termination = new Module(ModuleName.termination) {
         val column = "Term."
         def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
           val tstatus = d.status match {
@@ -650,16 +652,24 @@ object Main {
         leonSocket.send(msg)
       }): js.ThisFunction)
     }
-
-    if (data.functions.isDefined && data.functions.get.keys.nonEmpty && features("synthesis").active) {
+    
+    val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
+    
+    if (hasFunctions && Features.synthesis.active) {
       $("#synthesis").show()
     } else {
       $("#synthesis").hide()
     }
+    
+    if (hasFunctions && Features.invariant.active) {
+      $("#invariant").show()
+    } else {
+      $("#invariant").hide()
+    }
   }
 
   def setPresentationMode() {
-    if (features("presentation").active) {
+    if (Features.presentation.active) {
       $("body").addClass("presentation")
     } else {
       $("body").removeClass("presentation")
@@ -806,7 +816,7 @@ object Main {
         }
         html += "  </table>"
 
-        if (vc.execution.isDefined && vc.execution.get.result == "success" && features("execution").active) {
+        if (vc.execution.isDefined && vc.execution.get.result == "success" && Features.execution.active) {
           html += "  <p>It produced the following output:</p>";
           html += "  <div class=\"output\">" + vc.execution.get.output + "</div>"
         }
@@ -825,7 +835,7 @@ object Main {
 
     $("div[aria-describedby='verifyDialog'] span.ui-button-text").html("Close")
 
-    if (canRepair && features("repair").active) {
+    if (canRepair && Features.repair.active) {
       $(".repairButton").unbind("click").click(() => {
         val fname = targetFunction
 

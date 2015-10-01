@@ -34,5 +34,13 @@ object TerminationStatus {
   val noguarantee = "noguarantee"
   /** "work in progress", will display spinning arrows */
   val wip = "wip"
+}
 
+object Module {
+    val verification = "verification"
+    val termination = "termination"
+    val synthesis = "synthesis"
+    val execution = "execution"
+    val repair = "repair"
+    val invariant = "invariant"
 }
