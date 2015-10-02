@@ -569,19 +569,64 @@ object Handlers extends js.Object {
     }
   }
   
+  val invariantSearch = (data: HCompilation) => {
+    if(data.status == "success") {
+      updateInvariantStatus("success")
+    } else {
+      updateInvariantStatus("failure")
+    }
+  }
+  
+  val display_invariants_search = (data: js.Object) => {
+    $("#invariant").show()
+    updateInvariantStatus("unknown")
+  }
+  
   @ScalaJSDefined
   trait HInvariantPosition extends js.Object {
     val name: String
     val startCol: Int
     val startRow: Int
     val length: Int
+    val oldInvariant: String
     val newInvariant: String
   }
   
   @ScalaJSDefined
-  type  HInvariants = js.Dictionary[HInvariantPosition]
+  trait HInvariants extends js.Object {
+    val invariants: js.Array[HInvariantPosition]
+    val kind: String
+    val module: String
+  }
   
-  val invariants = (data: HInvariants) => {
+  val invariant_result = (data: HInvariants) => {
+    // Display the dialog box if click
+    val btn = $("#investigate")
+    btn.show()
+    btn.click(() => {
+      openInvariantDialog()
+      $("#invariantResults").hide()
+      Main.displayInvariantDetails("success", data.invariants)
+//      $("#synthesisDialog").attr("cid", data.cid)
+//      $("#synthesisDialog").attr("fname", data.fname)
+      //$("#synthesisDialog .exploreButton").hide()
+      $("#invariantDialog .importButton").show()
+      $("#invariantDialog .closeButton").hide()
+      $("#invariantDialog .cancelButton").show()
+      $("#invariantDialog").modal("show")
+      
+      $("#invariantDialog .importButton").unbind("click").click(() => {
+        
+        /*Handlers.replace_code(new HReplaceCode { val newCode = data.allCode })
+        if (data.cursor.isDefined) {
+          js.timers.setTimeout(100) {
+            Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
+          }
+        }*/
+      })
+      
+    })
+    
     console.log("invariants", data)
   }
 }

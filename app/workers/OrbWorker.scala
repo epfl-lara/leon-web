@@ -27,6 +27,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
   def receive = {
     case OnUpdateCode(cstate) =>
       val result = (InstrumentationPhase andThen InferInvariantsPhase).run(this.ctx)(cstate.program)
+      event("invariantSearch", Map("status" -> toJson("success")))
       val report = result.conditions.flatMap(report => report.invariant match {
         case Some(s) =>
           val inv = s
@@ -59,10 +60,12 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
               "startCol" -> toJson(startCol),
               "startRow" -> toJson(startRow),
               "length" -> toJson(length),
+              "oldInvariant" -> toJson(fd.template.map(_.toString()).getOrElse("")),
               "newInvariant" -> toJson(newpost.toString())))
         case _ => Nil
       })
-      event("invariants",
+      
+      event("invariant_result",
           Map("module" -> toJson(Module.invariant),
               "invariants" -> toJson(report)))
     case DoCancel =>

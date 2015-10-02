@@ -77,8 +77,13 @@
             </div>
             
             <div id="invariant" class="panel">
+              <div class="compilation-status"></div>
               <h3><i class="icon-magic"></i> Invariants</h3>
-              <button class="btn btn-primary exploreButton" aria-hidden="true">Resolve</button>
+              <div class="progress">
+                <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100" style="width: 0%;">
+                </div>
+              </div>
+              <button id="investigate" style="display:none" class="btn btn-primary exploreButton" aria-hidden="true">Investigate</button>
             </div>
 
             <div class="panel" id="console-panel">
@@ -108,6 +113,35 @@
             </div>
 
             <div id="notifications"> </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="invariantDialog" class="modal" tabindex="-1" role="dialog" aria-hidden="true" cid="0" data-backdrop="static">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+            <h3>Invariants</h3>
+          </div>
+          <div id="invariantResults">
+               <table class="allResults table table-hover">
+                   <thead>
+                       <tr>
+                           <th>Function</th>
+                           <th>Template</th>
+                           <th>Solution</th>
+                           <th>Status</th>
+                       </tr>
+                   </thead>
+                   <tbody>
+                   </tbody>
+               </table>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import invariants</button>
+            <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
+            <button class="btn closeButton" data-dismiss="modal" aria-hidden="true">Close</button>
           </div>
         </div>
       </div>

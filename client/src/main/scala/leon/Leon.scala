@@ -378,7 +378,7 @@ object Main {
   }
 
   def updateCompilationStatus(status: String) {
-    val e = $(".compilation-status")
+    val e = $("#overview .compilation-status")
     val codebox = $("div#codebox")
     val boxes = $(".results_table")
 
@@ -426,6 +426,42 @@ object Main {
     clearExplorationFacts();
     drawSynthesisOverview()
   }
+  
+  /** Invariants */
+  
+  def updateInvariantProgress(percents: Int) {
+    $("#invariant .progress-bar").css("width", percents + "%");
+  }
+  
+  def updateInvariantStatus(status: String) {
+    val e = $("#invariant .compilation-status")
+
+    e.attr("class", "compilation-status");
+
+    status match {
+      case "success" =>
+        e.addClass("success")
+        e.html("""Found <i class="fa fa-check" title="Invariants found!"></i>""")
+
+      case "failure" =>
+        e.addClass("failure")
+        e.html("""Failed <i class="fa fa-warning" title="Invariants failed"></i>""")
+
+      case "unknown" =>
+        e.html("""Searching <i class="fa fa-refresh fa-spin" title="Searching for invariants..."></i>""")
+
+      case _ =>
+        alert("Unknown status: " + status)
+    }
+
+    if (status == "unknown") {
+      updateInvariantProgress(0);
+    } else {
+      updateInvariantProgress(100);
+    }
+
+  }
+  
 
   val localFeatures = localStorage.getItem("leonFeatures")
   if (localFeatures != null) {
@@ -661,11 +697,7 @@ object Main {
       $("#synthesis").hide()
     }
     
-    if (hasFunctions && Features.invariant.active) {
-      $("#invariant").show()
-    } else {
-      $("#invariant").hide()
-    }
+    $("#invariant").hide()
   }
 
   def setPresentationMode() {
@@ -852,6 +884,29 @@ object Main {
     }
 
     $("#verifyResults").show("fade");
+  }
+  
+  def displayInvariantDetails(status: String, invariants: js.Array[Handlers.HInvariantPosition]) {
+    val tbl = $("#invariantResults tbody")
+    tbl.html("");
+
+    var targetFunction: String = null
+    for (invariant <- invariants) {
+      var icon = "check"
+
+      var clas = "success"
+
+
+      tbl.append("<tr class=\"" + clas + "\"> <td>" + invariant.name + "</td> <td>" + invariant.oldInvariant + "</td> <td>" + invariant.newInvariant + "</td> <td><i class=\"fa fa-" + icon + "\"></i> Success </td> </tr>")
+    }
+
+    if (invariants.length == 0) {
+      tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No invariant found</div></td></tr>")
+    }
+
+    $("div[aria-describedby='invariantDialog'] span.ui-button-text").html("Close")
+
+    $("#invariantResults").show("fade");
   }
 
   def displayTerminationDetails(
@@ -1201,6 +1256,10 @@ object Main {
 
   def openVerifyDialog() {
     $("#verifyDialog").modal("show")
+  }
+  
+  def openInvariantDialog() {
+    $("#invariantDialog").modal("show")
   }
 
   def openTerminationDialog() {
