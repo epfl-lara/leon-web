@@ -56,12 +56,15 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
           val startRow = if(pos != null) pos.line else -1
           val length = if(pos != null) pos.fullString.length() else -1
           
+          
+          val body = InstUtil.replaceInstruVars(newpost.body, fd)
+          
           List(Map("name" -> toJson(funName),
               "startCol" -> toJson(startCol),
               "startRow" -> toJson(startRow),
               "length" -> toJson(length),
               "oldInvariant" -> toJson(fd.template.map(_.toString()).getOrElse("")),
-              "newInvariant" -> toJson(newpost.toString())))
+              "newInvariant" -> toJson(body.toString())))
         case _ => Nil
       })
       
