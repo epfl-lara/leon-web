@@ -33,7 +33,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
     case OnUpdateCode(cstate) =>
       val result = InferInvariantsPhase.run(this.ctx)(cstate.program)
       event("invariantSearch", Map("status" -> toJson("success")))
-      val reports = result.conditions.flatMap(report => report.invariant match {
+      val reports = result.conditions.flatMap(report => report.prettyInv match {
         case Some(s) =>
           val inv = s
           val fd = report.fd
