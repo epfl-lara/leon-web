@@ -248,7 +248,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
               event("display_invariants_search", Map())
               modules(Module.invariant).actor ! OnUpdateCode(cstate)
             } else {
-              modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
+              modules.values.filter(e => e.isActive && e.name != Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
           case None =>
             for ((l,e) <- compReporter.errors) {
