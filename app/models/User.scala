@@ -9,6 +9,10 @@ import play.api.Play.current
 
 import securesocial.core._
 
+case class UserId(value: String) extends AnyVal
+case class ProviderId(value: String) extends AnyVal
+case class Email(value: String) extends AnyVal
+
 case class User(profile: BasicProfile)
 
 object User {
@@ -40,32 +44,32 @@ object User {
     ))
   }
 
-  def findByProviderAndId(providerId: String, userId: String): Option[User] = {
+  def findByProviderAndId(providerId: ProviderId, userId: UserId): Option[User] = {
     val query = SQL"""
       SELECT FROM users
-      WHERE user_id = $userId
-        AND provider_id = $providerId
+      WHERE user_id = ${userId.value}
+        AND provider_id = ${providerId.value}
       LIMIT 1
       """
 
       query.as(parser.singleOpt)
   }
 
-  def findById(userId: String): Option[User] = {
+  def findById(userId: UserId): Option[User] = {
     val query = SQL"""
       SELECT FROM users
-      WHERE user_id = $userId
+      WHERE user_id = ${userId.value}
       LIMIT 1
       """
 
       query.as(parser.singleOpt)
   }
 
-  def findByEmailAndProvider(email: String, providerId: String): Option[User] = {
+  def findByEmailAndProvider(email: Email, providerId: ProviderId): Option[User] = {
     val query = SQL"""
       SELECT FROM users
-      WHERE email = $email
-        AND provider_id = $providerId
+      WHERE email = ${email.value}
+        AND provider_id = ${providerId.value}
       LIMIT 1
       """
 

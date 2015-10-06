@@ -24,7 +24,7 @@ import securesocial.core._
 import securesocial.core.services.{ UserService, SaveMode }
 import securesocial.core.providers.MailToken
 
-import leon.web.models.User
+import leon.web.models.{ User, UserId, ProviderId, Email }
 
 import scala.concurrent.Future
 
@@ -34,8 +34,8 @@ class InMemoryUserService extends UserServiceBase {
 
   var users = Map[(String, String), User]()
 
-  private def by(providerId: String)(p: User => Boolean)(user: User): Boolean =
-    user.profile.providerId == providerId && p(user)
+  private def by(providerId: ProviderId)(p: User => Boolean)(user: User): Boolean =
+    user.profile.providerId == providerId.value && p(user)
 
   override def find(providerId: String, userId: String): Future[Option[BasicProfile]] = {
     if (logger.isDebugEnabled) {
@@ -44,7 +44,7 @@ class InMemoryUserService extends UserServiceBase {
 
     val result =
       users.values
-        .filter(by(providerId)(_.profile.userId == userId))
+        .filter(by(ProviderId(providerId))(_.profile.userId == userId))
         .map(_.profile)
 
     Future.successful(result.headOption)
@@ -58,7 +58,7 @@ class InMemoryUserService extends UserServiceBase {
     val someEmail = Some(email)
     val result =
       users.values
-        .filter(by(providerId)(_.profile.email == email))
+        .filter(by(ProviderId(providerId))(_.profile.email == email))
         .map(_.profile)
 
     Future.successful(result.headOption)
