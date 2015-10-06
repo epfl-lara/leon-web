@@ -46,7 +46,7 @@ object User {
 
   def findByProviderAndId(providerId: ProviderId, userId: UserId): Option[User] = {
     val query = SQL"""
-      SELECT FROM users
+      SELECT * FROM users
       WHERE user_id = ${userId.value}
         AND provider_id = ${providerId.value}
       LIMIT 1
@@ -57,7 +57,7 @@ object User {
 
   def findById(userId: UserId): Option[User] = {
     val query = SQL"""
-      SELECT FROM users
+      SELECT * FROM users
       WHERE user_id = ${userId.value}
       LIMIT 1
       """
@@ -67,7 +67,7 @@ object User {
 
   def findByEmailAndProvider(email: Email, providerId: ProviderId): Option[User] = {
     val query = SQL"""
-      SELECT FROM users
+      SELECT * FROM users
       WHERE email = ${email.value}
         AND provider_id = ${providerId.value}
       LIMIT 1
