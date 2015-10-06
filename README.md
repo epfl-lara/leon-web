@@ -19,6 +19,22 @@ Write conf/setup.conf and add the following lines, for example:
     assets.production.external.dir="/localhome/leonweb/git/leon-web/"
     http.port=9900
 
+Make sure the following environment variables are defined:
+
+  * `GITHUB_CLIENT_ID`
+  * `GITHUB_CLIENT_SECRET`
+
+For example, write the following to a file named `env.sh`, which is ignored by Git:
+
+```bash
+export GITHUB_CLIENT_ID=YOUR_GITHUB_APP_ID
+export GITHUB_CLIENT_SECRET=YOUR_GITHUB_SECRET
+```
+
+Then source it:
+
+    $ source env.sh
+
 ## Step 2 (to start leon-web)
 
     $ ./start.sh
@@ -76,3 +92,4 @@ This will make leon unavailable for a few minutes.
 * `CTRL+a,-` New splitted terminal
 * `CTRL+a,o` Switch from one splitted terminal to the other in the same window.
 * `CTRL+a` and PAGUP, PAGEDOWN to view the history. `q` to exit this mode.
+
