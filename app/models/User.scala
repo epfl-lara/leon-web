@@ -77,7 +77,7 @@ object User {
   def save(user: User): User = {
     val p = user.profile
     val query = SQL"""
-    INSERT INTO users (provider_id, user_id,
+    MERGE INTO users (provider_id, user_id,
                        first_name, last_name, full_name,
                        email, avatar_url,
                        auth_method, access_token)
