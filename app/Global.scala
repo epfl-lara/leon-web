@@ -17,6 +17,7 @@ import leon.web.services._
 object Global extends GlobalSettings {
   override def onStart(app: Application) {
     Permalink.setup()
+    User.setup()
   }
 
   class ViewTemplates(env: RuntimeEnvironment[_]) extends SSViewTemplates.Default(env) {
