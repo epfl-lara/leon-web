@@ -12,7 +12,7 @@ import securesocial.core.providers.GitHubProvider
 import securesocial.controllers.{ViewTemplates => SSViewTemplates}
 
 import leon.web.models.{Permalink, User}
-import leon.web.services.UserService
+import leon.web.services._
 
 object Global extends GlobalSettings {
   override def onStart(app: Application) {
@@ -27,7 +27,7 @@ object Global extends GlobalSettings {
   }
 
   object RuntimeEnv extends RuntimeEnvironment.Default[User] {
-    override lazy val userService: UserService = new UserService
+    override lazy val userService = new InMemoryUserService
     // override lazy val viewTemplates: ViewTemplates = new ViewTemplates(this)
     override lazy val providers = ListMap(
       include(new GitHubProvider(routes, cacheService, oauth2ClientFor(GitHubProvider.GitHub)))

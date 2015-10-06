@@ -4,5 +4,5 @@ package models
 
 import securesocial.core._
 
-case class User(main: BasicProfile, identities: List[BasicProfile])
+case class User(profile: BasicProfile)
 
