@@ -9,9 +9,12 @@ import play.api.libs.json._
 import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
 
+import securesocial.core._
+
 import models.FileExamples
 import models.ConsoleProtocol._
 import models.LeonWebConfig
+import models.User
 
 import akka.actor._
 import scala.concurrent.duration._
@@ -22,7 +25,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import akka.util.Timeout
 import akka.pattern.ask
 
-object Interface extends Controller {
+class Interface(override implicit val env: RuntimeEnvironment[User]) extends SecureSocial[User] {
 
   def getExamples(dir: String) = {
     List(
@@ -31,7 +34,7 @@ object Interface extends Controller {
   }
 
 
-  def index(dir: String) = Action { implicit request =>
+  def index(dir: String) = UserAwareAction { implicit request =>
     val examples = if (dir == "") {
       getExamples("verification") ++ getExamples("synthesis") ++ getExamples("invariant")
     } else {
@@ -40,7 +43,7 @@ object Interface extends Controller {
 
     LeonWebConfig.fromCurrent(examples) match {
       case Some(webconfig) =>
-        Ok(views.html.index(webconfig))
+        Ok(views.html.index(webconfig, request.user))
 
       case None =>
         Redirect(routes.Interface.index("")).flashing {
@@ -89,6 +92,10 @@ object Interface extends Controller {
 
         Right((iteratee,enumerator))
     }
+  }
+
+  def login = Action {
+    Redirect(securesocial.controllers.routes.ProviderController.authenticate("github", None))
   }
 
 }

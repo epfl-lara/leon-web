@@ -1,4 +1,4 @@
-@(webconfig: leon.web.models.LeonWebConfig)(implicit request: RequestHeader)
+@(webconfig: leon.web.models.LeonWebConfig, user: Option[leon.web.models.User])(implicit request: RequestHeader)
 
 @main("Leon Online", webconfig) {
   <div id="allcontent">
@@ -17,6 +17,7 @@
         <a id="button-params" class="disabled menu-button" ref="params-panel" href="#"><i class="fa fa-cog"></i> <span>Params</span></a>
         <a id="button-about" href="http://lara.epfl.ch/w/leon" target="_blank"><i class="fa fa-info"></i> <span>About</span></a>
         <a id="button-doc" href="/doc/" target="_blank"><i class="fa fa-graduation-cap"></i> <span>Documentation</span></a>
+        @tags.login(user)
       </div>
     </div>
     <script>

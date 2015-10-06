@@ -1,0 +1,6 @@
+@(loginForm: Form[(String,String)], errorMsg: Option[String] = None)(implicit request: RequestHeader, lang: Lang, env:securesocial.core.RuntimeEnvironment[_])
+
+<a href="/auth/authenticate/github">
+  <img src="/assets/images/providers/github.png" />
+</a>
+
