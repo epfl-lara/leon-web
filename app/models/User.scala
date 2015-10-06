@@ -20,18 +20,16 @@ object User {
   implicit val conn = DB.getConnection()
 
   def parser = {
-    implicit def toSome[A](a: A): Option[A] = Some(a)
-
     for {
       providerId  <- str("provider_id")
       userId      <- str("user_id")
-      firstName   <- str("first_name")
-      lastName    <- str("last_name")
-      fullName    <- str("full_name")
-      email       <- str("email")
-      avatarUrl   <- str("avatar_url")
+      firstName   <- str("first_name").?
+      lastName    <- str("last_name").?
+      fullName    <- str("full_name").?
+      email       <- str("email").?
+      avatarUrl   <- str("avatar_url").?
       authMethod  <- str("auth_method")
-      accessToken <- str("access_token")
+      accessToken <- str("access_token").?
     }
     yield User(BasicProfile(
       providerId, userId,
@@ -39,7 +37,7 @@ object User {
       email, avatarUrl,
       AuthenticationMethod(authMethod),
       None,
-      OAuth2Info(accessToken),
+      accessToken.map(OAuth2Info(_, None, None, None)),
       None
     ))
   }
@@ -101,7 +99,7 @@ object User {
         full_name VARCHAR,
         email VARCHAR,
         avatar_url VARCHAR,
-        auth_method VARCHAR,
+        auth_method VARCHAR NOT NULL,
         access_token VARCHAR,
 
         PRIMARY KEY (provider_id, user_id)
