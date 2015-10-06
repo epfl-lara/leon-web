@@ -81,7 +81,10 @@ object User {
                        first_name, last_name, full_name,
                        email, avatar_url,
                        auth_method, access_token)
-    VALUES (${p.providerId}, ${p.userId}, ${p.firstName}, ${p.lastName}, ${p.email}, ${p.avatarUrl}, ${p.authMethod.method}, ${p.oAuth2Info.map(_.accessToken)})
+    VALUES (${p.providerId}, ${p.userId},
+            ${p.firstName}, ${p.lastName},
+            ${p.email}, ${p.avatarUrl}, ${p.fullName},
+            ${p.authMethod.method}, ${p.oAuth2Info.map(_.accessToken)})
     """
 
     query.executeInsert()
