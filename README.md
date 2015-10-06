@@ -12,7 +12,7 @@ Later, when pulling changes, use the command `git submodule update`.
 
 ## Configuration
 
-Write conf/setup.conf and add the following lines, for example:
+Write `conf/setup.conf` and add the following lines, for example:
 
     app.ssl=true
     app.url="https://leon.epfl.ch"
