@@ -24,6 +24,7 @@ object User {
         full_name VARCHAR,
         email VARCHAR,
         avatar_url VARCHAR,
+        auth_method VARCHAR,
         access_token VARCHAR,
 
         PRIMARY KEY (provider_id, user_id)
