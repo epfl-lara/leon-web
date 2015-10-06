@@ -39,7 +39,7 @@ class InMemoryUserService extends UserServiceBase {
 
   override def find(providerId: String, userId: String): Future[Option[BasicProfile]] = {
     if (logger.isDebugEnabled) {
-      logger.debug("users = %s".format(users))
+      logger.debug("find(%s, %s)".format(providerId, userId))
     }
 
     val result =
@@ -52,7 +52,7 @@ class InMemoryUserService extends UserServiceBase {
 
   override def findByEmailAndProvider(email: String, providerId: String): Future[Option[BasicProfile]] = {
     if (logger.isDebugEnabled) {
-      logger.debug("users = %s".format(users))
+      logger.debug("findByEmailAndProvider(%s, %s)".format(email, providerId))
     }
 
     val someEmail = Some(email)
@@ -65,12 +65,20 @@ class InMemoryUserService extends UserServiceBase {
   }
 
   private def findProfile(p: BasicProfile): Option[((String, String), User)] = {
+    if (logger.isDebugEnabled) {
+      logger.debug("findProfile(%s)".format(p))
+    }
+
     users.values
       .find(_.profile.userId == p.userId)
       .map { (p.providerId, p.userId) -> _ }
   }
 
   private def updateProfile(profile: BasicProfile, entry: ((String, String), User)): Future[User] = {
+    if (logger.isDebugEnabled) {
+      logger.debug("updateProfile(%s, %s)".format(profile, entry))
+    }
+
     val (key, user) = entry
     val updatedUser = user.copy(profile = profile)
     users = users + (key -> updatedUser)
@@ -78,6 +86,10 @@ class InMemoryUserService extends UserServiceBase {
   }
 
   override def save(user: BasicProfile, mode: SaveMode): Future[User] = {
+    if (logger.isDebugEnabled) {
+      logger.debug("save(%s, %s)".format(user, mode))
+    }
+
     mode match {
       case SaveMode.SignUp =>
         val newUser = User(user)
@@ -103,6 +115,10 @@ class InMemoryUserService extends UserServiceBase {
   }
 
   override def link(current: User, to: BasicProfile): Future[User] = {
+    if (logger.isDebugEnabled) {
+      logger.debug("link(%s, %s)".format(current, to))
+    }
+
     val profile = current.profile
     if (profile.providerId == to.providerId && profile.userId == to.userId) {
       Future.successful(current)
