@@ -7,6 +7,7 @@ val appVersion      = "1.0-SNAPSHOT"
 
 val appDependencies = Seq(
   "joda-time" % "joda-time" % "2.1",
+  "ws.securesocial" %% "securesocial" % "3.0-M3",
   "org.scala-lang" % "scala-compiler" % "2.11.6",
   "com.h2database" % "h2" % "1.3.158",
   jdbc,
@@ -34,6 +35,7 @@ lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
   aggregate(aceJsProject, client).settings(
   version := appVersion,
   libraryDependencies ++= appDependencies,
+  resolvers += Resolver.sonatypeRepo("releases"),
   scalaJSProjects := Seq(client)
 ).dependsOn(leon, sharedJvm)
 
