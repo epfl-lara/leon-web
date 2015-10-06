@@ -72,13 +72,28 @@ object User {
       query.as(parser.singleOpt)
   }
 
+  def save(user: User): User = {
+    val p = user.profile
+    val query = SQL"""
+    INSERT INTO users (provider_id, user_id,
+                       first_name, last_name, full_name,
+                       email, avatar_url,
+                       auth_method, access_token)
+    VALUES (${p.providerId}, ${p.userId}, ${p.firstName}, ${p.lastName}, ${p.email}, ${p.avatarUrl}, ${p.authMethod.method}, ${p.oAuth2Info.map(_.accessToken)})
+    """
+
+    query.executeInsert()
+
+    user
+  }
+
   def setup(): Unit = {
     SQL"""
       CREATE TABLE IF NOT EXISTS users (
         provider_id VARCHAR(40),
         user_id VARCHAR(40),
         first_name VARCHAR,
-        lastName VARCHAR,
+        last_name VARCHAR,
         full_name VARCHAR,
         email VARCHAR,
         avatar_url VARCHAR,
