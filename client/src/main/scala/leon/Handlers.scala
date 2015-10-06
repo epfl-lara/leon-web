@@ -597,6 +597,7 @@ object Handlers extends js.Object {
     val invariants: js.Array[HInvariantPosition]
     val kind: String
     val module: String
+    val code: String
   }
   
   val invariant_result = (data: HInvariants) => {
@@ -607,9 +608,6 @@ object Handlers extends js.Object {
       openInvariantDialog()
       $("#invariantResults").hide()
       Main.displayInvariantDetails("success", data.invariants)
-//      $("#synthesisDialog").attr("cid", data.cid)
-//      $("#synthesisDialog").attr("fname", data.fname)
-      //$("#synthesisDialog .exploreButton").hide()
       $("#invariantDialog .importButton").show()
       $("#invariantDialog .closeButton").hide()
       $("#invariantDialog .cancelButton").show()
@@ -617,16 +615,13 @@ object Handlers extends js.Object {
       
       $("#invariantDialog .importButton").unbind("click").click(() => {
         
-        /*Handlers.replace_code(new HReplaceCode { val newCode = data.allCode })
-        if (data.cursor.isDefined) {
+        Handlers.replace_code(new HReplaceCode { val newCode = data.code })
+        /*if (data.cursor.isDefined) {
           js.timers.setTimeout(100) {
             Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
           }
         }*/
       })
-      
     })
-    
-    console.log("invariants", data)
   }
 }
