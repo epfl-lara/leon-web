@@ -30,7 +30,7 @@ import scala.concurrent.Future
 
 class InMemoryUserService extends UserServiceBase {
 
-  val logger = Logger("services.InMemoryUserService")
+  val logger = Logger("services.UserService")
 
   var users = Map[(String, String), User]()
 

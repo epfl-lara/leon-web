@@ -12,33 +12,38 @@ import scala.concurrent.Future
 
 class DatabaseUserService extends UserServiceBase {
 
-  val logger = Logger("services.DatabaseUserService")
+  val logger = Logger("services.UserService")
 
   override def find(providerId: String, userId: String): Future[Option[BasicProfile]] = {
+    logger.debug("find(%s, %s)".format(providerId, userId))
     Future.successful {
       User.findByProviderAndId(ProviderId(providerId), UserId(userId)).map(_.profile)
     }
   }
 
   override def findByEmailAndProvider(email: String, providerId: String): Future[Option[BasicProfile]] = {
+    logger.debug("findByEmailAndProvider(%s, %s)".format(email, providerId))
     Future.successful {
       User.findByEmailAndProvider(Email(email), ProviderId(providerId)).map(_.profile)
     }
   }
 
   private def findProfile(p: BasicProfile): Option[((String, String), User)] = {
+    logger.debug("findProfile(%s)".format(p))
     User.findById(UserId(p.userId)).map { user =>
       (p.providerId, p.userId) -> user
     }
   }
 
   private def updateProfile(profile: BasicProfile, entry: ((String, String), User)): Future[User] = {
+    logger.debug("updateProfile(%s, %s)".format(profile, entry))
     Future.successful {
       entry._2
     }
   }
 
   override def save(user: BasicProfile, mode: SaveMode): Future[User] = {
+   logger.debug("save(%s, %s)".format(user, mode))
     Future.successful {
       User.save(User(user))
     }
