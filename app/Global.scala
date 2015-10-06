@@ -20,7 +20,7 @@ object Global extends GlobalSettings {
   }
 
   object RuntimeEnv extends RuntimeEnvironment.Default[User] {
-    override lazy val userService = new InMemoryUserService
+    override lazy val userService = new DatabaseUserService
     override lazy val providers = ListMap(
       include(new GitHubProvider(routes, cacheService, oauth2ClientFor(GitHubProvider.GitHub)))
     )
