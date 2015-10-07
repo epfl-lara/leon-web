@@ -292,7 +292,8 @@ object Main {
 
   val maxHistory = 20;
   // Undo/Redo
-  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String]())
+  val bg = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String])
+  val backwardChanges = if(bg == null) new js.Array[String] else bg
   var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String]())
 
   def doUndo() {
