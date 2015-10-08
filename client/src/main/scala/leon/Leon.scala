@@ -292,9 +292,8 @@ object Main {
 
   val maxHistory = 20;
   // Undo/Redo
-  val bg = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String])
-  val backwardChanges = if(bg == null) new js.Array[String] else bg
-  var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].getOrElse(new js.Array[String]())
+  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String])
+  var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String]())
 
   def doUndo() {
     forwardChanges.push(editor.getValue());
@@ -1012,7 +1011,7 @@ object Main {
       leonSocket.send(msg)
     }
 
-    if (hash.isDefined) {
+    if (hash.isDefined && hash.get != "") {
       loadStaticLink(hash.get)
     } else {
       recompile()
