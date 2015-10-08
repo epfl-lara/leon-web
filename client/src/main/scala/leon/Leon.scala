@@ -653,23 +653,25 @@ object Main {
 
     for (fi <- 0 until fnames.length) {
       val f = fnames(fi);
-      if (!js.isUndefined(overview.functions(f))) {
-        if (data.functions.get(f).length == 1) {
-          val sp = data.functions.get(f)(0)
-          html += "<tr><td class=\"fname problem  clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
-          addMenu(sp.index, f, overview.functions(f).displayName)
-          html += "</td></tr>"
-        } else {
-          html += "<tr><td class=\"fname clicktoline\" line=\"" + overview.functions(f).line + "\">" + overview.functions(f).displayName + "</td></tr>"
-          val spArray = data.functions.get(f)
-          for (i <- 0 until spArray.length) {
-            val sp = spArray(i)
-            html += "<tr>"
-            html += "<td class=\"problem subproblem clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
-            addMenu(sp.index, f, sp.description)
+      overview.functions.get(f) match {
+        case Some(function) =>
+          if (data.functions.get(f).length == 1) {
+            val sp = data.functions.get(f)(0)
+            html += "<tr><td class=\"fname problem  clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
+            addMenu(sp.index, f, function.displayName)
             html += "</td></tr>"
+          } else {
+            html += "<tr><td class=\"fname clicktoline\" line=\"" + function.line + "\">" + function.displayName + "</td></tr>"
+            val spArray = data.functions.get(f)
+            for (i <- 0 until spArray.length) {
+              val sp = spArray(i)
+              html += "<tr>"
+              html += "<td class=\"problem subproblem clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
+              addMenu(sp.index, f, sp.description)
+              html += "</td></tr>"
+            }
           }
-        }
+        case None =>
       }
     }
 
