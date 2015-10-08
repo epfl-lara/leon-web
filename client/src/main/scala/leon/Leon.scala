@@ -60,6 +60,7 @@ object Main {
   import leon.web.shared.Action;
   import dom.alert
   import dom.console
+  import Implicits._
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
@@ -685,7 +686,7 @@ object Main {
           module = "synthesis",
           action = Action.getRulesToApply,
           fname = p.attr("fname"),
-          cid = p.attr("cid").toInt))
+          cid = p.attr("cid").orIfNull("0").toInt))
 
         leonSocket.send(msg)
       }): js.ThisFunction)
@@ -1278,7 +1279,7 @@ object Main {
     case object Bottom extends Placement("bottom")
   }
 
-  val seenDemo = localStorage.getItem("leonSeenDemo").toInt
+  val seenDemo = localStorage.getItem("leonSeenDemo").orIfNull("0").toInt
   @ScalaJSDefined class Demo(_where: => JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
     def where: JQuery = _where
     val title: String = _title

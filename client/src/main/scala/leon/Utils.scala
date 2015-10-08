@@ -55,8 +55,14 @@ object JQueryExtended {
 
   @inline implicit def toJQueryEventObjectExtended(t: JQueryEventObject) = t.asInstanceOf[JQueryEventObjectExtended]
 
-  implicit class ComparisonOp(d: js.Dynamic) {
+  /*implicit class ComparisonOp(d: js.Dynamic) {
     def ==(other: String) = d.asInstanceOf[String] == other
+  }*/
+}
+
+object Implicits {
+  implicit class NullCheck[T](s: T) {
+    def orIfNull(default: T): T = if(s == null) default else s
   }
 }
 
