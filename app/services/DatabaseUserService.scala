@@ -22,14 +22,14 @@ class DatabaseUserService extends UserServiceBase {
   override def find(providerId: String, userId: String): Future[Option[BasicProfile]] = {
     logger.debug("find(%s, %s)".format(providerId, userId))
     Future.successful {
-      UserRepository.findByProviderAndId(ProviderId(providerId), UserId(userId)).map(_.profile)
+      UserRepository.findByProviderAndId(ProviderId(providerId), UserId(userId)).map(_.toProfile)
     }
   }
 
   override def findByEmailAndProvider(email: String, providerId: String): Future[Option[BasicProfile]] = {
     logger.debug("findByEmailAndProvider(%s, %s)".format(email, providerId))
     Future.successful {
-      UserRepository.findByEmailAndProvider(Email(email), ProviderId(providerId)).map(_.profile)
+      UserRepository.findByEmailAndProvider(Email(email), ProviderId(providerId)).map(_.toProfile)
     }
   }
 
@@ -47,10 +47,10 @@ class DatabaseUserService extends UserServiceBase {
     }
   }
 
-  override def save(user: BasicProfile, mode: SaveMode): Future[User] = {
-   logger.debug("save(%s, %s)".format(user, mode))
+  override def save(profile: BasicProfile, mode: SaveMode): Future[User] = {
+   logger.debug("save(%s, %s)".format(profile, mode))
     Future.successful {
-      UserRepository.save(User(user))
+      UserRepository.save(User.fromProfile(profile))
     }
   }
 

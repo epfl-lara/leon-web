@@ -26,15 +26,13 @@ object UserRepository {
       authMethod  <- str("auth_method")
       accessToken <- str("access_token").?
     }
-    yield User(BasicProfile(
-      providerId, userId,
+    yield User(
+      ProviderId(providerId), UserId(userId),
       firstName, lastName, fullName,
-      email, avatarUrl,
+      email.map(Email), avatarUrl,
       AuthenticationMethod(authMethod),
-      None,
-      accessToken.map(OAuth2Info(_, None, None, None)),
-      None
-    ))
+      accessToken.map(OAuth2Info(_, None, None, None))
+    )
   }
 
   def findByProviderAndId(providerId: ProviderId, userId: UserId)
@@ -71,22 +69,21 @@ object UserRepository {
       query.as(parser.singleOpt)
   }
 
-  def save(user: User)(implicit c: Connection): User = {
-    val p = user.profile
+  def save(u: User)(implicit c: Connection): User = {
     val query = SQL"""
     MERGE INTO users (provider_id, user_id,
                        first_name, last_name, full_name,
                        email, avatar_url,
                        auth_method, access_token)
-    VALUES (${p.providerId}, ${p.userId},
-            ${p.firstName}, ${p.lastName},
-            ${p.email}, ${p.avatarUrl}, ${p.fullName},
-            ${p.authMethod.method}, ${p.oAuth2Info.map(_.accessToken)})
+    VALUES (${u.providerId.value}, ${u.userId.value},
+            ${u.firstName}, ${u.lastName},
+            ${u.email.map(_.value)}, ${u.avatarUrl}, ${u.fullName},
+            ${u.authMethod.method}, ${u.oAuth2Info.map(_.accessToken)})
     """
 
     query.executeInsert()
 
-    user
+    u
   }
 
 }
