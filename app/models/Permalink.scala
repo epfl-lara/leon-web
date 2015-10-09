@@ -59,10 +59,5 @@ object Permalink {
     res.headOption.map(_[String]("code"))
   }
 
-  def setup() {
-    implicit val c = DB.getConnection()
-
-    SQL("CREATE TABLE IF NOT EXISTS permalinks (link VARCHAR(40), code VARCHAR, PRIMARY KEY (link))").execute
-  }
 }
 

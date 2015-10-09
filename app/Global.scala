@@ -10,15 +10,10 @@ import play.api.mvc.RequestHeader
 import securesocial.core.RuntimeEnvironment
 import securesocial.core.providers.GitHubProvider
 
-import leon.web.models.{Permalink, User}
+import leon.web.models.User
 import leon.web.services._
 
 object Global extends GlobalSettings {
-  override def onStart(app: Application) {
-    Permalink.setup()
-    User.setup()
-  }
-
   object RuntimeEnv extends RuntimeEnvironment.Default[User] {
     override lazy val userService = new DatabaseUserService
     override lazy val providers = ListMap(
@@ -26,6 +21,9 @@ object Global extends GlobalSettings {
     )
   }
 
+  /**
+    * Inject RuntimeEnv into controllers requiring it.
+    */
   override def getControllerInstance[A](controllerClass: Class[A]): A = {
     val instance = controllerClass.getConstructors.find { c =>
       val params = c.getParameterTypes
