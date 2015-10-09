@@ -1,0 +1,93 @@
+
+package leon.web
+package repositories
+
+import anorm._
+import anorm.SqlParser._
+import java.sql.Connection
+import play.api.db._
+import play.api.Play.current
+
+import leon.web.models.{User, UserId, ProviderId, Email}
+
+import securesocial.core._
+
+object UserRepository {
+
+  def parser = {
+    for {
+      providerId  <- str("provider_id")
+      userId      <- str("user_id")
+      firstName   <- str("first_name").?
+      lastName    <- str("last_name").?
+      fullName    <- str("full_name").?
+      email       <- str("email").?
+      avatarUrl   <- str("avatar_url").?
+      authMethod  <- str("auth_method")
+      accessToken <- str("access_token").?
+    }
+    yield User(BasicProfile(
+      providerId, userId,
+      firstName, lastName, fullName,
+      email, avatarUrl,
+      AuthenticationMethod(authMethod),
+      None,
+      accessToken.map(OAuth2Info(_, None, None, None)),
+      None
+    ))
+  }
+
+  def findByProviderAndId(providerId: ProviderId, userId: UserId)
+                         (implicit c: Connection): Option[User] = {
+    val query = SQL"""
+      SELECT * FROM users
+      WHERE user_id = ${userId.value}
+        AND provider_id = ${providerId.value}
+      LIMIT 1
+      """
+
+      query.as(parser.singleOpt)
+  }
+
+  def findById(userId: UserId)(implicit c: Connection): Option[User] = {
+    val query = SQL"""
+      SELECT * FROM users
+      WHERE user_id = ${userId.value}
+      LIMIT 1
+      """
+
+      query.as(parser.singleOpt)
+  }
+
+  def findByEmailAndProvider(email: Email, providerId: ProviderId)
+                            (implicit c: Connection): Option[User] = {
+    val query = SQL"""
+      SELECT * FROM users
+      WHERE email = ${email.value}
+        AND provider_id = ${providerId.value}
+      LIMIT 1
+      """
+
+      query.as(parser.singleOpt)
+  }
+
+  def save(user: User)(implicit c: Connection): User = {
+    val p = user.profile
+    val query = SQL"""
+    MERGE INTO users (provider_id, user_id,
+                       first_name, last_name, full_name,
+                       email, avatar_url,
+                       auth_method, access_token)
+    VALUES (${p.providerId}, ${p.userId},
+            ${p.firstName}, ${p.lastName},
+            ${p.email}, ${p.avatarUrl}, ${p.fullName},
+            ${p.authMethod.method}, ${p.oAuth2Info.map(_.accessToken)})
+    """
+
+    query.executeInsert()
+
+    user
+  }
+
+}
+
