@@ -48,8 +48,9 @@ lazy val client = (project in file("client")).settings(
   "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
   "com.github.japgolly.scalajs-react" %%% "core" % "0.9.2"),
   persistLauncher := true,
-  jsDependencies +=
-  "org.webjars" % "react" % "0.12.2" / "react-with-addons.js" commonJSName "React",
+  jsDependencies ++= Seq(
+    "org.webjars" % "react" % "0.13.3" / "react-with-addons.js" minified "react-with-addons.min.js" commonJSName "React"
+  ),
   skip in packageJSDependencies := false
 ).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(aceJsProject, sharedJs)
 
