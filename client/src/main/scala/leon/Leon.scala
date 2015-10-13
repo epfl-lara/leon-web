@@ -14,6 +14,7 @@ import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
+import monifu.reactive.subjects.PublishSubject
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants}
 
@@ -55,7 +56,10 @@ object Main {
   import Bool._
   import JQueryExtended._
   import js.JSON
-  import leon.web.shared.Action;
+  import leon.web.shared.Action
+  import leon.web.client.syntax.subject._
+  import leon.web.client.modals._
+  import leon.web.client.bootstrap._
   import dom.alert
   import dom.console
   import Implicits._
@@ -86,6 +90,22 @@ object Main {
     var onerror: js.Function1[JQueryEventObject, Any]
   }
   @JSExport("leonSocket") var leonSocket: LeonSocket = null
+
+  def bindLogin(): Unit = {
+    val loginModal = PublishSubject[Modal.Command]()
+    val component  = LoginModal(loginModal)
+    val domElement = document.getElementById("login-modal")
+
+    React.render(component, domElement)
+
+    $("#button-login").click(showLoginModal(loginModal) _)
+  }
+
+  def showLoginModal(loginModal: PublishSubject[Modal.Command])
+                    (e: JQueryEventObject): Unit = {
+    e.preventDefault()
+    loginModal ! Modal.Show
+  }
 
   val headerHeight = $("#title").height() + 20
 
@@ -1542,3 +1562,4 @@ object Main {
   */
 
 }
+

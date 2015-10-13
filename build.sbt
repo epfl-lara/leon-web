@@ -42,11 +42,14 @@ lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
 /****************************
  * Client project (scalajs) *
  ****************************/
- 
+
 lazy val client = (project in file("client")).settings(
-  libraryDependencies ++= Seq("org.scala-js" %%% "scalajs-dom" % "0.8.0",
-  "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-  "com.github.japgolly.scalajs-react" %%% "core" % "0.9.2"),
+  libraryDependencies ++= Seq(
+    "org.scala-js" %%% "scalajs-dom" % "0.8.0",
+    "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
+    "com.github.japgolly.scalajs-react" %%% "core" % "0.9.2",
+    "org.monifu" %%% "monifu" % "1.0-RC3"
+  ),
   persistLauncher := true,
   jsDependencies ++= Seq(
     "org.webjars" % "react" % "0.13.3" / "react-with-addons.js" minified "react-with-addons.min.js" commonJSName "React"
