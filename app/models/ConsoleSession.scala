@@ -26,6 +26,7 @@ import leon.purescala._
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
+import leon.web.repositories.PermalinkRepository
 
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -155,17 +156,17 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       }
 
     case StorePermaLink(code) =>
-      Permalink.store(code) match {
-        case Some(link) =>
-          event("permalink", Map("link" -> toJson(link)))
+      PermalinkRepository.store(Code(code)) match {
+        case Some(Permalink(link, _)) =>
+          event("permalink", Map("link" -> toJson(link.value)))
         case _ =>
           notifyError("Coult not create permalink")
       }
 
     case AccessPermaLink(link) =>
-      Permalink.get(link) match {
-        case Some(code) =>
-          event("replace_code", Map("newCode" -> toJson(code)))
+      PermalinkRepository.get(Link(link)) match {
+        case Some(Permalink(_, code)) =>
+          event("replace_code", Map("newCode" -> toJson(code.value)))
         case None =>
           notifyError("Link not found ?!?: "+link)
       }
