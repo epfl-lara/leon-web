@@ -14,7 +14,7 @@ GET   /doc/*file                    leon.web.controllers.Doc.at(file)
 GET   /assets/*file                 controllers.Assets.at(path="/public", file)
 
 # Login page
-GET   /login                        @leon.web.controllers.Interface.login
+GET   /login                        @leon.web.controllers.Account.login
 GET   /logout                       @securesocial.controllers.LoginPage.logout
 
 # Authentication entry points for all providers

@@ -94,8 +94,4 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
     }
   }
 
-  def login = Action {
-    Redirect(securesocial.controllers.routes.ProviderController.authenticate("github", None))
-  }
-
 }
