@@ -22,21 +22,8 @@ Write `conf/setup.conf` and add the following lines, for example:
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
     auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
 
-Make sure the following environment variables are defined:
-
-  * `GITHUB_CLIENT_ID`
-  * `GITHUB_CLIENT_SECRET`
-
-For example, write the following to a file named `env.sh`, which is ignored by Git:
-
-```bash
-export GITHUB_CLIENT_ID=YOUR_GITHUB_APP_ID
-export GITHUB_CLIENT_SECRET=YOUR_GITHUB_SECRET
-```
-
-Then source it:
-
-    $ source env.sh
+    auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
+    auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
 
 ## Step 2 (to start leon-web)
 
