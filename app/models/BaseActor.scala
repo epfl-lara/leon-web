@@ -24,7 +24,8 @@ trait BaseActor extends Actor {
   }
 
   def logInfo(msg: String, t: Throwable) {
-    Logger.info(msg, t)
+    Logger.info(msg)
+    t.printStackTrace()
   }
 
   def clientLog(msg: String) = {
