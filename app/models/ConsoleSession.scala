@@ -187,7 +187,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
                          (new PreprocessingPhase(false))
                          // InstrumentationPhase andThen InferInvariantsPhase
 
-          val pgm = pipeline.run(compContext)((List(code), Nil))
+          val (_, pgm) = pipeline.run(compContext, (List(code), Nil))
 
           compReporter.terminateIfError
 
