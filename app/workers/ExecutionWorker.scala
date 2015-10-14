@@ -45,6 +45,8 @@ class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
         } catch {
           case e: StackOverflowError =>
             notifyError("Stack Overflow when exploring expression!")
+          case e: Throwable =>
+            notifyError("Unexpected error while evaluating: "+e.getClass+" "+e.getMessage)
         }
 
         tracingEval.lastGC match {
