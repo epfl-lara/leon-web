@@ -6,7 +6,7 @@ fi
 ./gen_version.sh
 
 while [ /bin/true ]; do
-    activator "start $PORT"
+    activator "run $PORT"
     sleep 5
     rm -f target/universal/stage/RUNNING_PID
 done

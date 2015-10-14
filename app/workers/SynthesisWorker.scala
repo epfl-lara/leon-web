@@ -57,11 +57,16 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
       options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
 
-      val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
-        case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
-      }
+      try {
+        val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
+          case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
+        }
 
-      searchesState = synthesisInfos.groupBy(_.ci.fd.id.name)
+        searchesState = synthesisInfos.groupBy(_.ci.fd.id.name)
+      } catch {
+        case e: Throwable =>
+          notifyError("Unexpected error while gathering synthesis problems: "+e.getClass+" "+e.getMessage)
+      }
 
       notifySynthesisOverview(cstate)
 
