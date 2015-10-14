@@ -12,8 +12,10 @@ If you are juste upgrading, delete any folder named `leon` inisde `leon-web` and
 
 Write conf/setup.conf and add the following lines, for example:
 
-    http.port=9999
-    app.url="http://localhost:9999/"
+    app.ssl=true
+    app.url="https://leon.epfl.ch"
+    assets.production.external.dir="/localhome/leonweb/git/leon-web/"
+    http.port=9900
 
 ## Step 2 (to start leon-web)
 
