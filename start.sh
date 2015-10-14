@@ -3,6 +3,9 @@ if [ "$PORT" == "" ]; then
     PORT=9000
 fi
 
+#Generate documentation
+(cd leon; sbt make-site)
+
 ./gen_version.sh
 
 while [ /bin/true ]; do

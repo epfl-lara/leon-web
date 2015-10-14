@@ -10,7 +10,7 @@ import java.io.File
 object Doc extends Controller {
 
   val dir = Play.current.configuration.getString("app.path").getOrElse("./")
-  val prefix = "leon/doc/_build/html/"
+  val prefix = "leon/target/sphinx/html/"
 
   def redirect = {
     Action {
