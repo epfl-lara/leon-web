@@ -8,4 +8,5 @@ fi
 while [ /bin/true ]; do
     activator "start $PORT"
     sleep 5
+    rm -f target/universal/stage/RUNNING_PID
 done
