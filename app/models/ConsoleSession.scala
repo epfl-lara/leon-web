@@ -1,4 +1,5 @@
 package leon.web
+
 package models
 
 import akka.actor._
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import leon.web.shared.{Action, Module}
 
 class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   import context.dispatcher
@@ -58,6 +60,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
   var cancelledWorkers = Set[WorkerActor]()
   var interruptManager: InterruptManager = _
 
+  object ModuleEntry {
+    def apply(name: String, worker: =>WorkerActor): (String, ModuleContext) = {
+      name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
+    }
+  }
+  
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
@@ -66,11 +74,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
       interruptManager = new InterruptManager(reporter)
 
-      modules += "verification" -> ModuleContext("verification", Akka.system.actorOf(Props(new VerificationWorker(self, interruptManager))))
-      modules += "termination"  -> ModuleContext("termination",  Akka.system.actorOf(Props(new TerminationWorker(self, interruptManager))))
-      modules += "synthesis"    -> ModuleContext("synthesis",    Akka.system.actorOf(Props(new SynthesisWorker(self, interruptManager))))
-      modules += "execution"    -> ModuleContext("execution",    Akka.system.actorOf(Props(new ExecutionWorker(self, interruptManager))))
-      modules += "repair"       -> ModuleContext("repair",       Akka.system.actorOf(Props(new RepairWorker(self, interruptManager))))
+      modules += ModuleEntry(Module.verification, new VerificationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.termination , new TerminationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.synthesis   , new SynthesisWorker(self, interruptManager))
+      modules += ModuleEntry(Module.execution   , new ExecutionWorker(self, interruptManager))
+      modules += ModuleEntry(Module.repair      , new RepairWorker(self, interruptManager))
+      modules += ModuleEntry(Module.invariant   , new OrbWorker(self, interruptManager))
 
       logInfo("New client")
 
@@ -99,19 +108,19 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         (event \ "module").as[String] match {
           case "main" =>
             (event \ "action").as[String] match {
-              case "doCancel" =>
+              case Action.doCancel =>
                 self ! DoCancel
 
-              case "doUpdateCode" =>
+              case Action.doUpdateCode =>
                 self ! UpdateCode((event \ "code").as[String])
 
-              case "storePermaLink" =>
+              case Action.storePermaLink =>
                 self ! StorePermaLink((event \ "code").as[String])
 
-              case "accessPermaLink" =>
+              case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
-              case "featureSet" =>
+              case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
 
@@ -175,12 +184,12 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           // First we extract Leon program
           val pipeline = TemporaryInputPhase andThen
                          ExtractionPhase andThen
-                         PreprocessingPhase andThen
+                         (new PreprocessingPhase(false)) andThen
                          //ArrayTransformation andThen
                          //EpsilonElimination andThen
-                         FunctionClosure andThen
+                         //FunctionClosure andThen
                          NoXLangFeaturesChecking
-
+                         // InstrumentationPhase andThen InferInvariantsPhase
 
           val pgm = pipeline.run(compContext)((List(code), Nil))
 
@@ -213,8 +222,34 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
             notifyMainOverview(cstate)
 
             notifyAnnotations(Seq())
+            
+            
+            lazy val isOnlyInvariantActivated = modules.values.forall(m =>
+                 (m.isActive && m.name == Module.invariant) ||
+                (!m.isActive && m.name != Module.invariant))
 
-            modules.values.filter(_.isActive).foreach (_.actor ! OnUpdateCode(cstate))
+            lazy val postConditionHasQMark =
+              program.definedFunctions.exists { funDef =>
+                funDef.postcondition match {
+                  case Some(postCondition) =>
+                  import leon.purescala._
+                  import Expressions._
+                  ExprOps.exists {
+                    case FunctionInvocation(callee, _) =>
+                      leon.purescala.DefOps.fullName(callee.fd)(program) == "leon.invariant.?"
+                    case _ =>
+                      false
+                  }(postCondition)
+                  case None => false
+                }
+              }
+
+            if (isOnlyInvariantActivated || postConditionHasQMark) {
+              event("display_invariants_search", Map())
+              modules(Module.invariant).actor ! OnUpdateCode(cstate)
+            } else {
+              modules.values.filter(e => e.isActive && e.name != Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))
+            }
           case None =>
             for ((l,e) <- compReporter.errors) {
               logInfo("  "+e.mkString("\n  "))

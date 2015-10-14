@@ -2,13 +2,14 @@ package leon.web
 package workers
 
 import akka.actor._
-import play.api.libs.json._
-import play.api.libs.json.Json._
-import models._
-import leon.utils._
-import leon.termination._
 import leon.purescala.Common._
 import leon.purescala.Definitions._
+import leon.termination._
+import leon.utils._
+import models._
+import play.api.libs.json._
+import play.api.libs.json.Json._
+import leon.web.shared.{TerminationStatus => Status}
 
 class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -16,22 +17,22 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
   def tgToJson(fd: FunDef, tgo: Option[TerminationGuarantee]): JsValue = tgo match {
     case Some(tg) => tg match {
       case Terminates(reason) => toJson(Map(
-        "status" -> toJson("terminates")
+        "status" -> toJson(Status.terminates)
       ))
       case LoopsGivenInputs(reason, args) => toJson(Map(
-        "status" -> toJson("loopsfor"),
+        "status" -> toJson(Status.loopsfor),
         "call" -> toJson(args.mkString(fd.id+"(", ",", ")"))
       ))
       case CallsNonTerminating(funs) => toJson(Map(
-        "status" -> toJson("callsnonterminating"),
+        "status" -> toJson(Status.callsnonterminating),
         "calls" -> toJson(funs.map(_.id.name))
       ))
       case _ => toJson(Map(
-        "status" -> toJson("noguarantee")
+        "status" -> toJson(Status.noguarantee)
       ))
     }
     case None => toJson(Map(
-      "status" -> toJson("wip") // "work in progress", will display spinning arrows
+      "status" -> toJson(Status.wip)
     ))
   }
 

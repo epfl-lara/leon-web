@@ -31,26 +31,29 @@ body#leon {
   position: relative;
 }
 
+#invariant {
+  position: relative;
+}
 
-#overview h3 {
+#overview h3, #invariant h3 {
   position: absolute;
   top: 0px;
   left: 0px;
   background: none !important;
 }
 
-#overview .progress-bar {
+#overview .progress-bar, #invariant .progress-bar {
   background-color: #19214F;
 }
 
-#overview .progress {
+#overview .progress, #invariant .progress {
   height: 28px;
   margin: 0px;
   border-radius: 0px;
   background: #4A548C;
 }
 
-#overview .compilation-status {
+#overview .compilation-status, #invariant .compilation-status {
   position: absolute;
   top: 0px;
   right: 0px;

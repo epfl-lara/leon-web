@@ -64,12 +64,12 @@ trait JsonWrites {
           cexExec match {
             case Some(er) =>
               base ++ Json.obj(
-                "counterExample" -> cex,
+                "counterExample" -> cex.toMap[Identifier, Expr],
                 "execution"      -> er
               )
             case _ =>
               base ++ Json.obj(
-                "counterExample" -> cex
+                "counterExample" -> cex.toMap[Identifier, Expr]
               )
           }
         case _ =>

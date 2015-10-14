@@ -17,6 +17,7 @@ import leon.purescala.Common._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
+import leon.web.shared.Action
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -69,26 +70,26 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
-        case "getRulesToApply" =>
+        case Action.getRulesToApply =>
           val fname = (event \ "fname").as[String]
           val cid   = (event \ "cid").as[Int]
 
           getRulesToApply(cstate, fname, cid)
 
-        case "doApplyRule" =>
+        case Action.doApplyRule =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
           val ruleId = (event \ "rid").as[Int]
 
           doApplyRule(cstate, fname, chooseId, ruleId)
 
-        case "doSearch" =>
+        case Action.doSearch =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
 
           doSearch(cstate, fname, chooseId)
 
-        case "doExplore" =>
+        case Action.doExplore =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
           val path = (event \ "path").as[List[Int]]

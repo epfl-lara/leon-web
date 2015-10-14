@@ -33,7 +33,7 @@ object Interface extends Controller {
 
   def index(dir: String) = Action { implicit request =>
     val examples = if (dir == "") {
-      getExamples("verification") ++ getExamples("synthesis")
+      getExamples("verification") ++ getExamples("synthesis") ++ getExamples("invariant")
     } else {
       getExamples(dir)
     }
