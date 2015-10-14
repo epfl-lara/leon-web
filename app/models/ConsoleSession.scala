@@ -184,11 +184,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
           // First we extract Leon program
           val pipeline = TemporaryInputPhase andThen
                          ExtractionPhase andThen
-                         (new PreprocessingPhase(false)) andThen
-                         //ArrayTransformation andThen
-                         //EpsilonElimination andThen
-                         //FunctionClosure andThen
-                         NoXLangFeaturesChecking
+                         (new PreprocessingPhase(false))
                          // InstrumentationPhase andThen InferInvariantsPhase
 
           val pgm = pipeline.run(compContext)((List(code), Nil))
@@ -221,11 +217,8 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
             notifyMainOverview(cstate)
 
-            notifyAnnotations(Seq())
-            
-            
             lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                 (m.isActive && m.name == Module.invariant) ||
+                ( m.isActive && m.name == Module.invariant) ||
                 (!m.isActive && m.name != Module.invariant))
 
             lazy val postConditionHasQMark =
@@ -259,14 +252,19 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
             event("compilation", Map("status" -> toJson("failure")))
 
-            val annotations = compReporter.errors.map{ case (l,e) =>
-              CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationError)
-            }.toSeq
-
-            notifyAnnotations(annotations)
-
             lastCompilationState = CompilationState.failure(code)
         }
+
+        val annotations = {
+          compReporter.errors.map{ case (l,e) =>
+            CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationError)
+          }.toSeq ++
+          compReporter.warnings.map{ case (l,e) =>
+            CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationWarning)
+          }.toSeq
+        }.filter(_.line >= 0)
+
+        notifyAnnotations(annotations)
       } else {
         val cstate = lastCompilationState
 

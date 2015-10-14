@@ -233,15 +233,16 @@ object Handlers extends js.Object {
 
       $("#annotations").html("");
 
-      for (i <- 0 until annotations.length) {
-        val a = annotations(i);
+      dom.console.log(annotations)
+
+      for (a <- annotations) {
         if (a.`type` == "verification") {
           context = "verification";
         } else if (a.`type` == "synthesis") {
           context = "synthesis";
         }
 
-        if (a.`type` != "info" && a.`type` != "error") {
+        if (a.`type` != "info" && a.`type` != "error" && a.`type` != "warning") {
           session.addGutterDecoration(a.row, "leon_gutter_" + a.`type`)
           a.`type` = "info";
         }
@@ -249,6 +250,9 @@ object Handlers extends js.Object {
         if (a.`type` == "error") {
           val line = a.row + 1
           $("#annotations").append("<li class=\"clicktoline\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
+        } else if (a.`type` == "warning") {
+          val line = a.row + 1
+          $("#annotations").append("<li class=\"clicktoline\" line=\"" + line + "\"><code><i class=\"fa fa-info-circle\"></i> " + line + ":" + a.text + "</code></li>")
         }
       }
 
