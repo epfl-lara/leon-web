@@ -210,9 +210,17 @@ ul#annotations li {
   border-top: 1px solid #666;
 }
 
-ul#annotations code {
+ul#annotations li code {
   white-space: pre;
   background: white;
+}
+
+ul#annotations li.error code {
+  color: #c7254e;
+}
+
+ul#annotations li.warning code {
+  color: #cfbd3c;
 }
 
 /* Panels */

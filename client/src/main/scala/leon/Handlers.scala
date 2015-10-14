@@ -249,10 +249,10 @@ object Handlers extends js.Object {
 
         if (a.`type` == "error") {
           val line = a.row + 1
-          $("#annotations").append("<li class=\"clicktoline\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
+          $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
         } else if (a.`type` == "warning") {
           val line = a.row + 1
-          $("#annotations").append("<li class=\"clicktoline\" line=\"" + line + "\"><code><i class=\"fa fa-info-circle\"></i> " + line + ":" + a.text + "</code></li>")
+          $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
         }
       }
 
