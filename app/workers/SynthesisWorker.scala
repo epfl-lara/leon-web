@@ -57,11 +57,16 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
       options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
 
-      val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
-        case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
-      }
+      try {
+        val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
+          case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
+        }
 
-      searchesState = synthesisInfos.groupBy(_.ci.fd.id.name)
+        searchesState = synthesisInfos.groupBy(_.ci.fd.id.name)
+      } catch {
+        case e: Throwable =>
+          notifyError("Unexpected error while gathering synthesis problems: "+e.getClass+" "+e.getMessage)
+      }
 
       notifySynthesisOverview(cstate)
 
@@ -370,7 +375,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val fInt = new FileInterface(new MuteReporter())
 
-    val nfd = fd.duplicate
+    val nfd = fd.duplicate()
 
     nfd.body = nfd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
       case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
@@ -524,11 +529,10 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
 
               val oldFd = ci.fd
-              val newFd = ci.fd.duplicate
+              val newFd = ci.fd.duplicate()
               newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
 
               val resFd = flattenFunctions(newFd, ctx, prog)
-              println(ScalaPrinter(resFd))
 
               val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                             oldFd,

@@ -94,7 +94,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                     val (sol, isTrusted) = solutions.last
                     val expr = sol.toSimplifiedExpr(ctx, program)
 
-                    val fdDup = fd.duplicate
+                    val fdDup = fd.duplicate()
                     fdDup.body = Some(expr)
 
                     val p = new ScalaPrinter(PrinterOptions(), Some(program))

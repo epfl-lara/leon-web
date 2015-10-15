@@ -19,5 +19,6 @@ abstract class CodeAnnotationType(kind: String) {
 }
 
 case object CodeAnnotationError        extends CodeAnnotationType("error")
+case object CodeAnnotationWarning      extends CodeAnnotationType("warning")
 case object CodeAnnotationSynthesis    extends CodeAnnotationType("synthesis")
 case object CodeAnnotationVerification extends CodeAnnotationType("verification")

@@ -2,7 +2,7 @@
 
     git clone --recursive https://github.com/EPFL-LARA/leon-web
 
-If you are juste upgrading:
+If you are just upgrading, delete any folder named `leon` inside `leon-web` and then do
 
     git submodule update --init --recursive
 
@@ -10,24 +10,19 @@ Later, when pulling changes, use the command `git submodule update`.
 
 # HOW TO RUN LEON ONLINE
 
-## Step 1 (only once)
-
-Setup link to leon from leon-web:
-
-    $ cd path/to/leon-web
-    $ source setupweb.sh /path/to/leon
+## Configuration
 
 Write conf/setup.conf and add the following lines, for example:
 
-    http.port=9999
-    app.url="http://localhost:9999/"
+    app.ssl=true
+    app.url="https://leon.epfl.ch"
+    assets.production.external.dir="/localhome/leonweb/git/leon-web/"
+    http.port=9900
 
 ## Step 2 (to start leon-web)
 
-You need typesafe activator, i.e. "activator" in the PATH. Then
+    $ ./start.sh
 
-    $ ./run.sh
-    
 Alternatively, `sbt run` may work. (or `sbt "run 9000"` to specify the port).
 
 ## Troubleshooter

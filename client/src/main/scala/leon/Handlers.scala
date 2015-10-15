@@ -233,22 +233,26 @@ object Handlers extends js.Object {
 
       $("#annotations").html("");
 
-      for (i <- 0 until annotations.length) {
-        val a = annotations(i);
+      dom.console.log(annotations)
+
+      for (a <- annotations) {
         if (a.`type` == "verification") {
           context = "verification";
         } else if (a.`type` == "synthesis") {
           context = "synthesis";
         }
 
-        if (a.`type` != "info" && a.`type` != "error") {
+        if (a.`type` != "info" && a.`type` != "error" && a.`type` != "warning") {
           session.addGutterDecoration(a.row, "leon_gutter_" + a.`type`)
           a.`type` = "info";
         }
 
         if (a.`type` == "error") {
           val line = a.row + 1
-          $("#annotations").append("<li class=\"clicktoline\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
+          $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
+        } else if (a.`type` == "warning") {
+          val line = a.row + 1
+          $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
         }
       }
 
@@ -348,7 +352,14 @@ object Handlers extends js.Object {
         $("#synthesisDialog").modal("hide")
 
         val msg = JSON.stringify(
-          l(action = Action.doExplore, module = "synthesis", fname = fname, cid = cid, `explore-action` = "init", path = js.Array[js.Any](), ws = 0))
+          l("action" -> Action.doExplore,
+            "module" -> "synthesis",
+            "fname" -> fname,
+            "cid" -> cid,
+            "exploreaction" -> "init",
+            "path" -> js.Array[js.Any](),
+            "ws" -> 0)
+        )
 
         leonSocket.send(msg)
       })
@@ -400,10 +411,18 @@ object Handlers extends js.Object {
     d.find("""select[data-action="select-alternative"]""").unbind("change").change(((_this: Element) => {
 
       $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
+
       val msg = JSON.stringify(
-        l(action = Action.doExplore, module = "synthesis", fname = data.fname, cid = data.cid, path = pathOf(_this), ws = wsOf(_this),
-          `explore-action` = $(_this).attr("data-action"),
-          select = $(_this).value().toInt))
+        l("action" -> Action.doExplore,
+          "module" -> "synthesis",
+          "plop" -> "plap",
+          "fname" -> data.fname,
+          "cid" -> data.cid,
+          "path" -> pathOf(_this),
+          "explore-action" -> $(_this).attr("data-action"),
+          "select" -> $(_this).value().asInstanceOf[String].toInt,
+          "ws" -> wsOf(_this))
+        )
 
       leonSocket.send(msg)
     }): js.ThisFunction);
@@ -412,8 +431,14 @@ object Handlers extends js.Object {
       $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
 
       val msg = JSON.stringify(
-        l(action = Action.doExplore, module = "synthesis", fname = data.fname, cid = data.cid, path = pathOf(self), ws = wsOf(self),
-          `explore-action` = $(self).attr("data-action")))
+        l("action" -> Action.doExplore,
+          "module" -> "synthesis",
+          "fname" -> data.fname,
+          "cid" -> data.cid,
+          "path" -> pathOf(self),
+          "explore-action" -> $(self).attr("data-action"),
+          "ws" -> wsOf(self))
+      )
 
       leonSocket.send(msg)
 
@@ -465,8 +490,14 @@ object Handlers extends js.Object {
     })
     $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
       val msg = JSON.stringify(
-        l(action = Action.doExplore, module = "synthesis", fname = fname, cid = cid, `explore-action` = "init", path = js.Array[Any](), ws = 0))
-
+          l("action" -> Action.doExplore,
+            "module" -> "synthesis",
+            "fname" -> fname,
+            "cid" -> cid,
+            "explore-action" -> "init",
+            "path" -> js.Array[js.Any](),
+            "ws" -> 0)
+        )
       leonSocket.send(msg)
     })
     $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
