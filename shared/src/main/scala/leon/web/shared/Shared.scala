@@ -1,7 +1,7 @@
 package leon.web.shared
 
 object Constants {
-
+  val invariantMainCode = "$$__invariantMainCode__$$"
 }
 
 object Action {

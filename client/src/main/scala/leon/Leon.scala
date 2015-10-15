@@ -15,7 +15,7 @@ import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventO
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import leon.web.shared.{Module => ModuleName}
+import leon.web.shared.{Module => ModuleName, Constants}
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -610,10 +610,10 @@ object Main {
             overview.Data.invariant.get(fname) match {
               case Some(d) =>
                 openInvariantDialog()
-                displayInvariantDetails(d.status, d)
+                displayInvariantDetails(d.status, d, overview.Data.invariant)
               case None =>
                 openInvariantDialog()
-                displayInvariantDetails("unknown", new HandlersTypes.InvariantDetails(){})
+                displayInvariantDetails("unknown", new HandlersTypes.InvariantDetails(){}, overview.Data.invariant)
             }
           }): js.ThisFunction)
         }
@@ -922,7 +922,9 @@ object Main {
     $("#verifyResults").show("fade");
   }
   
-  def displayInvariantDetails(status: String, invariant: HandlersTypes.InvariantDetails) {
+  def displayInvariantDetails(status: String,
+      invariant: HandlersTypes.InvariantDetails,
+      all_invariants: js.Dictionary[HandlersTypes.InvariantDetails]) {
     val tbl = $("#invariantResults tbody")
     tbl.html("");
 
@@ -943,6 +945,25 @@ object Main {
     $("div[aria-describedby='invariantDialog'] span.ui-button-text").html("Close")
 
     $("#invariantResults").show("fade");
+    
+    
+    $("#invariantDialog .importButton").show()
+    $("#invariantDialog .cancelButton").show()
+    
+    $("#invariantDialog .importButton").unbind("click").click(() => {
+      Handlers.replace_code(new HandlersTypes.HReplaceCode { val newCode = invariant.newCode })
+    })
+    val code = all_invariants.get(Constants.invariantMainCode) match {
+      case Some(result) =>
+        $("#invariantDialog .importAllButton").unbind("click").click(() => {
+          Handlers.replace_code(new HandlersTypes.HReplaceCode { val newCode = result.newCode })
+        })
+        $("#invariantDialog .importAllButton").show()
+      case _ =>
+        $("#invariantDialog .importAllButton").hide()
+    }
+    
+    $("#invariantDialog").modal("show")
   }
 
   def displayTerminationDetails(

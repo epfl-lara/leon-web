@@ -157,6 +157,7 @@ object HandlersTypes {
     val length: Int
     val oldInvariant: String
     val newInvariant: String
+    val newCode: String
   }
   
   @ScalaJSDefined
@@ -628,30 +629,5 @@ object Handlers extends js.Object {
   val display_invariants_search = (data: js.Object) => {
     $("#invariant").show()
     updateInvariantStatus("unknown")
-  }
-  
-  val invariant_result = (data: HInvariants) => {
-    // Display the dialog box if click
-    val btn = $("#investigate")
-    btn.show()
-    btn.click(() => {
-      openInvariantDialog()
-      $("#invariantResults").hide()
-      Main.displayInvariantDetails("success", data.invariants)
-      $("#invariantDialog .importButton").show()
-      $("#invariantDialog .closeButton").hide()
-      $("#invariantDialog .cancelButton").show()
-      $("#invariantDialog").modal("show")
-      
-      $("#invariantDialog .importButton").unbind("click").click(() => {
-        
-        Handlers.replace_code(new HReplaceCode { val newCode = data.code })
-        /*if (data.cursor.isDefined) {
-          js.timers.setTimeout(100) {
-            Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
-          }
-        }*/
-      })
-    })
   }
 }
