@@ -36,6 +36,15 @@ object TerminationStatus {
   val wip = "wip"
 }
 
+object InvariantStatus {
+  val found = "found"
+  val invalid = "invalid"
+  val crashed = "crashed"
+  val undefined = "undefined"
+  val timeout = "timeout"
+  val unknown = "unknown"
+}
+
 object Module {
     val verification = "verification"
     val termination = "termination"

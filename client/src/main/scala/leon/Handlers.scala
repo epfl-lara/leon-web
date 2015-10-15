@@ -1,4 +1,4 @@
-package leon
+package leon.web.client
 
 import org.scalajs.dom
 
@@ -144,10 +144,27 @@ object HandlersTypes {
   }
   
   @ScalaJSDefined
-  trait TerminationDetails extends js.Object {
+  trait TerminationDetails extends js.Object with Status {
     val call: String
     val calls: js.Array[String]
-    val status: String
+  }
+  
+  @ScalaJSDefined
+  trait InvariantDetails extends js.Object with Status {
+    val name: String
+    val startCol: Int
+    val startRow: Int
+    val length: Int
+    val oldInvariant: String
+    val newInvariant: String
+  }
+  
+  @ScalaJSDefined
+  trait HInvariants extends js.Object {
+    val invariants: js.Array[InvariantDetails]
+    val kind: String
+    val module: String
+    val code: String
   }
   
   type Html = String
@@ -611,24 +628,6 @@ object Handlers extends js.Object {
   val display_invariants_search = (data: js.Object) => {
     $("#invariant").show()
     updateInvariantStatus("unknown")
-  }
-  
-  @ScalaJSDefined
-  trait HInvariantPosition extends js.Object {
-    val name: String
-    val startCol: Int
-    val startRow: Int
-    val length: Int
-    val oldInvariant: String
-    val newInvariant: String
-  }
-  
-  @ScalaJSDefined
-  trait HInvariants extends js.Object {
-    val invariants: js.Array[HInvariantPosition]
-    val kind: String
-    val module: String
-    val code: String
   }
   
   val invariant_result = (data: HInvariants) => {

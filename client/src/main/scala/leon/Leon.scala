@@ -1,4 +1,4 @@
-package leon
+package leon.web.client
 
 import japgolly.scalajs.react.React
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -14,8 +14,7 @@ import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
-import leon.web.shared.VerifStatus
-import leon.web.shared.TerminationStatus
+import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName}
 
 @ScalaJSDefined
@@ -503,7 +502,7 @@ object Main {
   object overview {
     abstract class Module(name: String) { self =>
       val column: String
-      def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html
+      def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html
       def missing(name: String): HandlersTypes.Html
       def handlers(): Unit
       modules.list += name -> self
@@ -514,13 +513,13 @@ object Main {
 
       val verification = new Module(ModuleName.verification) {
         val column = "Verif."
-        def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
+        def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val vstatus = d.status match {
             case VerifStatus.crashed =>
               """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
             case VerifStatus.undefined =>
               """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
-            case "cond-valid" =>
+            case VerifStatus.cond_valid =>
               """<span class="text-success" title="Conditionally valid">(<i class="fa fa-check"></i>)</span>"""
             case VerifStatus.valid =>
               """<i class="fa fa-check text-success" title="Valid"></i>"""
@@ -553,7 +552,7 @@ object Main {
       }
       val termination = new Module(ModuleName.termination) {
         val column = "Term."
-        def html(name: String, d: HandlersTypes.VerificationDetails): HandlersTypes.Html = {
+        def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val tstatus = d.status match {
             case TerminationStatus.wip =>
               """<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>""";
@@ -587,12 +586,46 @@ object Main {
           }): js.ThisFunction);
         }
       }
+      val invariant = new Module(ModuleName.invariant) {
+        val column = "Inv."
+        def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
+          val istatus = d.status match {
+            case InvariantStatus.crashed =>
+              """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
+            case InvariantStatus.found =>
+              """<i class="fa fa-check text-success" title="Found invariant"></i>"""
+            case InvariantStatus.timeout =>
+              """<i class="fa fa-clock-o text-warning" title="Timeout"></i>"""
+            case InvariantStatus.undefined | _ =>
+              """<i class="fa fa-refresh fa-spin" title="Finding invariant..."></i>"""
+          }
+          "<td class=\"status invart\" fname=\"" + name + "\">" + istatus + "</td>"
+        }
+        def missing(name: String): HandlersTypes.Html = {
+          "<td class=\"status invart\" fname=\"" + name + "\"><i class=\"fa fa-question\" title=\"unknown\"></i></td>"
+        }
+        def handlers(): Unit = {
+          $("td.invart").click(((self: Element) => {
+            val fname = $(self).attr("fname")
+            overview.Data.invariant.get(fname) match {
+              case Some(d) =>
+                openInvariantDialog()
+                displayInvariantDetails(d.status, d)
+              case None =>
+                openInvariantDialog()
+                displayInvariantDetails("unknown", new HandlersTypes.InvariantDetails(){})
+            }
+          }): js.ThisFunction)
+        }
+      }
     }
 
     var functions = js.Dictionary.empty[HandlersTypes.OverviewFunction]
-    @ScalaJSDefined object Data extends js.Object {
+    @ScalaJSDefined
+    object Data extends js.Object {
       var verification = js.Dictionary[HandlersTypes.VerificationDetails]()
       var termination = js.Dictionary[HandlersTypes.TerminationDetails]()
+      var invariant = js.Dictionary[HandlersTypes.InvariantDetails]()
 
       def update[A](s: String, v: A) = {
         Data.asInstanceOf[js.Dictionary[A]](s) = v
@@ -713,7 +746,7 @@ object Main {
   }
 
   def drawOverView() {
-    val t = $("#overview_table")
+    val overview_table = $("#overview_table")
     var html: HandlersTypes.Html = "";
 
     html += "<tr>"
@@ -732,10 +765,10 @@ object Main {
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          val data = overview.Data[HandlersTypes.VerificationDetails](m)
+          val data = overview.Data[HandlersTypes.Status](m)
           data.get(fname) match {
-            case Some(name) =>
-              html += mod.html(fname, name)
+            case Some(status) =>
+              html += mod.html(fname, status)
             case _ =>
               html += mod.missing(fname)
           }
@@ -744,7 +777,7 @@ object Main {
       html += "</tr>"
     }
 
-    t.html(html);
+    overview_table.html(html);
 
     for ((name, m) <- overview.modules.list) {
       m.handlers()
@@ -754,9 +787,9 @@ object Main {
     addHoverToLine("#overview_table");
 
     if (js.Object.keys(overview.functions.asInstanceOf[js.Object]).length == 0) {
-      t.hide()
+      overview_table.hide()
     } else {
-      t.show()
+      overview_table.show()
     }
   }
 
@@ -889,23 +922,23 @@ object Main {
     $("#verifyResults").show("fade");
   }
   
-  def displayInvariantDetails(status: String, invariants: js.Array[Handlers.HInvariantPosition]) {
+  def displayInvariantDetails(status: String, invariant: HandlersTypes.InvariantDetails) {
     val tbl = $("#invariantResults tbody")
     tbl.html("");
 
     var targetFunction: String = null
-    for (invariant <- invariants) {
+    //for (invariant <- invariants) {
       var icon = "check"
 
       var clas = "success"
 
 
       tbl.append("<tr class=\"" + clas + "\"> <td>" + invariant.name + "</td> <td>" + invariant.oldInvariant + "</td> <td>" + invariant.newInvariant + "</td> <td><i class=\"fa fa-" + icon + "\"></i> Success </td> </tr>")
-    }
+    //}
 
-    if (invariants.length == 0) {
+    /*if (invariants.length == 0) {
       tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No invariant found</div></td></tr>")
-    }
+    }*/
 
     $("div[aria-describedby='invariantDialog'] span.ui-button-text").html("Close")
 
