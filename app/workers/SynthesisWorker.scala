@@ -31,7 +31,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val ci = synth.ci
           Map(
             "description" -> toJson("Problem #"+(i+1)),
-            "problem" -> toJson(ci.problem.toString),
+            "problem" -> toJson(ci.problem.asString),
             "line" -> toJson(ci.ch.getPos.line),
             "column" -> toJson(ci.ch.getPos.col),
             "index" -> toJson(i)
@@ -276,7 +276,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                       s"""<pre class="code prettyprint exploreBlock lang-scala" path="$hpath" ws="$ws" style="margin-left: ${ws}ch"><span class="header">
                             <span class="knob fa fa-arrow-left" data-action="previous-solution"></span>
                             <span class="knob fa fa-arrow-right" data-action="next-solution"></span>
-                            <span class="name">Solutions of ${an.ri.toString} (${an.selectedSolution+1}/$tot)</span>
+                            <span class="name">Solutions of ${an.ri.asString} (${an.selectedSolution+1}/$tot)</span>
                           </span>$code</pre>"""
                     }
                   case _ =>
@@ -326,7 +326,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
           val osol = search.traversePath(path) match {
             case Some(an: AndNode) =>
-              logInfo("Applying :"+an.ri.toString)
+              logInfo("Applying :"+an.ri.asString)
               
 
               if (!an.isExpanded) {
