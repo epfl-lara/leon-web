@@ -373,8 +373,8 @@ object Handlers extends js.Object {
             "module" -> "synthesis",
             "fname" -> fname,
             "cid" -> cid,
-            "exploreaction" -> "init",
-            "path" -> js.Array[js.Any](),
+            "explore-action" -> "init",
+            "path" -> js.Array[Int](),
             "ws" -> 0)
         )
 
