@@ -36,7 +36,6 @@ object MainDelayed extends js.JSApp {
   @JSExport
   def main(): Unit = {
     $(document).ready(Main.main _)
-    println("Application starting")
   }
 
   val editor = ace.edit("codebox");
@@ -64,9 +63,7 @@ object Main {
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
 
-  def main() = {
-    println("Just to load this code")
-  }
+  def main() = {}
 
   @ScalaJSDefined
   trait LocalStorage extends js.Any {
@@ -432,36 +429,6 @@ object Main {
   def updateInvariantProgress(percents: Int) {
     $("#invariant .progress-bar").css("width", percents + "%");
   }
-  
-  def updateInvariantStatus(status: String) {
-    val e = $("#invariant .compilation-status")
-
-    e.attr("class", "compilation-status");
-
-    status match {
-      case "success" =>
-        e.addClass("success")
-        e.html("""Found <i class="fa fa-check" title="Invariants found!"></i>""")
-
-      case "failure" =>
-        e.addClass("failure")
-        e.html("""Failed <i class="fa fa-warning" title="Invariants failed"></i>""")
-
-      case "unknown" =>
-        e.html("""Searching <i class="fa fa-refresh fa-spin" title="Searching for invariants..."></i>""")
-
-      case _ =>
-        alert("Unknown status: " + status)
-    }
-
-    if (status == "unknown") {
-      updateInvariantProgress(0);
-    } else {
-      updateInvariantProgress(100);
-    }
-
-  }
-  
 
   val localFeatures = localStorage.getItem("leonFeatures")
   if (localFeatures != null) {
@@ -613,7 +580,7 @@ object Main {
                 displayInvariantDetails(d.status, d, overview.Data.invariant)
               case None =>
                 openInvariantDialog()
-                displayInvariantDetails("unknown", new HandlersTypes.InvariantDetails(){}, overview.Data.invariant)
+                displayInvariantDetails("unknown", l().asInstanceOf[HandlersTypes.InvariantDetails], overview.Data.invariant)
             }
           }): js.ThisFunction)
         }
@@ -925,17 +892,71 @@ object Main {
   def displayInvariantDetails(status: String,
       invariant: HandlersTypes.InvariantDetails,
       all_invariants: js.Dictionary[HandlersTypes.InvariantDetails]) {
+    
+    val pb = $("#invariantProgress")
+    val pbb = pb.children(".progress-bar")
+
+    pbb.width("100%")
+    pb.removeClass("active")
+    pb.addClass("progress-bar-striped")
+
+    pbb.removeClass("progress-bar-warning progress-bar-success progress-bar-danger")
+
+    status match {
+      case InvariantStatus.crashed =>
+        pbb.html("Internal error")
+        pbb.addClass("progress-bar-warning")
+
+      case InvariantStatus.found =>
+        pbb.html("Invariant found!")
+        pbb.addClass("progress-bar-success")
+
+      case InvariantStatus.invalid =>
+        pbb.html("Invalid invariant template!")
+        pbb.addClass("progress-bar-danger")
+
+      case InvariantStatus.unknown =>
+        pbb.html("Unknown ?!")
+        pbb.addClass("progress-bar-warning")
+
+      case InvariantStatus.timeout =>
+        pbb.html("Timeout!")
+        pbb.addClass("progress-bar-warning")
+
+      case _ =>
+    }
+    
     val tbl = $("#invariantResults tbody")
     tbl.html("");
+    
+    def formatInvariant(s: String): String = {
+      s.replaceAll("<=", "≤")
+      .replaceAll(">=", "≥")
+      .replaceAll("!=", "≠")
+    }
 
     var targetFunction: String = null
     //for (invariant <- invariants) {
-      var icon = "check"
+      val icon = invariant.status match {
+        case InvariantStatus.crashed => "question"
+        case InvariantStatus.invalid => "status"
+        case InvariantStatus.timeout => "clock-o"
+        case InvariantStatus.found | _ => "check"
+      }
 
-      var clas = "success"
+      val clas = invariant.status match {
+        case InvariantStatus.invalid => "danger"
+        case InvariantStatus.unknown | InvariantStatus.timeout => "warning"
+        case _ => "success"
+      }
 
-
-      tbl.append("<tr class=\"" + clas + "\"> <td>" + invariant.name + "</td> <td>" + invariant.oldInvariant + "</td> <td>" + invariant.newInvariant + "</td> <td><i class=\"fa fa-" + icon + "\"></i> Success </td> </tr>")
+      tbl.append("<tr class=\"" + clas + "\"> <td>" +
+          invariant.fun + "</td> <td>" +
+          formatInvariant(invariant.oldInvariant) + "</td> <td>" +
+          formatInvariant(invariant.newInvariant) + "</td> <td>" +
+          "<i class=\"fa fa-" + icon + "\"></i> " + status + "</td><td>" +
+          invariant.time + "s </td>"+
+          "</tr>")
     //}
 
     /*if (invariants.length == 0) {
@@ -1163,7 +1184,6 @@ object Main {
 
   @JSExport
   def connectWS() {
-    println("Creating socket for " + g._leon_websocket_url)
     leonSocket = jsnew(g.WebSocket /*WS*/ )(g._leon_websocket_url).asInstanceOf[LeonSocket]
     leonSocket.onopen = openEvent
     leonSocket.onmessage = receiveEvent
@@ -1510,7 +1530,6 @@ object Main {
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
-  println("Loaded entirely")
   /*
   snowStorm.snowColor = "#ddddff";
   snowStorm.vMaxX = 2;

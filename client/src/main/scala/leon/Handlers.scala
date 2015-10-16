@@ -151,13 +151,11 @@ object HandlersTypes {
   
   @ScalaJSDefined
   trait InvariantDetails extends js.Object with Status {
-    val name: String
-    val startCol: Int
-    val startRow: Int
-    val length: Int
+    val fun: String
     val oldInvariant: String
     val newInvariant: String
     val newCode: String
+    val time: Double
   }
   
   @ScalaJSDefined
@@ -203,6 +201,7 @@ object Handlers extends js.Object {
   }
 
   val update_overview = (data: HUpdateOverview) => {
+    console.log("Received overview:",data)
     if (data.module == "main") {
       overview.functions = js.Dictionary.empty[OverviewFunction];
 
@@ -251,7 +250,7 @@ object Handlers extends js.Object {
 
       $("#annotations").html("");
 
-      dom.console.log(annotations)
+      if(annotations.length > 0) dom.console.log(annotations)
 
       for (a <- annotations) {
         if (a.`type` == "verification") {
@@ -616,18 +615,5 @@ object Handlers extends js.Object {
     } else {
       updateCompilationStatus("failure")
     }
-  }
-  
-  val invariantSearch = (data: HCompilation) => {
-    if(data.status == "success") {
-      updateInvariantStatus("success")
-    } else {
-      updateInvariantStatus("failure")
-    }
-  }
-  
-  val display_invariants_search = (data: js.Object) => {
-    $("#invariant").show()
-    updateInvariantStatus("unknown")
   }
 }

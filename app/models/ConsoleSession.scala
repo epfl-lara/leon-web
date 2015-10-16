@@ -238,7 +238,6 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
               }
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
-              event("display_invariants_search", Map())
               modules(Module.invariant).actor ! OnUpdateCode(cstate)
             } else {
               modules.values.filter(e => e.isActive && e.name != Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))

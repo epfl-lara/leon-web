@@ -20,19 +20,13 @@ import leon.purescala.Expressions._
 
 import scala.concurrent.duration._
 
-class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites {
+trait VerificationNotifier extends WorkerActor with JsonWrites {
   import ConsoleProtocol._
   import leon.evaluators._
   import leon.codegen._
-
-  override lazy implicit val ctx = leon.Main.processOptions(List(
-    "--feelinglucky",
-    "--solvers=smt-cvc4,smt-z3,ground",
-    "--evalground"
-  )).copy(interruptManager = interruptManager, reporter = reporter)
-
-  private var verifOverview  = Map[FunDef, FunVerifStatus]()
-
+  
+  protected var verifOverview = Map[FunDef, FunVerifStatus]()
+  
   def notifyVerifOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
       // All functions that depend on an invalid function
@@ -64,6 +58,18 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
     event("update_overview", Map("module" -> toJson("verification"), "overview" -> fvcs))
   }
+}
+
+class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites with VerificationNotifier {
+  import ConsoleProtocol._
+  import leon.evaluators._
+  import leon.codegen._
+
+  override lazy implicit val ctx = leon.Main.processOptions(List(
+    "--feelinglucky",
+    "--solvers=smt-cvc4,smt-z3,ground",
+    "--evalground"
+  )).copy(interruptManager = interruptManager, reporter = reporter)
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean) {
     val params    = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)

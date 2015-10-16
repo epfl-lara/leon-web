@@ -260,7 +260,9 @@ div.panel .table {
     padding-left: 30px;
 }
 
-#overview_table td.status.verif i, #overview_table td.status.termin i {
+#overview_table td.status.verif i,
+#overview_table td.status.termin i,
+#overview_table td.status.invart i {
     cursor: pointer;
 }
 

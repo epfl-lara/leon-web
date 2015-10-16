@@ -115,6 +115,12 @@
             <h3>Invariants</h3>
           </div>
           <div class="modal-body">
+            <p>
+                Leon generates invariants based on the provided templates for the selected function.
+            </p>
+            <div id="invariantProgress" class="progress">
+              <div class="progress-bar progress-bar-success progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 100%"></div>
+            </div>
 	          <div id="invariantResults">
 	               <table class="allResults table table-hover">
 	                   <thead>
@@ -123,6 +129,7 @@
 	                           <th>Template</th>
 	                           <th>Solution</th>
 	                           <th>Status</th>
+	                           <th>Time</th>
 	                       </tr>
 	                   </thead>
 	                   <tbody>
@@ -131,10 +138,9 @@
 	          </div>
           </div>
           <div class="modal-footer">
-            <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import all invariants</button>
+            <button class="btn btn-primary importAllButton" data-dismiss="modal" aria-hidden="true">Import all invariants</button>
             <button class="btn btn-primary importButton" data-dismiss="modal" aria-hidden="true">Import this invariant</button>
             <button class="btn cancelButton" data-dismiss="modal" aria-hidden="true">Cancel</button>
-            <button class="btn closeButton" data-dismiss="modal" aria-hidden="true">Close</button>
           </div>
         </div>
       </div>
