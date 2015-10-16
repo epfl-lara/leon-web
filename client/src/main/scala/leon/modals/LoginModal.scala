@@ -39,13 +39,20 @@ object LoginModal {
             <.h3("Login with GitHub")
           ),
           <.div(^.`class` := "modal-body",
-            """
-            When logging in with your GitHub account, you will be asked to give
-            Leon access to your public and possibly private repositories.
-            You will then be able to load files from any repository you
-            gave Leon access to. Click the Login button below to start
-            the authentication process.
-            """
+            <.p(
+              """
+              When logging in with your GitHub account, you will be asked to give
+              Leon access to your public and possibly private repositories.
+              You will then be able to load files from any repository you
+              gave Leon access to. Note that you can revoke this access at
+              any time from
+              """,
+              <.a(^.href := "https://github.com/settings/applications", "your GitHub settings"),
+              "."
+            ),
+            <.p(
+              """Click the Login button below to start the authentication process."""
+            )
           ),
           <.div(^.`class` := "modal-footer",
             loginButton,
