@@ -24,9 +24,9 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
   import ConsoleProtocol._
   import leon.evaluators._
   import leon.codegen._
-  
+
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
-  
+
   def notifyVerifOverview(cstate: CompilationState) {
     if (cstate.isCompiled) {
       // All functions that depend on an invalid function
@@ -78,7 +78,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
     for ((f, fv) <- verifOverview.toSeq.sortBy(_._1.getPos) if funs(f)) {
       try {
         val vcs = fv.vcData.map(_._1).toSeq
-        val vr = AnalysisPhase.checkVCs(vctx, vcs)
+        val vr = VerificationPhase.checkVCs(vctx, vcs)
 
         val resultsWithCex = for ((vc, ovr) <- vr.results) yield {
           val cexExec = ovr match {
@@ -154,7 +154,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
         }
 
         // Generate VCs
-        val fvcs = AnalysisPhase.generateVCs(vctx, toGenerate.toSeq)
+        val fvcs = VerificationPhase.generateVCs(vctx, toGenerate.toSeq)
         val fvcsMap = fvcs.groupBy(_.fd)
 
         for (f <- toGenerate) {
