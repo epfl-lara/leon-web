@@ -4,7 +4,7 @@ package bootstrap
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import scala.scalajs.js
-import org.scalajs.dom.raw.HTMLDivElement
+import org.scalajs.dom.raw.{HTMLDivElement, Element}
 import org.scalajs.jquery
 import jquery.jQuery
 import JQueryExtended._
@@ -12,6 +12,7 @@ import JQueryExtended._
 import monifu.concurrent.Implicits.globalScheduler
 import monifu.concurrent.Cancelable
 import monifu.reactive.Observable
+import monifu.reactive.subjects.PublishSubject
 
 import leon.web.client.react.attrs._
 
@@ -80,10 +81,15 @@ object Modal {
       .componentWillUnmount(_.backend.onUnmount())
       .build
 
+  type Constructor = Channel => ReactComponentU[_ , Unit, Unit, Element]
+
   def apply(events: Observable[Command])(children: ReactNode*) =
     component(Props(events), children)
 
   def apply() = component
+
+  type Channel = PublishSubject[Command]
+  def channel(): Channel = PublishSubject[Command]()
 
   val closeButton =
     <.button(

@@ -2,14 +2,14 @@
 
 @someUser match {
   case Some(user) => {
-    <a id="button-logout" href="@securesocial.controllers.routes.LoginPage.logout">
+    <a id="logout-btn" href="@securesocial.controllers.routes.LoginPage.logout">
       <i class="fa fa-sign-out"></i>
       <span>Logout @user.email.map("(" + _.value + ")").getOrElse("")</span>
     </a>
   }
 
   case None => {
-    <a id="button-login" href="@leon.web.controllers.routes.Account.login">
+    <a id="login-btn" href="@leon.web.controllers.routes.Account.login">
       <i class="fa fa-sign-in"></i>
       <span>Login</span>
     </a>

@@ -76,14 +76,14 @@ object UserRepository {
                        email, avatar_url,
                        auth_method, access_token)
     VALUES (${u.providerId.value}, ${u.userId.value},
-            ${u.firstName}, ${u.lastName},
-            ${u.email.map(_.value)}, ${u.avatarUrl}, ${u.fullName},
+            ${u.firstName}, ${u.lastName}, ${u.fullName},
+            ${u.email.map(_.value)}, ${u.avatarUrl},
             ${u.authMethod.method}, ${u.oAuth2Info.map(_.accessToken)})
     """
 
     query.executeInsert()
 
-    u
+    findByProviderAndId(u.providerId, u.userId).get
   }
 
 }

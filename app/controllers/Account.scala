@@ -2,6 +2,8 @@
 package leon.web
 package controllers
 
+import scala.concurrent.Future
+
 import play.api._
 import play.api.mvc._
 

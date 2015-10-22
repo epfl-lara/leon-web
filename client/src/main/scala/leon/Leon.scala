@@ -67,7 +67,31 @@ object Main {
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
 
-  def main() = {}
+  def main() = {
+    initReactApp()
+  }
+
+  def initReactApp(): Unit = {
+
+    def showModal(modal: Modal.Channel)
+                      (e: JQueryEventObject): Unit = {
+      e.preventDefault()
+      modal ! Modal.Show
+    }
+
+    def bindButtonToModal(modalId: String, btnId: String, modal: Modal.Constructor): Unit = {
+      val modalChan  = Modal.channel()
+      val component  = modal(modalChan)
+      val domElement = document.getElementById(modalId)
+
+      React.render(component, domElement)
+
+      $("#" + btnId).click(showModal(modalChan) _)
+    }
+
+    bindButtonToModal("login-modal", "login-btn", LoginModal.apply _)
+    bindButtonToModal("load-repo-modal", "load-repo-btn", LoadRepositoryModal.apply _)
+  }
 
   @ScalaJSDefined
   trait LocalStorage extends js.Any {
