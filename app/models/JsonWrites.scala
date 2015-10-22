@@ -85,13 +85,13 @@ trait JsonWrites {
       "vcs"    -> fv.vcData.toSeq
     )
   }
-  
+
   implicit val fiWrites = new Writes[FunInvariantStatus] {
     def writes(fi: FunInvariantStatus) = Json.obj(
       "status" -> fi.status,
       "fun" -> fi.fd.map(InstUtil.userFunctionName(_)).getOrElse("").asInstanceOf[String],
-      "oldInvariant" -> fi.oldInvariant.getOrElse("").asInstanceOf[String],
-      "newInvariant"   -> fi.newInvariant.getOrElse("").asInstanceOf[String],
+      "oldInvariant" -> fi.template.getOrElse("").asInstanceOf[String],
+      "newInvariant"   -> fi.invString.getOrElse("").asInstanceOf[String],
       "newCode"    -> fi.newCode.getOrElse("").asInstanceOf[String],
       "time"    -> fi.time.getOrElse(0.0).asInstanceOf[Double]
     )
