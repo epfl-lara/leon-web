@@ -34,6 +34,10 @@ import ProgramUtil._
 import PredicateUtil._
 import Util._
 import leon.invariant.engine._
+import scala.concurrent._
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Success
+import scala.util.Failure
 
 /**
  * @author Mikael
@@ -43,8 +47,15 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
   private var invariantOverview = Map[String, FunInvariantStatus]()
   private var allCode: Option[String] = None
+  
+  private var inferEngine: Option[InferenceEngine] = None
 
   def receive = {
+    case DoCancel =>
+      inferEngine.foreach(_.interrupt())
+      inferEngine = None
+      sender ! Cancelled(this)
+    
     case OnUpdateCode(cstate) =>
 
       for (fd <- cstate.functions) {
@@ -59,8 +70,18 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       val startProg = cstate.program
       //val nctx = this.ctx.copy(reporter = new TestSilentReporter)
       val leonctx = createLeonContext(this.ctx, s"--timeout=20") //, s"--functions=${inFun.id.name}")
-      val inferContext = new InferenceContext(startProg, leonctx)
-      val result = (new InferenceEngine(inferContext)).runWithTimeout(Some(
+      
+      inferEngine match {
+        case Some(engine) =>
+          engine.interrupt()
+        case None =>
+      }
+     val inferContext = new InferenceContext(startProg, leonctx)
+     val engine = (new InferenceEngine(inferContext))
+     inferEngine = Some(engine)
+      
+     Future {
+         engine.runWithTimeout(Some(
         (ic: InferenceCondition) => {
           ic.prettyInv match {
             case Some(inv) =>
@@ -87,9 +108,16 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
             case _ => Nil
           }
         }))
-      allCode = Some(ScalaPrinter(InferenceReportUtil.pluginResultInInput(inferContext, result.conditions, inferContext.inferProgram)))
-      println("code: "+allCode.get)
-      notifyInvariantOverview(cstate)
+     } onComplete {
+       case Success(result: InferenceReport) =>
+         allCode = Some(ScalaPrinter(InferenceReportUtil.pluginResultInInput(inferContext, result.conditions, inferContext.inferProgram)))
+         println("code: "+allCode.get)
+         notifyInvariantOverview(cstate)
+       case Failure(msg) =>
+         clientLog("Failed for no reason except: " + msg)
+     }
+      
+      
     // TODO: Ravi:
     // Each time an invariant is found, call:
     //   invariantOverview += funDef -> FunInvariantStatus(funDef, Some(oldInvariant), Some(newInvariant), Some(timeExecution), true)
