@@ -24,6 +24,8 @@ object ConsoleProtocol {
   case class StorePermaLink(code: String)
   case class AccessPermaLink(link: String)
 
+  case class LoadRepositories(user: User)
+
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)
   case class SynthesisSearch(cid: Int)

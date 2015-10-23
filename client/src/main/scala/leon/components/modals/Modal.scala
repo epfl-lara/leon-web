@@ -1,5 +1,6 @@
 package leon.web.client
-package bootstrap
+package components
+package modals
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -27,7 +28,11 @@ object Modal {
   }
 
   case class State()
-  case class Props(events: Observable[Command])
+  case class Props(
+    events: Observable[Command],
+    onShow: () => Unit,
+    onHide: () => Unit
+  )
 
   val ref = Ref[HTMLDivElement]("modal")
 
@@ -36,7 +41,7 @@ object Modal {
     def hide(): Unit = modal(Hide)
 
     def modal(cmd: Command): Unit = {
-      ref($).toOption.map(_.getDOMNode) match {
+      ref($).toOption match {
         case Some(el) => jQuery(el).modal(cmd.toString)
         case None     => println("Modal.Backend.modal(): Cannot find ref")
       }
@@ -44,47 +49,55 @@ object Modal {
 
     var subscription: Option[Cancelable] = None
 
-    def onMount(): Unit = {
-      val cancel = $.props.events.doWork(onEvent).subscribe()
+    def onMount() = $.props map { props =>
+      val cancel = props.events.doWork(onEvent).subscribe()
       subscription = Some(cancel)
     }
 
-    def onUnmount(): Unit = {
+    def onUnmount() = Callback {
       subscription.foreach(_.cancel())
     }
 
-    def onEvent(cmd: Command): Unit =
-      modal(cmd)
+    def onEvent(cmd: Command) = cmd match {
+      case Show =>
+        modal(Show)
+        $.props.map(_.onShow()).runNow()
+
+      case Hide =>
+        modal(Hide)
+        $.props.map(_.onHide()).runNow()
+    }
+
+    def render(children: PropsChildren) =
+      <.div(
+        ^.ref          := ref,
+        ^.`class`      := "modal fade nice-modal",
+        ^.role         := "dialog",
+        ariaHidden     := "true",
+        dataBackdrop   := "static",
+        <.div(
+          ^.`class` := "modal-dialog",
+          <.div(
+            ^.`class` := "modal-content",
+            children
+          )
+        )
+      )
   }
 
   val component =
     ReactComponentB[Props]("Modal")
       .initialState(State())
-      .backend(new Backend(_))
-      .render($ =>
-        <.div(
-          ^.ref          := ref,
-          ^.`class`      := "modal fade",
-          ^.role         := "dialog",
-          ariaHidden     := "true",
-          dataBackdrop   := "static",
-          <.div(
-            ^.`class` := "modal-dialog",
-            <.div(
-              ^.`class` := "modal-content",
-              $.propsChildren
-            )
-          )
-        )
-      )
+      .renderBackend[Backend]
       .componentDidMount(_.backend.onMount())
       .componentWillUnmount(_.backend.onUnmount())
       .build
 
-  type Constructor = Channel => ReactComponentU[_ , Unit, Unit, Element]
+  type Constructor = Channel => ReactComponentU[_ , _, _, Element]
 
-  def apply(events: Observable[Command])(children: ReactNode*) =
-    component(Props(events), children)
+  def apply(events: Observable[Command], onShow: () => Unit, onHide: () => Unit)
+           (children: ReactNode*) =
+    component(Props(events, onShow, onHide), children)
 
   def apply() = component
 

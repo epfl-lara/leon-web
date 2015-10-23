@@ -18,8 +18,7 @@ import models.User
 
 import akka.actor._
 import scala.concurrent.duration._
-import scala.concurrent.Future
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await, TimeoutException}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import akka.util.Timeout
@@ -62,10 +61,15 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
     }
   }
 
-  def openConsole() = WebSocket.tryAccept[JsValue] { request =>
+  def openConsole() = WebSocket.tryAccept[JsValue] { implicit request =>
     import play.api.Play.current
 
-    val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress)))
+    val userFuture = SecureSocial.currentUser.recover {
+       case t: TimeoutException => None
+     }
+
+    val user    = Await.result(userFuture, 1.seconds)
+    val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress, user)))
     implicit val timeout = Timeout(1.seconds)
 
     (session ? Init).map {

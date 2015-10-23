@@ -434,6 +434,67 @@ pre.exploreBlock .header {
 pre.exploreBlock .header .name span {
   color: #666 !important
 }
+
+/* Nice modal */
+.nice-modal .modal-header {
+  background-color: #f5f5f5;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.nice-modal .modal-body {
+  background-color: #fafafa;
+  padding: 15px;
+}
+
+.nice-modal .modal-footer {
+  background-color: #f5f5f5;
+  padding: 10px 15px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* Load Repository Modal */
+
+#load-repo-modal .modal-body {
+  padding: 15px 0 0 0;
+}
+
+#load-repo-modal .modal-body p {
+  margin: 0 15px 15px 15px;
+}
+
+ul.repository-list {
+  list-style: none;
+  max-height: 400px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+}
+
+ul.repository-list li {
+  display: block;
+  margin-bottom: 5px;
+  margin: 0;
+}
+
+ul.repository-list a, ul.repository-list a:hover {
+  cursor: pointer;
+  position: relative;
+  display: block;
+  padding: 10px 15px 10px 15px;
+  border-top: 1px solid #e5e5e5;
+}
+
+ul.repository-list .selected a, ul.repository-list .selected a:hover {
+  color: #428bca;
+}
+
+ul.repository-list .octicon {
+  color: #333 !important;
+  margin-right: 10px;
+}
+
 /*
 div.results_table > table {
     width: 100%;
@@ -704,5 +765,5 @@ span.compilation-error {
 div#codebox .ace_gutter-tooltip {
 }
 
-
 */
+

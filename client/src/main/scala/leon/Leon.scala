@@ -1,22 +1,31 @@
 package leon.web.client
 
-import japgolly.scalajs.react.React
-import japgolly.scalajs.react.vdom.prefix_<^._
-import org.scalajs.dom
-import dom.html.Element
-import dom.document
-import scala.collection.mutable.ListBuffer
 import scala.scalajs.js
+import scala.scalajs.js.annotation._
+import scala.scalajs.js.JSON
+import org.scalajs.dom
+import org.scalajs.dom.{alert, console, document}
+import org.scalajs.dom.html.Element
+import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
+import scala.scalajs.js.JSConverters._
+
+import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.{ HashMap => MMap }
-import js.annotation._
+
+import japgolly.scalajs.react._
+import japgolly.scalajs.react.vdom.prefix_<^._
+
 import com.scalawarrior.scalajs.ace._
+
 import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
-import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import js.JSConverters._
-import monifu.reactive.subjects.PublishSubject
+import JQueryExtended._
+
+import Bool._
+import Implicits._
+
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import leon.web.shared.{Module => ModuleName, Constants}
+import leon.web.shared.{Module => ModuleName, Constants, Action}
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -52,46 +61,30 @@ object MainDelayed extends js.JSApp {
 }
 
 @JSExport("Main")
-object Main {
-  import Bool._
-  import JQueryExtended._
-  import js.JSON
-  import leon.web.shared.Action
-  import leon.web.client.syntax.subject._
-  import leon.web.client.modals._
-  import leon.web.client.bootstrap._
-  import dom.alert
-  import dom.console
-  import Implicits._
+object Main extends LeonWeb with ReactApp {
+
+  def main(): Unit = {
+    js.timers.setInterval(2000) { checkDisconnectStatus() };
+
+    connectWS()
+    initReactApp()
+
+    js.timers.setTimeout(3000) {
+      if (!connected) {
+        $("#disconnectError").hide();
+        $("#connectError").show().alert();
+      }
+    }
+
+  }
+
+}
+
+trait LeonWeb {
+
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
-
-  def main() = {
-    initReactApp()
-  }
-
-  def initReactApp(): Unit = {
-
-    def showModal(modal: Modal.Channel)
-                      (e: JQueryEventObject): Unit = {
-      e.preventDefault()
-      modal ! Modal.Show
-    }
-
-    def bindButtonToModal(modalId: String, btnId: String, modal: Modal.Constructor): Unit = {
-      val modalChan  = Modal.channel()
-      val component  = modal(modalChan)
-      val domElement = document.getElementById(modalId)
-
-      React.render(component, domElement)
-
-      $("#" + btnId).click(showModal(modalChan) _)
-    }
-
-    bindButtonToModal("login-modal", "login-btn", LoginModal.apply _)
-    bindButtonToModal("load-repo-modal", "load-repo-btn", LoadRepositoryModal.apply _)
-  }
 
   @ScalaJSDefined
   trait LocalStorage extends js.Any {
@@ -114,22 +107,6 @@ object Main {
     var onerror: js.Function1[JQueryEventObject, Any]
   }
   @JSExport("leonSocket") var leonSocket: LeonSocket = null
-
-  def bindLogin(): Unit = {
-    val loginModal = PublishSubject[Modal.Command]()
-    val component  = LoginModal(loginModal)
-    val domElement = document.getElementById("login-modal")
-
-    React.render(component, domElement)
-
-    $("#button-login").click(showLoginModal(loginModal) _)
-  }
-
-  def showLoginModal(loginModal: PublishSubject[Modal.Command])
-                    (e: JQueryEventObject): Unit = {
-    e.preventDefault()
-    loginModal ! Modal.Show
-  }
 
   val headerHeight = $("#title").height() + 20
 
@@ -1094,7 +1071,13 @@ object Main {
     alert(msg);
   }
 
+  val errorEvent = (event: JQueryEventObject) => {
+    console.log("ERROR")
+    console.log(event)
+  }
+
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
+
   val receiveEvent = (event: JQueryEventObject) => {
     val data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
     handlers.get(data.kind) match {
@@ -1208,21 +1191,6 @@ object Main {
       $("#disconnectError").show().alert();
 
       reconnectIn -= 1;
-    }
-  }
-
-  js.timers.setInterval(2000) { checkDisconnectStatus() };
-
-  val errorEvent = (event: JQueryEventObject) => {
-    console.log("ERROR")
-    console.log(event)
-  }
-
-  connectWS()
-  js.timers.setTimeout(3000) {
-    if (!connected) {
-      $("#disconnectError").hide();
-      $("#connectError").show().alert();
     }
   }
 
@@ -1584,6 +1552,63 @@ object Main {
   snowStorm.followMouse = false;
   snowStorm.stop();
   */
+
+}
+
+trait ReactApp { self: LeonWeb =>
+
+  import monifu.reactive.subjects.PublishSubject
+  import monifu.concurrent.Implicits.globalScheduler
+
+  import leon.web.client.components.modals._
+  import leon.web.client.syntax.subject._
+  import leon.web.client.HandlersTypes.HRepositories
+
+  import LoadRepositoryModal._
+
+  def initReactApp(): Unit = {
+    bindButtonToModal("login-modal", "login-btn", LoginModal.apply _)
+
+    val loadRepoChan  = LoadRepositoryModal.channel()
+    val loadRepoModal = LoadRepositoryModal.apply(loadRepoChan) _
+
+    bindButtonToModal("load-repo-modal", "load-repo-btn", loadRepoModal)
+
+    loadRepoChan.foreach {
+      case LoadRepositories() =>
+        val msg = l(action = Action.loadRepositories, module = "main")
+        leonSocket.send(JSON.stringify(msg))
+
+      case LoadRepository(repo) =>
+        val msg = l(action = Action.loadRepository, module = "main", repository = repo)
+        leonSocket.send(JSON.stringify(msg))
+
+      case _ =>
+    }
+
+    val handler = (data: HRepositories) => {
+      loadRepoChan ! RepositoriesLoaded(data.repos)
+    }
+
+    handlers += ("repositories" -> handler)
+  }
+
+  private
+  def showModal(modal: Modal.Channel)(e: JQueryEventObject): Unit = {
+    e.preventDefault()
+    modal ! Modal.Show
+  }
+
+  private
+  def bindButtonToModal(modalId: String, btnId: String, modal: Modal.Constructor): Unit = {
+    val modalChan  = Modal.channel()
+    val component  = modal(modalChan)
+    val domElement = document.getElementById(modalId)
+
+    ReactDOM.render(component, domElement)
+
+    $("#" + btnId).click(showModal(modalChan) _)
+  }
 
 }
 

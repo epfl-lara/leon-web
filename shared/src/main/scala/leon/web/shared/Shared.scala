@@ -15,6 +15,8 @@ object Action {
   val doSearch = "doSearch"
   val doApplyRule = "doApplyRule"
   val doRepair = "doRepair"
+  val loadRepositories = "loadRepositories"
+  val loadRepository = "loadRepository"
 }
 
 object VerifStatus {

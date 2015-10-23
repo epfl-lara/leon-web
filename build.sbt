@@ -12,11 +12,13 @@ val appDependencies = Seq(
   "com.h2database" % "h2" % "1.3.158",
   jdbc,
   anorm,
+  ws,
   // Web Libraries
   "org.webjars" % "ace" % "01.08.2014",
   "org.webjars" % "bootstrap" % "3.2.0",
   "org.webjars" % "jquery" % "2.1.1",
   "org.webjars" % "font-awesome" % "4.1.0",
+  "org.webjars" % "octicons" % "3.1.0",
   "org.webjars" % "prettify" % "4-Mar-2013",
   "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"
 )
@@ -47,12 +49,13 @@ lazy val client = (project in file("client")).settings(
   libraryDependencies ++= Seq(
     "org.scala-js" %%% "scalajs-dom" % "0.8.0",
     "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-    "com.github.japgolly.scalajs-react" %%% "core" % "0.9.2",
+    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.0",
     "org.monifu" %%% "monifu" % "1.0-RC3"
   ),
   persistLauncher := true,
   jsDependencies ++= Seq(
-    "org.webjars" % "react" % "0.13.3" / "react-with-addons.js" minified "react-with-addons.min.js" commonJSName "React"
+    "org.webjars.npm" % "react"     % "0.14.0" / "react-with-addons.js" commonJSName "React"    minified "react-with-addons.min.js",
+    "org.webjars.npm" % "react-dom" % "0.14.0" / "react-dom.js"         commonJSName "ReactDOM" minified "react-dom.min.js" dependsOn "react-with-addons.js"
   ),
   skip in packageJSDependencies := false
 ).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(aceJsProject, sharedJs)

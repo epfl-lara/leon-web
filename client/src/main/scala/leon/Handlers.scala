@@ -10,7 +10,6 @@ import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
 
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-
 import js.JSConverters._
 
 import com.scalawarrior.scalajs.ace._
@@ -19,6 +18,22 @@ object HandlersTypes {
   @ScalaJSDefined
   trait HPermalink extends js.Object {
     val link: String
+  }
+
+  @ScalaJSDefined
+  trait HRepository extends js.Object {
+    val id: Long
+    val name: String
+    val fullName: String
+    val visibility: String
+    val fork: Boolean
+    val size: Long
+    val cloneURL: String
+  }
+
+  @ScalaJSDefined
+  trait HRepositories extends js.Object {
+    val repos: js.Array[HRepository]
   }
   
   @ScalaJSDefined 
@@ -195,6 +210,7 @@ object Handlers extends js.Object {
     $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
     $("#permalink-value").show()
   }
+
   val move_cursor = (data: HMoveCursor) => {
     Main.editor.selection.clearSelection();
     Main.editor.gotoLine(data.line);

@@ -27,6 +27,8 @@ import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 import leon.web.repositories.PermalinkRepository
+import leon.web.services.github._
+import leon.web.json.GitHub._
 
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -34,7 +36,7 @@ import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import leon.web.shared.{Action, Module}
 
-class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
+class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
   import ConsoleProtocol._
 
@@ -121,6 +123,18 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
               case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
+              case Action.loadRepositories =>
+                user match {
+                  case Some(u) =>
+                    self ! LoadRepositories(u)
+
+                  case None =>
+                    notifyError("Cannot load repositories without a logged-in user")
+                }
+
+              case Action.loadRepository =>
+                notifyError("TODO: Implement Action.loadRepository")
+
               case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
@@ -170,6 +184,16 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         case None =>
           notifyError("Link not found ?!?: "+link)
       }
+
+    case LoadRepositories(user) =>
+      // TODO: Handle case when the token is missing
+      val token = user.oAuth2Info.get.accessToken
+      val gh    = GitHubService(token)
+      val repos = Await.result(gh.listUserRepositories(), 2.seconds)
+
+      event("repositories", Map(
+        "repos" -> toJson(repos)
+      ))
 
     case UpdateCode(code) =>
       if (lastCompilationState.code != Some(code)) {
