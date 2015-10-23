@@ -65,11 +65,12 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         invariantOverview += fd.id.name ->
           FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = veriStatus)
       }
+      allCode = None
       notifyInvariantOverview(cstate)
 
       val startProg = cstate.program
       //val nctx = this.ctx.copy(reporter = new TestSilentReporter)
-      val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds") //, s"--functions=${inFun.id.name}")
+      val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=7") //, s"--functions=${inFun.id.name}")
 
       inferEngine match {
         case Some(engine) =>

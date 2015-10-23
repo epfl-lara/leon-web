@@ -5,6 +5,6 @@ fi
 
 ./gen_version.sh
 
-JAVA_OPTS="-Xss100M -Xms2G -Xmx5G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled" \
+JAVA_OPTS="-Xss128M -Xms5G -Xmx15G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=384M" \
 activator "run $PORT"
 
