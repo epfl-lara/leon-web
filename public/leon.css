@@ -23,7 +23,7 @@ body#leon {
     background-color: #FFF;
 }
 
-.panel h3, #title {
+.panel > h3, #title {
     background: #19214F !important;
 }
 
@@ -163,7 +163,7 @@ div.panel {
     border-radius: 5px;
 }
 
-div.panel h3 {
+div.panel > h3 {
     margin: 0px;
     line-height: 1.3em;
     padding: 5px 5px;
@@ -454,6 +454,11 @@ pre.exploreBlock .header .name span {
   border-bottom-right-radius: 6px;
 }
 
+/* Load Repository Panel */
+#load-repo-panel {
+  display: none;
+}
+
 /* Load Repository Modal */
 
 #load-repo-modal .modal-body {
@@ -495,9 +500,12 @@ ul.repository-list .selected a {
   background-color: #eaeef8;
 }
 
-ul.repository-list .octicon {
+.octicon {
+  margin-right: 8px;
+}
+
+.repository-list .octicon {
   color: #333 !important;
-  margin-right: 10px;
 }
 
 ul.repository-list .private .octicon {

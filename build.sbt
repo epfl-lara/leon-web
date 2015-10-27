@@ -55,8 +55,7 @@ lazy val client = (project in file("client")).settings(
   libraryDependencies ++= Seq(
     "org.scala-js" %%% "scalajs-dom" % "0.8.0",
     "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.0",
-    "org.monifu" %%% "monifu" % "1.0-RC3"
+    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.0"
   ),
   persistLauncher := true,
   jsDependencies ++= Seq(

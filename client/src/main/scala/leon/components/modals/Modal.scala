@@ -10,11 +10,6 @@ import org.scalajs.jquery
 import jquery.jQuery
 import JQueryExtended._
 
-import monifu.concurrent.Implicits.globalScheduler
-import monifu.concurrent.Cancelable
-import monifu.reactive.Observable
-import monifu.reactive.subjects.PublishSubject
-
 import leon.web.client.react.attrs._
 
 object Modal {
@@ -27,18 +22,11 @@ object Modal {
     override def toString = "hide"
   }
 
-  case class State()
-  case class Props(
-    events: Observable[Command],
-    onShow: () => Unit,
-    onHide: () => Unit
-  )
+  case class Props(isOpen: Boolean = false)
 
   val ref = Ref[HTMLDivElement]("modal")
 
-  class Backend($: BackendScope[Props, State]) {
-    def show(): Unit = modal(Show)
-    def hide(): Unit = modal(Hide)
+  class Backend($: BackendScope[Props, Unit]) {
 
     def modal(cmd: Command): Unit = {
       ref($).toOption match {
@@ -47,25 +35,15 @@ object Modal {
       }
     }
 
-    var subscription: Option[Cancelable] = None
+    def show(): Unit = modal(Show)
+    def hide(): Unit = modal(Hide)
 
-    def onMount() = $.props map { props =>
-      val cancel = props.events.doWork(onEvent).subscribe()
-      subscription = Some(cancel)
+    def onMount() = $.props.map { props =>
+      if (props.isOpen) show() else hide()
     }
 
-    def onUnmount() = Callback {
-      subscription.foreach(_.cancel())
-    }
-
-    def onEvent(cmd: Command) = cmd match {
-      case Show =>
-        modal(Show)
-        $.props.map(_.onShow()).runNow()
-
-      case Hide =>
-        modal(Hide)
-        $.props.map(_.onHide()).runNow()
+    def onUpdate(prevProps: Props) = $.props map { props =>
+      onMount().runNow()
     }
 
     def render(children: PropsChildren) =
@@ -87,22 +65,15 @@ object Modal {
 
   val component =
     ReactComponentB[Props]("Modal")
-      .initialState(State())
       .renderBackend[Backend]
       .componentDidMount(_.backend.onMount())
-      .componentWillUnmount(_.backend.onUnmount())
+      .componentDidUpdate(scope => scope.$.backend.onUpdate(scope.prevProps))
       .build
 
-  type Constructor = Channel => ReactComponentU[_ , _, _, Element]
-
-  def apply(events: Observable[Command], onShow: () => Unit, onHide: () => Unit)
-           (children: ReactNode*) =
-    component(Props(events, onShow, onHide), children)
+  def apply(isOpen: Boolean)(children: ReactNode*) =
+    component(Props(isOpen), children)
 
   def apply() = component
-
-  type Channel = PublishSubject[Command]
-  def channel(): Channel = PublishSubject[Command]()
 
   val closeButton =
     <.button(

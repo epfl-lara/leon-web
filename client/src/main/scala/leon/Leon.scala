@@ -26,6 +26,7 @@ import Implicits._
 
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants, Action}
+import leon.web.client.HandlersTypes._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -67,7 +68,8 @@ object Main extends LeonWeb with ReactApp {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
 
     connectWS()
-    initReactApp()
+    RepositoryStore.init(leonSocket, handlers)
+    ReactApp.render()
 
     js.timers.setTimeout(3000) {
       if (!connected) {
@@ -1555,77 +1557,115 @@ trait LeonWeb {
 
 }
 
-trait ReactApp { self: LeonWeb =>
+object RepositoryStore {
 
-  import monifu.reactive.subjects.PublishSubject
-  import monifu.concurrent.Implicits.globalScheduler
+  import Main.LeonSocket
 
-  import leon.web.client.components.modals._
-  import leon.web.client.syntax.subject._
-  import leon.web.client.HandlersTypes._
+  sealed trait Action
+  case class LoadRepositories() extends Action
+  case class LoadFiles(repo: HRepository) extends Action
 
-  import LoadRepositoryModal._
+  sealed trait Event
+  case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
+  case class FilesLoaded(files: Seq[String]) extends Event
 
-  def initReactApp(): Unit = {
-    bindButtonToModal("login-modal", "login-btn", LoginModal.apply _)
+  type Listener = Event => Unit
 
-    val loadRepoChan  = LoadRepositoryModal.channel()
-    val loadRepoModal = LoadRepositoryModal.apply(loadRepoChan) _
+  private var listeners: List[Listener] = List()
 
-    bindButtonToModal("load-repo-modal", "load-repo-btn", loadRepoModal)
+  private var leonSocket: LeonSocket = _
 
-    loadRepoChan.foreach {
-      case LoadRepositories() =>
-        val msg = l(action = Action.loadRepositories, module = "main")
-        leonSocket.send(JSON.stringify(msg))
+  // private var repos: Option[Seq[HRepository]] = None,
+  // private var repo: Option[HRepository]       = None,
+  // private var files: Option[Seq[String]]      = None
 
-      case LoadRepository(repo) =>
-        val msg = l(
-          action = Action.loadRepository,
-          module = "main",
-          owner  = repo.owner,
-          name   = repo.name
-        )
+  def init(socket: LeonSocket, handlers: js.Dictionary[Any]): Unit = {
+    leonSocket = socket
 
-        leonSocket.send(JSON.stringify(msg))
-
-      case _ =>
-    }
-
-    val repoHandler = (data: HRepositories) => {
-      if (data.status == "error") {
-        console.error(data.error)
-      }
-
-      loadRepoChan ! RepositoriesLoaded(data.repos)
-    }
-
-    val loadRepoHandler = (data: HLoadRepository) => {
-      if (data.status == "error") {
-        console.error(data.error)
-      }
-      console.log(data.files)
-    }
-
-    handlers += ("repositories" -> repoHandler)
+    handlers += ("repositories"    -> repoHandler)
     handlers += ("load_repository" -> loadRepoHandler)
   }
 
+  def listen(listener: Listener): Unit =
+    listeners = listener :: listeners
+
+  def emit(event: Event): Unit = {
+    listeners.foreach(_(event))
+  }
+
+  def processAction(action: Action): Unit = action match {
+    case LoadRepositories() =>
+      val msg = l(
+        action = Action.loadRepositories,
+        module = "main"
+      )
+
+      leonSocket.send(JSON.stringify(msg))
+
+    case LoadFiles(repo) =>
+      val msg = l(
+        action = Action.loadRepository,
+        module = "main",
+        owner  = repo.owner,
+        name   = repo.name
+      )
+
+      leonSocket.send(JSON.stringify(msg))
+  }
+
+  def !(action: Action): Unit = processAction(action)
+
   private
-  def showModal(modal: Modal.Channel)(e: JQueryEventObject): Unit = {
-    e.preventDefault()
-    modal ! Modal.Show
+  val repoHandler = (data: HRepositories) => {
+    if (data.status == "error") {
+      console.error(data.error)
+    }
+
+    emit(RepositoriesLoaded(data.repos))
   }
 
   private
-  def bindButtonToModal(modalId: String, btnId: String, modal: Modal.Constructor): Unit = {
-    val modalChan  = Modal.channel()
-    val component  = modal(modalChan)
-    val domElement = document.getElementById(modalId)
+  val loadRepoHandler = (data: HLoadRepository) => {
+    if (data.status == "error") {
+      console.error(data.error)
+    }
 
-    ReactDOM.render(component, domElement)
+    emit(FilesLoaded(data.files))
+  }
 
-    $("#" + btnId).click(showModal(modalChan) _)
+}
+
+trait ReactApp { self: LeonWeb =>
+
+  import leon.web.client.components._
+  import leon.web.client.components.modals._
+
+  object ReactApp {
+
+    def render(): Unit = {
+      renderLogin()
+      renderLoadRepoPanel()
+    }
+
+    private def renderLogin(): Unit = {
+      val el = document.getElementById("login-modal")
+      ReactDOM.render(LoginModal(false), el)
+
+      $("#login-btn").click { e: JQueryEventObject =>
+        e.preventDefault()
+        ReactDOM.render(LoginModal(true), el)
+      }
+    }
+
+    private def renderLoadRepoPanel(): Unit = {
+      val panelEl = document.getElementById("load-repo-panel")
+
+      if (panelEl != null) {
+        ReactDOM.render(LoadRepositoryPanel(), panelEl)
+        $(panelEl).show()
+      }
+    }
+
   }
 
 }

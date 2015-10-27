@@ -5,10 +5,6 @@ package modals
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import monifu.concurrent.Implicits.globalScheduler
-import monifu.concurrent.Cancelable
-import monifu.reactive.Observable
-
 import leon.web.client.react.attrs._
 
 object LoginModal {
@@ -30,11 +26,11 @@ object LoginModal {
 
   val nop = () => {};
 
-  case class Props(events: Observable[Modal.Command])
+  case class Props(isOpen: Boolean = false)
 
   class Backend($: BackendScope[Props, Unit]) {
     def render(props: Props) =
-      Modal(props.events, nop, nop)(
+      Modal(props.isOpen)(
         <.div(^.`class` := "modal-header",
           Modal.closeButton,
           <.h3("Login with GitHub")
@@ -67,7 +63,7 @@ object LoginModal {
       .renderBackend[Backend]
       .build
 
-  def apply(events: Observable[Modal.Command]) = component(Props(events))
+  def apply(isOpen: Boolean = false) = component(Props(isOpen))
 
 }
 

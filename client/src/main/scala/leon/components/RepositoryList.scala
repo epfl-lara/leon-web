@@ -31,7 +31,6 @@ object RepositoryList {
         )
       )
 
-
     def classNamesFor(repo: HRepository, selected: Option[HRepository]): String = {
       val sel  = selected.filter(_ == repo).map(_ => "selected").getOrElse("")
       val priv = repo.visibility
