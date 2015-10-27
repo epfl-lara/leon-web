@@ -59,7 +59,6 @@ object LoadRepositoryModal {
     def onLoadRepo(): Callback =
       $.props.zip($.state) map { case (props, state) =>
         state.selectedRepo foreach { repo =>
-          println("Will load ", repo)
           props.chan ! LoadRepository(repo)
         }
       }

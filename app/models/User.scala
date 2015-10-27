@@ -24,6 +24,7 @@ case class User(
   authMethod: AuthenticationMethod,
   oAuth2Info: Option[OAuth2Info] = None) {
 
+  def fullId: String          = s"${providerId.value}-${userId.value}"
   def toProfile: BasicProfile = User.toProfile(this)
 }
 

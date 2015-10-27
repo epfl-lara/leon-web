@@ -56,15 +56,15 @@ object GitHub {
   )(unlift(Repository.unapply))
 
   implicit val repositoryReads: Reads[Repository] = (
-    ( __ \ "id"             ).read[RepositoryId] and
-    ( __ \ "name"           ).read[String]       and
-    ( __ \ "full_name"      ).read[String]       and
-    ( __ \ "owner"          ).read[String]       and
-    ( __ \ "private"        ).read[Visibility]   and
-    ( __ \ "fork"           ).read[Boolean]      and
-    ( __ \ "size"           ).read[Long]         and
-    ( __ \ "clone_url"      ).read[String]       and
-    ( __ \ "default_branch" ).read[String]
+    ( __ \ "id"              ).read[RepositoryId] and
+    ( __ \ "name"            ).read[String]       and
+    ( __ \ "full_name"       ).read[String]       and
+    ( __ \ "owner" \ "login" ).read[String]       and
+    ( __ \ "private"         ).read[Visibility]   and
+    ( __ \ "fork"            ).read[Boolean]      and
+    ( __ \ "size"            ).read[Long]         and
+    ( __ \ "clone_url"       ).read[String]       and
+    ( __ \ "default_branch"  ).read[String]
   )(Repository.apply _)
 }
 

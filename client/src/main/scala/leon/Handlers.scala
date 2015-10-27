@@ -25,15 +25,26 @@ object HandlersTypes {
     val id: Long
     val name: String
     val fullName: String
+    val owner: String
     val visibility: String
     val fork: Boolean
     val size: Long
     val cloneURL: String
+    val defaultBranch: String
   }
 
   @ScalaJSDefined
   trait HRepositories extends js.Object {
+    val status: String
+    val error: String
     val repos: js.Array[HRepository]
+  }
+
+  @ScalaJSDefined
+  trait HLoadRepository extends js.Object {
+    val status: String
+    val error: String
+    val files: js.Array[String]
   }
   
   @ScalaJSDefined 

@@ -12,8 +12,13 @@ object github {
   import leon.web.models.GitHub._
   import leon.web.json.GitHub._
 
+  case class GitHubServiceError(message: String)
+
   trait GitHubService {
-    def listUserRepositories(): Future[Seq[Repository]]
+    type Error = GitHubServiceError
+
+    def listUserRepositories(): Future[Either[Error, Seq[Repository]]]
+    def getRepository(owner: String, name: String): Future[Either[Error, Repository]]
   }
 
   object GitHubService {
@@ -30,17 +35,29 @@ object github {
         .withHeaders("Authorization" -> s"token $token")
         .withHeaders("Accept" -> "application/vnd.github.v3+json")
 
-    override def listUserRepositories(): Future[Seq[Repository]] = {
-      req("/user/repos").get() map { res =>
-        res.json.validate[Seq[Repository]] match {
-          case s: JsSuccess[Seq[Repository]] => s.get
-          case e: JsError =>
-            println("Errors: " + JsError.toFlatJson(e).toString())
-            Seq()
-        }
+    private def unwrapSuccess[T : Reads](res: WSResponse): Either[Error, T] =
+      res.json.validate[T] match {
+        case s: JsSuccess[T] =>
+          Right(s.get)
+
+        case e: JsError =>
+          val error = JsError.toFlatJson(e).toString()
+          Left(GitHubServiceError(error))
       }
+
+    // TODO: Follow the pagination to load all repositories
+    override def listUserRepositories(): Future[Either[Error, Seq[Repository]]] = {
+      req("/user/repos")
+        .withQueryString("affiliation" -> "owner")
+        .get()
+        .map(unwrapSuccess[Seq[Repository]])
     }
 
+    override def getRepository(owner: String, name: String): Future[Either[Error, Repository]] = {
+      req(s"/repos/$owner/$name")
+        .get()
+        .map(unwrapSuccess[Repository])
+    }
 
   }
 

@@ -479,6 +479,7 @@ ul.repository-list li {
 }
 
 ul.repository-list a, ul.repository-list a:hover {
+  color: #4078c0;
   cursor: pointer;
   position: relative;
   display: block;
@@ -486,13 +487,21 @@ ul.repository-list a, ul.repository-list a:hover {
   border-top: 1px solid #e5e5e5;
 }
 
-ul.repository-list .selected a, ul.repository-list .selected a:hover {
-  color: #428bca;
+ul.repository-list .private a {
+  background-color: #fff9ea;
+}
+
+ul.repository-list .selected a {
+  background-color: #eaeef8;
 }
 
 ul.repository-list .octicon {
   color: #333 !important;
   margin-right: 10px;
+}
+
+ul.repository-list .private .octicon {
+  color: #a1882b !important;
 }
 
 /*

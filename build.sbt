@@ -10,6 +10,12 @@ val appDependencies = Seq(
   "ws.securesocial" %% "securesocial" % "3.0-M3",
   "org.scala-lang" % "scala-compiler" % "2.11.6",
   "com.h2database" % "h2" % "1.3.158",
+  "org.eclipse.jgit" % "org.eclipse.jgit.pgm" % "4.1.0.201509280440-r"
+    exclude("javax.jms", "jms")
+    exclude("com.sun.jdmk", "jmxtools")
+    exclude("com.sun.jmx", "jmxri")
+    exclude("org.sl4j", "slf4j-log4j12")
+    exclude("log4j", "log4j"),
   jdbc,
   anorm,
   ws,

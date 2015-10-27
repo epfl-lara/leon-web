@@ -29,12 +29,12 @@ import leon.web.workers._
 import leon.web.stores.PermalinkStore
 import leon.web.services.github._
 import leon.web.json.GitHub._
+import leon.web.shared.{Action, Module}
 
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import leon.web.shared.{Action, Module}
 
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
@@ -55,6 +55,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         notifyError("Not compiled ?!")
         logInfo("Not compiled ?!")
     }
+  }
+
+  def withUser(f: User => Unit): Unit = user match {
+    case Some(user) =>
+      f(user)
+    case None       =>
+      notifyError("Cannot perform this operation when user is not logged-in.")
+      logInfo("Cannot perform this operation when user is not logged-in.")
   }
 
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
@@ -123,17 +131,16 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
-              case Action.loadRepositories =>
-                user match {
-                  case Some(u) =>
-                    self ! LoadRepositories(u)
+              case Action.loadRepositories => withUser { user =>
+                self ! LoadRepositories(user)
+              }
 
-                  case None =>
-                    notifyError("Cannot load repositories without a logged-in user")
-                }
+              case Action.loadRepository => withUser { user =>
+                val owner = (event \ "owner").as[String]
+                val name  = (event \ "name").as[String]
 
-              case Action.loadRepository =>
-                notifyError("TODO: Implement Action.loadRepository")
+                self ! LoadRepository(user, owner, name)
+              }
 
               case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
@@ -174,7 +181,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         case Some(Permalink(link, _)) =>
           event("permalink", Map("link" -> toJson(link.value)))
         case _ =>
-          notifyError("Coult not create permalink")
+          notifyError("Could not create permalink")
       }
 
     case AccessPermaLink(link) =>
@@ -189,11 +196,62 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       // TODO: Handle case when the token is missing
       val token = user.oAuth2Info.get.accessToken
       val gh    = GitHubService(token)
-      val repos = Await.result(gh.listUserRepositories(), 2.seconds)
+      val res   = Await.result(gh.listUserRepositories(), 2.seconds)
 
-      event("repositories", Map(
-        "repos" -> toJson(repos)
-      ))
+      res match {
+        case Left(error) =>
+          event("repositories", Map(
+            "status" -> toJson("failed"),
+            "error"  -> toJson(error.message),
+            "repos"  -> toJson(Seq[String]())
+          ))
+
+        case Right(repos) =>
+          event("repositories", Map(
+            "status" -> toJson("success"),
+            "error"  -> toJson(""),
+            "repos"  -> toJson(repos)
+          ))
+      }
+
+    case LoadRepository(user, owner, name) =>
+      // TODO: Handle case when the token is missing
+      val token  = user.oAuth2Info.get.accessToken
+      val gh     = GitHubService(token)
+      val result = Await.result(gh.getRepository(owner, name), 1.seconds)
+
+      result match {
+        case Left(error) =>
+          event("load_repository", Map(
+            "status" -> toJson("failed"),
+            "error"  -> toJson(error.message),
+            "files"  -> toJson(Seq[String]())
+          ))
+
+        case Right(repo) =>
+          val (owner, name) = (repo.owner, repo.name)
+
+          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+
+          if (!wc.exists) {
+            clientLog(s"Cloning repository $owner/$name...")
+            wc.cloneRepo(repo.cloneURL, Some(token))
+            clientLog(s"Cloning repository $owner/$name... Done.")
+          }
+
+          clientLog(s"Listing files in $owner/$name...")
+          val files = wc.getFiles(repo.defaultBranch)
+                        .getOrElse(Seq[String]())
+                        .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
+
+          clientLog(s"Listing files in $owner/$name... Done.")
+
+          event("load_repository", Map(
+            "status" -> toJson("success"),
+            "error"  -> toJson(""),
+            "files"  -> toJson(files)
+          ))
+      }
 
     case UpdateCode(code) =>
       if (lastCompilationState.code != Some(code)) {

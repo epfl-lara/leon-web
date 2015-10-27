@@ -33,7 +33,9 @@ object RepositoryList {
 
 
     def classNamesFor(repo: HRepository, selected: Option[HRepository]): String = {
-      selected.filter(_ == repo).map(_ => "selected").getOrElse("")
+      val sel  = selected.filter(_ == repo).map(_ => "selected").getOrElse("")
+      val priv = repo.visibility
+      s"$priv $sel"
     }
 
     def iconFor(repo: HRepository): String = {

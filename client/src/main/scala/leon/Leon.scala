@@ -1562,7 +1562,7 @@ trait ReactApp { self: LeonWeb =>
 
   import leon.web.client.components.modals._
   import leon.web.client.syntax.subject._
-  import leon.web.client.HandlersTypes.HRepositories
+  import leon.web.client.HandlersTypes._
 
   import LoadRepositoryModal._
 
@@ -1580,17 +1580,35 @@ trait ReactApp { self: LeonWeb =>
         leonSocket.send(JSON.stringify(msg))
 
       case LoadRepository(repo) =>
-        val msg = l(action = Action.loadRepository, module = "main", repository = repo)
+        val msg = l(
+          action = Action.loadRepository,
+          module = "main",
+          owner  = repo.owner,
+          name   = repo.name
+        )
+
         leonSocket.send(JSON.stringify(msg))
 
       case _ =>
     }
 
-    val handler = (data: HRepositories) => {
+    val repoHandler = (data: HRepositories) => {
+      if (data.status == "error") {
+        console.error(data.error)
+      }
+
       loadRepoChan ! RepositoriesLoaded(data.repos)
     }
 
-    handlers += ("repositories" -> handler)
+    val loadRepoHandler = (data: HLoadRepository) => {
+      if (data.status == "error") {
+        console.error(data.error)
+      }
+      console.log(data.files)
+    }
+
+    handlers += ("repositories" -> repoHandler)
+    handlers += ("load_repository" -> loadRepoHandler)
   }
 
   private
