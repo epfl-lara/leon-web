@@ -1,5 +1,5 @@
 package leon.web
-package repositories
+package stores
 
 import anorm._
 import play.api.libs.json._
@@ -9,7 +9,7 @@ import play.api.Play.current
 import leon.web.utils.Hash
 import leon.web.models.{Permalink, Code, Link}
 
-object PermalinkRepository {
+object PermalinkStore {
 
   def store(code: Code): Option[Permalink] = {
     implicit val c = DB.getConnection()

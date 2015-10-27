@@ -1,6 +1,6 @@
 
 package leon.web
-package repositories
+package stores
 
 import anorm._
 import anorm.SqlParser._
@@ -12,7 +12,7 @@ import leon.web.models.{User, UserId, ProviderId, Email}
 
 import securesocial.core._
 
-object UserRepository {
+object UserStore {
 
   def parser = {
     for {

@@ -9,7 +9,7 @@ import securesocial.core.services.{ UserService, SaveMode }
 import securesocial.core.providers.MailToken
 
 import leon.web.models.{ User, UserId, ProviderId, Email }
-import leon.web.repositories.UserRepository
+import leon.web.stores.UserStore
 
 import scala.concurrent.Future
 
@@ -22,20 +22,20 @@ class DatabaseUserService extends UserServiceBase {
   override def find(providerId: String, userId: String): Future[Option[BasicProfile]] = {
     logger.debug("find(%s, %s)".format(providerId, userId))
     Future.successful {
-      UserRepository.findByProviderAndId(ProviderId(providerId), UserId(userId)).map(_.toProfile)
+      UserStore.findByProviderAndId(ProviderId(providerId), UserId(userId)).map(_.toProfile)
     }
   }
 
   override def findByEmailAndProvider(email: String, providerId: String): Future[Option[BasicProfile]] = {
     logger.debug("findByEmailAndProvider(%s, %s)".format(email, providerId))
     Future.successful {
-      UserRepository.findByEmailAndProvider(Email(email), ProviderId(providerId)).map(_.toProfile)
+      UserStore.findByEmailAndProvider(Email(email), ProviderId(providerId)).map(_.toProfile)
     }
   }
 
   private def findProfile(p: BasicProfile): Option[((String, String), User)] = {
     logger.debug("findProfile(%s)".format(p))
-    UserRepository.findById(UserId(p.userId)).map { user =>
+    UserStore.findById(UserId(p.userId)).map { user =>
       (p.providerId, p.userId) -> user
     }
   }
@@ -50,7 +50,7 @@ class DatabaseUserService extends UserServiceBase {
   override def save(profile: BasicProfile, mode: SaveMode): Future[User] = {
    logger.debug("save(%s, %s)".format(profile, mode))
     Future.successful {
-      UserRepository.save(User.fromProfile(profile))
+      UserStore.save(User.fromProfile(profile))
     }
   }
 

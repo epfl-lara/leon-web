@@ -26,7 +26,7 @@ import leon.purescala._
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
-import leon.web.repositories.PermalinkRepository
+import leon.web.stores.PermalinkStore
 import leon.web.services.github._
 import leon.web.json.GitHub._
 
@@ -170,7 +170,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
     case StorePermaLink(code) =>
-      PermalinkRepository.store(Code(code)) match {
+      PermalinkStore.store(Code(code)) match {
         case Some(Permalink(link, _)) =>
           event("permalink", Map("link" -> toJson(link.value)))
         case _ =>
@@ -178,7 +178,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
     case AccessPermaLink(link) =>
-      PermalinkRepository.get(Link(link)) match {
+      PermalinkStore.get(Link(link)) match {
         case Some(Permalink(_, code)) =>
           event("replace_code", Map("newCode" -> toJson(code.value)))
         case None =>
