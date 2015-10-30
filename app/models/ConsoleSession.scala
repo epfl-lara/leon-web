@@ -61,9 +61,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   def withUser(f: User => Unit): Unit = user match {
     case Some(user) =>
       f(user)
-    case None       =>
+
+    case None =>
       notifyError("Cannot perform this operation when user is not logged-in.")
       logInfo("Cannot perform this operation when user is not logged-in.")
+  }
+
+  def withToken(user: User)(f: String => Unit): Unit = user.oAuth2Info.map(_.accessToken) match {
+    case Some(token) =>
+      f(token)
+
+    case None =>
+      notifyError("Cannot perform this operation when user has no OAuth token.")
+      logInfo("Cannot perform this operation when user has no OAuth token.")
   }
 
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
@@ -201,46 +211,32 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           notifyError("Link not found ?!?: "+link)
       }
 
-    case LoadRepositories(user) =>
-      // TODO: Handle case when the token is missing
-      val token = user.oAuth2Info.get.accessToken
+      case LoadRepositories(user) => withToken(user) { token =>
       val gh    = GitHubService(token)
       val res   = Await.result(gh.listUserRepositories(), 2.seconds)
 
       res match {
         case Left(error) =>
-          event("repositories", Map(
-            "status" -> toJson("failed"),
-            "error"  -> toJson(error.message),
-            "repos"  -> toJson(Seq[String]())
-          ))
+          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
 
         case Right(repos) =>
           event("repositories", Map(
-            "status" -> toJson("success"),
-            "error"  -> toJson(""),
-            "repos"  -> toJson(repos)
+            "repos" -> toJson(repos)
           ))
       }
+    }
 
-    case LoadRepository(user, owner, name) =>
-      // TODO: Handle case when the token is missing
-      val token  = user.oAuth2Info.get.accessToken
+    case LoadRepository(user, owner, name) => withToken(user) { token =>
       val gh     = GitHubService(token)
       val result = Await.result(gh.getRepository(owner, name), 1.seconds)
 
       result match {
         case Left(error) =>
-          event("load_repository", Map(
-            "status" -> toJson("failed"),
-            "error"  -> toJson(error.message),
-            "files"  -> toJson(Seq[String]())
-          ))
+          notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
 
         case Right(repo) =>
           val (owner, name) = (repo.owner, repo.name)
-
-          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+          val wc            = new RepositoryInfos(s"${user.fullId}/$owner/$name")
 
           if (!wc.exists) {
             clientLog(s"Cloning repository $owner/$name...")
@@ -256,47 +252,43 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           clientLog(s"Listing files in $owner/$name... Done.")
 
           event("load_repository", Map(
-            "status" -> toJson("success"),
-            "error"  -> toJson(""),
             "files"  -> toJson(files)
           ))
       }
+    }
 
-    case LoadFile(user, owner, repo, file) =>
-      // TODO: Handle case when the token is missing
-      val token  = user.oAuth2Info.get.accessToken
+    case LoadFile(user, owner, repo, file) => withToken(user) { token =>
       val gh     = GitHubService(token)
       val result = Await.result(gh.getRepository(owner, repo), 1.seconds)
 
       result match {
         case Left(error) =>
-          notifyError(error.message)
+          notifyError(s"Failed to load repository '$owner/$repo'. Reason: '$error'");
 
         case Right(repo) =>
           val (owner, name) = (repo.owner, repo.name)
-
-          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+          val wc            = new RepositoryInfos(s"${user.fullId}/$owner/$name")
 
           if (!wc.exists) {
-            // TOOD: Handle case where repository doesn't exists
+            logInfo(s"Could not find a working copy for repository '$owner/$repo'")
+            notifyError(s"Could not find a working copy for repository '$owner/$repo', please load it again.")
           }
+          else {
+            wc.getFile(repo.defaultBranch, file) match {
+              case None =>
+                notifyError(s"Could not find file '$file' in '$repo/$owner'.")
 
-          wc.getFile(repo.defaultBranch, file) match {
-            case None =>
-              notifyError(s"Couldn't find file '$file'")
+              case Some((_, _, path)) =>
+                val content = Source.fromFile(path).mkString
 
-            case Some((_, _, path)) =>
-              val content = Source.fromFile(path).mkString
-
-              event("load_file", Map(
-                "status"  -> toJson("success"),
-                "error"   -> toJson(""),
-                "file"    -> toJson(file),
-                "content" -> toJson(content)
-              ))
+                event("load_file", Map(
+                  "file"    -> toJson(file),
+                  "content" -> toJson(content)
+                ))
+            }
           }
       }
-
+    }
 
     case UpdateCode(code) =>
       if (lastCompilationState.code != Some(code)) {

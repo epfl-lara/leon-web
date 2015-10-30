@@ -12,10 +12,8 @@ object github {
   import leon.web.models.GitHub._
   import leon.web.json.GitHub._
 
-  case class GitHubServiceError(message: String)
-
   trait GitHubService {
-    type Error = GitHubServiceError
+    type Error = String
 
     def listUserRepositories(): Future[Either[Error, Seq[Repository]]]
     def getRepository(owner: String, name: String): Future[Either[Error, Repository]]
@@ -42,7 +40,7 @@ object github {
 
         case e: JsError =>
           val error = JsError.toFlatJson(e).toString()
-          Left(GitHubServiceError(error))
+          Left(error)
       }
 
     // TODO: Follow the pagination to load all repositories

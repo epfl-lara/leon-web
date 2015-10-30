@@ -35,22 +35,16 @@ object HandlersTypes {
 
   @ScalaJSDefined
   trait HRepositories extends js.Object {
-    val status: String
-    val error: String
     val repos: js.Array[HRepository]
   }
 
   @ScalaJSDefined
   trait HLoadRepository extends js.Object {
-    val status: String
-    val error: String
     val files: js.Array[String]
   }
 
   @ScalaJSDefined
   trait HLoadFile extends js.Object {
-    val status: String
-    val error: String
     val file: String
     val content: String
   }

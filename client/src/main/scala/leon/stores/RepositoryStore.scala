@@ -84,28 +84,16 @@ object RepositoryStore {
 
   private
   val repoHandler = (data: HRepositories) => {
-    if (data.status == "error") {
-      console.error(data.error)
-    }
-
     emit(RepositoriesLoaded(data.repos))
   }
 
   private
   val loadRepoHandler = (data: HLoadRepository) => {
-    if (data.status == "error") {
-      console.error(data.error)
-    }
-
     emit(FilesLoaded(data.files))
   }
 
   private
   val loadFileHandler = (data: HLoadFile) => {
-    if (data.status == "error") {
-      console.error(data.error)
-    }
-
     emit(FileLoaded(data.file, data.content))
   }
 
