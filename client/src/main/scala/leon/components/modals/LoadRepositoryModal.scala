@@ -14,6 +14,7 @@ object LoadRepositoryModal {
   case class Props(
     onSelect: HRepository => Callback,
     isOpen: Boolean = false,
+    loading: Boolean = false,
     repos: Option[Seq[HRepository]] = None
   )
 
@@ -39,16 +40,16 @@ object LoadRepositoryModal {
         "Cancel"
       )
 
-    val loadButton =
+    def loadButton(loading: Boolean) =
       <.a(
         ^.`class` := "btn btn-primary",
         ^.role    := "button",
         ^.onClick --> onLoadRepo,
-        "Load"
+        if (loading) "Loading..." else "Load"
       )
 
     val loading =
-      <.p("Loading...")
+      <.p(^.`class` := "loading", "Loading...")
 
     def render(props: Props, state: State) =
       Modal(props.isOpen)(
@@ -66,7 +67,7 @@ object LoadRepositoryModal {
           }
         ),
         <.div(^.`class` := "modal-footer",
-          if (state.selectedRepo.isDefined) loadButton else EmptyTag,
+          if (state.selectedRepo.isDefined) loadButton(props.loading) else EmptyTag,
           cancelButton
         )
       )
@@ -78,10 +79,12 @@ object LoadRepositoryModal {
       .renderBackend[Backend]
       .build
 
-  def apply(onSelect: HRepository => Callback,
-            isOpen: Boolean = false,
-            repos: Option[Seq[HRepository]] = None) =
-    component(Props(onSelect, isOpen, repos))
+  def apply(
+    onSelect: HRepository => Callback,
+    isOpen: Boolean = false,
+    loading: Boolean = false,
+    repos: Option[Seq[HRepository]] = None
+  ) = component(Props(onSelect, isOpen, loading, repos))
 
 }
 

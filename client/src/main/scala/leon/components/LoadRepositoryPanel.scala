@@ -13,7 +13,8 @@ object LoadRepositoryPanel {
     repos: Option[Seq[HRepository]] = None,
     repo: Option[HRepository] = None,
     files: Seq[String] = Seq(),
-    openModal: Boolean = false
+    openModal: Boolean = false,
+    loading: Boolean = false
   )
 
   class Backend($: BackendScope[Unit, State]) {
@@ -29,7 +30,11 @@ object LoadRepositoryPanel {
         $.modState(_.copy(repos = Some(repos)))
 
       case FilesLoaded(files) =>
-        $.modState(_.copy(files = files))
+        $.modState(_.copy(
+          files = files,
+          loading = false,
+          openModal = false
+        ))
     }
 
     def loadRepos(): Unit =
@@ -39,11 +44,11 @@ object LoadRepositoryPanel {
       RepositoryStore ! LoadFiles(repo)
 
     def showLoadRepoModal: Callback =
-      $.modState(_.copy(openModal = true)) >>
+      $.modState(_.copy(openModal = true, loading = false)) >>
       Callback.lift(loadRepos)
 
-    def onSelectRepo(repo: HRepository): Callback =
-      $.modState(_.copy(repo = Some(repo), openModal = false)) >>
+    def onLoadRepo(repo: HRepository): Callback =
+      $.modState(_.copy(repo = Some(repo), loading = true)) >>
       Callback.lift(() => loadFiles(repo))
 
     def render(state: State) =
@@ -51,7 +56,7 @@ object LoadRepositoryPanel {
         <.h3("Load a GitHub repository:"),
         LoadRepositoryButton(state.repo, showLoadRepoModal),
         renderFileList(state.files),
-        LoadRepositoryModal(onSelectRepo, state.openModal, state.repos)
+        LoadRepositoryModal(onLoadRepo, state.openModal, state.loading, state.repos)
       )
 
     def renderFileList(files: Seq[String]) =
