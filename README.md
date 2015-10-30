@@ -22,9 +22,6 @@ Write `conf/setup.conf` and add the following lines, for example:
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
     auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
 
-    auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
-    auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
-
 ## Step 2 (to start leon-web)
 
     $ ./start.sh
