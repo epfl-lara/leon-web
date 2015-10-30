@@ -62,13 +62,13 @@ object MainDelayed extends js.JSApp {
 }
 
 @JSExport("Main")
-object Main extends LeonWeb with ReactApp {
+object Main extends LeonWeb with LeonAPI {
 
   def main(): Unit = {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
 
     connectWS()
-    RepositoryStore.init(leonSocket, handlers)
+    RepositoryStore.init(this)
     ReactApp.render()
 
     js.timers.setTimeout(3000) {
@@ -1276,6 +1276,14 @@ trait LeonWeb {
     loadExample(group, id)
   }
 
+  def setEditorCode(code: String): Unit = {
+    storeCurrent(editorSession.getValue())
+    editor.setValue(code);
+    editor.selection.clearSelection();
+    editor.gotoLine(0);
+    recompile();
+  }
+
   def loadExample(group: String, id: js.UndefOr[String]) {
     if (id.isDefined) {
       $.ajax(l(
@@ -1283,11 +1291,7 @@ trait LeonWeb {
         dataType = "json",
         success = (data: HandlersTypes.StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
           if (data.status == "success") {
-            storeCurrent(editorSession.getValue())
-            editor.setValue(data.code);
-            editor.selection.clearSelection();
-            editor.gotoLine(0);
-            recompile();
+            setEditorCode(data.code)
             $("#example-loader").get(0).selectedIndex = 0;
           } else {
             notify("Loading example failed :(", "error")
@@ -1557,33 +1561,39 @@ trait LeonWeb {
 
 }
 
-object RepositoryStore {
-
+trait LeonAPI {
   import Main.LeonSocket
+
+  def leonSocket: LeonSocket
+  def setEditorCode(code: String): Unit
+  def handlers: js.Dictionary[Any]
+}
+
+object RepositoryStore {
 
   sealed trait Action
   case class LoadRepositories() extends Action
   case class LoadFiles(repo: HRepository) extends Action
+  case class LoadFile(repo: HRepository, file: String) extends Action
+  case class SetEditorCode(code: String) extends Action
 
   sealed trait Event
   case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
   case class FilesLoaded(files: Seq[String]) extends Event
+  case class FileLoaded(fileName: String, content: String) extends Event
 
   type Listener = Event => Unit
 
   private var listeners: List[Listener] = List()
 
-  private var leonSocket: LeonSocket = _
+  private var api: LeonAPI = _
 
-  // private var repos: Option[Seq[HRepository]] = None,
-  // private var repo: Option[HRepository]       = None,
-  // private var files: Option[Seq[String]]      = None
+  def init(leonAPI: LeonAPI): Unit = {
+    api = leonAPI
 
-  def init(socket: LeonSocket, handlers: js.Dictionary[Any]): Unit = {
-    leonSocket = socket
-
-    handlers += ("repositories"    -> repoHandler)
-    handlers += ("load_repository" -> loadRepoHandler)
+    api.handlers += ("repositories"    -> repoHandler)
+    api.handlers += ("load_repository" -> loadRepoHandler)
+    api.handlers += ("load_file"       -> loadFileHandler)
   }
 
   def listen(listener: Listener): Unit =
@@ -1600,7 +1610,7 @@ object RepositoryStore {
         module = "main"
       )
 
-      leonSocket.send(JSON.stringify(msg))
+      api.leonSocket.send(JSON.stringify(msg))
 
     case LoadFiles(repo) =>
       val msg = l(
@@ -1610,7 +1620,21 @@ object RepositoryStore {
         name   = repo.name
       )
 
-      leonSocket.send(JSON.stringify(msg))
+      api.leonSocket.send(JSON.stringify(msg))
+
+    case LoadFile(repo, file) =>
+      val msg = l(
+        action = Action.loadFile,
+        module = "main",
+        owner  = repo.owner,
+        repo   = repo.name,
+        file   = file
+      )
+
+      api.leonSocket.send(JSON.stringify(msg))
+
+    case SetEditorCode(code) =>
+      api.setEditorCode(code)
   }
 
   def !(action: Action): Unit = processAction(action)
@@ -1633,39 +1657,44 @@ object RepositoryStore {
     emit(FilesLoaded(data.files))
   }
 
+  private
+  val loadFileHandler = (data: HLoadFile) => {
+    if (data.status == "error") {
+      console.error(data.error)
+    }
+
+    emit(FileLoaded(data.file, data.content))
+  }
+
 }
 
-trait ReactApp { self: LeonWeb =>
+object ReactApp {
 
   import leon.web.client.components._
   import leon.web.client.components.modals._
 
-  object ReactApp {
+  def render(): Unit = {
+    renderLogin()
+    renderLoadRepoPanel()
+  }
 
-    def render(): Unit = {
-      renderLogin()
-      renderLoadRepoPanel()
+  private def renderLogin(): Unit = {
+    val el = document.getElementById("login-modal")
+    ReactDOM.render(LoginModal(false), el)
+
+    $("#login-btn").click { e: JQueryEventObject =>
+      e.preventDefault()
+      ReactDOM.render(LoginModal(true), el)
     }
+  }
 
-    private def renderLogin(): Unit = {
-      val el = document.getElementById("login-modal")
-      ReactDOM.render(LoginModal(false), el)
+  private def renderLoadRepoPanel(): Unit = {
+    val panelEl = document.getElementById("load-repo-panel")
 
-      $("#login-btn").click { e: JQueryEventObject =>
-        e.preventDefault()
-        ReactDOM.render(LoginModal(true), el)
-      }
+    if (panelEl != null) {
+      ReactDOM.render(LoadRepositoryPanel(), panelEl)
+      $(panelEl).show()
     }
-
-    private def renderLoadRepoPanel(): Unit = {
-      val panelEl = document.getElementById("load-repo-panel")
-
-      if (panelEl != null) {
-        ReactDOM.render(LoadRepositoryPanel(), panelEl)
-        $(panelEl).show()
-      }
-    }
-
   }
 
 }

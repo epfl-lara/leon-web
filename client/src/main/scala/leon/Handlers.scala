@@ -46,6 +46,14 @@ object HandlersTypes {
     val error: String
     val files: js.Array[String]
   }
+
+  @ScalaJSDefined
+  trait HLoadFile extends js.Object {
+    val status: String
+    val error: String
+    val file: String
+    val content: String
+  }
   
   @ScalaJSDefined 
   trait HMoveCursor extends js.Object { val line: Double }

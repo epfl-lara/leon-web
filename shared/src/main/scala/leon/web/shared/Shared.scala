@@ -17,6 +17,7 @@ object Action {
   val doRepair = "doRepair"
   val loadRepositories = "loadRepositories"
   val loadRepository = "loadRepository"
+  val loadFile = "loadFile"
 }
 
 object VerifStatus {

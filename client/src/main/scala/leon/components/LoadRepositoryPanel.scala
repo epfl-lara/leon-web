@@ -13,6 +13,7 @@ object LoadRepositoryPanel {
     repos: Option[Seq[HRepository]] = None,
     repo: Option[HRepository] = None,
     files: Seq[String] = Seq(),
+    file: Option[String] = None,
     openModal: Boolean = false,
     loading: Boolean = false
   )
@@ -35,6 +36,10 @@ object LoadRepositoryPanel {
           loading = false,
           openModal = false
         ))
+
+      case FileLoaded(file, content) => Callback.lift { () =>
+        RepositoryStore ! SetEditorCode(content)
+      }
     }
 
     def loadRepos(): Unit =
@@ -43,6 +48,9 @@ object LoadRepositoryPanel {
     def loadFiles(repo: HRepository): Unit =
       RepositoryStore ! LoadFiles(repo)
 
+    def loadFile(repo: HRepository, file: String): Unit =
+      RepositoryStore ! LoadFile(repo, file)
+
     def showLoadRepoModal: Callback =
       $.modState(_.copy(openModal = true, loading = false)) >>
       Callback.lift(loadRepos)
@@ -50,6 +58,10 @@ object LoadRepositoryPanel {
     def onLoadRepo(repo: HRepository): Callback =
       $.modState(_.copy(repo = Some(repo), loading = true)) >>
       Callback.lift(() => loadFiles(repo))
+
+    def onChooseFile(file: String): Callback =
+      $.modState(_.copy(file = Some(file))) >>
+      $.state.map { state => loadFile(state.repo.get, file) }
 
     def render(state: State) =
       <.div(^.`class` := "panel",
@@ -64,7 +76,7 @@ object LoadRepositoryPanel {
         EmptyTag
       else
         <.div(^.id := "load-repo-file",
-          FileList(files, x => {})
+          FileList(files, onChooseFile)
         )
   }
 
@@ -109,11 +121,8 @@ object LoadRepositoryButton {
           repo.fullName
         )
 
-      case Some(_) =>
-        <.span("Select another repository")
-
-      case None =>
-        <.span("Select a GitHub repository")
+      case Some(_) => <.span("Select another repository")
+      case None    => <.span("Select a GitHub repository")
     }
 
   }

@@ -6,6 +6,7 @@ import akka.actor._
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.Future
+import scala.io.Source
 
 import play.api._
 import play.api.libs.json._
@@ -142,6 +143,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 self ! LoadRepository(user, owner, name)
               }
 
+              case Action.loadFile => withUser { user =>
+                val owner = (event \ "owner").as[String]
+                val repo  = (event \ "repo").as[String]
+                val file  = (event \ "file").as[String]
+
+                self ! LoadFile(user, owner, repo, file)
+              }
+
               case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
@@ -252,6 +261,42 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             "files"  -> toJson(files)
           ))
       }
+
+    case LoadFile(user, owner, repo, file) =>
+      // TODO: Handle case when the token is missing
+      val token  = user.oAuth2Info.get.accessToken
+      val gh     = GitHubService(token)
+      val result = Await.result(gh.getRepository(owner, repo), 1.seconds)
+
+      result match {
+        case Left(error) =>
+          notifyError(error.message)
+
+        case Right(repo) =>
+          val (owner, name) = (repo.owner, repo.name)
+
+          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+
+          if (!wc.exists) {
+            // TOOD: Handle case where repository doesn't exists
+          }
+
+          wc.getFile(repo.defaultBranch, file) match {
+            case None =>
+              notifyError(s"Couldn't find file '$file'")
+
+            case Some((_, _, path)) =>
+              val content = Source.fromFile(path).mkString
+
+              event("load_file", Map(
+                "status"  -> toJson("success"),
+                "error"   -> toJson(""),
+                "file"    -> toJson(file),
+                "content" -> toJson(content)
+              ))
+          }
+      }
+
 
     case UpdateCode(code) =>
       if (lastCompilationState.code != Some(code)) {

@@ -6,7 +6,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 object FileList {
 
-  type OnSelectCallback = String => Unit
+  type OnSelectCallback = String => Callback
 
   case class Props(files: Seq[String], onSelect: OnSelectCallback)
 
@@ -14,7 +14,7 @@ object FileList {
 
     def onSelectFile(e: ReactEventI): Callback =
       e.preventDefaultCB >>
-      $.props.map(_.onSelect(e.target.value)).void
+      $.props.flatMap(_.onSelect(e.target.value))
 
     val classNames = "file-list form-control panel-element-full"
 
