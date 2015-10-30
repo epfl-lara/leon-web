@@ -4,6 +4,7 @@ package components
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
+import leon.web.client.stores.RepositoryStore
 import leon.web.client.components.modals.LoadRepositoryModal
 import leon.web.client.HandlersTypes.HRepository
 

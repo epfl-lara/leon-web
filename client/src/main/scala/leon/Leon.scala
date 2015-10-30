@@ -26,6 +26,9 @@ import Implicits._
 
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants, Action}
+
+import leon.web.client.stores.RepositoryStore
+import leon.web.client.react.{App => ReactApp}
 import leon.web.client.HandlersTypes._
 
 @ScalaJSDefined
@@ -59,6 +62,21 @@ object MainDelayed extends js.JSApp {
   editor.setHighlightActiveLine(false);
   editor.getSession().setTabSize(2)
   $("#codebox").show()
+}
+
+@ScalaJSDefined
+trait LeonSocket extends js.Object {
+  def send(message: String): Unit
+  var onopen: js.Function1[JQueryEventObject, Any]
+  var onmessage: js.Function1[JQueryEventObject, Any]
+  var onclose: js.Function1[JQueryEventObject, Any]
+  var onerror: js.Function1[JQueryEventObject, Any]
+}
+
+trait LeonAPI {
+  def leonSocket: LeonSocket
+  def setEditorCode(code: String): Unit
+  def handlers: js.Dictionary[Any]
 }
 
 @JSExport("Main")
@@ -100,14 +118,6 @@ trait LeonWeb {
 
   @JSExport val WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
 
-  @ScalaJSDefined
-  trait LeonSocket extends js.Object {
-    def send(message: String): Unit
-    var onopen: js.Function1[JQueryEventObject, Any]
-    var onmessage: js.Function1[JQueryEventObject, Any]
-    var onclose: js.Function1[JQueryEventObject, Any]
-    var onerror: js.Function1[JQueryEventObject, Any]
-  }
   @JSExport("leonSocket") var leonSocket: LeonSocket = null
 
   val headerHeight = $("#title").height() + 20
@@ -1558,144 +1568,6 @@ trait LeonWeb {
   snowStorm.followMouse = false;
   snowStorm.stop();
   */
-
-}
-
-trait LeonAPI {
-  import Main.LeonSocket
-
-  def leonSocket: LeonSocket
-  def setEditorCode(code: String): Unit
-  def handlers: js.Dictionary[Any]
-}
-
-object RepositoryStore {
-
-  sealed trait Action
-  case class LoadRepositories() extends Action
-  case class LoadFiles(repo: HRepository) extends Action
-  case class LoadFile(repo: HRepository, file: String) extends Action
-  case class SetEditorCode(code: String) extends Action
-
-  sealed trait Event
-  case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
-  case class FilesLoaded(files: Seq[String]) extends Event
-  case class FileLoaded(fileName: String, content: String) extends Event
-
-  type Listener = Event => Unit
-
-  private var listeners: List[Listener] = List()
-
-  private var api: LeonAPI = _
-
-  def init(leonAPI: LeonAPI): Unit = {
-    api = leonAPI
-
-    api.handlers += ("repositories"    -> repoHandler)
-    api.handlers += ("load_repository" -> loadRepoHandler)
-    api.handlers += ("load_file"       -> loadFileHandler)
-  }
-
-  def listen(listener: Listener): Unit =
-    listeners = listener :: listeners
-
-  def emit(event: Event): Unit = {
-    listeners.foreach(_(event))
-  }
-
-  def processAction(action: Action): Unit = action match {
-    case LoadRepositories() =>
-      val msg = l(
-        action = Action.loadRepositories,
-        module = "main"
-      )
-
-      api.leonSocket.send(JSON.stringify(msg))
-
-    case LoadFiles(repo) =>
-      val msg = l(
-        action = Action.loadRepository,
-        module = "main",
-        owner  = repo.owner,
-        name   = repo.name
-      )
-
-      api.leonSocket.send(JSON.stringify(msg))
-
-    case LoadFile(repo, file) =>
-      val msg = l(
-        action = Action.loadFile,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name,
-        file   = file
-      )
-
-      api.leonSocket.send(JSON.stringify(msg))
-
-    case SetEditorCode(code) =>
-      api.setEditorCode(code)
-  }
-
-  def !(action: Action): Unit = processAction(action)
-
-  private
-  val repoHandler = (data: HRepositories) => {
-    if (data.status == "error") {
-      console.error(data.error)
-    }
-
-    emit(RepositoriesLoaded(data.repos))
-  }
-
-  private
-  val loadRepoHandler = (data: HLoadRepository) => {
-    if (data.status == "error") {
-      console.error(data.error)
-    }
-
-    emit(FilesLoaded(data.files))
-  }
-
-  private
-  val loadFileHandler = (data: HLoadFile) => {
-    if (data.status == "error") {
-      console.error(data.error)
-    }
-
-    emit(FileLoaded(data.file, data.content))
-  }
-
-}
-
-object ReactApp {
-
-  import leon.web.client.components._
-  import leon.web.client.components.modals._
-
-  def render(): Unit = {
-    renderLogin()
-    renderLoadRepoPanel()
-  }
-
-  private def renderLogin(): Unit = {
-    val el = document.getElementById("login-modal")
-    ReactDOM.render(LoginModal(false), el)
-
-    $("#login-btn").click { e: JQueryEventObject =>
-      e.preventDefault()
-      ReactDOM.render(LoginModal(true), el)
-    }
-  }
-
-  private def renderLoadRepoPanel(): Unit = {
-    val panelEl = document.getElementById("load-repo-panel")
-
-    if (panelEl != null) {
-      ReactDOM.render(LoadRepositoryPanel(), panelEl)
-      $(panelEl).show()
-    }
-  }
 
 }
 
