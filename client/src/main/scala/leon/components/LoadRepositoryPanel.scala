@@ -68,17 +68,17 @@ object LoadRepositoryPanel {
       <.div(^.`class` := "panel",
         <.h3("Load a GitHub repository:"),
         LoadRepositoryButton(state.repo, showLoadRepoModal),
-        renderFileList(state.files),
+        renderFileList(state.repo, state.files),
         LoadRepositoryModal(onLoadRepo, state.openModal, state.loading, state.repos)
       )
 
-    def renderFileList(files: Seq[String]) =
-      if (files.isEmpty)
-        EmptyTag
-      else
+    def renderFileList(repo: Option[HRepository], files: Seq[String]) = repo match {
+      case None    => EmptyTag
+      case Some(_) =>
         <.div(^.id := "load-repo-file",
           FileList(files, onChooseFile)
         )
+    }
   }
 
   val component =

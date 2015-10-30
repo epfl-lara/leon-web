@@ -19,9 +19,13 @@ object FileList {
     val classNames = "file-list form-control panel-element-full"
 
     def render(props: Props) = {
-      val fileOptions = props.files map { file =>
-        <.option(^.value := file, ^.key := file, file)
-      }
+      val fileOptions =
+        if (props.files.isEmpty)
+          Seq(<.option(^.value := "", ^.key := "disabled", ^.disabled := "true", "No .scala files found"))
+        else
+          props.files map { file =>
+            <.option(^.value := file, ^.key := file, file)
+          }
 
       val header = <.option(^.value := "", "-- Select a file --")
       val options = header +: fileOptions
