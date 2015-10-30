@@ -52,7 +52,7 @@ object Modal {
         ^.`class`      := "modal fade nice-modal",
         ^.role         := "dialog",
         ariaHidden     := "true",
-        dataBackdrop   := "static",
+        dataBackdrop   := "false",
         <.div(
           ^.`class` := "modal-dialog",
           <.div(
