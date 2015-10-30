@@ -48,8 +48,7 @@ object LoadRepositoryModal {
         if (loading) "Loading..." else "Load"
       )
 
-    val loading =
-      <.p(^.`class` := "loading", "Loading...")
+    val loading = Spinner()
 
     def render(props: Props, state: State) =
       Modal(props.isOpen)(
