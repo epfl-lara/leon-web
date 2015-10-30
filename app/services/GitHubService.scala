@@ -46,7 +46,7 @@ object github {
     // TODO: Follow the pagination to load all repositories
     override def listUserRepositories(): Future[Either[Error, Seq[Repository]]] = {
       req("/user/repos")
-        .withQueryString("affiliation" -> "owner")
+        .withQueryString("affiliation" -> "owner", "per_page" -> "100")
         .get()
         .map(unwrapSuccess[Seq[Repository]])
     }

@@ -213,7 +213,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       case LoadRepositories(user) => withToken(user) { token =>
       val gh    = GitHubService(token)
-      val res   = Await.result(gh.listUserRepositories(), 2.seconds)
+      val res   = Await.result(gh.listUserRepositories(), 5.seconds)
 
       res match {
         case Left(error) =>
