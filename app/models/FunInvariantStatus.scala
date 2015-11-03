@@ -10,15 +10,14 @@ import leon.web.shared.InvariantStatus
  * @author Mikael
  */
 case class FunInvariantStatus(fd: Option[FunDef],
-                              oldInvariant: Option[String],
-                              newInvariant: Option[String],
+                              template: Option[String],
+                              invString: Option[String],
                               newCode: Option[String],
                               time: Option[Double],
                               invariantFound: Boolean = false,
                               invariantCrashed: Boolean = false,
                               invariantTimeout: Boolean = false) {
-  
-  
+
   lazy val status: String = {
    if (invariantTimeout) {
       InvariantStatus.timeout

@@ -64,7 +64,7 @@ This will make leon unavailable for a few minutes.
 * `git pull origin scalajs`
 * `activator stage` to recompile
 * `exit` to exit this new terminal
-* `CTRL+C` to exit the current running application
+* `CTRL+C` to exit the current running application. If it starts to recompile, no need to do the next step.
 * `./start.sh` (or `activator "run 9999"`)
 
 **Other TMUX commands**
