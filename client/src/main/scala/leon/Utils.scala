@@ -76,7 +76,8 @@ object Bool {
   implicit def BooleanBool(b: Boolean) = Bool(b) 
 }
 
-trait ObjectWithBracketAcess extends js.Object {
+@js.native
+trait ObjectWithBracketAccess extends js.Object {
   @JSBracketAccess
   def apply(index: String): js.Dynamic = js.native
 }
