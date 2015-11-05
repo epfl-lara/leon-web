@@ -27,5 +27,4 @@ version
 /bin/
 /.cache-main
 
-env.sh
 repositories/
