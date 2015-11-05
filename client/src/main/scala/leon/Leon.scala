@@ -499,19 +499,22 @@ trait LeonWeb {
 
   setPresentationMode()
 
+  type ModulesMap = scala.collection.mutable.Map[String, Module]
+
+  abstract class Module(name: String, list: ModulesMap) { self =>
+    val column: String
+    def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html
+    def missing(name: String): HandlersTypes.Html
+    def handlers(): Unit
+    list += name -> self
+  }
+
   object overview {
-    abstract class Module(name: String) { self =>
-      val column: String
-      def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html
-      def missing(name: String): HandlersTypes.Html
-      def handlers(): Unit
-      modules.list += name -> self
-    }
 
     object modules {
-      var list = Map[String, Module]() // Defined before all modules.
+      val list = scala.collection.mutable.Map[String, Module]() // Defined before all modules.
 
-      val verification = new Module(ModuleName.verification) {
+      val verification = new Module(ModuleName.verification, list) {
         val column = "Verif."
         def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val vstatus = d.status match {
@@ -550,7 +553,7 @@ trait LeonWeb {
           }): js.ThisFunction)
         }
       }
-      val termination = new Module(ModuleName.termination) {
+      val termination = new Module(ModuleName.termination, list) {
         val column = "Term."
         def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val tstatus = d.status match {
@@ -586,7 +589,7 @@ trait LeonWeb {
           }): js.ThisFunction);
         }
       }
-      val invariant = new Module(ModuleName.invariant) {
+      val invariant = new Module(ModuleName.invariant, list) {
         val column = "Inv."
         def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val istatus = d.status match {
