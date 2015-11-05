@@ -42,6 +42,8 @@ object Modal {
       if (props.isOpen) show() else hide()
     }
 
+    def onUnmount() = Callback(hide())
+
     def onUpdate(prevProps: Props) = $.props map { props =>
       onMount().runNow()
     }
@@ -67,6 +69,7 @@ object Modal {
     ReactComponentB[Props]("Modal")
       .renderBackend[Backend]
       .componentDidMount(_.backend.onMount())
+      .componentWillUnmount(_.backend.onUnmount())
       .componentDidUpdate(scope => scope.$.backend.onUpdate(scope.prevProps))
       .build
 

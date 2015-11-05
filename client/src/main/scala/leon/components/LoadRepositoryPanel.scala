@@ -29,47 +29,61 @@ object LoadRepositoryPanel {
 
     def onStoreEvent(e: Event): Callback = e match {
       case RepositoriesLoaded(repos) =>
+        Callback.log("LoadRepositoryPanel.RepositoriesLoaded") >>
         $.modState(_.copy(repos = Some(repos)))
 
       case FilesLoaded(files) =>
+        Callback.log("LoadRepositoryPanel.FilesLoaded") >>
         $.modState(_.copy(
           files = files,
           loading = false,
           openModal = false
         ))
 
-      case FileLoaded(file, content) => Callback.lift { () =>
-        RepositoryStore ! SetEditorCode(content)
-      }
+      case FileLoaded(file, content) =>
+        Callback.log("LoadRepositoryPanel.FileLoaded") >>
+        Callback {
+          RepositoryStore ! SetEditorCode(content)
+        }
     }
 
-    def loadRepos(): Unit =
+    def loadRepos: Callback = Callback {
       RepositoryStore ! LoadRepositories()
+    }
 
-    def loadFiles(repo: HRepository): Unit =
+    def loadFiles(repo: HRepository): Callback = Callback {
       RepositoryStore ! LoadFiles(repo)
+    }
 
-    def loadFile(repo: HRepository, file: String): Unit =
+    def loadFile(repo: HRepository, file: String): Callback = Callback {
       RepositoryStore ! LoadFile(repo, file)
+    }
 
     def showLoadRepoModal: Callback =
+      Callback.log("LoadRepositoryPanel.showLoadRepoModal") >>
       $.modState(_.copy(openModal = true, loading = false)) >>
-      Callback.lift(loadRepos)
+      loadRepos
 
     def onLoadRepo(repo: HRepository): Callback =
+      Callback.log("LoadRepositoryPanel.onLoadRepo") >>
       $.modState(_.copy(repo = Some(repo), loading = true)) >>
-      Callback.lift(() => loadFiles(repo))
+      loadFiles(repo)
 
     def onChooseFile(file: String): Callback =
+      Callback.log("LoadRepositoryPanel.onChooseFile") >>
       $.modState(_.copy(file = Some(file))) >>
-      $.state.map { state => loadFile(state.repo.get, file) }
+      $.state.flatMap { state => loadFile(state.repo.get, file) }
 
     def render(state: State) =
       <.div(^.`class` := "panel",
         <.h3("Load a GitHub repository:"),
-        LoadRepositoryButton(state.repo, showLoadRepoModal),
-        renderFileList(state.repo, state.files),
-        LoadRepositoryModal(onLoadRepo, state.openModal, state.loading, state.repos)
+        <.div(
+          LoadRepositoryButton(state.repo, showLoadRepoModal),
+          renderFileList(state.repo, state.files)
+        ),
+        <.div(
+          LoadRepositoryModal(onLoadRepo, state.openModal, state.loading, state.repos)
+        )
       )
 
     def renderFileList(repo: Option[HRepository], files: Seq[String]) = repo match {
