@@ -6,6 +6,7 @@ import akka.actor._
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.Future
+import scala.util.Try
 import scala.io.Source
 
 import play.api._
@@ -213,9 +214,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       case LoadRepositories(user) => withToken(user) { token =>
       val gh    = GitHubService(token)
-      val res   = Await.result(gh.listUserRepositories(), 5.seconds)
+      val res   = Try(Await.result(gh.listUserRepositories(), 5.seconds))
 
-      res match {
+      res.getOrElse(Left("Timeout")) match {
         case Left(error) =>
           notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
 
@@ -228,9 +229,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case LoadRepository(user, owner, name) => withToken(user) { token =>
       val gh     = GitHubService(token)
-      val result = Await.result(gh.getRepository(owner, name), 1.seconds)
+      val result = Try(Await.result(gh.getRepository(owner, name), 5.seconds))
 
-      result match {
+      result.getOrElse(Left("Timeout")) match {
         case Left(error) =>
           notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
 
@@ -259,9 +260,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case LoadFile(user, owner, repo, file) => withToken(user) { token =>
       val gh     = GitHubService(token)
-      val result = Await.result(gh.getRepository(owner, repo), 1.seconds)
+      val result = Try(Await.result(gh.getRepository(owner, repo), 5.seconds))
 
-      result match {
+      result.getOrElse(Left("Timeout")) match {
         case Left(error) =>
           notifyError(s"Failed to load repository '$owner/$repo'. Reason: '$error'");
 
