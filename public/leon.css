@@ -460,16 +460,6 @@ pre.exploreBlock .header .name span {
   display: none;
 }
 
-/* Load Repository Modal */
-
-#load-repo-modal .modal-body {
-  padding: 15px 0 0 0;
-}
-
-#load-repo-modal .modal-body p {
-  margin: 0 15px 15px 15px;
-}
-
 ul.repository-list {
   list-style: none;
   max-height: 400px;
