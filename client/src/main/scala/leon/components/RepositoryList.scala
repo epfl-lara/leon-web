@@ -15,7 +15,7 @@ object RepositoryList {
 
   class Backend($: BackendScope[Props, State]) {
 
-    def onSelectRepo(repo: HRepository)(e: ReactEventI): Callback =
+    def onSelectRepo(repo: HRepository)(e: ReactMouseEvent): Callback =
       e.preventDefaultCB >>
       $.modState(_.copy(selected = Some(repo))) >>
       $.props.map(_.onSelect(repo).runNow()).void

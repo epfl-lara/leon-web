@@ -23,7 +23,7 @@ object LoadRepositoryPanel {
 
     import RepositoryStore._
 
-    def didMount(): Callback = Callback {
+    def didMount: Callback = Callback {
       RepositoryStore.listen((onStoreEvent _).andThen(_.runNow()))
     }
 
@@ -85,7 +85,7 @@ object LoadRepositoryPanel {
     ReactComponentB[Unit]("LoadRepositoryPanel")
       .initialState(State())
       .renderBackend[Backend]
-      .componentDidMount(_.backend.didMount())
+      .componentDidMount(_.backend.didMount)
       .buildU
 
   def apply() = component()

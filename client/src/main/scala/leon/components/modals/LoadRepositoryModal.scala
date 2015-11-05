@@ -26,11 +26,12 @@ object LoadRepositoryModal {
       $.modState(_.copy(selectedRepo = Some(repo)))
     }
 
-    def onLoadRepo(): Callback =
-      $.props.zip($.state) map { case (props, state) =>
-        state.selectedRepo foreach { repo =>
-          props.onSelect(repo).runNow()
-        }
+    def onClickLoad(e: ReactMouseEvent): Callback =
+      e.preventDefaultCB >>
+      $.props.zip($.state) flatMap { case (props, state) =>
+        state.selectedRepo
+          .map(props.onSelect(_))
+          .getOrElse(Callback.empty)
       }
 
     val cancelButton =
@@ -44,7 +45,7 @@ object LoadRepositoryModal {
       <.a(
         ^.`class` := "btn btn-primary",
         ^.role    := "button",
-        ^.onClick --> onLoadRepo,
+        ^.onClick ==> onClickLoad,
         if (loading) "Loading..." else "Load"
       )
 
