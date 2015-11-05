@@ -38,27 +38,28 @@ object Modal {
     def show(): Unit = modal(Show)
     def hide(): Unit = modal(Hide)
 
-    def onMount() = $.props.map { props =>
+    def onMount: Callback = $.props.map { props =>
       if (props.isOpen) show() else hide()
     }
 
-    def onUnmount() = Callback(hide())
-
-    def onUpdate(prevProps: Props) = $.props map { props =>
-      onMount().runNow()
+    def onUnmount: Callback = Callback {
+      hide()
     }
+
+    def onUpdate(prevProps: Props): Callback =
+      onMount
 
     def render(children: PropsChildren) =
       <.div(
         ^.ref          := ref,
-        ^.`class`      := "modal fade nice-modal",
+        ^.className    := "modal fade nice-modal",
         ^.role         := "dialog",
         ariaHidden     := "true",
         dataBackdrop   := "false",
         <.div(
-          ^.`class` := "modal-dialog",
+          ^.className := "modal-dialog",
           <.div(
-            ^.`class` := "modal-content",
+            ^.className := "modal-content",
             children
           )
         )
@@ -68,20 +69,18 @@ object Modal {
   val component =
     ReactComponentB[Props]("Modal")
       .renderBackend[Backend]
-      .componentDidMount(_.backend.onMount())
-      .componentWillUnmount(_.backend.onUnmount())
+      .componentDidMount(_.backend.onMount)
+      .componentWillUnmount(_.backend.onUnmount)
       .componentDidUpdate(scope => scope.$.backend.onUpdate(scope.prevProps))
       .build
 
   def apply(isOpen: Boolean)(children: ReactNode*) =
     component(Props(isOpen), children)
 
-  def apply() = component
-
   val closeButton =
     <.button(
       ^.`type`    := "button",
-      ^.`class`   := "close",
+      ^.className := "close",
       dataDismiss := "modal",
       ariaHidden  := "true",
       "×"

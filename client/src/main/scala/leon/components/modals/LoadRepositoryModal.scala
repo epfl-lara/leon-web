@@ -36,16 +36,16 @@ object LoadRepositoryModal {
 
     val cancelButton =
       <.button(
-        ^.`class`   := "btn",
+        ^.className := "btn",
         dataDismiss := "modal",
         "Cancel"
       )
 
     def loadButton(loading: Boolean) =
       <.a(
-        ^.`class` := "btn btn-primary",
-        ^.role    := "button",
-        ^.onClick ==> onClickLoad,
+        ^.className := "btn btn-primary",
+        ^.role      := "button",
+        ^.onClick  ==> onClickLoad,
         if (loading) "Loading..." else "Load"
       )
 
@@ -53,11 +53,11 @@ object LoadRepositoryModal {
 
     def render(props: Props, state: State) =
       Modal(props.isOpen)(
-        <.div(^.`class` := "modal-header",
+        <.div(^.className := "modal-header",
           Modal.closeButton,
           <.h3("Load a repository from GitHub")
         ),
-        <.div(^.`class` := "modal-body",
+        <.div(^.className := "modal-body",
           <.p(
             """Pick a repository to load from the list below:"""
           ),
@@ -66,7 +66,7 @@ object LoadRepositoryModal {
             case Some(repos) => RepositoryList(repos, onSelect = onSelectRepo)
           }
         ),
-        <.div(^.`class` := "modal-footer",
+        <.div(^.className := "modal-footer",
           if (state.selectedRepo.isDefined) loadButton(props.loading) else EmptyTag,
           cancelButton
         )

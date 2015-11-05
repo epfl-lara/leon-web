@@ -9,10 +9,10 @@ object Spinner {
   val component =
     ReactComponentB[Unit]("Spinner")
       .render(_ =>
-      <.div(^.`class` := "spinner",
-        <.div(^.`class` := "bounce1"),
-        <.div(^.`class` := "bounce2"),
-        <.div(^.`class` := "bounce3")))
+      <.div(^.className := "spinner",
+        <.div(^.className := "bounce1"),
+        <.div(^.className := "bounce2"),
+        <.div(^.className := "bounce3")))
       .buildU
 
     def apply() = component()

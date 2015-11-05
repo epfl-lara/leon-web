@@ -24,27 +24,25 @@ object LoadRepositoryPanel {
     import RepositoryStore._
 
     def didMount: Callback = Callback {
-      RepositoryStore.listen((onStoreEvent _).andThen(_.runNow()))
+      RepositoryStore.listen { event =>
+        onStoreEvent(event).runNow()
+      }
     }
 
     def onStoreEvent(e: Event): Callback = e match {
       case RepositoriesLoaded(repos) =>
-        Callback.log("LoadRepositoryPanel.RepositoriesLoaded") >>
         $.modState(_.copy(repos = Some(repos)))
 
       case FilesLoaded(files) =>
-        Callback.log("LoadRepositoryPanel.FilesLoaded") >>
         $.modState(_.copy(
-          files = files,
-          loading = false,
+          files     = files,
+          loading   = false,
           openModal = false
         ))
 
-      case FileLoaded(file, content) =>
-        Callback.log("LoadRepositoryPanel.FileLoaded") >>
-        Callback {
-          RepositoryStore ! SetEditorCode(content)
-        }
+      case FileLoaded(file, content) => Callback {
+        RepositoryStore ! SetEditorCode(content)
+      }
     }
 
     def loadRepos: Callback = Callback {
@@ -60,39 +58,33 @@ object LoadRepositoryPanel {
     }
 
     def showLoadRepoModal: Callback =
-      Callback.log("LoadRepositoryPanel.showLoadRepoModal") >>
       $.modState(_.copy(openModal = true, loading = false)) >>
       loadRepos
 
     def onLoadRepo(repo: HRepository): Callback =
-      Callback.log("LoadRepositoryPanel.onLoadRepo") >>
       $.modState(_.copy(repo = Some(repo), loading = true)) >>
       loadFiles(repo)
 
     def onChooseFile(file: String): Callback =
-      Callback.log("LoadRepositoryPanel.onChooseFile") >>
       $.modState(_.copy(file = Some(file))) >>
       $.state.flatMap { state => loadFile(state.repo.get, file) }
 
     def render(state: State) =
-      <.div(^.`class` := "panel",
+      <.div(^.className := "panel",
         <.h3("Load a GitHub repository:"),
         <.div(
           LoadRepositoryButton(state.repo, showLoadRepoModal),
-          renderFileList(state.repo, state.files)
+          state.repo.map(renderFileList(_, state.files)).getOrElse(EmptyTag)
         ),
         <.div(
           LoadRepositoryModal(onLoadRepo, state.openModal, state.loading, state.repos)
         )
       )
 
-    def renderFileList(repo: Option[HRepository], files: Seq[String]) = repo match {
-      case None    => EmptyTag
-      case Some(_) =>
-        <.div(^.id := "load-repo-file",
-          FileList(files, onChooseFile)
-        )
-    }
+    def renderFileList(repo: HRepository, files: Seq[String]) =
+      <.div(^.id := "load-repo-file",
+        FileList(files, onChooseFile)
+      )
   }
 
   val component =
@@ -122,7 +114,7 @@ object LoadRepositoryButton {
     def render(props: Props, state: State) =
       <.button(
         ^.id := "load-repo-btn",
-        ^.`class`     :=  "btn btn-default panel-element-full",
+        ^.className   :=  "btn btn-default panel-element-full",
         ^.onClick     --> props.onClick,
         ^.onMouseOver --> onMouseOver,
         ^.onMouseOut  --> onMouseOut,
@@ -132,7 +124,7 @@ object LoadRepositoryButton {
     def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
       case Some(repo) if !isHover =>
         <.span(
-          <.span(^.`class` := "octicon octicon-mark-github"),
+          <.span(^.className := "octicon octicon-mark-github"),
           repo.fullName
         )
 

@@ -18,29 +18,28 @@ object RepositoryList {
     def onSelectRepo(repo: HRepository)(e: ReactMouseEvent): Callback =
       e.preventDefaultCB >>
       $.modState(_.copy(selected = Some(repo))) >>
-      $.props.map(_.onSelect(repo).runNow()).void
+      $.props.flatMap(_.onSelect(repo))
 
     def render(props: Props, state: State) =
-      <.ul(^.`class` := "repository-list",
+      <.ul(^.className := "repository-list",
         for (repo <- props.repos) yield
-          <.li(^.`class` := classNamesFor(repo, state.selected),
+          <.li(
+            ^.classSet1(
+              repo.visibility,
+              "selected" -> state.selected.exists(_ == repo)
+            ),
             <.a(^.onClick ==> onSelectRepo(repo) _,
-              <.span(^.`class` := iconFor(repo)),
-              repo.fullName
+              <.span(
+                ^.classSet1(
+                  "octicon",
+                  "octicon-repo"        -> !repo.fork,
+                  "octicon-repo-forked" -> repo.fork
+                ),
+                repo.fullName
+              )
             )
         )
       )
-
-    def classNamesFor(repo: HRepository, selected: Option[HRepository]): String = {
-      val sel  = selected.filter(_ == repo).map(_ => "selected").getOrElse("")
-      val priv = repo.visibility
-      s"$priv $sel"
-    }
-
-    def iconFor(repo: HRepository): String = {
-      val forked = if (repo.fork) "-forked" else ""
-      s"octicon octicon-repo$forked"
-    }
   }
 
   val component =

@@ -16,21 +16,35 @@ object FileList {
       e.preventDefaultCB >>
       $.props.flatMap(_.onSelect(e.target.value))
 
-    val classNames = "file-list form-control panel-element-full"
+    val header =
+      <.option(^.value := "", "-- Select a file --")
+
+    val noFilesFound =
+      <.option(
+        ^.value    := "",
+        ^.key      := "no-files-found",
+        ^.disabled := "true",
+        "No .scala files found"
+      )
+
+    def fileOptions(files: Seq[String]) = files match {
+      case Seq() => Seq(noFilesFound)
+      case _     => files map { file =>
+        <.option(^.value := file, ^.key := file, file)
+      }
+    }
+
+    val classNames =
+      "file-list form-control panel-element-full"
 
     def render(props: Props) = {
-      val fileOptions =
-        if (props.files.isEmpty)
-          Seq(<.option(^.value := "", ^.key := "disabled", ^.disabled := "true", "No .scala files found"))
-        else
-          props.files map { file =>
-            <.option(^.value := file, ^.key := file, file)
-          }
+      val options = header +: fileOptions(props.files)
 
-      val header = <.option(^.value := "", "-- Select a file --")
-      val options = header +: fileOptions
-
-      <.select(^.`class` := classNames, ^.onChange ==> onSelectFile, options)
+      <.select(
+        ^.className := classNames,
+        ^.onChange ==> onSelectFile,
+        options
+      )
     }
   }
 
