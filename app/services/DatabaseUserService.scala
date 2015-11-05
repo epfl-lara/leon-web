@@ -21,6 +21,7 @@ class DatabaseUserService extends UserServiceBase {
 
   override def find(providerId: String, userId: String): Future[Option[BasicProfile]] = {
     logger.debug("find(%s, %s)".format(providerId, userId))
+
     Future.successful {
       UserStore.findByProviderAndId(ProviderId(providerId), UserId(userId)).map(_.toProfile)
     }
@@ -28,6 +29,7 @@ class DatabaseUserService extends UserServiceBase {
 
   override def findByEmailAndProvider(email: String, providerId: String): Future[Option[BasicProfile]] = {
     logger.debug("findByEmailAndProvider(%s, %s)".format(email, providerId))
+
     Future.successful {
       UserStore.findByEmailAndProvider(Email(email), ProviderId(providerId)).map(_.toProfile)
     }
@@ -35,6 +37,7 @@ class DatabaseUserService extends UserServiceBase {
 
   private def findProfile(p: BasicProfile): Option[((String, String), User)] = {
     logger.debug("findProfile(%s)".format(p))
+
     UserStore.findById(UserId(p.userId)).map { user =>
       (p.providerId, p.userId) -> user
     }
@@ -42,19 +45,25 @@ class DatabaseUserService extends UserServiceBase {
 
   private def updateProfile(profile: BasicProfile, entry: ((String, String), User)): Future[User] = {
     logger.debug("updateProfile(%s, %s)".format(profile, entry))
+
     Future.successful {
       entry._2
     }
   }
 
   override def save(profile: BasicProfile, mode: SaveMode): Future[User] = {
-   logger.debug("save(%s, %s)".format(profile, mode))
+    val name = profile.email.getOrElse(profile.fullName)
+    logger.debug("save(%s, %s)".format(profile, mode))
+    logger.info("Upserting user %s".format(name))
+
     Future.successful {
       UserStore.save(User.fromProfile(profile))
     }
   }
 
   override def link(current: User, to: BasicProfile): Future[User] = {
+    logger.debug("link(%s, %s)".format(current, to))
+
     Future.successful {
       current
     }
