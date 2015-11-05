@@ -213,8 +213,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
       case LoadRepositories(user) => withToken(user) { token =>
-      val gh    = GitHubService(token)
-      val res   = Try(Await.result(gh.listUserRepositories(), 5.seconds))
+      val gh  = GitHubService(token)
+      val res = Try(Await.result(gh.listUserRepositories(), 5.seconds))
 
       res.getOrElse(Left("Timeout")) match {
         case Left(error) =>
@@ -237,12 +237,16 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
         case Right(repo) =>
           val (owner, name) = (repo.owner, repo.name)
-          val wc            = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
 
           if (!wc.exists) {
             clientLog(s"Cloning repository $owner/$name...")
-            wc.cloneRepo(repo.cloneURL, Some(token))
+            wc.cloneRepo(repo.cloneURL)
             clientLog(s"Cloning repository $owner/$name... Done.")
+          }
+          else {
+            clientLog(s"Pulling repository $owner/$name...")
+            wc.pull()
           }
 
           clientLog(s"Listing files in $owner/$name...")
@@ -268,7 +272,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
         case Right(repo) =>
           val (owner, name) = (repo.owner, repo.name)
-          val wc            = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
 
           if (!wc.exists) {
             logInfo(s"Could not find a working copy for repository '$owner/$repo'")

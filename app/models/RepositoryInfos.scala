@@ -31,7 +31,7 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 /**
  * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
  */
-class RepositoryInfos(name: String) {
+class RepositoryInfos(name: String, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {
@@ -56,6 +56,15 @@ class RepositoryInfos(name: String) {
 
   lazy val git = {
     new Git(repo)
+  }
+
+  lazy val credentials = token map { value =>
+    new UsernamePasswordCredentialsProvider("token", value)
+  }
+
+  private def withCredentials[A <: TransportCommand[_, _]](cmd: A): A = {
+    credentials foreach { p => cmd.setCredentialsProvider(p) }
+    cmd
   }
 
   def getLastCommits(n: Int = 5): Iterable[Commit] = {
@@ -146,7 +155,7 @@ class RepositoryInfos(name: String) {
     path.isDirectory
   }
 
-  def cloneRepo(remoteURI: String, token: Option[String] = None): Boolean = {
+  def cloneRepo(remoteURI: String): Boolean = {
     if (exists) {
       throw new Exception("Repository "+path+" already exists")
     }
@@ -157,12 +166,7 @@ class RepositoryInfos(name: String) {
          .setCloneAllBranches(true)
          .setURI(remoteURI)
 
-       token foreach { value =>
-        val provider = new UsernamePasswordCredentialsProvider("token", value)
-        cmd.setCredentialsProvider(provider)
-      }
-
-      cmd.call()
+      withCredentials(cmd).call()
       true
     }
     catch {
@@ -192,7 +196,7 @@ class RepositoryInfos(name: String) {
       config.setString("branch", "master", "merge", "refs/heads/master");
       config.save();
 
-      git.pull().call()
+      withCredentials(git.pull()).call()
       true
     } catch {
       case NonFatal(e) =>
@@ -203,7 +207,8 @@ class RepositoryInfos(name: String) {
 
   def push(): Boolean = {
     try {
-      git.push().setRemote("origin").setPushAll().call()
+      val cmd = git.push().setRemote("origin").setPushAll()
+      withCredentials(cmd).call()
       true
     } catch {
       case NonFatal(e) =>
