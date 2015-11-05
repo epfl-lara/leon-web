@@ -9,27 +9,34 @@ import leon.web.client.react.attrs._
 
 object LoginModal {
 
-  val closeButton =
-    <.button(
-      ^.`class`   := "btn",
-      dataDismiss := "modal",
-      "Close"
-    )
-
-  val loginButton =
-    <.a(
-      ^.`class` := "btn btn-primary",
-      ^.role    := "button",
-      ^.href    := "/login",
-      "Login"
-    )
-
   val nop = () => {};
 
+  case class State(processing: Boolean = false)
   case class Props(isOpen: Boolean = false)
 
-  class Backend($: BackendScope[Props, Unit]) {
-    def render(props: Props) =
+  class Backend($: BackendScope[Props, State]) {
+
+    val closeButton =
+      <.button(
+        ^.`class`   := "btn",
+        ^.onClick --> onClose,
+        dataDismiss := "modal",
+        "Close"
+      )
+
+    def loginButton(processing: Boolean) =
+      <.a(
+        ^.`class` := "btn btn-primary",
+        ^.onClick --> onLogin,
+        ^.role    := "button",
+        ^.href    := "/login",
+        if (processing) "Logging in…" else "Login"
+      )
+
+    def onClose: Callback = $.modState(_.copy(processing = false))
+    def onLogin: Callback = $.modState(_.copy(processing = true))
+
+    def render(props: Props, state: State) =
       Modal(props.isOpen)(
         <.div(^.`class` := "modal-header",
           Modal.closeButton,
@@ -52,7 +59,7 @@ object LoginModal {
           )
         ),
         <.div(^.`class` := "modal-footer",
-          loginButton,
+          loginButton(state.processing),
           closeButton
         )
       )
@@ -60,6 +67,7 @@ object LoginModal {
 
   val component =
     ReactComponentB[Props]("LoginModal")
+      .initialState(State())
       .renderBackend[Backend]
       .build
 

@@ -8,7 +8,7 @@ import leon.web.client.HandlersTypes.HRepository
 
 object RepositoryList {
 
-  type OnSelectCallback = HRepository => Unit
+  type OnSelectCallback = HRepository => Callback
 
   case class Props(repos: Seq[HRepository], onSelect: OnSelectCallback)
   case class State(selected: Option[HRepository] = None)
@@ -18,7 +18,7 @@ object RepositoryList {
     def onSelectRepo(repo: HRepository)(e: ReactEventI): Callback =
       e.preventDefaultCB >>
       $.modState(_.copy(selected = Some(repo))) >>
-      $.props.map(_.onSelect(repo)).void
+      $.props.map(_.onSelect(repo).runNow()).void
 
     def render(props: Props, state: State) =
       <.ul(^.`class` := "repository-list",
