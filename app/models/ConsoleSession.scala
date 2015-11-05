@@ -242,7 +242,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           if (!wc.exists) {
             clientLog(s"Cloning repository $owner/$name...")
             wc.cloneRepo(repo.cloneURL)
-            clientLog(s"Cloning repository $owner/$name... Done.")
           }
           else {
             clientLog(s"Pulling repository $owner/$name...")
@@ -253,8 +252,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           val files = wc.getFiles(repo.defaultBranch)
                         .getOrElse(Seq[String]())
                         .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
-
-          clientLog(s"Listing files in $owner/$name... Done.")
 
           event("load_repository", Map(
             "files"  -> toJson(files)
