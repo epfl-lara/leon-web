@@ -29,14 +29,12 @@ object RepositoryList {
               "selected" -> state.selected.exists(_ == repo)
             ),
             <.a(^.onClick ==> onSelectRepo(repo) _,
-              <.span(
-                ^.classSet1(
-                  "octicon",
-                  "octicon-repo"        -> !repo.fork,
-                  "octicon-repo-forked" -> repo.fork
-                ),
-                repo.fullName
-              )
+              <.span(^.classSet1(
+                "octicon",
+                "octicon-repo"        -> !repo.fork,
+                "octicon-repo-forked" -> repo.fork
+              )),
+              repo.fullName
             )
         )
       )
