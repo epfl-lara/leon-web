@@ -42,6 +42,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   import context.dispatcher
   import ConsoleProtocol._
 
+  val githubServiceTimeout =
+    Play.current.configuration.getInt("services.github.timeout").getOrElse(10).seconds
+
   val (enumerator, channel) = Concurrent.broadcast[JsValue]
   var reporter: WSReporter = _
 
@@ -213,23 +216,23 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
       case LoadRepositories(user) => withToken(user) { token =>
-      val gh  = GitHubService(token)
-      val res = Try(Await.result(gh.listUserRepositories(), 5.seconds))
+        val gh  = GitHubService(token)
+        val res = Try(Await.result(gh.listUserRepositories(), githubServiceTimeout))
 
-      res.getOrElse(Left("Timeout")) match {
-        case Left(error) =>
-          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
+        res.getOrElse(Left("Timeout")) match {
+          case Left(error) =>
+            notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
 
-        case Right(repos) =>
-          event("repositories", Map(
-            "repos" -> toJson(repos)
-          ))
+          case Right(repos) =>
+            event("repositories", Map(
+              "repos" -> toJson(repos)
+            ))
+        }
       }
-    }
 
     case LoadRepository(user, owner, name) => withToken(user) { token =>
       val gh     = GitHubService(token)
-      val result = Try(Await.result(gh.getRepository(owner, name), 5.seconds))
+      val result = Try(Await.result(gh.getRepository(owner, name), githubServiceTimeout))
 
       result.getOrElse(Left("Timeout")) match {
         case Left(error) =>
@@ -261,7 +264,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case LoadFile(user, owner, repo, file) => withToken(user) { token =>
       val gh     = GitHubService(token)
-      val result = Try(Await.result(gh.getRepository(owner, repo), 5.seconds))
+      val result = Try(Await.result(gh.getRepository(owner, repo), githubServiceTimeout))
 
       result.getOrElse(Left("Timeout")) match {
         case Left(error) =>
