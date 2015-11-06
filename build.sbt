@@ -34,6 +34,7 @@ lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
   aggregate(aceJsProject, client).settings(
   version := appVersion,
   libraryDependencies ++= appDependencies,
+  javaOptions in run ++= Seq("-Xms100M"),
   scalaJSProjects := Seq(client)
 ).dependsOn(leon, sharedJvm)
 
