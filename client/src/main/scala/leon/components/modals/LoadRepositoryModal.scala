@@ -14,7 +14,7 @@ object LoadRepositoryModal {
   case class Props(
     onSelect: HRepository => Callback,
     isOpen: Boolean = false,
-    loading: Boolean = false,
+    cloning: Boolean = false,
     repos: Option[Seq[HRepository]] = None
   )
 
@@ -26,7 +26,7 @@ object LoadRepositoryModal {
       $.modState(_.copy(selectedRepo = Some(repo)))
     }
 
-    def onClickLoad(e: ReactMouseEvent): Callback =
+    def onClickClone(e: ReactMouseEvent): Callback =
       e.preventDefaultCB >>
       $.props.zip($.state) flatMap { case (props, state) =>
         state.selectedRepo
@@ -41,12 +41,12 @@ object LoadRepositoryModal {
         "Cancel"
       )
 
-    def loadButton(loading: Boolean) =
+    def loadButton(cloning: Boolean) =
       <.a(
         ^.className := "btn btn-primary",
         ^.role      := "button",
-        ^.onClick  ==> onClickLoad,
-        if (loading) "Loading..." else "Load"
+        ^.onClick  ==> onClickClone,
+        if (cloning) "Cloning..." else "Load"
       )
 
     val loading = Spinner()
@@ -63,15 +63,22 @@ object LoadRepositoryModal {
           ),
           props.repos match {
             case None        => loading
-            case Some(repos) => RepositoryList(repos, onSelect = onSelectRepo)
+            case Some(repos) =>
+              RepositoryList(
+                repos = repos,
+                onSelect = onSelectRepo,
+                disabled = props.cloning
+              )
           }
         ),
         <.div(^.className := "modal-footer",
-          if (state.selectedRepo.isDefined) loadButton(props.loading) else EmptyTag,
-          cancelButton
+          onlyIf(!props.cloning)(cancelButton),
+          onlyIf(state.selectedRepo.isDefined)(loadButton(props.cloning))
         )
       )
   }
+
+  def onlyIf(cond: Boolean)(el: => TagMod): TagMod = if (cond) el else EmptyTag
 
   val component =
     ReactComponentB[Props]("LoadRepositoryModal")

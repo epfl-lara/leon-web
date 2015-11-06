@@ -10,7 +10,12 @@ object RepositoryList {
 
   type OnSelectCallback = HRepository => Callback
 
-  case class Props(repos: Seq[HRepository], onSelect: OnSelectCallback)
+  case class Props(
+    repos: Seq[HRepository],
+    onSelect: OnSelectCallback,
+    disabled: Boolean
+  )
+
   case class State(selected: Option[HRepository] = None)
 
   class Backend($: BackendScope[Props, State]) {
@@ -21,7 +26,11 @@ object RepositoryList {
       $.props.flatMap(_.onSelect(repo))
 
     def render(props: Props, state: State) =
-      <.ul(^.className := "repository-list",
+      <.ul(
+        ^.classSet1(
+          "repository-list",
+          "disabled" -> props.disabled
+        ),
         for (repo <- props.repos) yield
           <.li(
             ^.classSet1(
@@ -46,8 +55,10 @@ object RepositoryList {
       .renderBackend[Backend]
       .build
 
-  def apply(repos: Seq[HRepository], onSelect: OnSelectCallback) =
-    component(Props(repos, onSelect))
+  def apply(repos: Seq[HRepository],
+            onSelect: OnSelectCallback,
+            disabled: Boolean) =
+    component(Props(repos, onSelect, disabled))
 
 }
 

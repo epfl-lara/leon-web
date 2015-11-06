@@ -468,6 +468,10 @@ ul.repository-list {
   padding: 0;
 }
 
+ul.repository-list.disabled {
+  pointer-events: none;
+}
+
 ul.repository-list li {
   display: block;
   margin-bottom: 5px;
