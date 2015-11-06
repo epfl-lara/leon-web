@@ -11,6 +11,7 @@ case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
 case class FilesLoaded(files: Seq[String]) extends Event
 case class FileLoaded(fileName: String, content: String) extends Event
 case class CodeUpdated() extends Event
+case class GitProgress(task: String, percentage: Option[String]) extends Event
 
 object Events {
 
@@ -18,6 +19,7 @@ object Events {
   val filesLoaded        = PublishSubject[FilesLoaded]()
   val fileLoaded         = PublishSubject[FileLoaded]()
   val codeUpdated        = PublishSubject[CodeUpdated]()
+  val gitProgress        = PublishSubject[GitProgress]()
 
 }
 

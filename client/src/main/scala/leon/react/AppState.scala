@@ -5,6 +5,7 @@ import monifu.reactive._
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
+import leon.web.client.events.GitProgress
 
 case class AppState(
   repositories      : Option[Seq[HRepository]] = None,

@@ -155,7 +155,7 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
     path.isDirectory
   }
 
-  def cloneRepo(remoteURI: String): Boolean = {
+  def cloneRepo(remoteURI: String, progressMonitor: Option[ProgressMonitor] = None): Boolean = {
     if (exists) {
       throw new Exception("Repository "+path+" already exists")
     }
@@ -165,6 +165,8 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
          .setRemote("origin")
          .setCloneAllBranches(true)
          .setURI(remoteURI)
+
+      progressMonitor.foreach(cmd.setProgressMonitor(_))
 
       withCredentials(cmd).call()
       true
@@ -189,14 +191,16 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
     }
   }
 
-  def pull(): Boolean = {
+  def pull(progressMonitor: Option[ProgressMonitor] = None): Boolean = {
     try {
       val config = git.getRepository().getConfig();
       config.setString("branch", "master", "remote", "origin");
       config.setString("branch", "master", "merge", "refs/heads/master");
       config.save();
 
-      withCredentials(git.pull()).call()
+      val cmd = git.pull()
+      progressMonitor.foreach(cmd.setProgressMonitor(_))
+      withCredentials(cmd).call()
       true
     } catch {
       case NonFatal(e) =>

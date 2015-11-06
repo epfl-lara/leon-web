@@ -28,6 +28,7 @@ object LoginModal {
         ^.onClick  --> onLogin,
         ^.role      := "button",
         ^.href      := "/login",
+        ^.disabled  := processing,
         if (processing) "Logging in…" else "Login"
       )
 

@@ -9,6 +9,7 @@ import leon.web.client.actions._
 import leon.web.client.syntax.Observer._
 import leon.web.client.components.modals.LoadRepositoryModal
 import leon.web.client.HandlersTypes.HRepository
+import leon.web.client.events.GitProgress
 
 object LoadRepositoryPanel {
 

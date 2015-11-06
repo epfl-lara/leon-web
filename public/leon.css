@@ -507,6 +507,7 @@ ul.repository-list .private .octicon {
   color: #a1882b !important;
 }
 
+/* Loading spinner */
 .spinner {
   margin: 50px auto 20px;
   width: 70px;
@@ -547,6 +548,13 @@ ul.repository-list .private .octicon {
     -webkit-transform: scale(1.0);
     transform: scale(1.0);
   }
+}
+
+/* Clone progress text */
+.clone-progress {
+  margin-right: 1em;
+  color: #333;
+  font-style: italic;
 }
 
 /*

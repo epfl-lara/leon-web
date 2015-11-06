@@ -48,6 +48,13 @@ object HandlersTypes {
     val file: String
     val content: String
   }
+
+  @ScalaJSDefined
+  trait HGitProgress extends js.Object {
+    val taskName: String
+    val status: String
+    val percentage: js.UndefOr[String]
+  }
   
   @ScalaJSDefined 
   trait HMoveCursor extends js.Object { val line: Double }

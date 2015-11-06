@@ -16,7 +16,7 @@ import play.api.libs.concurrent._
 import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
 
-import akka.pattern.ask
+import akka.pattern._
 
 import play.api.Play.current
 
@@ -242,25 +242,42 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           val (owner, name) = (repo.owner, repo.name)
           val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
 
-          if (!wc.exists) {
-            clientLog(s"Cloning repository $owner/$name...")
-            wc.cloneRepo(repo.cloneURL)
-          }
-          else {
-            clientLog(s"Pulling repository $owner/$name...")
-            wc.pull()
-          }
-
-          clientLog(s"Listing files in $owner/$name...")
-          val files = wc.getFiles(repo.defaultBranch)
-                        .getOrElse(Seq[String]())
-                        .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
-
-          event("load_repository", Map(
-            "files"  -> toJson(files)
+          val progressActor = Akka.system.actorOf(Props(
+            classOf[JGitProgressWorker],
+            "git_progress", self
           ))
+
+          val progressMonitor = new JGitProgressMonitor(progressActor)
+
+          val future = Future {
+            if (!wc.exists) {
+              clientLog(s"Cloning repository $owner/$name...")
+              wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
+            }
+            else {
+              clientLog(s"Pulling repository $owner/$name...")
+              wc.pull(Some(progressMonitor))
+            }
+
+            RepositoryLoaded(user, repo)
+          }
+
+          future pipeTo self
       }
     }
+
+    case RepositoryLoaded(user, repo) =>
+      val (owner, name) = (repo.owner, repo.name)
+      val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", None)
+
+      clientLog(s"Listing files in $owner/$name...")
+      val files = wc.getFiles(repo.defaultBranch)
+                    .getOrElse(Seq[String]())
+                    .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
+
+      event("load_repository", Map(
+        "files"  -> toJson(files)
+      ))
 
     case LoadFile(user, owner, repo, file) => withToken(user) { token =>
       val gh     = GitHubService(token)

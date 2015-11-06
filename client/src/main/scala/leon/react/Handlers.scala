@@ -14,6 +14,7 @@ object Handlers {
     handlers += ("repositories"    -> reposHandler)
     handlers += ("load_repository" -> loadRepoHandler)
     handlers += ("load_file"       -> loadFileHandler)
+    handlers += ("git_progress"    -> gitProgressHandler)
   }
 
   val reposHandler = (data: HRepositories) => {
@@ -26,6 +27,10 @@ object Handlers {
 
   val loadFileHandler = (data: HLoadFile) => {
     Events.fileLoaded ! FileLoaded(data.file, data.content)
+  }
+
+  val gitProgressHandler = (data: HGitProgress) => {
+    Events.gitProgress ! GitProgress(data.taskName, data.percentage.toOption)
   }
 
 }
