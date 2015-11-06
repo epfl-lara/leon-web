@@ -27,7 +27,6 @@ import Implicits._
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants, Action}
 
-import leon.web.client.stores.RepositoryStore
 import leon.web.client.react.{App => ReactApp}
 import leon.web.client.HandlersTypes._
 
@@ -86,8 +85,9 @@ object Main extends LeonWeb with LeonAPI {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
 
     connectWS()
-    RepositoryStore.init(this)
-    ReactApp.render()
+
+    val reactApp = new ReactApp(this)
+    reactApp.init()
 
     js.timers.setTimeout(3000) {
       if (!connected) {

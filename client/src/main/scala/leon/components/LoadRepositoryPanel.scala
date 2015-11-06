@@ -4,97 +4,76 @@ package components
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import leon.web.client.stores.RepositoryStore
+import leon.web.client.react.AppState
+import leon.web.client.actions._
+import leon.web.client.syntax.Observer._
 import leon.web.client.components.modals.LoadRepositoryModal
 import leon.web.client.HandlersTypes.HRepository
 
 object LoadRepositoryPanel {
 
-  case class State(
-    repos: Option[Seq[HRepository]] = None,
-    repo: Option[HRepository] = None,
-    files: Seq[String] = Seq(),
-    file: Option[String] = None,
-    openModal: Boolean = false,
-    loading: Boolean = false
-  )
+  type Props = AppState
 
-  class Backend($: BackendScope[Unit, State]) {
-
-    import RepositoryStore._
-
-    def didMount: Callback = Callback {
-      RepositoryStore.listen { event =>
-        onStoreEvent(event).runNow()
-      }
-    }
-
-    def onStoreEvent(e: Event): Callback = e match {
-      case RepositoriesLoaded(repos) =>
-        $.modState(_.copy(repos = Some(repos)))
-
-      case FilesLoaded(files) =>
-        $.modState(_.copy(
-          files     = files,
-          loading   = false,
-          openModal = false
-        ))
-
-      case FileLoaded(file, content) => Callback {
-        RepositoryStore ! SetEditorCode(content)
-      }
-    }
+  class Backend($: BackendScope[Props, Unit]) {
 
     def loadRepos: Callback = Callback {
-      RepositoryStore ! LoadRepositories()
+      Actions.loadRepositories ! LoadRepositories()
     }
 
     def loadFiles(repo: HRepository): Callback = Callback {
-      RepositoryStore ! LoadFiles(repo)
+      Actions.loadFiles ! LoadFiles(repo)
     }
 
     def loadFile(repo: HRepository, file: String): Callback = Callback {
-      RepositoryStore ! LoadFile(repo, file)
+      Actions.loadFile ! LoadFile(repo, file)
     }
 
-    def showLoadRepoModal: Callback =
-      $.modState(_.copy(openModal = true, loading = false)) >>
-      loadRepos
+    def showLoadRepoModal: Callback = Callback {
+      Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(true)
+    }
+
+    def onClickSelect: Callback =
+      showLoadRepoModal >> loadRepos
 
     def onLoadRepo(repo: HRepository): Callback =
-      $.modState(_.copy(repo = Some(repo), loading = true)) >>
       loadFiles(repo)
 
-    def onChooseFile(file: String): Callback =
-      $.modState(_.copy(file = Some(file))) >>
-      $.state.flatMap { state => loadFile(state.repo.get, file) }
+    def onChooseFile(file: String): Callback = $.props.flatMap { props =>
+      loadFile(props.repository.get, file)
+    }
 
-    def render(state: State) =
+    def render(props: Props) =
       <.div(^.className := "panel",
         <.h3("Load a GitHub repository:"),
         <.div(
-          LoadRepositoryButton(state.repo, showLoadRepoModal),
-          state.repo.map(renderFileList(_, state.files)).getOrElse(EmptyTag)
+          LoadRepositoryButton(props.repository, onClickSelect),
+          renderFileList(props.repository, props.files)
         ),
         <.div(
-          LoadRepositoryModal(onLoadRepo, state.openModal, state.loading, state.repos)
+          LoadRepositoryModal(
+            onLoadRepo,
+            props.showLoadRepoModal,
+            props.isLoadingRepo,
+            props.repositories
+          )
         )
       )
 
-    def renderFileList(repo: HRepository, files: Seq[String]) =
-      <.div(^.id := "load-repo-file",
-        FileList(files, onChooseFile)
-      )
+    def renderFileList(repo: Option[HRepository], files: Seq[String]) = repo match {
+      case None => EmptyTag
+      case Some(_) =>
+        <.div(^.id := "load-repo-file",
+          FileList(files, onChooseFile)
+        )
+    }
   }
 
   val component =
-    ReactComponentB[Unit]("LoadRepositoryPanel")
-      .initialState(State())
+    ReactComponentB[Props]("LoadRepositoryPanel")
       .renderBackend[Backend]
-      .componentDidMount(_.backend.didMount)
-      .buildU
+      .build
 
-  def apply() = component()
+  def apply(props: Props) = component(props)
 
 }
 
