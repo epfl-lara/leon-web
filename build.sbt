@@ -44,6 +44,7 @@ lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
   version := appVersion,
   libraryDependencies ++= appDependencies,
   resolvers += Resolver.sonatypeRepo("releases"),
+  javaOptions in run ++= Seq("-Xms100M"),
   scalaJSProjects := Seq(client)
 ).dependsOn(leon, sharedJvm)
 
