@@ -57,8 +57,8 @@ object LoginModal {
           )
         ),
         <.div(^.className := "modal-footer",
-          loginButton(state.processing),
-          closeButton
+          if (!state.processing) closeButton else EmptyTag,
+          loginButton(state.processing)
         )
       )
   }
