@@ -284,7 +284,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 notifyError(s"Could not find file '$file' in '$repo/$owner'.")
 
               case Some((_, _, path)) =>
-                val content = Source.fromFile(path).mkString
+                val filePath = s"${wc.path}/$path"
+                val content  = Source.fromFile(filePath).mkString
 
                 event("load_file", Map(
                   "file"    -> toJson(file),
