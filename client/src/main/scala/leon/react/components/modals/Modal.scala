@@ -1,4 +1,7 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
+package react
 package components
 package modals
 
@@ -12,6 +15,30 @@ import JQueryExtended._
 
 import leon.web.client.react.attrs._
 
+/** Generic modal component.
+  *
+  * {{
+  * import japgolly.scalajs.react._
+  * import japgolly.scalajs.react.vdom.prefix_<^._
+  * import leon.web.client.react.components.modals.Modal
+  *
+  * def render = <.Modal(isOpen = true) (
+  *   <.div(^.className := "modal-header",
+  *     Modal.closeButton,
+  *     <.h3("Load a repository from GitHub")
+  *   ),
+  *   <.div(^.className := "modal-body",
+  *     <.p(
+  *       """Pick a repository to load from the list below:"""
+  *     ),
+  *     // etc.
+  *   ),
+  *   <.div(^.className := "modal-footer",
+  *     cancelButton, loadButton
+  *   )
+  * )
+  * }}
+  */
 object Modal {
 
   sealed trait Command

@@ -1,9 +1,16 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web
 package models
 
 import akka.actor._
 import org.eclipse.jgit.lib.BatchingProgressMonitor
 
+/** JGit progress monitor that forwards progress updates to the
+  * specified actor, typically a [[leon.web.workers.JGitProgressWorker]].
+  *
+  * @param actor The actor to forward the progress updates to.
+  */
 class JGitProgressMonitor(actor: ActorRef) extends BatchingProgressMonitor {
 
   import ConsoleProtocol._

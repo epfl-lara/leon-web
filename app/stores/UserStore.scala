@@ -1,3 +1,4 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
 
 package leon.web
 package stores
@@ -12,6 +13,11 @@ import leon.web.models.{User, UserId, ProviderId, Email}
 
 import securesocial.core._
 
+/** Provides methods to retrieve and store a [[leon.web.models.User]]
+  * to/from the database.
+  *
+  * @see [[leon.web.services.DatabaseUserService]]
+  */
 object UserStore {
 
   def parser = {

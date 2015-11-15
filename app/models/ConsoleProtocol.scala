@@ -8,7 +8,7 @@ import play.api.libs.iteratee._
 import leon.synthesis.Solution
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
-import leon.web.models.GitHub.Repository
+import leon.web.models.github.Repository
 
 object ConsoleProtocol {
   case object Init

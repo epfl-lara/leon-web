@@ -1,4 +1,7 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
+package react
 package components
 package modals
 
@@ -7,6 +10,9 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
 
+/** Inform the user of what is about to happen when they click the 'Login' button.
+  * Redirect the user to `/login` once they do.
+  */
 object LoginModal {
 
   case class State(processing: Boolean = false)

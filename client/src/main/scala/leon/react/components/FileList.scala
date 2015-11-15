@@ -1,9 +1,13 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
+package react
 package components
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
+/** Simple file selector that render to a `<select />` tag. */
 object FileList {
 
   type OnSelectCallback = String => Callback

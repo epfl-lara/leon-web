@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
 package react
 
@@ -5,11 +7,20 @@ import scala.scalajs.js
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.Observer._
-import leon.web.client.events._
 import leon.web.client.HandlersTypes._
 
+/** Register WebSocket handlers, and push the received messages
+  * through the appropriate event bus.
+  *
+  * @see [[leon.web.client.events.Event]]
+  */
 object Handlers {
 
+  /** Register the handlers, by adding them to the specified
+    * mutable dictionary.
+    *
+    * @see [[leon.web.client.Main.handlers]]
+    */
   def register(handlers: js.Dictionary[Any]): Unit = {
     handlers += ("repositories"    -> reposHandler)
     handlers += ("load_repository" -> loadRepoHandler)

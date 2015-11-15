@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web
 package services
 
@@ -13,6 +15,9 @@ import leon.web.stores.UserStore
 
 import scala.concurrent.Future
 
+/** [[leon.web.services.UserService]] implementation that stores and
+  * retrieves users from the default database.
+  */
 class DatabaseUserService extends UserServiceBase {
 
   implicit val conn = DB.getConnection()

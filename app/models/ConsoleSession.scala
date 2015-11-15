@@ -30,7 +30,8 @@ import leon.utils.PreprocessingPhase
 import leon.web.workers._
 import leon.web.stores.PermalinkStore
 import leon.web.services.github._
-import leon.web.json.GitHub._
+import leon.web.models.github._
+import leon.web.models.github.json._
 import leon.web.shared.{Action, Module}
 
 import java.util.concurrent.atomic.AtomicBoolean

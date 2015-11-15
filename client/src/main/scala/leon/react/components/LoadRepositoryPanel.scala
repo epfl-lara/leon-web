@@ -1,16 +1,21 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
+package react
 package components
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import leon.web.client.react.AppState
-import leon.web.client.actions._
+import leon.web.client.react._
+import leon.web.client.react.components.modals.LoadRepositoryModal
 import leon.web.client.syntax.Observer._
-import leon.web.client.components.modals.LoadRepositoryModal
 import leon.web.client.HandlersTypes.HRepository
-import leon.web.client.events.GitProgress
 
+/** Panel displayed in the sidebar on the right, wich lets
+  * users pick a repository and load a specific file from that
+  * repository into the editor.
+  */
 object LoadRepositoryPanel {
 
   type Props = AppState

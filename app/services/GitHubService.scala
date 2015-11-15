@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web
 package services
 
@@ -9,13 +11,22 @@ import scala.concurrent.{Future, ExecutionContext}
 
 object github {
 
-  import leon.web.models.GitHub._
-  import leon.web.json.GitHub._
+  import leon.web.models.github._
+  import leon.web.models.github.json._
 
+  /** Defines an interface to the GitHub API */
   trait GitHubService {
     type Error = String
 
+    /** List the logged-in user's repositories. */
     def listUserRepositories(): Future[Either[Error, Seq[Repository]]]
+
+    /** Retrieve information about a specific repository, that must
+      * must be accessible by the currently logged-in user.
+      *
+      * @param owner the owner of the repository (can differ from logged-in user)
+      * @param name the name of the repository
+      */
     def getRepository(owner: String, name: String): Future[Either[Error, Repository]]
   }
 

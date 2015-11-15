@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
 package react
 
@@ -18,26 +20,42 @@ import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.Observer._
 
+/** This class is in charge of the following:
+  *
+  * $ - Register WebSocket handlers in order to process messages
+  *     sent by the server.
+  * $ - Process actions trigger by the React components.
+  * $ - Holds, and tracks the application state, and trigger re-renders
+  *     of the components tree when needed.
+  *
+  * @see [[leon.web.client.react.AppState]]
+  * @see [[leon.web.client.actions.Actions]]
+  * @see [[leon.web.client.events.Events]]
+  */
 class App(private val api: LeonAPI) {
 
-  import leon.web.client.components._
-  import leon.web.client.components.modals._
-  import leon.web.client.events._
-  import leon.web.client.actions._
+  import leon.web.client.react.components._
+  import leon.web.client.react.components.modals._
   import leon.web.shared.{Action => LeonAction}
 
+  /** Global application state */
   private
   val appState = GlobalAppState()
 
   def init(): Unit = {
+    // Register the WebSocket handlers.
     Handlers.register(api.handlers)
 
+    // Set the action handler.
     Actions.setActionHandler(processAction)
 
+    // Trigger a re-render of the app, each time
+    // the application state is updated.
     appState.asObservable
       .dump("AppState")
       .foreach(render)
 
+    // Apply every state transformation to the application state.
     Actions.register(appState.updates)
   }
 

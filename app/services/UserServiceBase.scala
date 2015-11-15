@@ -1,3 +1,4 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
 
 package leon.web
 package services
@@ -10,6 +11,9 @@ import leon.web.models.User
 
 import scala.concurrent.Future
 
+/** Provides default implementation for [[securesocial.core.services.UserService]]
+  * methods that we do not need, as we currently only support authentication via GitHub.
+  */
 abstract class UserServiceBase extends UserService[User] {
 
   override def saveToken(token: MailToken): Future[MailToken] = {

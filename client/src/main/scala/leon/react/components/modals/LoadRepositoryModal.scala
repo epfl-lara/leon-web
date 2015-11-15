@@ -1,17 +1,24 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web.client
+package react
 package components
 package modals
+
+import scala.concurrent.duration._
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
+import leon.web.client.react._
+import leon.web.client.react.attrs._
 import leon.web.client.HandlersTypes.HRepository
-import leon.web.client.events.GitProgress
-import leon.web.client.events.Events
+
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.react.attrs._
-
+/** Allows users to pick a repository in a list, and clone/pull it.
+  * Also displays the current state of the clone/pull operation.
+  */
 object LoadRepositoryModal {
 
   case class Props(
@@ -33,7 +40,9 @@ object LoadRepositoryModal {
     }
 
     def subscribeToProgress: Callback = Callback {
-      Events.gitProgress.doWork(p => {
+      // We listen for this event here instead of
+      // relying on the global app state for performance reasons.
+      Events.gitProgress.throttleLast(500 millis).doWork(p => {
         $.modState(_.copy(cloneProgress = Some(p))).runNow()
       }).subscribe()
     }

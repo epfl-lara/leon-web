@@ -1,3 +1,5 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
 package leon.web
 package models
 
@@ -28,9 +30,10 @@ import org.eclipse.jgit.treewalk.TreeWalk
 import org.eclipse.jgit.api.ListBranchCommand.ListMode
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 
-/**
- * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
- */
+/** Provides a type-safe wrapper around a subset of the JGit API.
+  *
+  * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
+  */
 class RepositoryInfos(name: String, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
