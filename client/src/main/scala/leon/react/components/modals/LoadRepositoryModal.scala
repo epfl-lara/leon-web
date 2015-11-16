@@ -47,7 +47,7 @@ object LoadRepositoryModal {
       }).subscribe()
     }
 
-    def onClickClone(e: ReactMouseEvent): Callback =
+    def onClickLoad(e: ReactMouseEvent): Callback =
       e.preventDefaultCB >>
       subscribeToProgress >>
       $.props.zip($.state) flatMap { case (props, state) =>
@@ -67,9 +67,9 @@ object LoadRepositoryModal {
       <.a(
         ^.className := "btn btn-primary",
         ^.role      := "button",
-        ^.onClick  ==> onClickClone,
+        ^.onClick  ==> onClickLoad,
         ^.disabled  := cloning,
-        if (cloning) "Cloning..." else "Load"
+        if (cloning) "Loading..." else "Load"
       )
 
     val loading = Spinner()
