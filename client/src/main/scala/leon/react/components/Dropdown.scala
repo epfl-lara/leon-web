@@ -58,7 +58,7 @@ object Dropdown {
       <.select(
         ^.className := (props.className +: classNames) mkString " ",
         ^.onChange ==> onSelect(itemsMap),
-        ^.value := selectedItem.getOrElse(""),
+        ^.value := selectedItem.filter(itemsMap contains _).getOrElse(""),
         options
       )
     }
