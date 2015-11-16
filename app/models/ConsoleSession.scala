@@ -219,10 +219,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       case LoadRepositories(user) => withToken(user) { token =>
         clientLog(s"Fetching repositories list...")
 
-        val gh  = GitHubService(token)
-        val res = Try(Await.result(gh.listUserRepositories(), githubServiceTimeout))
+        val gh     = GitHubService(token)
+        val result = gh.listUserRepositories() recover { case t => Left(t.getMessage()) }
 
-        res.getOrElse(Left("Timeout")) match {
+        result onSuccess {
           case Left(error) =>
             notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
 
@@ -238,9 +238,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       clientLog(s"Fetching repository information...")
 
       val gh     = GitHubService(token)
-      val result = Try(Await.result(gh.getRepository(owner, name), githubServiceTimeout))
+      val result = gh.getRepository(owner, name) recover { case t => Left(t.getMessage()) }
 
-      result.getOrElse(Left("Timeout")) match {
+      result onSuccess {
         case Left(error) =>
           notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
 
@@ -281,37 +281,42 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", None)
 
       clientLog(s"Listing files in '$owner/$name'...")
-      val files = wc.getFiles(repo.defaultBranch)
-                    .getOrElse(Seq[String]())
-                    .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
 
-      clientLog(s"=> DONE")
-      event("load_repository", Map(
-        "files"  -> toJson(files)
-      ))
+      val future = Future {
+        wc.getFiles(repo.defaultBranch)
+          .getOrElse(Seq[String]())
+          .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
+      }
 
-    case LoadFile(user, owner, repo, file) => withToken(user) { token =>
+      future foreach { files =>
+        clientLog(s"=> DONE")
+        event("load_repository", Map(
+          "files"  -> toJson(files)
+        ))
+      }
+
+    case LoadFile(user, owner, name, file) => withToken(user) { token =>
       clientLog(s"Loading file '$file'...")
 
       val gh     = GitHubService(token)
-      val result = Try(Await.result(gh.getRepository(owner, repo), githubServiceTimeout))
+      val result = gh.getRepository(owner, name) recover { case t => Left(t.getMessage()) }
 
-      result.getOrElse(Left("Timeout")) match {
+      result onSuccess {
         case Left(error) =>
-          notifyError(s"Failed to load repository '$owner/$repo'. Reason: '$error'");
+          notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
 
         case Right(repo) =>
           val (owner, name) = (repo.owner, repo.name)
           val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
 
           if (!wc.exists) {
-            logInfo(s"Could not find a working copy for repository '$owner/$repo'")
-            notifyError(s"Could not find a working copy for repository '$owner/$repo', please load it again.")
+            logInfo(s"Could not find a working copy for repository '$owner/$name'")
+            notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
           }
           else {
             wc.getFile(repo.defaultBranch, file) match {
               case None =>
-                notifyError(s"Could not find file '$file' in '$repo/$owner'.")
+                notifyError(s"Could not find file '$file' in '$owner/$name'.")
 
               case Some((_, _, path)) =>
                 val filePath = s"${wc.path}/$path"
