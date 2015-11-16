@@ -36,7 +36,10 @@ object LoadRepositoryModal {
   class Backend($: BackendScope[Props, State]) {
 
     def onSelectRepo(repo: HRepository): Callback = {
-      $.modState(_.copy(selectedRepo = Some(repo)))
+      $.modState(_.copy(
+        selectedRepo = Some(repo),
+        cloneProgress = None
+      ))
     }
 
     def subscribeToProgress: Callback = Callback {
