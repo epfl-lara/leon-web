@@ -53,7 +53,7 @@ object LoadRepositoryPanel {
         <.h3("Load a GitHub repository:"),
         <.div(
           LoadRepositoryButton(props.repository, onClickSelect),
-          renderFileList(props.repository, props.files)
+          renderFileSelector(props.repository, props.files, props.file.map(_._1))
         ),
         <.div(
           LoadRepositoryModal(
@@ -65,11 +65,13 @@ object LoadRepositoryPanel {
         )
       )
 
-    def renderFileList(repo: Option[HRepository], files: Seq[String]) = repo match {
+    def renderFileSelector(repo: Option[HRepository], files: Seq[String],
+                       selected: Option[String] = None) = repo match {
+
       case None => EmptyTag
       case Some(_) =>
         <.div(^.id := "load-repo-file",
-          FileList(files, onChooseFile)
+          FileSelector(files, onChooseFile, selected)
         )
     }
   }
