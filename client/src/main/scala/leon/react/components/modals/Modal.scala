@@ -102,7 +102,7 @@ object Modal {
       .build
 
   def apply(isOpen: Boolean)(children: ReactNode*) =
-    component(Props(isOpen), children)
+    component(Props(isOpen), children: _*)
 
   val closeButton =
     <.button(
