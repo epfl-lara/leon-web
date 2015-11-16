@@ -217,6 +217,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
       case LoadRepositories(user) => withToken(user) { token =>
+        clientLog(s"Fetching repositories list...")
+
         val gh  = GitHubService(token)
         val res = Try(Await.result(gh.listUserRepositories(), githubServiceTimeout))
 
@@ -225,6 +227,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
 
           case Right(repos) =>
+            clientLog(s"=> DONE")
             event("repositories", Map(
               "repos" -> toJson(repos)
             ))
@@ -232,6 +235,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
     case LoadRepository(user, owner, name) => withToken(user) { token =>
+      clientLog(s"Fetching repository information...")
+
       val gh     = GitHubService(token)
       val result = Try(Await.result(gh.getRepository(owner, name), githubServiceTimeout))
 
@@ -240,6 +245,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
 
         case Right(repo) =>
+          clientLog(s"=> DONE")
+
           val (owner, name) = (repo.owner, repo.name)
           val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
 
@@ -252,12 +259,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           val future = Future {
             if (!wc.exists) {
-              clientLog(s"Cloning repository $owner/$name...")
+              clientLog(s"Cloning repository '$owner/$name'...")
               wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
+              clientLog(s"=> DONE")
             }
             else {
-              clientLog(s"Pulling repository $owner/$name...")
+              clientLog(s"Pulling repository '$owner/$name'...")
               wc.pull(Some(progressMonitor))
+              clientLog(s"=> DONE")
             }
 
             RepositoryLoaded(user, repo)
@@ -271,16 +280,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       val (owner, name) = (repo.owner, repo.name)
       val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", None)
 
-      clientLog(s"Listing files in $owner/$name...")
+      clientLog(s"Listing files in '$owner/$name'...")
       val files = wc.getFiles(repo.defaultBranch)
                     .getOrElse(Seq[String]())
                     .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
 
+      clientLog(s"=> DONE")
       event("load_repository", Map(
         "files"  -> toJson(files)
       ))
 
     case LoadFile(user, owner, repo, file) => withToken(user) { token =>
+      clientLog(s"Loading file '$file'...")
+
       val gh     = GitHubService(token)
       val result = Try(Await.result(gh.getRepository(owner, repo), githubServiceTimeout))
 
@@ -304,6 +316,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Some((_, _, path)) =>
                 val filePath = s"${wc.path}/$path"
                 val content  = Source.fromFile(filePath).mkString
+
+                clientLog(s"=> DONE")
 
                 event("load_file", Map(
                   "file"    -> toJson(file),
