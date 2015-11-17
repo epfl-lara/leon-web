@@ -7,7 +7,7 @@ resolvers += "Typesafe repository" at "http://repo.typesafe.com/typesafe/release
 resolvers += "amateras-repo" at "http://amateras.sourceforge.jp/mvn-snapshot/"
 
 // Use the Play sbt plugin for Play projects
-addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.3")
+addSbtPlugin("com.typesafe.play" % "sbt-plugin" % "2.3.10")
 
 // web plugins
 addSbtPlugin("com.typesafe.sbt" % "sbt-coffeescript" % "1.0.0")
