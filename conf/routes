@@ -11,7 +11,9 @@ GET   /openConsole                  @leon.web.controllers.Interface.openConsole
 GET   /doc                          leon.web.controllers.Doc.redirect()
 GET   /doc/                         leon.web.controllers.Doc.index()
 GET   /doc/*file                    leon.web.controllers.Doc.at(file)
+
 GET   /assets/*file                 controllers.Assets.at(path="/public", file)
+GET   /assets/*file                 securesocial.controllers.Assets.at(path = "/public/securesocial", file)
 
 # Login page
 GET   /login                        @leon.web.controllers.Account.login
