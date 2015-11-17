@@ -11,7 +11,7 @@ import leon.web.models.User
 
 import scala.concurrent.Future
 
-/** Provides default implementation for [[securesocial.core.services.UserService]]
+/** Provides default implementation for SecureSocial UserService
   * methods that we do not need, as we currently only support authentication via GitHub.
   */
 abstract class UserServiceBase extends UserService[User] {

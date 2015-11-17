@@ -15,7 +15,7 @@ import leon.web.stores.UserStore
 
 import scala.concurrent.Future
 
-/** [[leon.web.services.UserService]] implementation that stores and
+/** SecureSocial UserService implementation that stores and
   * retrieves users from the default database.
   */
 class DatabaseUserService extends UserServiceBase {
