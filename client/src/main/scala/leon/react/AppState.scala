@@ -15,6 +15,12 @@ case class AppState(
   // Currently selected repository
   repository        : Option[HRepository]      = None,
 
+  // Available branches for selected repository
+  branches          : Seq[HBranch]             = Seq(),
+
+  // Currently selected branch
+  branch            : Option[String]           = None,
+
   // Scala files in the selected repository
   files             : Seq[String]              = Seq(),
 

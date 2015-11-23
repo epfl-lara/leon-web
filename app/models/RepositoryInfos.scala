@@ -70,10 +70,16 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
     cmd
   }
 
+  def branches(all: Boolean = true): Iterable[Ref] = {
+    val mode = if (all) ListMode.ALL else null
+
+    git.branchList().setListMode(mode).call()
+  }
+
   def getLastCommits(n: Int = 5): Iterable[Commit] = {
     try {
       val log = git.log;
-      git.branchList().setListMode(ListMode.ALL).call().foreach { b =>
+      branches(true).foreach { b =>
         log.add(b.getObjectId())
       }
       log.setMaxCount(n).call().map(Commit(_))
@@ -257,6 +263,37 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
         false
     }
 
+  }
+
+  def checkout(branch: String): Boolean = {
+    try {
+      git.checkout().setName(branch).call()
+
+      true
+    }
+    catch {
+      case NonFatal(e) =>
+        Logger.error(e.getMessage(), e)
+        false
+    }
+  }
+
+  def checkoutRemote(branch: String): Boolean = {
+    try {
+      git.checkout()
+         .setName(branch)
+         .setCreateBranch(true)
+         .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
+         .setStartPoint(s"origin/$branch")
+         .call()
+
+      true
+    }
+    catch {
+      case NonFatal(e) =>
+        Logger.error(e.getMessage(), e)
+        false
+    }
   }
 
 }

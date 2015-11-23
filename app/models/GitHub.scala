@@ -19,6 +19,8 @@ object github {
   case object Collaborator       extends Affiliation
   case object OrganizationMember extends Affiliation
 
+  case class Branch(name: String, sha: String)
+
   case class RepositoryId(value: Long) extends AnyVal
 
   case class Repository(
@@ -30,7 +32,8 @@ object github {
     fork          : Boolean,
     size          : Long,
     cloneURL      : String,
-    defaultBranch : String
+    defaultBranch : String,
+    branches      : Seq[Branch]
   )
 
   /** JSON Reads and Writes instances for [[leon.web.models.github]] models */
@@ -71,6 +74,16 @@ object github {
       }
     }
 
+    implicit val branchWrites: Writes[Branch] = (
+      ( __ \ "name" ).write[String] and
+      ( __ \ "sha"  ).write[String]
+    )(unlift(Branch.unapply))
+
+    implicit val branchReads: Reads[Branch] = (
+      ( __ \ "name"           ).read[String] and
+      ( __ \ "commit" \ "sha" ).read[String]
+    )(Branch.apply _)
+
     implicit val repositoryWrites: Writes[Repository] = (
       ( __ \ "id"            ).write[RepositoryId] and
       ( __ \ "name"          ).write[String]       and
@@ -80,7 +93,8 @@ object github {
       ( __ \ "fork"          ).write[Boolean]      and
       ( __ \ "size"          ).write[Long]         and
       ( __ \ "cloneURL"      ).write[String]       and
-      ( __ \ "defaultBranch" ).write[String]
+      ( __ \ "defaultBranch" ).write[String]       and
+      ( __ \ "branches"      ).write[Seq[Branch]]
     )(unlift(Repository.unapply))
 
     implicit val repositoryReads: Reads[Repository] = (
@@ -92,7 +106,9 @@ object github {
       ( __ \ "fork"            ).read[Boolean]      and
       ( __ \ "size"            ).read[Long]         and
       ( __ \ "clone_url"       ).read[String]       and
-      ( __ \ "default_branch"  ).read[String]
+      ( __ \ "default_branch"  ).read[String]       and
+      ( __ \ "branches"        ).readNullable[Seq[Branch]]
+                                .map(_.getOrElse(Seq()))
     )(Repository.apply _)
   }
 

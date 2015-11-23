@@ -16,18 +16,26 @@ object github {
 
   /** Defines an interface to the GitHub API */
   trait GitHubService {
-    type Error = String
+    type Error <: Throwable
 
     /** List the logged-in user's repositories. */
-    def listUserRepositories(): Future[Either[Error, Seq[Repository]]]
+    def listUserRepositories(): Future[Seq[Repository]]
 
     /** Retrieve information about a specific repository, that must
       * must be accessible by the currently logged-in user.
       *
       * @param owner the owner of the repository (can differ from logged-in user)
-      * @param name the name of the repository
+      * @param name  the name of the repository
       */
-    def getRepository(owner: String, name: String): Future[Either[Error, Repository]]
+    def getRepository(owner: String, name: String): Future[Repository]
+
+    /** Retrieve the list of branches available for the given
+      * repository, which must be accessible by the currently logged-in user.
+      *
+      * @param owner the owner of the repository (can differ from logged-in user)
+      * @param name  the name of the repository
+      */
+    def getBranches(owner: String, name: String): Future[Seq[Branch]]
   }
 
   object GitHubService {
@@ -37,12 +45,16 @@ object github {
 
   class WSGitHubService(token: String)(implicit ec: ExecutionContext) extends GitHubService {
 
+    case class Error(private val message: String) extends Throwable(message)
+
     private val baseURL = "https://api.github.com"
 
-    private def req(url: String) =
+    private def req(url: String): WSRequestHolder = {
       WS.url(s"$baseURL$url")
+        .withRequestTimeout(10000)
         .withHeaders("Authorization" -> s"token $token")
         .withHeaders("Accept" -> "application/vnd.github.v3+json")
+    }
 
     private def unwrapSuccess[T : Reads](res: WSResponse): Either[Error, T] =
       res.json.validate[T] match {
@@ -50,22 +62,40 @@ object github {
           Right(s.get)
 
         case e: JsError =>
-          val error = JsError.toFlatJson(e).toString()
-          Left(error)
+          val error = JsError.toFlatJson(e).toString
+          Left(Error(error))
       }
 
+    private def eitherToFuture[T](either: Either[Error, T]): Future[T] = either match {
+      case Left(err)  => Future failed err
+      case Right(res) => Future successful res
+    }
+
     // TODO: Follow the pagination to load all repositories
-    override def listUserRepositories(): Future[Either[Error, Seq[Repository]]] = {
+    override def listUserRepositories(): Future[Seq[Repository]] = {
       req("/user/repos")
         .withQueryString("affiliation" -> "owner", "per_page" -> "100")
         .get()
         .map(unwrapSuccess[Seq[Repository]])
+        .flatMap(eitherToFuture[Seq[Repository]])
     }
 
-    override def getRepository(owner: String, name: String): Future[Either[Error, Repository]] = {
-      req(s"/repos/$owner/$name")
+    override def getRepository(owner: String, name: String): Future[Repository] = {
+      val branchesFuture = getBranches(owner, name)
+
+      for {
+        res      <- req(s"/repos/$owner/$name").get()
+        repo     <- eitherToFuture[Repository](unwrapSuccess[Repository](res))
+        branches <- branchesFuture
+      }
+      yield repo.copy(branches = branches)
+    }
+
+    override def getBranches(owner: String, name: String): Future[Seq[Branch]] = {
+      req(s"/repos/$owner/$name/branches")
         .get()
-        .map(unwrapSuccess[Repository])
+        .map(unwrapSuccess[Seq[Branch]])
+        .flatMap(eitherToFuture[Seq[Branch]])
     }
 
   }

@@ -18,6 +18,7 @@ object Action {
   val loadRepositories = "loadRepositories"
   val loadRepository = "loadRepository"
   val loadFile = "loadFile"
+  val switchBranch = "switchBranch"
 }
 
 object VerifStatus {

@@ -14,8 +14,9 @@ import leon.web.client.HandlersTypes._
   */
 sealed trait Event
 case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
-case class FilesLoaded(files: Seq[String]) extends Event
+case class RepositoryLoaded(files: Seq[String], branches: Seq[HBranch]) extends Event
 case class FileLoaded(fileName: String, content: String) extends Event
+case class BranchChanged(branch: String, files: Seq[String]) extends Event
 case class CodeUpdated() extends Event
 case class GitProgress(task: String, percentage: Option[String]) extends Event
 
@@ -23,8 +24,9 @@ case class GitProgress(task: String, percentage: Option[String]) extends Event
 object Events {
 
   val repositoriesLoaded = PublishSubject[RepositoriesLoaded]()
-  val filesLoaded        = PublishSubject[FilesLoaded]()
+  val repositoryLoaded   = PublishSubject[RepositoryLoaded]()
   val fileLoaded         = PublishSubject[FileLoaded]()
+  val branchChanged      = PublishSubject[BranchChanged]()
   val codeUpdated        = PublishSubject[CodeUpdated]()
   val gitProgress        = PublishSubject[GitProgress]()
 

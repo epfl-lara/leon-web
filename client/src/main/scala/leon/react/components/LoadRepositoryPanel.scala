@@ -10,7 +10,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.components.modals.LoadRepositoryModal
 import leon.web.client.syntax.Observer._
-import leon.web.client.HandlersTypes.HRepository
+import leon.web.client.HandlersTypes.{HRepository, HBranch}
 
 /** Panel displayed in the sidebar on the right, wich lets
   * users pick a repository and load a specific file from that
@@ -22,30 +22,27 @@ object LoadRepositoryPanel {
 
   class Backend($: BackendScope[Props, Unit]) {
 
-    def loadRepos: Callback = Callback {
-      Actions.loadRepositories ! LoadRepositories()
-    }
-
-    def loadFiles(repo: HRepository): Callback = Callback {
-      Actions.loadFiles ! LoadFiles(repo)
-    }
-
-    def loadFile(repo: HRepository, file: String): Callback = Callback {
-      Actions.loadFile ! LoadFile(repo, file)
-    }
-
     def showLoadRepoModal: Callback = Callback {
       Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(true)
+    }
+
+    def loadRepos: Callback = Callback {
+      Actions.loadRepositories ! LoadRepositories()
     }
 
     def onClickSelect: Callback =
       showLoadRepoModal >> loadRepos
 
-    def onLoadRepo(repo: HRepository): Callback =
-      loadFiles(repo)
+    def onLoadRepo(repo: HRepository): Callback = Callback {
+      Actions.loadRepository ! LoadRepository(repo)
+    }
 
-    def onChooseFile(file: String): Callback = $.props.flatMap { props =>
-      loadFile(props.repository.get, file)
+    def onChooseBranch(repo: HRepository)(branch: String): Callback = Callback {
+      Actions.switchBranch ! SwitchBranch(repo, branch)
+    }
+
+    def onChooseFile(file: String): Callback = $.props.map { props =>
+      Actions.loadFile ! LoadFile(props.repository.get, file)
     }
 
     def render(props: Props) =
@@ -53,7 +50,8 @@ object LoadRepositoryPanel {
         <.h3("Load a GitHub repository:"),
         <.div(
           LoadRepositoryButton(props.repository, onClickSelect),
-          renderFileSelector(props.repository, props.files, props.file.map(_._1))
+          renderBranches(props.repository, props.branches, props.branch),
+          renderFiles(props.repository, props.files, props.file.map(_._1))
         ),
         <.div(
           LoadRepositoryModal(
@@ -65,7 +63,19 @@ object LoadRepositoryPanel {
         )
       )
 
-    def renderFileSelector(repo: Option[HRepository], files: Seq[String],
+    def renderBranches(repo: Option[HRepository], branches: Seq[HBranch], selected: Option[String]) = repo match {
+      case None => EmptyTag
+      case Some(repo) =>
+        <.div(^.id := "load-repo-branch",
+          BranchSelector(
+            branches.map(_.name),
+            onChooseBranch(repo),
+            selected orElse Some(repo.defaultBranch)
+          )
+        )
+    }
+
+    def renderFiles(repo: Option[HRepository], files: Seq[String],
                        selected: Option[String] = None) = repo match {
 
       case None => EmptyTag

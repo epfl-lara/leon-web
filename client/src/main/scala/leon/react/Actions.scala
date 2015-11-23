@@ -16,8 +16,9 @@ import leon.web.client.syntax.Observer._
  *  in the global [[leon.web.client.react.AppState]]. */
 sealed trait Action
 case class LoadRepositories() extends Action
-case class LoadFiles(repo: HRepository) extends Action
+case class LoadRepository(repo: HRepository) extends Action
 case class LoadFile(repo: HRepository, file: String) extends Action
+case class SwitchBranch(repo: HRepository, branch: String) extends Action
 case class UpdateEditorCode(code: String) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 
@@ -35,8 +36,9 @@ case class ToggleLoadRepoModal(value: Boolean) extends Action
 object Actions {
 
   val loadRepositories    = PublishSubject[LoadRepositories]()
-  val loadFiles           = PublishSubject[LoadFiles]()
+  val loadRepository      = PublishSubject[LoadRepository]()
   val loadFile            = PublishSubject[LoadFile]()
+  val switchBranch        = PublishSubject[SwitchBranch]()
   val updateEditorCode    = PublishSubject[UpdateEditorCode]()
   val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()
   val modState            = PublishSubject[AppState => AppState]
@@ -71,14 +73,29 @@ object Actions {
       }
       .subscribe(updates)
 
-    loadFiles
+    loadRepository
       .doWork(processAction)
-      .flatMap(_ => Events.filesLoaded)
+      .flatMap(_ => Events.repositoryLoaded)
       .map { e =>
         (state: AppState) =>
-          state.copy(files = e.files,
-                     isLoadingRepo = false,
-                     showLoadRepoModal = false)
+          state.copy(
+            files             = e.files,
+            branches          = e.branches,
+            isLoadingRepo     = false,
+            showLoadRepoModal = false
+          )
+      }
+      .subscribe(updates)
+
+    switchBranch
+      .doWork(processAction)
+      .flatMap(_ => Events.branchChanged)
+      .map { e =>
+        (state: AppState) =>
+          state.copy(
+            branch = Some(e.branch),
+            files  = e.files
+          )
       }
       .subscribe(updates)
 

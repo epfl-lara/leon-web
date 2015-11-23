@@ -31,6 +31,7 @@ object HandlersTypes {
     val size: Long
     val cloneURL: String
     val defaultBranch: String
+    val branches: js.Array[String]
   }
 
   @ScalaJSDefined
@@ -39,14 +40,27 @@ object HandlersTypes {
   }
 
   @ScalaJSDefined
-  trait HLoadRepository extends js.Object {
-    val files: js.Array[String]
+  trait HBranch extends js.Object {
+    val name: String
+    val sha: String
   }
 
   @ScalaJSDefined
-  trait HLoadFile extends js.Object {
+  trait HRepositoryLoaded extends js.Object {
+    val files: js.Array[String]
+    val branches: js.Array[HBranch]
+  }
+
+  @ScalaJSDefined
+  trait HFileLoaded extends js.Object {
     val file: String
     val content: String
+  }
+
+  @ScalaJSDefined
+  trait HBranchChanged extends js.Object {
+    val branch: String
+    val files: js.Array[String]
   }
 
   @ScalaJSDefined

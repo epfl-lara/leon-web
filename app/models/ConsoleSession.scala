@@ -153,9 +153,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
               case Action.loadRepository => withUser { user =>
                 val owner = (event \ "owner").as[String]
-                val name  = (event \ "name").as[String]
+                val repo  = (event \ "repo").as[String]
 
-                self ! LoadRepository(user, owner, name)
+                self ! LoadRepository(user, owner, repo)
               }
 
               case Action.loadFile => withUser { user =>
@@ -164,6 +164,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 val file  = (event \ "file").as[String]
 
                 self ! LoadFile(user, owner, repo, file)
+              }
+
+              case Action.switchBranch => withUser { user =>
+                val owner  = (event \ "owner" ).as[String]
+                val repo   = (event \ "repo"  ).as[String]
+                val branch = (event \ "branch").as[String]
+
+                self ! SwitchBranch(user, owner, repo, branch)
               }
 
               case Action.featureSet =>
@@ -220,17 +228,18 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         clientLog(s"Fetching repositories list...")
 
         val gh     = GitHubService(token)
-        val result = gh.listUserRepositories() recover { case t => Left(t.getMessage()) }
+        val result = gh.listUserRepositories()
 
-        result onSuccess {
-          case Left(error) =>
-            notifyError(s"Failed to load repositories for user ${user.email}. Reason: '$error'")
+        result onSuccess { case repos =>
+          clientLog(s"=> DONE")
 
-          case Right(repos) =>
-            clientLog(s"=> DONE")
-            event("repositories", Map(
-              "repos" -> toJson(repos)
-            ))
+          event("repositories", Map(
+            "repos" -> toJson(repos)
+          ))
+        }
+
+        result onFailure { case err =>
+          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '${err.getMessage}'")
         }
       }
 
@@ -238,41 +247,41 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       clientLog(s"Fetching repository information...")
 
       val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name) recover { case t => Left(t.getMessage()) }
+      val result = gh.getRepository(owner, name)
 
-      result onSuccess {
-        case Left(error) =>
-          notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
+      result onFailure { case err =>
+          notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
 
-        case Right(repo) =>
-          clientLog(s"=> DONE")
+      result onSuccess { case repo =>
+        clientLog(s"=> DONE")
 
-          val (owner, name) = (repo.owner, repo.name)
-          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
+        val (owner, name) = (repo.owner, repo.name)
+        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
 
-          val progressActor = Akka.system.actorOf(Props(
-            classOf[JGitProgressWorker],
-            "git_progress", self
-          ))
+        val progressActor = Akka.system.actorOf(Props(
+          classOf[JGitProgressWorker],
+          "git_progress", self
+        ))
 
-          val progressMonitor = new JGitProgressMonitor(progressActor)
+        val progressMonitor = new JGitProgressMonitor(progressActor)
 
-          val future = Future {
-            if (!wc.exists) {
-              clientLog(s"Cloning repository '$owner/$name'...")
-              wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
-              clientLog(s"=> DONE")
-            }
-            else {
-              clientLog(s"Pulling repository '$owner/$name'...")
-              wc.pull(Some(progressMonitor))
-              clientLog(s"=> DONE")
-            }
-
-            RepositoryLoaded(user, repo)
+        val future = Future {
+          if (!wc.exists) {
+            clientLog(s"Cloning repository '$owner/$name'...")
+            wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
+            clientLog(s"=> DONE")
+          }
+          else {
+            clientLog(s"Pulling repository '$owner/$name'...")
+            wc.pull(Some(progressMonitor))
+            clientLog(s"=> DONE")
           }
 
-          future pipeTo self
+          RepositoryLoaded(user, repo)
+        }
+
+        future pipeTo self
       }
     }
 
@@ -291,7 +300,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       future foreach { files =>
         clientLog(s"=> DONE")
         event("load_repository", Map(
-          "files"  -> toJson(files)
+          "files"    -> toJson(files),
+          "branches" -> toJson(repo.branches)
         ))
       }
 
@@ -299,37 +309,76 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       clientLog(s"Loading file '$file'...")
 
       val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name) recover { case t => Left(t.getMessage()) }
+      val result = gh.getRepository(owner, name)
 
-      result onSuccess {
-        case Left(error) =>
-          notifyError(s"Failed to load repository '$owner/$name'. Reason: '$error'");
+      result onFailure { case err =>
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
 
-        case Right(repo) =>
-          val (owner, name) = (repo.owner, repo.name)
-          val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+      result onSuccess { case repo =>
+        val (owner, name) = (repo.owner, repo.name)
+        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
 
-          if (!wc.exists) {
-            logInfo(s"Could not find a working copy for repository '$owner/$name'")
-            notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        if (!wc.exists) {
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        }
+        else {
+          wc.getFile("HEAD", file) match {
+            case None =>
+              notifyError(s"Could not find file '$file' in '$owner/$name'.")
+
+            case Some((_, _, path)) =>
+              val filePath = s"${wc.path}/$path"
+              val content  = Source.fromFile(filePath).mkString
+
+              clientLog(s"=> DONE")
+
+              event("load_file", Map(
+                "file"    -> toJson(file),
+                "content" -> toJson(content)
+              ))
           }
-          else {
-            wc.getFile(repo.defaultBranch, file) match {
-              case None =>
-                notifyError(s"Could not find file '$file' in '$owner/$name'.")
+        }
+      }
+    }
 
-              case Some((_, _, path)) =>
-                val filePath = s"${wc.path}/$path"
-                val content  = Source.fromFile(filePath).mkString
+    case SwitchBranch(user, owner, name, branch) => withToken(user) { token =>
+      clientLog(s"Checking out branch '$branch'...")
 
-                clientLog(s"=> DONE")
+      val gh     = GitHubService(token)
+      val result = gh.getRepository(owner, name)
 
-                event("load_file", Map(
-                  "file"    -> toJson(file),
-                  "content" -> toJson(content)
-                ))
-            }
+      result onFailure { case err =>
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
+
+      result onSuccess { case repo =>
+        val (owner, name) = (repo.owner, repo.name)
+        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+
+        if (!wc.exists) {
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        }
+        else {
+          val future = Future {
+            wc.checkoutRemote(branch)
+
+            wc.getFiles(branch)
+              .getOrElse(Seq[String]())
+              .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
           }
+
+          future foreach { files =>
+            clientLog(s"=> DONE")
+
+            event("branch_changed", Map(
+              "branch" -> toJson(branch),
+              "files"  -> toJson(files)
+            ))
+          }
+        }
       }
     }
 

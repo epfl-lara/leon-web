@@ -69,20 +69,32 @@ class App(private val api: LeonAPI) {
 
       api.leonSocket.send(JSON.stringify(msg))
 
-    case LoadFiles(repo) =>
+    case LoadRepository(repo) =>
       val msg = l(
         action = LeonAction.loadRepository,
         module = "main",
         owner  = repo.owner,
-        name   = repo.name
+        repo   = repo.name
       )
 
       api.leonSocket.send(JSON.stringify(msg))
 
       Actions.modState ! (_.copy(
         repository    = Some(repo),
+        branch        = Some(repo.defaultBranch),
         isLoadingRepo = true
       ))
+
+    case SwitchBranch(repo, branch) =>
+      val msg = l(
+        action = LeonAction.switchBranch,
+        module = "main",
+        owner  = repo.owner,
+        repo   = repo.name,
+        branch = branch
+      )
+
+      api.leonSocket.send(JSON.stringify(msg))
 
     case LoadFile(repo, file) =>
       val msg = l(
