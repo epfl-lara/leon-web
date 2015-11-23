@@ -9,11 +9,6 @@ import models._
 import leon.utils._
 import leon.verification._
 import leon.solvers._
-import leon.solvers.combinators._
-import leon.solvers.smtlib._
-import leon.solvers.z3._
-import leon.purescala._
-import leon.purescala.Common._
 import leon.purescala.Definitions._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
@@ -22,12 +17,10 @@ import scala.concurrent.duration._
 
 trait VerificationNotifier extends WorkerActor with JsonWrites {
   import ConsoleProtocol._
-  import leon.evaluators._
-  import leon.codegen._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
 
-  def notifyVerifOverview(cstate: CompilationState) {
+  def notifyVerifOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
       // All functions that depend on an invalid function
       val dependsOnInvalid = verifOverview.filter(_._2.status == "invalid").flatMap { r =>
@@ -71,7 +64,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
     "--evalground"
   )).copy(interruptManager = interruptManager, reporter = reporter)
 
-  def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean) {
+  def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean): Unit = {
     val params    = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
     val evaluator = new CodeGenEvaluator(vctx.context, cstate.program, params)
 
@@ -97,7 +90,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
               None
           }
 
-          vc -> (ovr, cexExec)
+          (vc, (ovr, cexExec))
         }
 
         verifOverview += f -> FunVerifStatus(f, resultsWithCex)
@@ -159,7 +152,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
         for (f <- toGenerate) {
           verifOverview += f -> FunVerifStatus(f, fvcsMap.getOrElse(f, Seq()).map { vc =>
-            vc -> (None, None)
+            (vc, (None, None))
           }.toMap)
         }
 

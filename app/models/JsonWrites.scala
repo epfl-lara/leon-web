@@ -7,9 +7,7 @@ import leon._
 import leon.evaluators._
 import leon.verification._
 import leon.utils._
-import leon.purescala._
 import leon.purescala.Common._
-import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.transformations.InstUtil
 

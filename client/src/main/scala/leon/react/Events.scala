@@ -3,7 +3,6 @@
 package leon.web.client
 package react
 
-import monifu.reactive._
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._

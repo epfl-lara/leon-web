@@ -5,7 +5,6 @@ package react
 package components
 
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.vdom.prefix_<^._
 
 /** Simple file selector */
 object FileSelector {

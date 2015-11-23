@@ -6,7 +6,6 @@ package stores
 import anorm._
 import anorm.SqlParser._
 import java.sql.Connection
-import play.api.db._
 import play.api.Play.current
 
 import leon.web.models.{User, UserId, ProviderId, Email}

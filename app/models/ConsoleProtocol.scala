@@ -5,7 +5,6 @@ import workers.WorkerActor
 
 import play.api.libs.json._
 import play.api.libs.iteratee._
-import leon.synthesis.Solution
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.web.models.github.Repository

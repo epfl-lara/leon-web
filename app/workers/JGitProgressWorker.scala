@@ -23,8 +23,6 @@ class JGitProgressWorker(eventName: String, session: ActorRef) extends BaseActor
 
   import ConsoleProtocol._
 
-  import context._
-
   def receive = {
     case OnJGitProgressUpdate(taskName, _, _, percentage) =>
       event(eventName, Map(

@@ -4,8 +4,6 @@ package models
 import leon._
 import leon.purescala.Definitions._
 import leon.synthesis._
-import leon.synthesis.graph._
-import play.api.libs.json.Json._
 
 class WebSynthesizer(cs: BaseActor,
                      ctx: LeonContext,

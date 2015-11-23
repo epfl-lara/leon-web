@@ -2,7 +2,6 @@ package leon.web
 package workers
 
 import akka.actor._
-import leon.purescala.Common._
 import leon.purescala.Definitions._
 import leon.termination._
 import leon.utils._
@@ -36,7 +35,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
     ))
   }
 
-  def notifyTerminOverview(cstate: CompilationState, data: Map[FunDef, Option[TerminationGuarantee]]) {
+  def notifyTerminOverview(cstate: CompilationState, data: Map[FunDef, Option[TerminationGuarantee]]): Unit = {
     if (cstate.isCompiled) {
       val facts = for ((fd, tg) <- data) yield (fd.id.name -> tgToJson(fd, tg))
       event("update_overview", Map("module" -> toJson("termination"), "overview" -> toJson(facts.toMap)))

@@ -1,9 +1,7 @@
 package leon.web
 package models
 
-import leon.purescala.Expressions.Expr
 import leon.purescala.Definitions.FunDef
-import leon.web.shared.VerifStatus
 import leon.web.shared.InvariantStatus
 
 /**

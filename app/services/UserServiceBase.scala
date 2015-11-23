@@ -4,7 +4,7 @@ package leon.web
 package services
 
 import securesocial.core._
-import securesocial.core.services.{ UserService, SaveMode }
+import securesocial.core.services.UserService
 import securesocial.core.providers.MailToken
 
 import leon.web.models.User

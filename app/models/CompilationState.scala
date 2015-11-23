@@ -1,7 +1,6 @@
 package leon.web
 package models
 
-import leon.purescala.Common._
 import leon.purescala.Definitions._
 
 case class CompilationState (

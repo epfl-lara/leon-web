@@ -4,7 +4,6 @@ package leon.web
 package stores
 
 import anorm._
-import play.api.libs.json._
 import play.api.db._
 import play.api.Play.current
 

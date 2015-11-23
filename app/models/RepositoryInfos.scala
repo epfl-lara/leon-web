@@ -6,8 +6,6 @@ package models
 import scala.util.control._
 
 import play.api._
-import play.api.mvc._
-import play.api.db._
 import play.api.libs.json._
 import play.api.Play.current
 import play.api.Logger
@@ -23,7 +21,6 @@ import org.eclipse.jgit.lib._
 import org.eclipse.jgit.api._
 import org.eclipse.jgit.api.errors._
 import org.eclipse.jgit.revwalk._
-import org.eclipse.jgit.errors._
 import org.eclipse.jgit.storage.file._
 import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import org.eclipse.jgit.treewalk.TreeWalk

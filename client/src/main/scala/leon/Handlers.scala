@@ -231,7 +231,6 @@ object HandlersTypes {
 @ScalaJSDefined
 object Handlers extends js.Object {
   import Main._
-  import Bool._
   import JQueryExtended._
   import js.JSON
   import leon.web.shared.Action;
@@ -278,7 +277,7 @@ object Handlers extends js.Object {
     updateExplorationFacts(data.newFacts);
   }
 
-  def updateExplorationFacts(newResults: js.Array[NewResult]) {
+  def updateExplorationFacts(newResults: js.Array[NewResult]): Unit = {
     for (i <- 0 until newResults.length) {
       val n = newResults(i);
 

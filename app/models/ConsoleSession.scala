@@ -21,16 +21,13 @@ import akka.pattern._
 import play.api.Play.current
 
 import leon.frontends.scalac._
-import leon.xlang._
 import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
-import leon.purescala._
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 import leon.web.stores.PermalinkStore
 import leon.web.services.github._
-import leon.web.models.github._
 import leon.web.models.github.json._
 import leon.web.shared.{Action, Module}
 
@@ -489,7 +486,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       clientLog("Unknown Actor Message: "+msg)
   }
 
-  def notifyMainOverview(cstate: CompilationState) {
+  def notifyMainOverview(cstate: CompilationState): Unit = {
     def decodeName(name: String): String = {
       scala.reflect.NameTransformer.decode(name).replaceAll("\\$", ".")
     }
@@ -508,7 +505,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
   }
 
-  def saveCode(code: String) {
+  def saveCode(code: String): Unit = {
     import java.io.{File,PrintWriter}
     val d = new DateTime().toString(DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS"))
 
@@ -521,7 +518,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
   }
 
-  def notifyAnnotations(annotations: Seq[CodeAnnotation]) {
+  def notifyAnnotations(annotations: Seq[CodeAnnotation]): Unit = {
     event("editor", Map("annotations" -> toJson(annotations.map(_.toJson))))
   }
 

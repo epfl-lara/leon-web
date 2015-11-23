@@ -11,10 +11,8 @@ import org.scalajs.dom.document
 
 import org.scalajs.jquery
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
-import leon.web.client.JQueryExtended._
 
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.vdom.prefix_<^._
 
 import monifu.concurrent.Implicits.globalScheduler
 

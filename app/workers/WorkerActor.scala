@@ -3,7 +3,6 @@ package workers
 
 import akka.actor._
 import play.api.libs.json._
-import play.api.libs.json.Json._
 
 import models._
 

@@ -1,5 +1,7 @@
 package leon.web.client
 
+import scala.language.reflectiveCalls
+
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
 import scala.scalajs.js.JSON
@@ -7,13 +9,11 @@ import org.scalajs.dom
 import org.scalajs.dom.{alert, console, document}
 import org.scalajs.dom.html.Element
 import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import scala.scalajs.js.JSConverters._
 
 import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.{ HashMap => MMap }
 
 import japgolly.scalajs.react._
-import japgolly.scalajs.react.vdom.prefix_<^._
 
 import com.scalawarrior.scalajs.ace._
 
@@ -28,7 +28,6 @@ import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants, Action}
 
 import leon.web.client.react.{App => ReactApp}
-import leon.web.client.HandlersTypes._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -325,7 +324,7 @@ trait LeonWeb {
   val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String])
   var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String]())
 
-  def doUndo() {
+  def doUndo(): Unit = {
     forwardChanges.push(editor.getValue());
     val code = backwardChanges.pop();
     editor.setValue(code)
@@ -335,7 +334,7 @@ trait LeonWeb {
     updateUndoRedo()
   }
 
-  def doRedo() {
+  def doRedo(): Unit = {
     backwardChanges.push(editor.getValue());
     val code = forwardChanges.pop();
     editor.setValue(code)
@@ -345,7 +344,7 @@ trait LeonWeb {
     updateUndoRedo()
   }
 
-  def storeCurrent(code: String) {
+  def storeCurrent(code: String): Unit = {
     forwardChanges = new js.Array[String]()
     if (backwardChanges.length >= 1) {
       if (code != backwardChanges(backwardChanges.length - 1)) {
@@ -357,7 +356,7 @@ trait LeonWeb {
     updateUndoRedo()
   }
 
-  def updateUndoRedo() {
+  def updateUndoRedo(): Unit = {
     val ub = $("#button-undo")
     val rb = $("#button-redo")
 
@@ -403,11 +402,11 @@ trait LeonWeb {
   /** Compilation
     */
 
-  def updateCompilationProgress(percents: Int) {
+  def updateCompilationProgress(percents: Int): Unit = {
     $("#overview .progress-bar").css("width", percents + "%");
   }
 
-  def updateCompilationStatus(status: String) {
+  def updateCompilationStatus(status: String): Unit = {
     val e = $("#overview .compilation-status")
     val codebox = $("div#codebox")
     val boxes = $(".results_table")
@@ -459,7 +458,7 @@ trait LeonWeb {
   
   /** Invariants */
   
-  def updateInvariantProgress(percents: Int) {
+  def updateInvariantProgress(percents: Int): Unit = {
     $("#invariant .progress-bar").css("width", percents + "%");
   }
 
@@ -739,7 +738,7 @@ trait LeonWeb {
     $("#invariant").hide()
   }
 
-  def setPresentationMode() {
+  def setPresentationMode(): Unit = {
     if (Features.presentation.active) {
       $("body").addClass("presentation")
     } else {
@@ -748,7 +747,7 @@ trait LeonWeb {
     resizeEditor()
   }
 
-  def drawOverView() {
+  def drawOverView(): Unit = {
     val overview_table = $("#overview_table")
     var html: HandlersTypes.Html = "";
 
@@ -796,7 +795,7 @@ trait LeonWeb {
     }
   }
 
-  def addClickToLine(within: String) {
+  def addClickToLine(within: String): Unit = {
     $(within + " .clicktoline[line]").click(((_this: Element) => {
       val line = $(_this).attr("line").toDouble
       editor.gotoLine(line);
@@ -815,7 +814,7 @@ trait LeonWeb {
 
   var synthesizing = false;
 
-  def displayVerificationDetails(status: String, vcs: HandlersTypes.VCS) {
+  def displayVerificationDetails(status: String, vcs: HandlersTypes.VCS): Unit = {
     val pb = $("#verifyProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -927,7 +926,7 @@ trait LeonWeb {
   
   def displayInvariantDetails(status: String,
       invariant: HandlersTypes.InvariantDetails,
-      all_invariants: js.Dictionary[HandlersTypes.InvariantDetails]) {
+      all_invariants: js.Dictionary[HandlersTypes.InvariantDetails]): Unit = {
     
     val pb = $("#invariantProgress")
     val pbb = pb.children(".progress-bar")
@@ -1025,7 +1024,7 @@ trait LeonWeb {
 
   def displayTerminationDetails(
     status: String,
-    fdata: HandlersTypes.TerminationDetails) {
+    fdata: HandlersTypes.TerminationDetails): Unit = {
     val pb = $("#terminationProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -1082,7 +1081,7 @@ trait LeonWeb {
     $("#terminationResults").show("fade");
   }
 
-  def error(msg: String) {
+  def error(msg: String): Unit = {
     alert(msg);
   }
 
@@ -1138,7 +1137,7 @@ trait LeonWeb {
     }
   }
 
-  def loadStaticLink(hash: String) {
+  def loadStaticLink(hash: String): Unit = {
     if (hash.indexOf("#link/") == 0) {
       val msg = JSON.stringify(
         l(action = Action.accessPermaLink, module = "main", link = hash.substring("#link/".length)))
@@ -1157,7 +1156,7 @@ trait LeonWeb {
     loadStaticLink(hash);
   });
 
-  def setDisconnected() {
+  def setDisconnected(): Unit = {
     connected = false
     updateCompilationStatus("disconnected")
     lastReconnectDelay = 5;
@@ -1166,7 +1165,7 @@ trait LeonWeb {
     checkDisconnectStatus()
   }
 
-  def setConnected() {
+  def setConnected(): Unit = {
     connected = true
 
     $("#connectError").hide();
@@ -1176,7 +1175,7 @@ trait LeonWeb {
     reconnectIn = -1;
   }
 
-  def checkDisconnectStatus() {
+  def checkDisconnectStatus(): Unit = {
     if (reconnectIn == 0) {
       reconnectIn = -1;
       $("#disconnectError #disconnectMsg").html("Attempting reconnection...");
@@ -1210,7 +1209,7 @@ trait LeonWeb {
   }
 
   @JSExport
-  def connectWS() {
+  def connectWS(): Unit = {
     leonSocket = jsnew(g.WebSocket /*WS*/ )(g._leon_websocket_url).asInstanceOf[LeonSocket]
     leonSocket.onopen = openEvent
     leonSocket.onmessage = receiveEvent
@@ -1222,7 +1221,7 @@ trait LeonWeb {
   var lastSavedChange = lastChange;
   val timeWindow = 2000;
 
-  def updateSaveButton() {
+  def updateSaveButton(): Unit = {
     val e = $("#button-save")
     if (lastChange == lastSavedChange) {
       e.addClass("disabled");
@@ -1231,7 +1230,7 @@ trait LeonWeb {
     }
   }
 
-  def notify(content: String, _type: String, fade: Double = 3000) {
+  def notify(content: String, _type: String, fade: Double = 3000): Unit = {
     val `type` = if (_type == "error") "danger" else _type
 
     val note = $("<div>", l(
@@ -1267,7 +1266,7 @@ trait LeonWeb {
     }
   }
 
-  def onCodeUpdate() {
+  def onCodeUpdate(): Unit = {
     val now = new js.Date().getTime()
 
     if (lastChange < (now - timeWindow)) {
@@ -1297,7 +1296,7 @@ trait LeonWeb {
     recompile();
   }
 
-  def loadExample(group: String, id: js.UndefOr[String]) {
+  def loadExample(group: String, id: js.UndefOr[String]): Unit = {
     if (id.isDefined) {
       $.ajax(l(
         url = "/ajax/getExample/" + group + "/" + id.get,
@@ -1339,7 +1338,7 @@ trait LeonWeb {
     ().asInstanceOf[js.Any]
   });
 
-  def resizeEditor() {
+  def resizeEditor(): Unit = {
     val h = $(window).height() - $("#title").height() - 6
     val ah = $("#annotations").height()
     val w = $("#codecolumn").width()
@@ -1362,15 +1361,15 @@ trait LeonWeb {
     currentMousePos = l(x = event.pageX, y = event.pageY);
   }.asInstanceOf[js.Any]);
 
-  def openVerifyDialog() {
+  def openVerifyDialog(): Unit = {
     $("#verifyDialog").modal("show")
   }
   
-  def openInvariantDialog() {
+  def openInvariantDialog(): Unit = {
     $("#invariantDialog").modal("show")
   }
 
-  def openTerminationDialog() {
+  def openTerminationDialog(): Unit = {
     $("#terminationDialog").modal("show")
   }
 

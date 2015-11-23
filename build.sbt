@@ -29,6 +29,28 @@ val appDependencies = Seq(
   "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"
 )
 
+val compilerOptions = Seq(
+  "-encoding", "UTF-8",
+  "-feature",
+  "-unchecked",
+  "-deprecation",
+  "-language:existentials",
+  "-language:higherKinds",
+  "-language:implicitConversions",
+  "-Xlint:-missing-interpolator",
+  // "-Xfatal-warnings",
+  "-Yno-adapted-args",
+  "-Xfuture"
+
+  // only enabled in main as it doesn't play well
+  // with ScalaJS js.native
+  // "-Ywarn-dead-code"
+
+  // only enabled in client because of
+  // https://github.com/playframework/playframework/issues/5216
+  // "-Ywarn-unused-import"
+)
+
 lazy val leon = RootProject(file("leon"))
 
 EclipseKeys.skipProject in leon := true
@@ -44,6 +66,7 @@ lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
   version := appVersion,
   libraryDependencies ++= appDependencies,
   resolvers += Resolver.sonatypeRepo("releases"),
+  scalacOptions ++= compilerOptions ++ Seq("-Ywarn-dead-code"),
   javaOptions in run ++= Seq("-Xms100M"),
   scalaJSProjects := Seq(client),
   pipelineStages := Seq(scalaJSProd)
@@ -60,6 +83,7 @@ lazy val client = (project in file("client")).settings(
     "com.github.japgolly.scalajs-react" %%% "core" % "0.10.1",
     "org.monifu" %%% "monifu" % "1.0-RC3"
   ),
+  scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),
   persistLauncher := true,
   jsDependencies ++= Seq(
     "org.webjars.npm" % "react"     % "0.14.2" / "react-with-addons.js" commonJSName "React"    minified "react-with-addons.min.js",

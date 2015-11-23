@@ -45,7 +45,7 @@ object LoadRepositoryModal {
     def subscribeToProgress: Callback = Callback {
       // We listen for this event here instead of
       // relying on the global app state for performance reasons.
-      Events.gitProgress.throttleLast(500 millis).doWork(p => {
+      Events.gitProgress.throttleLast(500.millis).doWork(p => {
         $.modState(_.copy(cloneProgress = Some(p))).runNow()
       }).subscribe()
     }

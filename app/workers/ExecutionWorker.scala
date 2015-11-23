@@ -2,7 +2,6 @@ package leon.web
 package workers
 
 import akka.actor._
-import play.api.libs.json._
 import play.api.libs.json.Json._
 
 import models._
@@ -12,9 +11,7 @@ import leon.purescala.Definitions.TypedFunDef
 
 class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites {
   import ConsoleProtocol._
-  import leon.codegen._
   import leon.evaluators._
-
 
   def receive = {
     case OnUpdateCode(cstate) =>
