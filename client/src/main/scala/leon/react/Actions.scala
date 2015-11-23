@@ -130,11 +130,6 @@ object Actions {
         (state: AppState) => f(state)
       }
       .subscribe(updates)
-
-
-      // We need to initialize the observer with a dummy value
-      // (here the identity function) in order to wire things up.
-      updates ! identity
   }
 
 }

@@ -81,7 +81,7 @@ lazy val client = (project in file("client")).settings(
     "org.scala-js" %%% "scalajs-dom" % "0.8.0",
     "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
     "com.github.japgolly.scalajs-react" %%% "core" % "0.10.1",
-    "org.monifu" %%% "monifu" % "1.0-RC3"
+    "org.monifu" %%% "monifu" % "1.0-RC4"
   ),
   scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),
   persistLauncher := true,
