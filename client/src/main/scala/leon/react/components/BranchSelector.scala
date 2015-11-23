@@ -22,7 +22,7 @@ object BranchSelector {
         className    = "branch-list",
         items        = props.branches,
         header       = None,
-        empty        = Some("No branches found (!?)"),
+        empty        = Some("No branches found"),
         renderOption = identity[String],
         onSelect     = props.onSelect,
         selected     = props.selected
