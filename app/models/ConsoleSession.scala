@@ -360,7 +360,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
         else {
           val future = Future {
-            wc.checkoutRemote(branch)
+            if (wc.branchExists(branch))
+              wc.checkout(branch)
+            else
+              wc.checkoutRemote(branch)
 
             wc.getFiles(branch)
               .getOrElse(Seq[String]())

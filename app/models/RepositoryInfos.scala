@@ -262,10 +262,12 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
 
   }
 
+  def branchExists(branch: String): Boolean =
+    git.getRepository().getRef(branch) != null
+
   def checkout(branch: String): Boolean = {
     try {
       git.checkout().setName(branch).call()
-
       true
     }
     catch {
@@ -280,7 +282,7 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
       git.checkout()
          .setName(branch)
          .setCreateBranch(true)
-         .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.SET_UPSTREAM)
+         .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
          .setStartPoint(s"origin/$branch")
          .call()
 
