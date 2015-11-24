@@ -30,6 +30,7 @@ import leon.web.stores.PermalinkStore
 import leon.web.services.github._
 import leon.web.models.github.json._
 import leon.web.shared.{Action, Module}
+import leon.web.utils.String._
 
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -291,7 +292,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       val future = Future {
         wc.getFiles(repo.defaultBranch)
           .getOrElse(Seq[String]())
-          .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
+          .filter(_.extension == "scala")
       }
 
       future foreach { files =>
@@ -367,7 +368,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             wc.getFiles(branch)
               .getOrElse(Seq[String]())
-              .filter(f => f.substring(f.lastIndexOf(".") + 1) == "scala")
+              .filter(_.extension == "scala")
           }
 
           future foreach { files =>
