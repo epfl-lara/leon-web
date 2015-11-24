@@ -22,11 +22,11 @@ object Handlers {
     * @see [[leon.web.client.Main.handlers]]
     */
   def register(handlers: js.Dictionary[Any]): Unit = {
-    handlers += ("repositories"    -> reposHandler)
-    handlers += ("load_repository" -> loadRepoHandler)
-    handlers += ("load_file"       -> loadFileHandler)
-    handlers += ("branch_changed"  -> changeBranchHandler)
-    handlers += ("git_progress"    -> gitProgressHandler)
+    handlers += ("repositories_loaded" -> reposHandler)
+    handlers += ("repository_loaded"   -> loadRepoHandler)
+    handlers += ("file_loaded"         -> loadFileHandler)
+    handlers += ("branch_changed"      -> changeBranchHandler)
+    handlers += ("git_progress"        -> gitProgressHandler)
   }
 
   val reposHandler = (data: HRepositories) => {

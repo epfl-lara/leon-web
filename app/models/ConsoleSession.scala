@@ -231,7 +231,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         result onSuccess { case repos =>
           clientLog(s"=> DONE")
 
-          event("repositories", Map(
+          event("repositories_loaded", Map(
             "repos" -> toJson(repos)
           ))
         }
@@ -297,7 +297,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       future foreach { files =>
         clientLog(s"=> DONE")
-        event("load_repository", Map(
+        event("repository_loaded", Map(
           "files"    -> toJson(files),
           "branches" -> toJson(repo.branches)
         ))
@@ -332,7 +332,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
               clientLog(s"=> DONE")
 
-              event("load_file", Map(
+              event("file_loaded", Map(
                 "file"    -> toJson(file),
                 "content" -> toJson(content)
               ))
