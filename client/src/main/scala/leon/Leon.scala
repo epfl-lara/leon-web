@@ -1114,7 +1114,7 @@ trait LeonWeb {
     }
   }
 
-  val openEvent = (event: JQueryEventObject) => {
+  val openEvent: JQueryEventObject => Unit = (event: JQueryEventObject) => {
     if (lastReconnectDelay != 0) {
       notify("And we are back online!", "success")
       updateCompilationStatus("unknown")
@@ -1127,7 +1127,14 @@ trait LeonWeb {
       val msg = JSON.stringify(
         l(action = Action.featureSet, module = "main", feature = featureName, active = feature.active))
 
-      leonSocket.send(msg)
+      try {
+        leonSocket.send(msg)
+      }
+      catch {
+        case _ => js.timers.setTimeout(500) {
+          openEvent(event)
+        }
+      }
     }
 
     if (hash.isDefined && hash.get != "") {
