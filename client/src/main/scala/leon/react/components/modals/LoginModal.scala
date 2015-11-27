@@ -9,6 +9,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
+import leon.web.client.syntax.Observer._
 
 /** Inform the user of what is about to happen when they click the 'Login' button.
   * Redirect the user to `/login` once they do.
@@ -38,13 +39,17 @@ object LoginModal {
         if (processing) "Logging in…" else "Login"
       )
 
-    def onClose: Callback = $.modState(_.copy(processing = false))
-    def onLogin: Callback = $.modState(_.copy(processing = true))
+    def onClose: Callback =
+      $.modState(_.copy(processing = false)) >>
+      Callback { Actions.toggleLoginModal ! ToggleLoginModal(false) }
+
+    def onLogin: Callback =
+      $.modState(_.copy(processing = true))
 
     def render(props: Props, state: State) =
       Modal(props.isOpen)(
         <.div(^.className := "modal-header",
-          Modal.closeButton,
+          Modal.closeButton(onClose),
           <.h3("Login with GitHub")
         ),
         <.div(^.className := "modal-body",

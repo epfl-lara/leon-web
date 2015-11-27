@@ -12,6 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
+import leon.web.client.syntax.Observer._
 import leon.web.client.HandlersTypes.HRepository
 
 import monifu.concurrent.Implicits.globalScheduler
@@ -59,9 +60,14 @@ object LoadRepositoryModal {
           .getOrElse(Callback.empty)
       }
 
+    def onRequestHide: Callback = Callback {
+      Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(false)
+    }
+
     val cancelButton =
       <.button(
         ^.className := "btn",
+        ^.onClick  --> onRequestHide,
         dataDismiss := "modal",
         "Cancel"
       )
@@ -80,7 +86,7 @@ object LoadRepositoryModal {
     def render(props: Props, state: State) =
       Modal(props.isOpen)(
         <.div(^.className := "modal-header",
-          Modal.closeButton,
+          Modal.closeButton(onRequestHide),
           <.h3("Load a repository from GitHub")
         ),
         <.div(^.className := "modal-body",

@@ -30,6 +30,9 @@ case class AppState(
   // Whether or not to show the 'Load repository' modal
   showLoadRepoModal : Boolean                  = false,
 
+  // Whether or not to show the 'Login' modal
+  showLoginModal    : Boolean                  = false,
+
   // Whether or not we are in the process of cloning `repository`
   isLoadingRepo     : Boolean                  = false
 )

@@ -109,21 +109,19 @@ class App(private val api: LeonAPI) {
       api.setEditorCode(code)
       Events.codeUpdated ! CodeUpdated()
 
-    case ToggleLoadRepoModal(value) =>
-      // nothing to do here
+    case _ =>
   }
-
 
   private
   def render(state: AppState): Unit = {
-    renderLogin()
+    renderLogin(state: AppState)
     renderLoadRepoPanel(state)
   }
 
   private
-  def renderLogin(): Unit = {
+  def renderLogin(state: AppState): Unit = {
     val el = document.getElementById("login-modal")
-    ReactDOM.render(LoginModal(false), el)
+    ReactDOM.render(LoginModal(state.showLoginModal), el)
 
     $("#login-btn").click { e: JQueryEventObject =>
       e.preventDefault()

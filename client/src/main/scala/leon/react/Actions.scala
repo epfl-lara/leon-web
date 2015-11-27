@@ -21,6 +21,7 @@ case class LoadFile(repo: HRepository, file: String) extends Action
 case class SwitchBranch(repo: HRepository, branch: String) extends Action
 case class UpdateEditorCode(code: String) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
+case class ToggleLoginModal(value: Boolean) extends Action
 
 /**
   * Actions are how the React app performs side-effects.
@@ -41,6 +42,7 @@ object Actions {
   val switchBranch        = PublishSubject[SwitchBranch]()
   val updateEditorCode    = PublishSubject[UpdateEditorCode]()
   val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()
+  val toggleLoginModal    = PublishSubject[ToggleLoginModal]()
   val modState            = PublishSubject[AppState => AppState]
 
   private
@@ -122,6 +124,14 @@ object Actions {
       .map { e =>
         (state: AppState) =>
           state.copy(showLoadRepoModal = e.value)
+      }
+      .subscribe(updates)
+
+    toggleLoginModal
+      .doWork(processAction)
+      .map { e =>
+        (state: AppState) =>
+          state.copy(showLoginModal = e.value)
       }
       .subscribe(updates)
 

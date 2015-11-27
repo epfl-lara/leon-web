@@ -49,29 +49,30 @@ object Modal {
     override def toString = "hide"
   }
 
-  case class Props(isOpen: Boolean = false)
+  case class Props(isOpen: Boolean = false, onRequestHide: Callback)
 
   val ref = Ref[HTMLDivElement]("modal")
 
   class Backend($: BackendScope[Props, Unit]) {
 
-    def modal(cmd: Command): Unit = {
+    def modal(cmd: Command): Callback = Callback {
       ref($).toOption match {
         case Some(el) => jQuery(el).modal(cmd.toString)
         case None     => println("Modal.Backend.modal(): Cannot find ref")
       }
     }
 
-    def show(): Unit = modal(Show)
-    def hide(): Unit = modal(Hide)
+    def show(): Callback = modal(Show)
+    def hide(): Callback = $.props flatMap { props =>
+      modal(Hide) >> props.onRequestHide
+    }
 
-    def onMount: Callback = $.props.map { props =>
+    def onMount: Callback = $.props flatMap { props =>
       if (props.isOpen) show() else hide()
     }
 
-    def onUnmount: Callback = Callback {
+    def onUnmount: Callback =
       hide()
-    }
 
     def onUpdate(prevProps: Props): Callback =
       onMount
@@ -101,17 +102,17 @@ object Modal {
       .componentDidUpdate(scope => scope.$.backend.onUpdate(scope.prevProps))
       .build
 
-  def apply(isOpen: Boolean)(children: ReactNode*) =
-    component(Props(isOpen), children: _*)
+  def apply(isOpen: Boolean, onRequestHide: Callback = Callback.empty)(children: ReactNode*) =
+    component(Props(isOpen, onRequestHide), children: _*)
 
-  val closeButton =
+  def closeButton(onRequestHide: Callback = Callback.empty) =
     <.button(
       ^.`type`    := "button",
       ^.className := "close",
+      ^.onClick --> onRequestHide,
       dataDismiss := "modal",
       ariaHidden  := "true",
       "×"
     )
-
 }
 
