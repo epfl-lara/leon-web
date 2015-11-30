@@ -61,7 +61,7 @@ This will make leon unavailable for a few minutes.
 **UPDATE: Nicer way**
 
 * `CTRL+a,-` to create a new terminal (splitted) or `CTRL+a,c` to create a new one
-* `git pull origin scalajs`
+* `git pull origin master`
 * `activator stage` to recompile
 * `exit` to exit this new terminal
 * `CTRL+C` to exit the current running application. If it starts to recompile, no need to do the next step.
