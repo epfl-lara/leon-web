@@ -147,6 +147,7 @@ object HandlersTypes {
   trait TerminationDetails extends js.Object with Status {
     val call: String
     val calls: js.Array[String]
+    val reason: js.UndefOr[String]
   }
   
   @ScalaJSDefined
