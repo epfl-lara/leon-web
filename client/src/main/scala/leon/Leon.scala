@@ -1006,7 +1006,7 @@ object Main {
       case TerminationStatus.terminates =>
         pbb.html("Terminates!")
         pbb.addClass("progress-bar-success")
-        tbl.append("""<tr class="success"> <td>This function terminates for all inputs.</td> </tr>""")
+        tbl.append("""<tr class="success"> <td>This function terminates for all inputs. ("""+fdata.reason.getOrElse("")+""")</td> </tr>""")
 
       case TerminationStatus.loopsfor =>
         pbb.html("Non-terminating!")
