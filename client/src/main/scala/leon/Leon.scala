@@ -1041,7 +1041,8 @@ trait LeonWeb {
       case TerminationStatus.terminates =>
         pbb.html("Terminates!")
         pbb.addClass("progress-bar-success")
-        tbl.append("""<tr class="success"> <td>This function terminates for all inputs.</td> </tr>""")
+        val reason = fdata.reason.getOrElse("")
+        tbl.append("""<tr class="success"> <td>This function terminates for all inputs."""+(if(reason != "") " (" + reason + ")" else "")+"""</td> </tr>""")
 
       case TerminationStatus.loopsfor =>
         pbb.html("Non-terminating!")

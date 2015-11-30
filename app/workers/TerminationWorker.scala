@@ -16,7 +16,8 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
   def tgToJson(fd: FunDef, tgo: Option[TerminationGuarantee]): JsValue = tgo match {
     case Some(tg) => tg match {
       case Terminates(reason) => toJson(Map(
-        "status" -> toJson(Status.terminates)
+        "status" -> toJson(Status.terminates),
+        "reason" -> toJson(reason)
       ))
       case LoopsGivenInputs(reason, args) => toJson(Map(
         "status" -> toJson(Status.loopsfor),
@@ -61,7 +62,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
         //val tc = new SimpleTerminationChecker(ctx, cstate.program)
         val tc = new ComplexTerminationChecker(ctx, program)
 
-        val data = (cstate.functions.map { funDef =>
+        val data = (tc.functions.map { funDef =>
           (funDef -> Some(tc.terminates(funDef)))
         }).toMap
         logInfo("Termination checker done.")
