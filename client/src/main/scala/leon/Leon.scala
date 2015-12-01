@@ -1132,7 +1132,7 @@ trait LeonWeb {
         leonSocket.send(msg)
       }
       catch {
-        case _ => js.timers.setTimeout(500) {
+        case _: Exception => js.timers.setTimeout(500) {
           openEvent(event)
         }
       }

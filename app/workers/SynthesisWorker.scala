@@ -30,8 +30,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           Map(
             "description" -> toJson("Problem #"+(i+1)),
             "problem" -> toJson(ci.problem.asString),
-            "line" -> toJson(ci.ch.getPos.line),
-            "column" -> toJson(ci.ch.getPos.col),
+            "line" -> toJson(ci.source.getPos.line),
+            "column" -> toJson(ci.source.getPos.col),
             "index" -> toJson(i)
           )
         }
@@ -56,7 +56,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
       options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
 
       try {
-        val synthesisInfos = ChooseInfo.extractFromProgram(ctx, cstate.program).map {
+        val synthesisInfos = SourceInfo.extractFromProgram(ctx, cstate.program).map {
           case ci => new WebSynthesizer(this, ctx, cstate.program, ci, options)
         }
 
@@ -319,7 +319,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             "result" -> toJson("init"),
             "fname" -> toJson(fname),
             "cid" -> toJson(cid),
-            "problem" -> toJson(ScalaPrinter(synth.ci.ch))
+            "problem" -> toJson(ScalaPrinter(synth.ci.source))
           ))
 
           val osol = search.traversePath(path) match {
@@ -365,7 +365,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     import leon.purescala.PrinterHelpers._
 
     val ci = synth.ci
-    val ChooseInfo(fd, pc, src, ch, tb) = ci
+    val SourceInfo(fd, pc, src, spec, tb) = ci
 
     val solCode = sol.toSimplifiedExpr(synth.context, synth.program)
 
@@ -376,7 +376,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     val nfd = fd.duplicate()
 
     nfd.body = nfd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
-      case ch if ch == ci.ch && ch.getPos == ci.ch.getPos =>
+      case ch if ch == src && ch.getPos == src.getPos =>
         Some(expr)
       case _ =>
         None
@@ -486,7 +486,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             "result" -> toJson("init"),
             "fname" -> toJson(fname),
             "cid" -> toJson(cid),
-            "problem" -> toJson(ScalaPrinter(ci.ch))
+            "problem" -> toJson(ScalaPrinter(ci.source))
           ))
 
          val search = synth.search

@@ -8,7 +8,7 @@ import leon.synthesis._
 class WebSynthesizer(cs: BaseActor,
                      ctx: LeonContext,
                      program: Program,
-                     ci: ChooseInfo,
+                     ci: SourceInfo,
                      settings: SynthesisSettings) extends Synthesizer(ctx, program, ci, settings) {
 
 

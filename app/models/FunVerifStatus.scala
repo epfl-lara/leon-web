@@ -4,10 +4,11 @@ package models
 import leon.verification._
 import leon.purescala.Definitions._
 import leon.evaluators._
+import leon.purescala.Expressions._
 import leon.web.shared.VerifStatus
 
 case class FunVerifStatus(fd: FunDef,
-                          results: Map[VC, (Option[VCResult], Option[EvaluationResults.Result])],
+                          results: Map[VC, (Option[VCResult], Option[EvaluationResults.Result[Expr]])],
                           isCondValid: Boolean = false,
                           verifCrashed: Boolean = false) {
 

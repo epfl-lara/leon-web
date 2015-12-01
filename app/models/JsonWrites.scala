@@ -14,8 +14,8 @@ import leon.transformations.InstUtil
 trait JsonWrites {
   implicit val ctx: LeonContext;
 
-  implicit val erWrites = new Writes[EvaluationResults.Result] {
-    def writes(er: EvaluationResults.Result) = er match {
+  implicit val erWrites = new Writes[EvaluationResults.Result[Expr]] {
+    def writes(er: EvaluationResults.Result[Expr]) = er match {
       case EvaluationResults.Successful(ex) =>
         Json.obj(
           "result" -> "success",
@@ -44,8 +44,8 @@ trait JsonWrites {
     )
   }
 
-  implicit val vrWrites = new Writes[(VC, VCResult, Option[EvaluationResults.Result])] {
-    def writes(vr: (VC, VCResult, Option[EvaluationResults.Result])) = {
+  implicit val vrWrites = new Writes[(VC, VCResult, Option[EvaluationResults.Result[Expr]])] {
+    def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])) = {
       val (vc, res, cexExec) = vr
 
       val timeSec = res.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
