@@ -2,7 +2,7 @@
 
 # --- !Ups
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   provider_id VARCHAR(40),
   user_id VARCHAR(40),
   first_name VARCHAR,
@@ -19,4 +19,3 @@ CREATE TABLE users (
 # --- !Downs
 
 DROP TABLE users;
-

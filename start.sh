@@ -10,6 +10,8 @@ fi
 
 while [ /bin/true ]; do
     activator "start $PORT"
+    echo "Shutdown finished!"
+    echo "Restarting in 5 seconds..."
     sleep 5
     rm -f target/universal/stage/RUNNING_PID
 done
