@@ -1,6 +1,8 @@
 package leon.web
 package models
 
+import scala.Function.const
+
 import leon.web.utils.String._
 import leon.web.shared.Project
 import leon.purescala.Definitions._
@@ -38,7 +40,7 @@ case class CompilationState (
     !(fd.annotations contains "library")
   }
 
-  def functions = project.flatMap(_ => tempFile) match {
+  def functions = project.flatMap(const(tempFile)) match {
     case None =>
       program.definedFunctions
         .toList

@@ -3,6 +3,8 @@
 package leon.web.client
 package react
 
+import scala.Function.const
+
 import monifu.reactive._
 import monifu.reactive.subjects._
 
@@ -90,7 +92,7 @@ object Actions {
     currentProject
       .dump("CurrentProject")
       .doWork(processAction)
-      .map(_ => identity[AppState] _)
+      .map(const(identity[AppState](_)))
       .subscribe(updates)
 
     loadRepositories
@@ -147,7 +149,7 @@ object Actions {
     updateEditorCode
       .doWork(processAction)
       .flatMap(_ => Events.codeUpdated)
-      .map(_ => identity[AppState] _)
+      .map(const(identity[AppState](_)))
       .subscribe(updates)
 
     toggleLoadRepoModal
