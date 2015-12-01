@@ -26,6 +26,7 @@ import Implicits._
 
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants, Action}
+import leon.web.shared.Project
 
 import leon.web.client.react.{App => ReactApp}
 
@@ -70,8 +71,6 @@ trait LeonSocket extends js.Object {
   var onclose: js.Function1[JQueryEventObject, Any]
   var onerror: js.Function1[JQueryEventObject, Any]
 }
-
-case class Project(owner: String, repo: String, branch: String, file: String)
 
 trait LeonAPI {
   def leonSocket: LeonSocket

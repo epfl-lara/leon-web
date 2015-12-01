@@ -8,6 +8,7 @@ import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.web.models.github.Repository
+import leon.web.shared.Project
 
 object ConsoleProtocol {
   case object Init
@@ -16,16 +17,7 @@ object ConsoleProtocol {
 
   case class ProcessClientEvent(event: JsValue)
 
-  case class UpdateCode(code: String)
-
-  case class UpdateCodeInProject(
-    user: User,
-    owner: String,
-    repo: String,
-    branch: String,
-    file: String,
-    code: String
-  )
+  case class UpdateCode(code: String, user: Option[User], project: Option[Project])
 
   case class Cancelled(wa: WorkerActor)
   case object DoCancel

@@ -10,6 +10,7 @@ import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
 import leon.web.client.syntax.Observer._
+import leon.web.shared.Project
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected

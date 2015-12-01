@@ -2,13 +2,12 @@ package leon.web
 package models
 
 import leon.web.utils.String._
+import leon.web.shared.Project
 import leon.purescala.Definitions._
 
 case class CompilationState (
   code: Option[String],
-  owner: Option[String] = None,
-  repo: Option[String] = None,
-  file: Option[String] = None,
+  project: Option[Project] = None,
   tempFile: Option[String] = None,
   compResult: String,
   optProgram: Option[Program],
@@ -39,7 +38,7 @@ case class CompilationState (
     !(fd.annotations contains "library")
   }
 
-  def functions = tempFile match {
+  def functions = project.flatMap(_ => tempFile) match {
     case None =>
       program.definedFunctions
         .toList
@@ -64,17 +63,13 @@ case class CompilationState (
 
 object CompilationState {
 
-  def failure(code: String, owner: Option[String] = None,
-              repo: Option[String] = None, file: Option[String] = None,
-              tempFile: Option[String] = None) =
+  def failure(code: String, project: Option[Project] = None, tempFile: Option[String] = None) =
     CompilationState(
       code       = Some(code),
       compResult = "failure",
       optProgram = None,
       wasLoop    = Set(),
-      owner      = owner,
-      repo       = repo,
-      file       = file,
+      project    = project,
       tempFile   = tempFile
     )
 
@@ -84,9 +79,7 @@ object CompilationState {
       compResult = "unknown",
       optProgram = None,
       wasLoop    = Set(),
-      owner      = None,
-      repo       = None,
-      file       = None,
+      project    = None,
       tempFile   = None
     )
 
