@@ -107,7 +107,11 @@ class App(private val api: LeonAPI) {
 
     case UpdateEditorCode(code) =>
       api.setEditorCode(code)
+
       Events.codeUpdated ! CodeUpdated()
+
+    case SetCurrentProject(maybeProject) =>
+      api.setCurrentProject(maybeProject)
 
     case _ =>
   }

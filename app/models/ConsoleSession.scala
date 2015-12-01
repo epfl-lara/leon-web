@@ -33,6 +33,7 @@ import leon.web.models.github.json._
 import leon.web.shared.{Action, Module}
 import leon.web.utils.String._
 
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
@@ -139,6 +140,16 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
               case Action.doUpdateCode =>
                 self ! UpdateCode((event \ "code").as[String])
+
+              case Action.doUpdateCodeInProject => withUser { user =>
+                val owner  = (event \ "owner" ).as[String]
+                val repo   = (event \ "repo"  ).as[String]
+                val branch = (event \ "branch").as[String]
+                val file   = (event \ "file"  ).as[String]
+                val code   = (event \ "code"  ).as[String]
+
+                self ! UpdateCodeInProject(user, owner, repo, branch, file, code)
+              }
 
               case Action.storePermaLink =>
                 self ! StorePermaLink((event \ "code").as[String])
@@ -299,8 +310,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       future foreach { files =>
         clientLog(s"=> DONE")
         event("repository_loaded", Map(
-          "files"    -> toJson(files),
-          "branches" -> toJson(repo.branches)
+          "repository" -> toJson(repo),
+          "files"      -> toJson(files),
+          "branches"   -> toJson(repo.branches)
         ))
       }
 
@@ -383,6 +395,129 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
       }
     }
+
+    case UpdateCodeInProject(user, owner, repo, branch, file, code) =>
+      // yuck...
+      if (lastCompilationState.owner != Some(owner) ||
+          lastCompilationState.repo  != Some(repo) ||
+          lastCompilationState.file  != Some(file) ||
+          lastCompilationState.code  != Some(code)) {
+
+        clientLog("Compiling...")
+        logInfo(s"Code updated in $owner/$repo/$file:\n$code")
+
+        val tempFile = saveCode(code)
+
+        val compReporter = new CompilingWSReporter(channel)
+        var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
+
+        val optProgram = try {
+          val pipeline = ExtractionPhase andThen
+                         (new PreprocessingPhase(false))
+
+          val wc    = RepositoryService.repositoryFor(user, owner, repo)
+          val files = wc.getFiles(branch)
+                        .getOrElse(Seq[String]())
+                        .filter(_.extension == "scala")
+                        // replace the path to the file currently loaded
+                        // in the editor with the path to the temp file
+                        // `saveCode` just wrote.
+                        .map { f =>
+                          if (f == file)
+                            tempFile.getAbsolutePath()
+                          else
+                            s"${wc.path.getAbsolutePath()}/$f"
+                        }
+
+          val (_, program) = pipeline.run(compContext, files.toList)
+
+          compReporter.terminateIfError
+
+          Some(program)
+        }
+        catch {
+          case t: Throwable =>
+            logInfo("Failed to compile and/or extract")
+            None
+        }
+
+        optProgram match {
+          case Some(program) =>
+
+            val cstate = CompilationState(
+              optProgram = Some(program),
+              code       = Some(code),
+              compResult = "success",
+              wasLoop    = Set(),
+              owner      = Some(owner),
+              repo       = Some(repo),
+              file       = Some(file),
+              tempFile   = Some(tempFile.getName())
+            )
+
+            lastCompilationState = cstate
+
+            event("compilation", Map("status" -> toJson("success")))
+
+            clientLog("Compilation successful!")
+
+            notifyMainOverview(cstate)
+
+            lazy val isOnlyInvariantActivated = modules.values.forall(m =>
+                ( m.isActive && m.name == Module.invariant) ||
+                (!m.isActive && m.name != Module.invariant))
+
+            lazy val postConditionHasQMark =
+              program.definedFunctions.exists { funDef =>
+                funDef.postcondition match {
+                  case Some(postCondition) =>
+                  import leon.purescala._
+                  import Expressions._
+                  ExprOps.exists {
+                    case FunctionInvocation(callee, _) =>
+                      leon.purescala.DefOps.fullName(callee.fd)(program) == "leon.invariant.?"
+                    case _ =>
+                      false
+                  }(postCondition)
+                  case None => false
+                }
+              }
+
+            if (isOnlyInvariantActivated || postConditionHasQMark) {
+              modules(Module.invariant).actor ! OnUpdateCode(cstate)
+            } else {
+              modules.values.filter(e => e.isActive && e.name != Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))
+            }
+
+          case None =>
+            for ((l,e) <- compReporter.errors) {
+              logInfo(s"  ${e mkString "\n  "}")
+            }
+
+            clientLog("Compilation failed!")
+            event("compilation", Map("status" -> toJson("failure")))
+
+            lastCompilationState = CompilationState.failure(
+              code, Some(owner), Some(repo),
+              Some(file), Some(tempFile.getName())
+            )
+        }
+
+        val annotations = {
+          compReporter.errors.map{ case (l,e) =>
+            CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationError)
+          }.toSeq ++
+          compReporter.warnings.map{ case (l,e) =>
+            CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationWarning)
+          }.toSeq
+        }.filter(_.line >= 0)
+
+        notifyAnnotations(annotations)
+      }
+      else {
+        val cstate = lastCompilationState
+        event("compilation", Map("status" -> toJson(cstate.compResult)))
+      }
 
     case UpdateCode(code) =>
       if (lastCompilationState.code != Some(code)) {
@@ -510,17 +645,20 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
   }
 
-  def saveCode(code: String): Unit = {
-    import java.io.{File,PrintWriter}
+  def saveCode(code: String): File = {
+    import java.io.PrintWriter
+
     val d = new DateTime().toString(DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS"))
 
-    val filePath = new File(s"logs/inputs/$d.scala");
-    val w = new PrintWriter( filePath , "UTF-8")
+    val file = new File(s"logs/inputs/$d.scala");
+    val w = new PrintWriter(file , "UTF-8")
     try {
       w.print(code)
     } finally {
       w.close
     }
+
+    file
   }
 
   def notifyAnnotations(annotations: Seq[CodeAnnotation]): Unit = {

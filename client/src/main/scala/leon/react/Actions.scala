@@ -22,6 +22,7 @@ case class SwitchBranch(repo: HRepository, branch: String) extends Action
 case class UpdateEditorCode(code: String) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
+case class SetCurrentProject(project: Option[Project]) extends Action
 
 /**
   * Actions are how the React app performs side-effects.
@@ -45,6 +46,25 @@ object Actions {
   val toggleLoginModal    = PublishSubject[ToggleLoginModal]()
   val modState            = PublishSubject[AppState => AppState]
 
+  val currentProject =
+    Observable
+      .combineLatest(
+        Events.repositoryLoaded,
+        Events.branchChanged,
+        Events.fileLoaded
+      )
+      .map { case (r, b, f) =>
+        val project = Project(
+          owner  = r.repo.owner,
+          repo   = r.repo.name,
+          branch = b.branch,
+          file   = f.fileName
+        )
+
+        SetCurrentProject(Some(project))
+      }
+      .startWith(SetCurrentProject(None))
+
   private
   var processAction: Action => Unit = x => {}
 
@@ -66,6 +86,12 @@ object Actions {
     * @see [[leon.web.client.react.AppState]]
     */
   def register(updates: Observer[AppState => AppState]) = {
+    currentProject
+      .dump("CurrentProject")
+      .doWork(processAction)
+      .map(_ => identity[AppState] _)
+      .subscribe(updates)
+
     loadRepositories
       .doWork(processAction)
       .flatMap(_ => Events.repositoriesLoaded)
@@ -78,9 +104,13 @@ object Actions {
     loadRepository
       .doWork(processAction)
       .flatMap(_ => Events.repositoryLoaded)
+      .doWork { e =>
+        Events.branchChanged ! BranchChanged(e.repo.defaultBranch, e.files)
+      }
       .map { e =>
         (state: AppState) =>
           state.copy(
+            repository        = Some(e.repo),
             files             = e.files,
             branches          = e.branches,
             isLoadingRepo     = false,

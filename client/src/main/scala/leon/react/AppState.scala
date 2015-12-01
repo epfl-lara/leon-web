@@ -54,7 +54,7 @@ class GlobalAppState {
   /** Listen for new transformations and applies them to the current state. */
   val asObservable: Observable[AppState] = updates.scan(initial) { (state, op) =>
     op(state)
-  }
+  }.distinctUntilChanged
 }
 
 object GlobalAppState {

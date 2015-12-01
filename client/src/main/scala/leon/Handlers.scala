@@ -47,6 +47,7 @@ object HandlersTypes {
 
   @ScalaJSDefined
   trait HRepositoryLoaded extends js.Object {
+    val repository: HRepository
     val files: js.Array[String]
     val branches: js.Array[HBranch]
   }

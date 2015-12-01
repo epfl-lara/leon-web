@@ -71,9 +71,12 @@ trait LeonSocket extends js.Object {
   var onerror: js.Function1[JQueryEventObject, Any]
 }
 
+case class Project(owner: String, repo: String, branch: String, file: String)
+
 trait LeonAPI {
   def leonSocket: LeonSocket
   def setEditorCode(code: String): Unit
+  def setCurrentProject(project: Option[Project]): Unit
   def handlers: js.Dictionary[Any]
 }
 
@@ -1251,6 +1254,13 @@ trait LeonWeb {
     }
   }
 
+  var currentProject = Option.empty[Project]
+
+  def setCurrentProject(project: Option[Project]): Unit = {
+    currentProject = project
+    recompile()
+  }
+
   var oldCode = ""
 
   def recompile() = {
@@ -1263,12 +1273,31 @@ trait LeonWeb {
     }
 
     if (connected && oldCode != currentCode) {
-      val msg = JSON.stringify(
-        l(action = Action.doUpdateCode, module = "main", code = currentCode))
-      oldCode = currentCode;
+
+      val msg = currentProject match {
+        case Some(Project(owner, repo, branch, file)) => l(
+          action = Action.doUpdateCodeInProject,
+          module = "main",
+          owner  = owner,
+          repo   = repo,
+          file   = file,
+          branch = branch,
+          code   = currentCode
+        )
+
+        case None => l(
+          action = Action.doUpdateCode,
+          module = "main",
+          code   = currentCode
+        )
+      }
+
+      oldCode         = currentCode;
       lastSavedChange = lastChange;
+
       updateSaveButton();
-      leonSocket.send(msg)
+      leonSocket.send(JSON.stringify(msg))
+
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }
