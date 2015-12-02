@@ -27,7 +27,7 @@ case class FunVerifStatus(fd: FunDef,
       VerifStatus.timeout
     } else if (vcData.isEmpty || rs.forall(_.isValid)) {
       VerifStatus.valid
-    } else if (verifCrashed) {
+    } else if (verifCrashed || rs.exists(_.status == VCStatus.Crashed)) {
       VerifStatus.crashed
     } else {
       VerifStatus.undefined

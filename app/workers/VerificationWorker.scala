@@ -12,6 +12,7 @@ import leon.solvers._
 import leon.purescala.Definitions._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
+import leon.purescala.Types._
 
 import scala.concurrent.duration._
 
@@ -91,8 +92,13 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
             case _ =>
               None
           }
+          val ovr2 = ovr match {
+            case Some(VCResult(VCStatus.Unknown, a, b)) =>
+              Some(VCResult(VCStatus.Crashed, a, b))
+            case e => e
+          }
 
-          (vc, (ovr, cexExec))
+          (vc, (ovr2, cexExec))
         }
 
         verifOverview += f -> FunVerifStatus(f, resultsWithCex)
@@ -118,15 +124,27 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
       val oldVerifOverView = verifOverview
 
       val verifFunctions = cstate.functions.filter(fd => fd.hasBody).toSet
+      
+      val recomputeEverything = verifFunctions exists { fd => 
+        fd.returnType == StringType && {
+          val h = FunctionHash(fd)
+          (oldVerifOverView find {
+            case (f, _) => f.id.name == fd.id.name
+          }) match {
+            case Some(f) => FunctionHash(f._1) != h 
+            case None => true // The function did not exist before
+          }
+        }
+      }
 
       // Generate VCs
       for (f <- verifFunctions) {
         val h = FunctionHash(f)
 
         oldVerifOverView find { case (fd, _) => FunctionHash(fd) == h } match {
-          case Some((fd, vcs)) =>
+          case Some((fd, vcs)) if !recomputeEverything=>
             verifOverview += f -> vcs
-          case None =>
+          case _ =>
             verifOverview -= f
             toGenerate += f
         }

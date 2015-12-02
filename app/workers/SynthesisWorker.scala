@@ -4,7 +4,6 @@ package workers
 import akka.actor._
 import play.api.libs.json.Json._
 import scala.concurrent.duration._
-
 import models._
 import leon.LeonContext
 import leon.utils._
@@ -16,6 +15,7 @@ import leon.purescala.Common._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.web.shared.Action
+import leon.purescala.DefOps
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -384,7 +384,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val fds = nfd :: defs.toList.sortBy(_.id.name)
 
-    val p = new ScalaPrinter(PrinterOptions(), cstate.optProgram)
+    val prog = DefOps.addFunDefs(cstate.program, fds, fd)
+    val p = new ScalaPrinter(PrinterOptions(), Some(prog))
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                   fd,

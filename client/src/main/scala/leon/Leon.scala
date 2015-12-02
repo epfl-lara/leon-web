@@ -827,6 +827,10 @@ trait LeonWeb {
     var canRepair = false
 
     status match {
+      case VerifStatus.crashed =>
+        pbb.html("Crashed!")
+        pbb.addClass("progress-bar-danger")
+
       case VerifStatus.cond_valid =>
         pbb.html("Conditionally Valid!")
         pbb.addClass("progress-bar-warning")
@@ -859,7 +863,7 @@ trait LeonWeb {
       val vc = vcs(i)
       targetFunction = vc.fun
       var icon = "check"
-      if (vc.status == "invalid") {
+      if (vc.status == "invalid" || vc.status == "crashed") {
         icon = "warning"
       } else if (vc.status == "unknown") {
         icon = "question"
@@ -868,7 +872,7 @@ trait LeonWeb {
       }
 
       var clas = "success"
-      if (vc.status == "invalid") {
+      if (vc.status == "invalid" || vc.status == "crashed") {
         clas = "danger"
       } else if (vc.status == "unknown" || vc.status == "timeout") {
         clas = "warning"
