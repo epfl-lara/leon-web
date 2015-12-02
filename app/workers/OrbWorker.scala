@@ -26,12 +26,10 @@ import leon.verification.VCStatus
 import leon.verification.VCResult
 import models.CompilationState
 import models.FunInvariantStatus
-import leon.purescala.Definitions.FunDef
 import leon.web.shared.Constants
 import leon.web.shared.InvariantStatus
 import leon.invariant.util._
 import ProgramUtil._
-import PredicateUtil._
 import Util._
 import leon.invariant.engine._
 import scala.concurrent._
@@ -123,7 +121,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
     case _                            =>
   }
 
-  def notifyInvariantOverview(cstate: CompilationState) {
+  def notifyInvariantOverview(cstate: CompilationState): Unit = {
     val fics = Json.obj((
       (invariantOverview.toSeq.filter(_._2.fd.nonEmpty).sortBy(_._2.fd.map(_.getPos).get).map {
         case (fd, fi) =>

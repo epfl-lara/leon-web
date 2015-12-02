@@ -1,4 +1,4 @@
-@(webconfig: leon.web.models.LeonWebConfig)(implicit request: RequestHeader)
+@(webconfig: leon.web.models.LeonWebConfig, user: Option[leon.web.models.User])(implicit request: RequestHeader)
 
 @main("Leon Online", webconfig) {
   <div id="allcontent">
@@ -17,6 +17,7 @@
         <a id="button-params" class="disabled menu-button" ref="params-panel" href="#"><i class="fa fa-cog"></i> <span>Params</span></a>
         <a id="button-about" href="http://lara.epfl.ch/w/leon" target="_blank"><i class="fa fa-info"></i> <span>About</span></a>
         <a id="button-doc" href="/doc/" target="_blank"><i class="fa fa-graduation-cap"></i> <span>Documentation</span></a>
+        @tags.login(user)
       </div>
     </div>
     <script>
@@ -41,10 +42,13 @@
                 <strong>Error:</strong> @msg
               </div>
             }
+            @if(user.isDefined) {
+              <div id="load-repo-panel"></div>
+            }
             <div id="selectcolumn" class="panel">
-              <h3 class="std-background"><i class="icon-upload"></i> Load a Program:</h3>
-              <select id="example-loader" class="form-control" name="codeexample">
-                <option value="">-- Select a Program --</option>
+              <h3 class="std-background"><i class="icon-upload"></i> Load an example:</h3>
+              <select id="example-loader" class="form-control panel-element-full" name="codeexample">
+                <option value="">-- Select an example --</option>
                 @webconfig.examples.collect{ case (group, es) =>
                 <option value="" disabled="disabled">@{group(0).toUpper+group.tail.mkString}</option>
                   @es.zipWithIndex.collect { case (ex, i) =>
@@ -295,5 +299,6 @@
       </div>
     </div>
   </div>
+  <div id="login-modal"><!-- This modal is handled by React --></div>
   <div id="release">@webconfig.release &copy; EPFL, Lausanne 2009-2015 </div>
 }

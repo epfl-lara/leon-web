@@ -8,7 +8,7 @@ import play.api.libs.json.Json._
 
 class SimpleWebSearch(cs: BaseActor,
                       ctx: LeonContext,
-                      ci: ChooseInfo,
+                      ci: SourceInfo,
                       p: Problem,
                       costModel: CostModel,
                       bound: Option[Int]

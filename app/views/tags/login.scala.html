@@ -1,0 +1,17 @@
+@(someUser: Option[leon.web.models.User])
+
+@someUser match {
+  case Some(user) => {
+    <a id="logout-btn" href="@securesocial.controllers.routes.LoginPage.logout">
+      <i class="fa fa-sign-out"></i>
+      <span>Logout @user.email.map("(" + _.value + ")").getOrElse("")</span>
+    </a>
+  }
+
+  case None => {
+    <a id="login-btn" href="@leon.web.controllers.routes.Account.login">
+      <i class="fa fa-sign-in"></i>
+      <span>Login</span>
+    </a>
+  }
+}

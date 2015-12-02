@@ -5,9 +5,9 @@ import workers.WorkerActor
 
 import play.api.libs.json._
 import play.api.libs.iteratee._
-import leon.synthesis.Solution
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
+import leon.web.models.github.Repository
 
 object ConsoleProtocol {
   case object Init
@@ -23,6 +23,12 @@ object ConsoleProtocol {
 
   case class StorePermaLink(code: String)
   case class AccessPermaLink(link: String)
+
+  case class LoadRepositories(user: User)
+  case class LoadRepository(user: User, owner: String, name: String)
+  case class LoadFile(user: User, owner: String, repo: String, file: String)
+  case class SwitchBranch(user: User, owner: String, repo: String, branch: String)
+  case class RepositoryLoaded(user: User, repo: Repository)
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)
@@ -44,6 +50,21 @@ object ConsoleProtocol {
   case class NotifyClient(event: JsValue)
   case object Enable
   case object Disable
+
+  // Communication between session and JGit ProgressMonitor
+  case class OnJGitProgressUpdate(
+    taskName: String,
+    curWork: Int,
+    totalWork: Option[Int] = None,
+    percentage: Option[Int] = None
+  )
+
+  case class OnJGitProgressEnd(
+    taskName: String,
+    curWork: Int,
+    totalWork: Option[Int] = None,
+    percentage: Option[Int] = None
+  )
 
   case object Quit
 }

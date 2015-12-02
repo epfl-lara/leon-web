@@ -7,17 +7,48 @@ val appVersion      = "1.0-SNAPSHOT"
 
 val appDependencies = Seq(
   "joda-time" % "joda-time" % "2.1",
+  "ws.securesocial" %% "securesocial" % "3.0-M3",
   "org.scala-lang" % "scala-compiler" % "2.11.6",
   "com.h2database" % "h2" % "1.3.158",
+  "org.eclipse.jgit" % "org.eclipse.jgit.pgm" % "4.1.0.201509280440-r"
+    exclude("javax.jms", "jms")
+    exclude("com.sun.jdmk", "jmxtools")
+    exclude("com.sun.jmx", "jmxri")
+    exclude("org.sl4j", "slf4j-log4j12")
+    exclude("log4j", "log4j"),
   jdbc,
   anorm,
+  ws,
   // Web Libraries
   "org.webjars" % "ace" % "01.08.2014",
   "org.webjars" % "bootstrap" % "3.2.0",
   "org.webjars" % "jquery" % "2.1.1",
   "org.webjars" % "font-awesome" % "4.1.0",
+  "org.webjars" % "octicons" % "3.1.0",
   "org.webjars" % "prettify" % "4-Mar-2013",
   "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"
+)
+
+val compilerOptions = Seq(
+  "-encoding", "UTF-8",
+  "-feature",
+  "-unchecked",
+  "-deprecation",
+  "-language:existentials",
+  "-language:higherKinds",
+  "-language:implicitConversions",
+  "-Xlint:-missing-interpolator",
+  // "-Xfatal-warnings",
+  "-Yno-adapted-args",
+  "-Xfuture"
+
+  // only enabled in main as it doesn't play well
+  // with ScalaJS js.native
+  // "-Ywarn-dead-code"
+
+  // only enabled in client because of
+  // https://github.com/playframework/playframework/issues/5216
+  // "-Ywarn-unused-import"
 )
 
 lazy val leon = RootProject(file("leon"))
@@ -34,21 +65,30 @@ lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
   aggregate(aceJsProject, client).settings(
   version := appVersion,
   libraryDependencies ++= appDependencies,
+  resolvers += Resolver.sonatypeRepo("releases"),
+  scalacOptions ++= compilerOptions ++ Seq("-Ywarn-dead-code"),
   javaOptions in run ++= Seq("-Xms100M"),
-  scalaJSProjects := Seq(client)
+  scalaJSProjects := Seq(client),
+  pipelineStages := Seq(scalaJSProd)
 ).dependsOn(leon, sharedJvm)
 
 /****************************
  * Client project (scalajs) *
  ****************************/
- 
+
 lazy val client = (project in file("client")).settings(
-  libraryDependencies ++= Seq("org.scala-js" %%% "scalajs-dom" % "0.8.0",
-  "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-  "com.github.japgolly.scalajs-react" %%% "core" % "0.9.2"),
+  libraryDependencies ++= Seq(
+    "org.scala-js" %%% "scalajs-dom" % "0.8.0",
+    "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
+    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.1",
+    "org.monifu" %%% "monifu" % "1.0-RC4"
+  ),
+  scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),
   persistLauncher := true,
-  jsDependencies +=
-  "org.webjars" % "react" % "0.12.2" / "react-with-addons.js" commonJSName "React",
+  jsDependencies ++= Seq(
+    "org.webjars.npm" % "react"     % "0.14.2" / "react-with-addons.js" commonJSName "React"    minified "react-with-addons.min.js",
+    "org.webjars.npm" % "react-dom" % "0.14.2" / "react-dom.js"         commonJSName "ReactDOM" minified "react-dom.min.js" dependsOn "react-with-addons.js"
+  ),
   skip in packageJSDependencies := false
 ).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(aceJsProject, sharedJs)
 

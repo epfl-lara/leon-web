@@ -10,7 +10,6 @@ import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
 
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-
 import js.JSConverters._
 
 import com.scalawarrior.scalajs.ace._
@@ -19,6 +18,56 @@ object HandlersTypes {
   @ScalaJSDefined
   trait HPermalink extends js.Object {
     val link: String
+  }
+
+  @ScalaJSDefined
+  trait HRepository extends js.Object {
+    val id: Long
+    val name: String
+    val fullName: String
+    val owner: String
+    val visibility: String
+    val fork: Boolean
+    val size: Long
+    val cloneURL: String
+    val defaultBranch: String
+    val branches: js.Array[String]
+  }
+
+  @ScalaJSDefined
+  trait HRepositories extends js.Object {
+    val repos: js.Array[HRepository]
+  }
+
+  @ScalaJSDefined
+  trait HBranch extends js.Object {
+    val name: String
+    val sha: String
+  }
+
+  @ScalaJSDefined
+  trait HRepositoryLoaded extends js.Object {
+    val files: js.Array[String]
+    val branches: js.Array[HBranch]
+  }
+
+  @ScalaJSDefined
+  trait HFileLoaded extends js.Object {
+    val file: String
+    val content: String
+  }
+
+  @ScalaJSDefined
+  trait HBranchChanged extends js.Object {
+    val branch: String
+    val files: js.Array[String]
+  }
+
+  @ScalaJSDefined
+  trait HGitProgress extends js.Object {
+    val taskName: String
+    val status: String
+    val percentage: js.UndefOr[String]
   }
   
   @ScalaJSDefined 
@@ -183,7 +232,6 @@ object HandlersTypes {
 @ScalaJSDefined
 object Handlers extends js.Object {
   import Main._
-  import Bool._
   import JQueryExtended._
   import js.JSON
   import leon.web.shared.Action;
@@ -196,6 +244,7 @@ object Handlers extends js.Object {
     $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
     $("#permalink-value").show()
   }
+
   val move_cursor = (data: HMoveCursor) => {
     Main.editor.selection.clearSelection();
     Main.editor.gotoLine(data.line);
@@ -229,7 +278,7 @@ object Handlers extends js.Object {
     updateExplorationFacts(data.newFacts);
   }
 
-  def updateExplorationFacts(newResults: js.Array[NewResult]) {
+  def updateExplorationFacts(newResults: js.Array[NewResult]): Unit = {
     for (i <- 0 until newResults.length) {
       val n = newResults(i);
 

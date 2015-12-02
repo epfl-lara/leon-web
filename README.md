@@ -12,12 +12,15 @@ Later, when pulling changes, use the command `git submodule update`.
 
 ## Configuration
 
-Write conf/setup.conf and add the following lines, for example:
+Write `conf/setup.conf` and add the following lines, for example:
 
     app.ssl=true
     app.url="https://leon.epfl.ch"
     assets.production.external.dir="/localhome/leonweb/git/leon-web/"
     http.port=9900
+
+    auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
+    auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
 
 ## Step 2 (to start leon-web)
 
@@ -76,3 +79,4 @@ This will make leon unavailable for a few minutes.
 * `CTRL+a,-` New splitted terminal
 * `CTRL+a,o` Switch from one splitted terminal to the other in the same window.
 * `CTRL+a` and PAGUP, PAGEDOWN to view the history. `q` to exit this mode.
+

@@ -2,9 +2,7 @@ package leon.web
 package workers
 
 import akka.actor._
-import play.api.libs.json._
 import play.api.libs.json.Json._
-import scala.concurrent.duration._
 
 import models._
 import leon.LeonContext
@@ -14,10 +12,6 @@ import leon.purescala.PrinterContext
 import leon.purescala.ScalaPrinter
 import leon.synthesis._
 import leon.repair._
-import leon.purescala.Common._
-import leon.purescala.ExprOps._
-import leon.purescala.Expressions._
-import leon.purescala.Definitions._
 import leon.web.shared.Action
 
 class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
@@ -41,18 +35,18 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
     case _ =>
   }
 
-  def doRepair(cstate: CompilationState, fname: String) {
+  def doRepair(cstate: CompilationState, fname: String): Unit = {
     try {
       val program = cstate.program
 
-      def progress(name: String) {
+      def progress(name: String): Unit = {
         event("repair_result", Map(
           "result" -> toJson("progress"),
           "progress" -> toJson(name)
         ))
       }
 
-      def error(err: String) {
+      def error(err: String): Unit = {
         event("repair_result", Map(
           "result" -> toJson("error"),
           "error" -> toJson(err)

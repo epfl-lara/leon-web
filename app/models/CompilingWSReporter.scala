@@ -26,7 +26,7 @@ class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReport
     to + (line -> (to.getOrElse(line, Nil) :+ msgLines.mkString("\n")))
   }
 
-  override def onCompilerProgress(current: Int, total: Int) {
+  override def onCompilerProgress(current: Int, total: Int): Unit = {
     channel.push(toJson(Map("kind" -> toJson("compilation_progress"),
                             "current" -> toJson(current),
                             "total" -> toJson(total))))

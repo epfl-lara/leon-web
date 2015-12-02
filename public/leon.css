@@ -23,7 +23,7 @@ body#leon {
     background-color: #FFF;
 }
 
-.panel h3, #title {
+.panel > h3, #title {
     background: #19214F !important;
 }
 
@@ -163,13 +163,20 @@ div.panel {
     border-radius: 5px;
 }
 
-div.panel h3 {
+div.panel > h3 {
     margin: 0px;
     line-height: 1.3em;
     padding: 5px 5px;
     font-size: 1em;
     font-weight: normal;
     color: white;
+}
+
+.panel-element-full {
+    margin: 10px !important;
+    padding: 3px !important;
+    width: 95% !important;
+    font-size: 14px !important;
 }
 
 div.compilation-status {
@@ -179,13 +186,6 @@ div.compilation-status {
 
 div.compilation-status.failure {
     color: red;
-}
-
-select#example-loader {
-    margin: 10px;
-    padding: 3px;
-    width: 95%;
-    font-size: 14px;
 }
 
 select#example-loader span.examples-group {
@@ -434,6 +434,129 @@ pre.exploreBlock .header {
 pre.exploreBlock .header .name span {
   color: #666 !important
 }
+
+/* Nice modal */
+.nice-modal .modal-header {
+  background-color: #f5f5f5;
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.nice-modal .modal-body {
+  /* background-color: #fafafa; */
+  background-color: #fff;
+  padding: 15px;
+}
+
+.nice-modal .modal-footer {
+  background-color: #f5f5f5;
+  padding: 10px 15px;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+/* Load Repository Panel */
+#load-repo-panel {
+  display: none;
+}
+
+ul.repository-list {
+  list-style: none;
+  max-height: 400px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+}
+
+ul.repository-list.disabled {
+  pointer-events: none;
+}
+
+ul.repository-list li {
+  display: block;
+  margin-bottom: 5px;
+  margin: 0;
+}
+
+ul.repository-list a, ul.repository-list a:hover {
+  color: #4078c0;
+  cursor: pointer;
+  position: relative;
+  display: block;
+  padding: 10px 15px 10px 15px;
+  border-top: 1px solid #e5e5e5;
+}
+
+ul.repository-list .private a {
+  background-color: #fff9ea;
+}
+
+ul.repository-list .selected a {
+  background-color: #eaeef8;
+}
+
+.octicon {
+  margin-right: 8px;
+}
+
+.repository-list .octicon {
+  color: #333 !important;
+}
+
+ul.repository-list .private .octicon {
+  color: #a1882b !important;
+}
+
+/* Loading spinner */
+.spinner {
+  margin: 50px auto 20px;
+  width: 70px;
+  text-align: center;
+}
+
+.spinner > div {
+  width: 18px;
+  height: 18px;
+  background-color: #333;
+
+  border-radius: 100%;
+  display: inline-block;
+  -webkit-animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+  animation: sk-bouncedelay 1.4s infinite ease-in-out both;
+}
+
+.spinner .bounce1 {
+  -webkit-animation-delay: -0.32s;
+  animation-delay: -0.32s;
+}
+
+.spinner .bounce2 {
+  -webkit-animation-delay: -0.16s;
+  animation-delay: -0.16s;
+}
+
+@-webkit-keyframes sk-bouncedelay {
+  0%, 80%, 100% { -webkit-transform: scale(0) }
+  40% { -webkit-transform: scale(1.0) }
+}
+
+@keyframes sk-bouncedelay {
+  0%, 80%, 100% { 
+    -webkit-transform: scale(0);
+    transform: scale(0);
+  } 40% { 
+    -webkit-transform: scale(1.0);
+    transform: scale(1.0);
+  }
+}
+
+/* Clone progress text */
+.clone-progress {
+  margin-right: 1em;
+  color: #333;
+  font-style: italic;
+}
+
 /*
 div.results_table > table {
     width: 100%;
@@ -704,5 +827,5 @@ span.compilation-error {
 div#codebox .ace_gutter-tooltip {
 }
 
-
 */
+

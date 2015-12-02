@@ -6,6 +6,8 @@ import akka.actor._
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.Future
+import scala.util.Try
+import scala.io.Source
 
 import play.api._
 import play.api.libs.json._
@@ -14,28 +16,33 @@ import play.api.libs.concurrent._
 import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
 
-import akka.pattern.ask
+import akka.pattern._
 
 import play.api.Play.current
 
 import leon.frontends.scalac._
-import leon.xlang._
 import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
-import leon.purescala._
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
+import leon.web.stores.PermalinkStore
+import leon.web.services.github._
+import leon.web.models.github.json._
+import leon.web.shared.{Action, Module}
+import leon.web.utils.String._
 
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
-import leon.web.shared.{Action, Module}
 
-class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
+class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
   import ConsoleProtocol._
+
+  val githubServiceTimeout =
+    Play.current.configuration.getInt("services.github.timeout").getOrElse(10).seconds
 
   val (enumerator, channel) = Concurrent.broadcast[JsValue]
   var reporter: WSReporter = _
@@ -52,6 +59,24 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
         notifyError("Not compiled ?!")
         logInfo("Not compiled ?!")
     }
+  }
+
+  def withUser(f: User => Unit): Unit = user match {
+    case Some(user) =>
+      f(user)
+
+    case None =>
+      notifyError("Cannot perform this operation when user is not logged-in.")
+      logInfo("Cannot perform this operation when user is not logged-in.")
+  }
+
+  def withToken(user: User)(f: String => Unit): Unit = user.oAuth2Info.map(_.accessToken) match {
+    case Some(token) =>
+      f(token)
+
+    case None =>
+      notifyError("Cannot perform this operation when user has no OAuth token.")
+      logInfo("Cannot perform this operation when user has no OAuth token.")
   }
 
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
@@ -120,6 +145,33 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
               case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
+              case Action.loadRepositories => withUser { user =>
+                self ! LoadRepositories(user)
+              }
+
+              case Action.loadRepository => withUser { user =>
+                val owner = (event \ "owner").as[String]
+                val repo  = (event \ "repo").as[String]
+
+                self ! LoadRepository(user, owner, repo)
+              }
+
+              case Action.loadFile => withUser { user =>
+                val owner = (event \ "owner").as[String]
+                val repo  = (event \ "repo").as[String]
+                val file  = (event \ "file").as[String]
+
+                self ! LoadFile(user, owner, repo, file)
+              }
+
+              case Action.switchBranch => withUser { user =>
+                val owner  = (event \ "owner" ).as[String]
+                val repo   = (event \ "repo"  ).as[String]
+                val branch = (event \ "branch").as[String]
+
+                self ! SwitchBranch(user, owner, repo, branch)
+              }
+
               case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
@@ -155,20 +207,181 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       }
 
     case StorePermaLink(code) =>
-      Permalink.store(code) match {
-        case Some(link) =>
-          event("permalink", Map("link" -> toJson(link)))
+      PermalinkStore.store(Code(code)) match {
+        case Some(Permalink(link, _)) =>
+          event("permalink", Map("link" -> toJson(link.value)))
         case _ =>
-          notifyError("Coult not create permalink")
+          notifyError("Could not create permalink")
       }
 
     case AccessPermaLink(link) =>
-      Permalink.get(link) match {
-        case Some(code) =>
-          event("replace_code", Map("newCode" -> toJson(code)))
+      PermalinkStore.get(Link(link)) match {
+        case Some(Permalink(_, code)) =>
+          event("replace_code", Map("newCode" -> toJson(code.value)))
         case None =>
           notifyError("Link not found ?!?: "+link)
       }
+
+      case LoadRepositories(user) => withToken(user) { token =>
+        clientLog(s"Fetching repositories list...")
+
+        val gh     = GitHubService(token)
+        val result = gh.listUserRepositories()
+
+        result onSuccess { case repos =>
+          clientLog(s"=> DONE")
+
+          event("repositories_loaded", Map(
+            "repos" -> toJson(repos)
+          ))
+        }
+
+        result onFailure { case err =>
+          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '${err.getMessage}'")
+        }
+      }
+
+    case LoadRepository(user, owner, name) => withToken(user) { token =>
+      clientLog(s"Fetching repository information...")
+
+      val gh     = GitHubService(token)
+      val result = gh.getRepository(owner, name)
+
+      result onFailure { case err =>
+          notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
+
+      result onSuccess { case repo =>
+        clientLog(s"=> DONE")
+
+        val (owner, name) = (repo.owner, repo.name)
+        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
+
+        val progressActor = Akka.system.actorOf(Props(
+          classOf[JGitProgressWorker],
+          "git_progress", self
+        ))
+
+        val progressMonitor = new JGitProgressMonitor(progressActor)
+
+        val future = Future {
+          if (!wc.exists) {
+            clientLog(s"Cloning repository '$owner/$name'...")
+            wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
+            clientLog(s"=> DONE")
+          }
+          else {
+            clientLog(s"Pulling repository '$owner/$name'...")
+            wc.pull(Some(progressMonitor))
+            clientLog(s"=> DONE")
+          }
+
+          RepositoryLoaded(user, repo)
+        }
+
+        future pipeTo self
+      }
+    }
+
+    case RepositoryLoaded(user, repo) =>
+      val (owner, name) = (repo.owner, repo.name)
+      val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", None)
+
+      clientLog(s"Listing files in '$owner/$name'...")
+
+      val future = Future {
+        wc.getFiles(repo.defaultBranch)
+          .getOrElse(Seq[String]())
+          .filter(_.extension == "scala")
+      }
+
+      future foreach { files =>
+        clientLog(s"=> DONE")
+        event("repository_loaded", Map(
+          "files"    -> toJson(files),
+          "branches" -> toJson(repo.branches)
+        ))
+      }
+
+    case LoadFile(user, owner, name, file) => withToken(user) { token =>
+      clientLog(s"Loading file '$file'...")
+
+      val gh     = GitHubService(token)
+      val result = gh.getRepository(owner, name)
+
+      result onFailure { case err =>
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
+
+      result onSuccess { case repo =>
+        val (owner, name) = (repo.owner, repo.name)
+        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+
+        if (!wc.exists) {
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        }
+        else {
+          wc.getFile("HEAD", file) match {
+            case None =>
+              notifyError(s"Could not find file '$file' in '$owner/$name'.")
+
+            case Some((_, _, path)) =>
+              val filePath = s"${wc.path}/$path"
+              val content  = Source.fromFile(filePath).mkString
+
+              clientLog(s"=> DONE")
+
+              event("file_loaded", Map(
+                "file"    -> toJson(file),
+                "content" -> toJson(content)
+              ))
+          }
+        }
+      }
+    }
+
+    case SwitchBranch(user, owner, name, branch) => withToken(user) { token =>
+      clientLog(s"Checking out branch '$branch'...")
+
+      val gh     = GitHubService(token)
+      val result = gh.getRepository(owner, name)
+
+      result onFailure { case err =>
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
+
+      result onSuccess { case repo =>
+        val (owner, name) = (repo.owner, repo.name)
+        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+
+        if (!wc.exists) {
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        }
+        else {
+          val future = Future {
+            if (wc.branchExists(branch))
+              wc.checkout(branch)
+            else
+              wc.checkoutRemote(branch)
+
+            wc.getFiles(branch)
+              .getOrElse(Seq[String]())
+              .filter(_.extension == "scala")
+          }
+
+          future foreach { files =>
+            clientLog(s"=> DONE")
+
+            event("branch_changed", Map(
+              "branch" -> toJson(branch),
+              "files"  -> toJson(files)
+            ))
+          }
+        }
+      }
+    }
 
     case UpdateCode(code) =>
       if (lastCompilationState.code != Some(code)) {
@@ -277,7 +490,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
       clientLog("Unknown Actor Message: "+msg)
   }
 
-  def notifyMainOverview(cstate: CompilationState) {
+  def notifyMainOverview(cstate: CompilationState): Unit = {
     def decodeName(name: String): String = {
       scala.reflect.NameTransformer.decode(name).replaceAll("\\$", ".")
     }
@@ -296,7 +509,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
 
   }
 
-  def saveCode(code: String) {
+  def saveCode(code: String): Unit = {
     import java.io.{File,PrintWriter}
     val d = new DateTime().toString(DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS"))
 
@@ -309,7 +522,7 @@ class ConsoleSession(remoteIP: String) extends Actor with BaseActor {
     }
   }
 
-  def notifyAnnotations(annotations: Seq[CodeAnnotation]) {
+  def notifyAnnotations(annotations: Seq[CodeAnnotation]): Unit = {
     event("editor", Map("annotations" -> toJson(annotations.map(_.toJson))))
   }
 

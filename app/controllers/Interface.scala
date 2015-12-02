@@ -1,7 +1,6 @@
 package leon.web
 package controllers
 
-import play.api._
 import play.api.mvc._
 import play.api.libs.iteratee._
 import play.api.libs.concurrent._
@@ -9,20 +8,22 @@ import play.api.libs.json._
 import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
 
+import securesocial.core._
+
 import models.FileExamples
 import models.ConsoleProtocol._
 import models.LeonWebConfig
+import models.User
 
 import akka.actor._
 import scala.concurrent.duration._
-import scala.concurrent.Future
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await, TimeoutException}
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import akka.util.Timeout
 import akka.pattern.ask
 
-object Interface extends Controller {
+class Interface(override implicit val env: RuntimeEnvironment[User]) extends SecureSocial[User] {
 
   def getExamples(dir: String) = {
     List(
@@ -31,7 +32,7 @@ object Interface extends Controller {
   }
 
 
-  def index(dir: String) = Action { implicit request =>
+  def index(dir: String) = UserAwareAction { implicit request =>
     val examples = if (dir == "") {
       getExamples("verification") ++ getExamples("synthesis") ++ getExamples("invariant")
     } else {
@@ -40,7 +41,7 @@ object Interface extends Controller {
 
     LeonWebConfig.fromCurrent(examples) match {
       case Some(webconfig) =>
-        Ok(views.html.index(webconfig))
+        Ok(views.html.index(webconfig, request.user))
 
       case None =>
         Redirect(routes.Interface.index("")).flashing {
@@ -59,10 +60,15 @@ object Interface extends Controller {
     }
   }
 
-  def openConsole() = WebSocket.tryAccept[JsValue] { request =>
+  def openConsole() = WebSocket.tryAccept[JsValue] { implicit request =>
     import play.api.Play.current
 
-    val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress)))
+    val userFuture = SecureSocial.currentUser.recover {
+       case t: TimeoutException => None
+     }
+
+    val user    = Await.result(userFuture, 1.seconds)
+    val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress, user)))
     implicit val timeout = Timeout(1.seconds)
 
     (session ? Init).map {

@@ -26,3 +26,5 @@ version
 /scalaz3.*
 /bin/
 /.cache-main
+
+repositories/

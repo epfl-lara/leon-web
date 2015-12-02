@@ -4,13 +4,24 @@
 
 # Home page
 
-GET   /ajax/getExample/:group/:id   leon.web.controllers.Interface.getExample(group: String, id: Int)
-GET   /openConsole                  leon.web.controllers.Interface.openConsole
+GET   /ajax/getExample/:group/:id   @leon.web.controllers.Interface.getExample(group: String, id: Int)
+GET   /openConsole                  @leon.web.controllers.Interface.openConsole
 
 # Map static resources from the /public folder to the /assets URL path
 GET   /doc                          leon.web.controllers.Doc.redirect()
 GET   /doc/                         leon.web.controllers.Doc.index()
 GET   /doc/*file                    leon.web.controllers.Doc.at(file)
-GET   /assets/*file                 controllers.Assets.at(path="/public", file)
 
-GET   /$dir<[a-z0-9]*>              leon.web.controllers.Interface.index(dir: String)
+GET   /assets/*file                 controllers.Assets.at(path="/public", file)
+GET   /assets/*file                 securesocial.controllers.Assets.at(path = "/public/securesocial", file)
+
+# Login page
+GET   /login                        @leon.web.controllers.Account.login
+GET   /logout                       @securesocial.controllers.LoginPage.logout
+
+# Authentication entry points for all providers
+GET   /authenticate/:provider  @securesocial.controllers.ProviderController.authenticate(provider, redirectTo: Option[String])
+POST  /authenticate/:provider  @securesocial.controllers.ProviderController.authenticateByPost(provider, redirectTo: Option[String])
+
+GET   /$dir<[a-z0-9]*>              @leon.web.controllers.Interface.index(dir: String)
+

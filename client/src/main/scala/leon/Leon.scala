@@ -1,21 +1,33 @@
 package leon.web.client
 
-import japgolly.scalajs.react.React
-import japgolly.scalajs.react.vdom.prefix_<^._
-import org.scalajs.dom
-import dom.html.Element
-import dom.document
-import scala.collection.mutable.ListBuffer
+import scala.language.reflectiveCalls
+
 import scala.scalajs.js
+import scala.scalajs.js.annotation._
+import scala.scalajs.js.JSON
+import org.scalajs.dom
+import org.scalajs.dom.{alert, console, document}
+import org.scalajs.dom.html.Element
+import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
+
+import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.{ HashMap => MMap }
-import js.annotation._
+
+import japgolly.scalajs.react._
+
 import com.scalawarrior.scalajs.ace._
+
 import org.scalajs.jquery
 import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
-import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import js.JSConverters._
+import JQueryExtended._
+
+import Bool._
+import Implicits._
+
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import leon.web.shared.{Module => ModuleName, Constants}
+import leon.web.shared.{Module => ModuleName, Constants, Action}
+
+import leon.web.client.react.{App => ReactApp}
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -50,20 +62,48 @@ object MainDelayed extends js.JSApp {
   $("#codebox").show()
 }
 
+@ScalaJSDefined
+trait LeonSocket extends js.Object {
+  def send(message: String): Unit
+  var onopen: js.Function1[JQueryEventObject, Any]
+  var onmessage: js.Function1[JQueryEventObject, Any]
+  var onclose: js.Function1[JQueryEventObject, Any]
+  var onerror: js.Function1[JQueryEventObject, Any]
+}
+
+trait LeonAPI {
+  def leonSocket: LeonSocket
+  def setEditorCode(code: String): Unit
+  def handlers: js.Dictionary[Any]
+}
+
 @JSExport("Main")
-object Main {
-  import Bool._
-  import JQueryExtended._
-  import js.JSON
-  import leon.web.shared.Action;
-  import dom.alert
-  import dom.console
-  import Implicits._
+object Main extends LeonWeb with LeonAPI {
+
+  def main(): Unit = {
+    js.timers.setInterval(2000) { checkDisconnectStatus() };
+
+    connectWS()
+
+    val reactApp = new ReactApp(this)
+    reactApp.init()
+
+    js.timers.setTimeout(3000) {
+      if (!connected) {
+        $("#disconnectError").hide();
+        $("#connectError").show().alert();
+      }
+    }
+
+  }
+
+}
+
+trait LeonWeb {
+
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
-
-  def main() = {}
 
   @ScalaJSDefined
   trait LocalStorage extends js.Any {
@@ -77,14 +117,6 @@ object Main {
 
   @JSExport val WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
 
-  @ScalaJSDefined
-  trait LeonSocket extends js.Object {
-    def send(message: String): Unit
-    var onopen: js.Function1[JQueryEventObject, Any]
-    var onmessage: js.Function1[JQueryEventObject, Any]
-    var onclose: js.Function1[JQueryEventObject, Any]
-    var onerror: js.Function1[JQueryEventObject, Any]
-  }
   @JSExport("leonSocket") var leonSocket: LeonSocket = null
 
   val headerHeight = $("#title").height() + 20
@@ -292,7 +324,7 @@ object Main {
   val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String])
   var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String]())
 
-  def doUndo() {
+  def doUndo(): Unit = {
     forwardChanges.push(editor.getValue());
     val code = backwardChanges.pop();
     editor.setValue(code)
@@ -302,7 +334,7 @@ object Main {
     updateUndoRedo()
   }
 
-  def doRedo() {
+  def doRedo(): Unit = {
     backwardChanges.push(editor.getValue());
     val code = forwardChanges.pop();
     editor.setValue(code)
@@ -312,7 +344,7 @@ object Main {
     updateUndoRedo()
   }
 
-  def storeCurrent(code: String) {
+  def storeCurrent(code: String): Unit = {
     forwardChanges = new js.Array[String]()
     if (backwardChanges.length >= 1) {
       if (code != backwardChanges(backwardChanges.length - 1)) {
@@ -324,7 +356,7 @@ object Main {
     updateUndoRedo()
   }
 
-  def updateUndoRedo() {
+  def updateUndoRedo(): Unit = {
     val ub = $("#button-undo")
     val rb = $("#button-redo")
 
@@ -370,11 +402,11 @@ object Main {
   /** Compilation
     */
 
-  def updateCompilationProgress(percents: Int) {
+  def updateCompilationProgress(percents: Int): Unit = {
     $("#overview .progress-bar").css("width", percents + "%");
   }
 
-  def updateCompilationStatus(status: String) {
+  def updateCompilationStatus(status: String): Unit = {
     val e = $("#overview .compilation-status")
     val codebox = $("div#codebox")
     val boxes = $(".results_table")
@@ -426,7 +458,7 @@ object Main {
   
   /** Invariants */
   
-  def updateInvariantProgress(percents: Int) {
+  def updateInvariantProgress(percents: Int): Unit = {
     $("#invariant .progress-bar").css("width", percents + "%");
   }
 
@@ -466,19 +498,22 @@ object Main {
 
   setPresentationMode()
 
+  type ModulesMap = scala.collection.mutable.Map[String, Module]
+
+  abstract class Module(name: String, list: ModulesMap) { self =>
+    val column: String
+    def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html
+    def missing(name: String): HandlersTypes.Html
+    def handlers(): Unit
+    list += name -> self
+  }
+
   object overview {
-    abstract class Module(name: String) { self =>
-      val column: String
-      def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html
-      def missing(name: String): HandlersTypes.Html
-      def handlers(): Unit
-      modules.list += name -> self
-    }
 
     object modules {
-      var list = Map[String, Module]() // Defined before all modules.
+      val list = scala.collection.mutable.Map[String, Module]() // Defined before all modules.
 
-      val verification = new Module(ModuleName.verification) {
+      val verification = new Module(ModuleName.verification, list) {
         val column = "Verif."
         def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val vstatus = d.status match {
@@ -517,7 +552,7 @@ object Main {
           }): js.ThisFunction)
         }
       }
-      val termination = new Module(ModuleName.termination) {
+      val termination = new Module(ModuleName.termination, list) {
         val column = "Term."
         def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val tstatus = d.status match {
@@ -553,7 +588,7 @@ object Main {
           }): js.ThisFunction);
         }
       }
-      val invariant = new Module(ModuleName.invariant) {
+      val invariant = new Module(ModuleName.invariant, list) {
         val column = "Inv."
         def html(name: String, d: HandlersTypes.Status): HandlersTypes.Html = {
           val istatus = d.status match {
@@ -703,7 +738,7 @@ object Main {
     $("#invariant").hide()
   }
 
-  def setPresentationMode() {
+  def setPresentationMode(): Unit = {
     if (Features.presentation.active) {
       $("body").addClass("presentation")
     } else {
@@ -712,7 +747,7 @@ object Main {
     resizeEditor()
   }
 
-  def drawOverView() {
+  def drawOverView(): Unit = {
     val overview_table = $("#overview_table")
     var html: HandlersTypes.Html = "";
 
@@ -760,7 +795,7 @@ object Main {
     }
   }
 
-  def addClickToLine(within: String) {
+  def addClickToLine(within: String): Unit = {
     $(within + " .clicktoline[line]").click(((_this: Element) => {
       val line = $(_this).attr("line").toDouble
       editor.gotoLine(line);
@@ -779,7 +814,7 @@ object Main {
 
   var synthesizing = false;
 
-  def displayVerificationDetails(status: String, vcs: HandlersTypes.VCS) {
+  def displayVerificationDetails(status: String, vcs: HandlersTypes.VCS): Unit = {
     val pb = $("#verifyProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -891,7 +926,7 @@ object Main {
   
   def displayInvariantDetails(status: String,
       invariant: HandlersTypes.InvariantDetails,
-      all_invariants: js.Dictionary[HandlersTypes.InvariantDetails]) {
+      all_invariants: js.Dictionary[HandlersTypes.InvariantDetails]): Unit = {
     
     val pb = $("#invariantProgress")
     val pbb = pb.children(".progress-bar")
@@ -989,7 +1024,7 @@ object Main {
 
   def displayTerminationDetails(
     status: String,
-    fdata: HandlersTypes.TerminationDetails) {
+    fdata: HandlersTypes.TerminationDetails): Unit = {
     val pb = $("#terminationProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -1047,11 +1082,17 @@ object Main {
     $("#terminationResults").show("fade");
   }
 
-  def error(msg: String) {
+  def error(msg: String): Unit = {
     alert(msg);
   }
 
+  val errorEvent = (event: JQueryEventObject) => {
+    console.log("ERROR")
+    console.log(event)
+  }
+
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
+
   val receiveEvent = (event: JQueryEventObject) => {
     val data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
     handlers.get(data.kind) match {
@@ -1074,7 +1115,7 @@ object Main {
     }
   }
 
-  val openEvent = (event: JQueryEventObject) => {
+  val openEvent: JQueryEventObject => Unit = (event: JQueryEventObject) => {
     if (lastReconnectDelay != 0) {
       notify("And we are back online!", "success")
       updateCompilationStatus("unknown")
@@ -1087,7 +1128,14 @@ object Main {
       val msg = JSON.stringify(
         l(action = Action.featureSet, module = "main", feature = featureName, active = feature.active))
 
-      leonSocket.send(msg)
+      try {
+        leonSocket.send(msg)
+      }
+      catch {
+        case _: Exception => js.timers.setTimeout(500) {
+          openEvent(event)
+        }
+      }
     }
 
     if (hash.isDefined && hash.get != "") {
@@ -1097,7 +1145,7 @@ object Main {
     }
   }
 
-  def loadStaticLink(hash: String) {
+  def loadStaticLink(hash: String): Unit = {
     if (hash.indexOf("#link/") == 0) {
       val msg = JSON.stringify(
         l(action = Action.accessPermaLink, module = "main", link = hash.substring("#link/".length)))
@@ -1116,7 +1164,7 @@ object Main {
     loadStaticLink(hash);
   });
 
-  def setDisconnected() {
+  def setDisconnected(): Unit = {
     connected = false
     updateCompilationStatus("disconnected")
     lastReconnectDelay = 5;
@@ -1125,7 +1173,7 @@ object Main {
     checkDisconnectStatus()
   }
 
-  def setConnected() {
+  def setConnected(): Unit = {
     connected = true
 
     $("#connectError").hide();
@@ -1135,7 +1183,7 @@ object Main {
     reconnectIn = -1;
   }
 
-  def checkDisconnectStatus() {
+  def checkDisconnectStatus(): Unit = {
     if (reconnectIn == 0) {
       reconnectIn = -1;
       $("#disconnectError #disconnectMsg").html("Attempting reconnection...");
@@ -1168,23 +1216,8 @@ object Main {
     }
   }
 
-  js.timers.setInterval(2000) { checkDisconnectStatus() };
-
-  val errorEvent = (event: JQueryEventObject) => {
-    console.log("ERROR")
-    console.log(event)
-  }
-
-  connectWS()
-  js.timers.setTimeout(3000) {
-    if (!connected) {
-      $("#disconnectError").hide();
-      $("#connectError").show().alert();
-    }
-  }
-
   @JSExport
-  def connectWS() {
+  def connectWS(): Unit = {
     leonSocket = jsnew(g.WebSocket /*WS*/ )(g._leon_websocket_url).asInstanceOf[LeonSocket]
     leonSocket.onopen = openEvent
     leonSocket.onmessage = receiveEvent
@@ -1196,7 +1229,7 @@ object Main {
   var lastSavedChange = lastChange;
   val timeWindow = 2000;
 
-  def updateSaveButton() {
+  def updateSaveButton(): Unit = {
     val e = $("#button-save")
     if (lastChange == lastSavedChange) {
       e.addClass("disabled");
@@ -1205,7 +1238,7 @@ object Main {
     }
   }
 
-  def notify(content: String, _type: String, fade: Double = 3000) {
+  def notify(content: String, _type: String, fade: Double = 3000): Unit = {
     val `type` = if (_type == "error") "danger" else _type
 
     val note = $("<div>", l(
@@ -1241,7 +1274,7 @@ object Main {
     }
   }
 
-  def onCodeUpdate() {
+  def onCodeUpdate(): Unit = {
     val now = new js.Date().getTime()
 
     if (lastChange < (now - timeWindow)) {
@@ -1263,18 +1296,22 @@ object Main {
     loadExample(group, id)
   }
 
-  def loadExample(group: String, id: js.UndefOr[String]) {
+  def setEditorCode(code: String): Unit = {
+    storeCurrent(editorSession.getValue())
+    editor.setValue(code);
+    editor.selection.clearSelection();
+    editor.gotoLine(0);
+    recompile();
+  }
+
+  def loadExample(group: String, id: js.UndefOr[String]): Unit = {
     if (id.isDefined) {
       $.ajax(l(
         url = "/ajax/getExample/" + group + "/" + id.get,
         dataType = "json",
         success = (data: HandlersTypes.StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
           if (data.status == "success") {
-            storeCurrent(editorSession.getValue())
-            editor.setValue(data.code);
-            editor.selection.clearSelection();
-            editor.gotoLine(0);
-            recompile();
+            setEditorCode(data.code)
             $("#example-loader").get(0).selectedIndex = 0;
           } else {
             notify("Loading example failed :(", "error")
@@ -1309,7 +1346,7 @@ object Main {
     ().asInstanceOf[js.Any]
   });
 
-  def resizeEditor() {
+  def resizeEditor(): Unit = {
     val h = $(window).height() - $("#title").height() - 6
     val ah = $("#annotations").height()
     val w = $("#codecolumn").width()
@@ -1332,15 +1369,15 @@ object Main {
     currentMousePos = l(x = event.pageX, y = event.pageY);
   }.asInstanceOf[js.Any]);
 
-  def openVerifyDialog() {
+  def openVerifyDialog(): Unit = {
     $("#verifyDialog").modal("show")
   }
   
-  def openInvariantDialog() {
+  def openInvariantDialog(): Unit = {
     $("#invariantDialog").modal("show")
   }
 
-  def openTerminationDialog() {
+  def openTerminationDialog(): Unit = {
     $("#terminationDialog").modal("show")
   }
 
@@ -1543,3 +1580,4 @@ object Main {
   */
 
 }
+
