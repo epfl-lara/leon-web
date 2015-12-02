@@ -15,7 +15,11 @@ abstract class WorkerActor(val session: ActorRef, val interruptManager: Interrup
   val reporter = new WorkerReporter(session)
 
   lazy implicit val ctx = LeonContext(reporter = reporter,
-                                      interruptManager = interruptManager)
+                                      interruptManager = interruptManager,
+                                      options =
+                                        Seq(
+                                            LeonOption(SharedOptions.optSelectedSolvers)(Set("smt-cvc4","smt-z3"))
+                                        ))
 
   def pushMessage(v: JsValue) = session ! NotifyClient(v)
 }

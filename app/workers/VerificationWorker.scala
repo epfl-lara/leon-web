@@ -63,6 +63,8 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
     "--solvers=smt-cvc4,smt-z3,ground",
     "--evalground"
   )).copy(interruptManager = interruptManager, reporter = reporter)
+  
+  var program: Option[Program] = None
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean): Unit = {
     val params    = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
@@ -109,6 +111,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
+      this.program = Some(cstate.program)
       val program = cstate.program
 
       var toGenerate = Set[FunDef]()

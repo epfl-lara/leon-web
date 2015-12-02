@@ -10,9 +10,13 @@ import leon.utils._
 import leon.purescala.Common._
 import leon.purescala.Expressions._
 import leon.transformations.InstUtil
+import leon.purescala.Definitions._
+import leon.purescala.PrettyPrinter
 
 trait JsonWrites {
   implicit val ctx: LeonContext;
+  
+  protected def program: Option[Program]
 
   implicit val erWrites = new Writes[EvaluationResults.Result[Expr]] {
     def writes(er: EvaluationResults.Result[Expr]) = er match {
@@ -39,10 +43,21 @@ trait JsonWrites {
   implicit val idMapWrites = new Writes[Map[Identifier, Expr]] {
     def writes(ex: Map[Identifier, Expr]) = Json.obj(
       ex.toSeq.sortBy(_._1).map {
-        case (id, expr) => id.asString -> (expr.asString: JsValueWrapper)
+        case (id, expr) =>
+          val exprAsString = program.map(p => VerificationReport.userDefinedString(expr, expr.asString)(ctx, p)).getOrElse(expr.asString)
+          id.asString -> (exprAsString: JsValueWrapper)
       } :_*
     )
   }
+  
+  implicit val idMapStringWrites = new Writes[Map[Identifier, String]] {
+    def writes(ex: Map[Identifier, String]) = Json.obj(
+      ex.toSeq.sortBy(_._1).map {
+        case (id, expr) => id.asString -> (expr: JsValueWrapper)
+      } :_*
+    )
+  }
+
 
   implicit val vrWrites = new Writes[(VC, VCResult, Option[EvaluationResults.Result[Expr]])] {
     def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])) = {
@@ -59,6 +74,7 @@ trait JsonWrites {
 
       res.status match {
         case VCStatus.Invalid(cex) =>
+          
           cexExec match {
             case Some(er) =>
               base ++ Json.obj(
