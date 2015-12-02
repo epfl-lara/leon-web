@@ -28,7 +28,8 @@ object PermalinkStore {
 
       val res = get(link)
       if (res.isDefined) {
-        if (res != Some(code)) {
+        val permalink = Permalink(link, code)
+        if (res =!= Some(permalink)) {
           rehash = true
         } else {
           store = false

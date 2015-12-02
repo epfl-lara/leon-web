@@ -12,7 +12,7 @@ case class FunctionHash(fd: FunDef) {
   override def equals(o: Any): Boolean = {
     o match {
       case fh: FunctionHash =>
-        fh.v == v
+        fh.v === v
       case _ =>
         false
     }

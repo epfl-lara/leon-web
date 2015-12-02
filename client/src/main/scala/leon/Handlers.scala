@@ -1,4 +1,5 @@
-package leon.web.client
+package leon.web
+package client
 
 import org.scalajs.dom
 
@@ -470,7 +471,7 @@ object Handlers extends js.Object {
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
       var path = js.Array[Int]()
-      if (b.attr("path") != "") {
+      if (b.attr("path") =!= "") {
         path = b.attr("path").split("-").toJSArray.map((e: String) => e.toInt)
       }
       path

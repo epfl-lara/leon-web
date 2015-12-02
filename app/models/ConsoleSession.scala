@@ -120,7 +120,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       cancelledWorkers += wa
 
       logInfo(cancelledWorkers.size+"/"+modules.size+": Worker "+wa.getClass+" notified its cancellation")
-      if (cancelledWorkers.size == modules.size) {
+      if (cancelledWorkers.size === modules.size) {
         logInfo("All workers got cancelled, resuming normal operations")
         interruptManager.recoverInterrupt()
       }
@@ -306,7 +306,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       val future = Future {
         wc.getFiles(repo.defaultBranch)
           .getOrElse(Seq[String]())
-          .filter(_.extension == "scala")
+          .filter(_.extension === "scala")
       }
 
       future foreach { files =>
@@ -383,7 +383,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             wc.getFiles(branch)
               .getOrElse(Seq[String]())
-              .filter(_.extension == "scala")
+              .filter(_.extension === "scala")
           }
 
           future foreach { files =>
@@ -399,8 +399,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
 
     case UpdateCode(code, user, project) =>
-      if (lastCompilationState.project != project ||
-          lastCompilationState.code != Some(code)) {
+      if (lastCompilationState.project =!= project ||
+          lastCompilationState.code =!= Some(code)) {
 
         clientLog("Compiling...")
         logInfo(s"Code updated:\n$code")
@@ -424,12 +424,12 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               val wc    = RepositoryService.repositoryFor(user, owner, repo)
               wc.getFiles(branch)
                 .getOrElse(Seq[String]())
-                .filter(_.extension == "scala")
+                .filter(_.extension === "scala")
                 // replace the path to the file currently loaded
                 // in the editor with the path to the temp file
                 // `saveCode` just wrote.
                 .map { f =>
-                  if (f == file)
+                  if (f === file)
                     tempFile.getAbsolutePath()
                   else
                     s"${wc.path.getAbsolutePath()}/$f"
@@ -470,8 +470,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             notifyMainOverview(cstate)
 
             lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                ( m.isActive && m.name == Module.invariant) ||
-                (!m.isActive && m.name != Module.invariant))
+                ( m.isActive && m.name === Module.invariant) ||
+                (!m.isActive && m.name =!= Module.invariant))
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>
@@ -481,7 +481,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   import Expressions._
                   ExprOps.exists {
                     case FunctionInvocation(callee, _) =>
-                      leon.purescala.DefOps.fullName(callee.fd)(program) == "leon.invariant.?"
+                      leon.purescala.DefOps.fullName(callee.fd)(program) === "leon.invariant.?"
                     case _ =>
                       false
                   }(postCondition)
@@ -492,7 +492,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             if (isOnlyInvariantActivated || postConditionHasQMark) {
               modules(Module.invariant).actor ! OnUpdateCode(cstate)
             } else {
-              modules.values.filter(e => e.isActive && e.name != Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))
+              modules.values.filter(e => e.isActive && e.name =!= Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
 
           case None =>

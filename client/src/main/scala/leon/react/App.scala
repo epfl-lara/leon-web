@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 
 import scala.scalajs.js
@@ -137,7 +138,7 @@ class App(private val api: LeonAPI) {
   def renderLoadRepoPanel(state: AppState): Unit = {
     val panelEl = document.getElementById("load-repo-panel")
 
-    if (panelEl != null) {
+    if (panelEl =!= null) {
       ReactDOM.render(LoadRepositoryPanel(state), panelEl)
       $(panelEl).show()
     }

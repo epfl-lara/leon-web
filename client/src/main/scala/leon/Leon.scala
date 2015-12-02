@@ -1,4 +1,5 @@
-package leon.web.client
+package leon.web
+package client
 
 import scala.language.reflectiveCalls
 
@@ -154,7 +155,7 @@ trait LeonWeb {
   }
 
   def showHighlight(range: Range, content: String) = {
-    if (range != lastDisplayedRange) {
+    if (range =!= lastDisplayedRange) {
       hideHighlight()
 
       lastDisplayedRange = range;
@@ -258,7 +259,7 @@ trait LeonWeb {
           }
         }
 
-        if (maxRes != null) {
+        if (maxRes =!= null) {
           showHighlight(maxRes.range, maxRes.res)
         } else {
           hideHighlight();
@@ -308,7 +309,7 @@ trait LeonWeb {
 
   def hasLocalStorage(): Boolean = {
     try {
-      !js.isUndefined(window.localStorage) && window.localStorage != null;
+      !js.isUndefined(window.localStorage) && window.localStorage =!= null;
     } catch {
       case e: Exception =>
         false
@@ -323,8 +324,8 @@ trait LeonWeb {
 
   val maxHistory = 20;
   // Undo/Redo
-  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String])
-  var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String]())
+  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ =!= null).getOrElse(new js.Array[String])
+  var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ =!= null).getOrElse(new js.Array[String]())
 
   def doUndo(): Unit = {
     forwardChanges.push(editor.getValue());
@@ -349,7 +350,7 @@ trait LeonWeb {
   def storeCurrent(code: String): Unit = {
     forwardChanges = new js.Array[String]()
     if (backwardChanges.length >= 1) {
-      if (code != backwardChanges(backwardChanges.length - 1)) {
+      if (code =!= backwardChanges(backwardChanges.length - 1)) {
         backwardChanges.push(code)
       }
     } else {
@@ -465,7 +466,7 @@ trait LeonWeb {
   }
 
   val localFeatures = localStorage.getItem("leonFeatures")
-  if (localFeatures != null) {
+  if (localFeatures =!= null) {
     val locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]]
     for ((f, locFeature) <- locFeatures) {
       features.get(f) match {
@@ -1044,7 +1045,7 @@ trait LeonWeb {
         pbb.html("Terminates!")
         pbb.addClass("progress-bar-success")
         val reason = fdata.reason.getOrElse("")
-        tbl.append("""<tr class="success"> <td>This function terminates for all inputs."""+(if(reason != "") " (" + reason + ")" else "")+"""</td> </tr>""")
+        tbl.append("""<tr class="success"> <td>This function terminates for all inputs."""+(if(reason =!= "") " (" + reason + ")" else "")+"""</td> </tr>""")
 
       case TerminationStatus.loopsfor =>
         pbb.html("Non-terminating!")
@@ -1118,7 +1119,7 @@ trait LeonWeb {
   }
 
   val openEvent: JQueryEventObject => Unit = (event: JQueryEventObject) => {
-    if (lastReconnectDelay != 0) {
+    if (lastReconnectDelay =!= 0) {
       notify("And we are back online!", "success")
       updateCompilationStatus("unknown")
       oldCode = ""
@@ -1140,7 +1141,7 @@ trait LeonWeb {
       }
     }
 
-    if (hash.isDefined && hash.get != "") {
+    if (hash.isDefined && hash.get =!= "") {
       loadStaticLink(hash.get)
     } else {
       recompile()
@@ -1265,13 +1266,13 @@ trait LeonWeb {
   def recompile() = {
     val currentCode = editor.getValue()
 
-    if (oldCode != "" && oldCode != currentCode) {
+    if (oldCode =!= "" && oldCode =!= currentCode) {
       if (forwardChanges.length == 0) {
         storeCurrent(oldCode)
       }
     }
 
-    if (connected && oldCode != currentCode) {
+    if (connected && oldCode =!= currentCode) {
 
       val msg = currentProject match {
         case Some(Project(owner, repo, branch, file)) => l(
@@ -1581,8 +1582,8 @@ trait LeonWeb {
       }
     }
 
-    val toShow = (seenDemo != 0) ? seenDemo | 0;
-    if (toShow != 0) {
+    val toShow = (seenDemo =!= 0) ? seenDemo | 0;
+    if (toShow =!= 0) {
       js.timers.setTimeout(1000) { showDemo(toShow) }
     } else {
       showDemo(toShow)
@@ -1591,7 +1592,7 @@ trait LeonWeb {
     storedCode = null
   }
 
-  if (storedCode != null) {
+  if (storedCode =!= null) {
     editor.setValue(storedCode);
     editor.selection.clearSelection();
     editor.gotoLine(0);

@@ -23,7 +23,7 @@ case class FunVerifStatus(fd: FunDef,
 
     if (rs.exists(_.isInvalid)) {
       VerifStatus.invalid
-    } else if (rs.exists(_.status == VCStatus.Timeout)) {
+    } else if (rs.exists(_.status === VCStatus.Timeout)) {
       VerifStatus.timeout
     } else if (vcData.isEmpty || rs.forall(_.isValid)) {
       VerifStatus.valid
@@ -35,7 +35,7 @@ case class FunVerifStatus(fd: FunDef,
   }
 
   lazy val status: String = {
-    if (isCondValid && overallStatus == "valid") {
+    if (isCondValid && overallStatus === "valid") {
       VerifStatus.cond_valid
     } else {
       overallStatus

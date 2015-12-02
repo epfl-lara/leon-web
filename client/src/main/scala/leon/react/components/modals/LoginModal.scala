@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 package components
 package modals

@@ -259,7 +259,7 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
   }
 
   def branchExists(branch: String): Boolean =
-    git.getRepository().getRef(branch) != null
+    git.getRepository().getRef(branch) =!= null
 
   def checkout(branch: String): Boolean = {
     try {

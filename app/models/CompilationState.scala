@@ -53,7 +53,7 @@ case class CompilationState (
 
   def functionsInUnit(unit: String) = {
     program.units
-      .filter(_.id.name == unit)
+      .filter(_.id.name === unit)
       .flatMap(_.definedFunctions)
       .toList
       .filter(filterFunction)
