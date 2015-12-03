@@ -79,4 +79,4 @@ This will make leon unavailable for a few minutes.
 * `CTRL+a,-` New splitted terminal
 * `CTRL+a,o` Switch from one splitted terminal to the other in the same window.
 * `CTRL+a` and PAGUP, PAGEDOWN to view the history. `q` to exit this mode.
-
+* In shell, run `tmux ls` to list sessions
