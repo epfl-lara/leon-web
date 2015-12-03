@@ -50,9 +50,7 @@ class App(private val api: LeonAPI) {
 
     // Trigger a re-render of the app, each time
     // the application state is updated.
-    appState.asObservable
-      .dump("AppState")
-      .foreach(render)
+    appState.asObservable.foreach(render)
 
     // Apply every state transformation to the application state.
     Actions.register(appState.updates)

@@ -41,15 +41,15 @@ case class SetCurrentProject(project: Option[Project]) extends Action
   */
 object Actions {
 
-  val loadRepositories    = PublishSubject[LoadRepositories]()
-  val loadRepository      = PublishSubject[LoadRepository]()
-  val loadFile            = PublishSubject[LoadFile]()
-  val switchBranch        = PublishSubject[SwitchBranch]()
-  val updateEditorCode    = PublishSubject[UpdateEditorCode]()
-  val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()
-  val toggleLoginModal    = PublishSubject[ToggleLoginModal]()
-  val modState            = PublishSubject[AppState => AppState]
-  val setCurrentProject   = PublishSubject[SetCurrentProject]
+  val loadRepositories    = PublishSubject[LoadRepositories]()     // dump "LoadRepositories"
+  val loadRepository      = PublishSubject[LoadRepository]()       // dump "LoadRepository"
+  val loadFile            = PublishSubject[LoadFile]()             // dump "LoadFile"
+  val switchBranch        = PublishSubject[SwitchBranch]()         // dump "SwitchBranch"
+  val updateEditorCode    = PublishSubject[UpdateEditorCode]()     // dump "UpdateEditorCode"
+  val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()  // dump "ToggleLoadRepoModal"
+  val toggleLoginModal    = PublishSubject[ToggleLoginModal]()     // dump "ToggleLoginModal"
+  val modState            = PublishSubject[AppState => AppState]() // dump "ModState"
+  val setCurrentProject   = PublishSubject[SetCurrentProject]()    // dump "SetCurrentProject"
 
   val currentProject = Observable.merge(
       setCurrentProject,
@@ -93,7 +93,6 @@ object Actions {
     */
   def register(updates: Observer[AppState => AppState]) = {
     currentProject
-      .dump("CurrentProject")
       .doWork(processAction)
       .map { e =>
         e.project match {
