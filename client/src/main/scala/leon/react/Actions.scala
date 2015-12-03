@@ -49,10 +49,11 @@ object Actions {
   val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()
   val toggleLoginModal    = PublishSubject[ToggleLoginModal]()
   val modState            = PublishSubject[AppState => AppState]
+  val setCurrentProject   = PublishSubject[SetCurrentProject]
 
-  val currentProject =
-    Observable
-      .combineLatest(
+  val currentProject = Observable.merge(
+      setCurrentProject,
+      Observable.combineLatest(
         Events.repositoryLoaded,
         Events.branchChanged,
         Events.fileLoaded
@@ -67,7 +68,8 @@ object Actions {
 
         SetCurrentProject(Some(project))
       }
-      .startWith(SetCurrentProject(None))
+    )
+    .startWith(SetCurrentProject(None))
 
   private
   var processAction: Action => Unit = x => {}
@@ -93,7 +95,14 @@ object Actions {
     currentProject
       .dump("CurrentProject")
       .doWork(processAction)
-      .map(const(identity[AppState](_)))
+      .map { e =>
+        e.project match {
+          case None  => (state: AppState) =>
+            state.copy(repository = None, files = Seq(), file = None, branches = Seq())
+
+          case Some(_) => identity[AppState] _
+        }
+      }
       .subscribe(updates)
 
     loadRepositories

@@ -108,19 +108,12 @@ object LoadRepositoryModal {
       )
 
     def renderFooter(props: Props, state: State) = {
-      def onlyIf(cond: Boolean)(el: => TagMod): TagMod =
-        if (cond) el else EmptyTag
+      val cloneInProgress = props.cloning && state.cloneProgress.isDefined
 
       <.div(^.className := "modal-footer",
-        onlyIf(props.cloning && state.cloneProgress.isDefined) {
-          renderCloneProgress(state.cloneProgress.get)
-        },
-        onlyIf(!props.cloning) {
-          cancelButton
-        },
-        onlyIf(state.selectedRepo.isDefined) {
-          loadButton(props.cloning)
-        }
+        cloneInProgress              ?= renderCloneProgress(state.cloneProgress.get),
+        !props.cloning               ?= cancelButton,
+        state.selectedRepo.isDefined ?= loadButton(props.cloning)
       )
     }
 

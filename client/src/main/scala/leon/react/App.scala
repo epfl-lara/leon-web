@@ -111,8 +111,8 @@ class App(private val api: LeonAPI) {
 
       Events.codeUpdated ! CodeUpdated()
 
-    case SetCurrentProject(maybeProject) =>
-      api.setCurrentProject(maybeProject)
+    case SetCurrentProject(project) =>
+      api.setCurrentProject(project)
 
     case _ =>
   }

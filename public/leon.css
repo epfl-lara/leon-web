@@ -460,6 +460,20 @@ pre.exploreBlock .header .name span {
   display: none;
 }
 
+#load-repo-btn {
+  padding: 4px !important;
+}
+
+#load-repo-btn.loaded {
+  width: 82% !important;
+}
+
+#unload-repo-btn {
+  width: 10% !important;
+  padding: 4px !important;
+  font-size: 14px !important;
+}
+
 ul.repository-list {
   list-style: none;
   max-height: 400px;

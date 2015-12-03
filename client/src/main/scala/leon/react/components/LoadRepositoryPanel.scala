@@ -34,6 +34,10 @@ object LoadRepositoryPanel {
     def onClickSelect: Callback =
       showLoadRepoModal >> loadRepos
 
+    def onClickUnload: Callback = Callback {
+      Actions.setCurrentProject ! SetCurrentProject(None)
+    }
+
     def onLoadRepo(repo: HRepository): Callback = Callback {
       Actions.loadRepository ! LoadRepository(repo)
     }
@@ -50,7 +54,7 @@ object LoadRepositoryPanel {
       <.div(^.className := "panel",
         <.h3("Load a GitHub repository:"),
         <.div(
-          LoadRepositoryButton(props.repository, onClickSelect),
+          LoadRepositoryButton(props.repository, onClickSelect, onClickUnload),
           renderBranches(props.repository, props.branches, props.branch),
           renderFiles(props.repository, props.files, props.file.map(_._1))
         ),
@@ -98,7 +102,7 @@ object LoadRepositoryPanel {
 
 object LoadRepositoryButton {
 
-  case class Props(repo: Option[HRepository], onClick: Callback)
+  case class Props(repo: Option[HRepository], onClickSelect: Callback, onClickUnload: Callback)
   case class State(isHover: Boolean = false)
 
   class Backend($: BackendScope[Props, State]) {
@@ -110,25 +114,39 @@ object LoadRepositoryButton {
       $.modState(_.copy(isHover = false))
 
     def render(props: Props, state: State) =
-      <.button(
-        ^.id := "load-repo-btn",
-        ^.className   :=  "btn btn-default panel-element-full",
-        ^.onClick     --> props.onClick,
-        ^.onMouseOver --> onMouseOver,
-        ^.onMouseOut  --> onMouseOut,
-        renderContent(props.repo, state.isHover)
+      <.div(
+        <.button(
+          ^.id := "load-repo-btn",
+          ^.classSet1(
+            "btn btn-default panel-element-full",
+            "loaded" -> props.repo.isDefined
+          ),
+          ^.onClick     --> props.onClickSelect,
+          ^.onMouseOver --> onMouseOver,
+          ^.onMouseOut  --> onMouseOut,
+          renderContent(props.repo, state.isHover)
+        ),
+        props.repo.isDefined ?= renderUnloadButton(props.onClickUnload)
       )
 
-    def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
-      case Some(repo) if !isHover =>
-        <.span(
-          <.span(^.className := "octicon octicon-mark-github"),
-          repo.fullName
-        )
+    def octicon(name: String, content: String) = <.span(
+      <.span(^.className := s"octicon octicon-mark-$name"),
+      content
+    )
 
-      case Some(_) => <.span("Select another repository")
-      case None    => <.span("Select a GitHub repository")
+    def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
+      case Some(repo) if !isHover => octicon("github", repo.fullName)
+      case Some(_)                => octicon("github", "Select another repository")
+      case None                   => octicon("github", "Select a GitHub repository")
     }
+
+    def renderUnloadButton(onClick: Callback) =
+      <.button(
+        ^.id        := "unload-repo-btn",
+        ^.className := "btn btn-default",
+        ^.onClick  --> onClick,
+        "x"
+      )
 
   }
 
@@ -138,8 +156,8 @@ object LoadRepositoryButton {
       .renderBackend[Backend]
       .build
 
-  def apply(repo: Option[HRepository], onClick: Callback) =
-    component(Props(repo, onClick))
+  def apply(repo: Option[HRepository], onClickSelect: Callback, onClickUnload: Callback) =
+    component(Props(repo, onClickSelect, onClickUnload))
 
 }
 
