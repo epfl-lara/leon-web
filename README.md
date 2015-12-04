@@ -6,7 +6,7 @@ If you are just upgrading, delete any folder named `leon` inside `leon-web` and 
 
     git submodule update --init --recursive
 
-Later, when pulling changes, use the command `git submodule update`.
+Later, when pulling changes, use the command `git submodule update --recursive`. You might find the command `git submodule sync` useful when switching branches.
 
 # HOW TO RUN LEON ONLINE
 
