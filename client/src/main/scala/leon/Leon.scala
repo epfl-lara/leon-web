@@ -267,17 +267,35 @@ trait LeonWeb {
 
   $("#codecolumn").keyup(displayExplorationFacts _)
 
-  $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
-    val target = $(self).attr("ref")
-    val sel = "#" + target
+  def togglePanel(button: String, show: Boolean): Unit = {
+    val panel = "#" + $(button).attr("ref")
 
-    if ($(sel).is(":visible")) {
-      $(sel).hide()
-      $(self).addClass("disabled")
+    if (!show) {
+      $(panel).hide()
+      $(button).addClass("disabled")
     } else {
-      $(sel).show()
-      $(self).removeClass("disabled")
+      $(panel).show()
+      $(button).removeClass("disabled")
     }
+  }
+
+  var leonPanels =
+    fromStorage[js.Dictionary[Boolean]]("leonPanels")
+      .getOrElse(js.Dictionary.empty[Boolean])
+
+  leonPanels foreach { case (button, visible) =>
+    togglePanel(button, visible)
+  }
+
+  $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
+    val button  = "#" + $(self).attr("id")
+    val panel   = "#" + $(self).attr("ref")
+    val visible = $(panel).is(":visible")
+
+    togglePanel(button, !visible)
+
+    leonPanels += (button -> !visible)
+    LocalStorage.update("leonPanels", JSON.stringify(leonPanels))
 
   }): js.ThisFunction);
 
