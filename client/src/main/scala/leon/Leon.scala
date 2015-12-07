@@ -92,7 +92,7 @@ object Main extends LeonWeb with LeonAPI {
     val reactApp = new ReactApp(this)
     reactApp.init()
 
-    js.timers.setTimeout(3000) {
+    js.timers.setTimeout(4000) {
       if (!connected) {
         $("#disconnectError").hide();
         $("#connectError").show().alert();
@@ -1123,6 +1123,7 @@ trait LeonWeb {
   }
 
   var connected = false
+  var isConnecting = false
 
   var lastReconnectDelay = 0;
   var reconnectIn = 0;
@@ -1184,6 +1185,8 @@ trait LeonWeb {
 
   def setDisconnected(): Unit = {
     connected = false
+    isConnecting = false
+
     updateCompilationStatus("disconnected")
     lastReconnectDelay = 5;
     reconnectIn = lastReconnectDelay;
@@ -1193,6 +1196,7 @@ trait LeonWeb {
 
   def setConnected(): Unit = {
     connected = true
+    isConnecting = false
 
     $("#connectError").hide();
     $("#disconnectError").hide();
@@ -1208,9 +1212,10 @@ trait LeonWeb {
 
       connectWS()
 
-      // If still not connected after 2 seconds, consider failed
-      js.timers.setTimeout(2000) {
+      // If still not connected after 5 seconds, consider failed
+      js.timers.setTimeout(5000) {
         if (!connected) {
+          isConnecting = false
           if (lastReconnectDelay == 0) {
             lastReconnectDelay = 5;
           } else {
@@ -1235,7 +1240,9 @@ trait LeonWeb {
   }
 
   @JSExport
-  def connectWS(): Unit = {
+  def connectWS(): Unit = if (!isConnecting) {
+    isConnecting = true
+
     leonSocket = jsnew(g.WebSocket /*WS*/ )(g._leon_websocket_url).asInstanceOf[LeonSocket]
     leonSocket.onopen = openEvent
     leonSocket.onmessage = receiveEvent
