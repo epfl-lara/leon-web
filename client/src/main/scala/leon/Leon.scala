@@ -9,6 +9,7 @@ import scala.scalajs.js.JSON
 import org.scalajs.dom
 import org.scalajs.dom.{alert, console, document}
 import org.scalajs.dom.html.Element
+import org.scalajs.dom.ext.LocalStorage
 import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 
 import scala.collection.mutable.ListBuffer
@@ -107,14 +108,6 @@ trait LeonWeb {
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
-
-  @ScalaJSDefined
-  trait LocalStorage extends js.Any {
-    def getItem(name: String): String
-    def setItem(name: String, value: String): Unit
-  }
-
-  def localStorage = window.localStorage.asInstanceOf[LocalStorage]
 
   val hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
 
@@ -323,9 +316,13 @@ trait LeonWeb {
   var context = "unknown";
 
   val maxHistory = 20;
+
+  def fromStorage[A <: js.Any](key: String): Option[A] =
+    LocalStorage(key).map(JSON.parse(_).asInstanceOf[A])
+
   // Undo/Redo
-  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ =!= null).getOrElse(new js.Array[String])
-  var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ =!= null).getOrElse(new js.Array[String]())
+  var backwardChanges = fromStorage[js.Array[String]]("backwardChanges").getOrElse(new js.Array[String])
+  var forwardChanges  = fromStorage[js.Array[String]]("forwardChanges").getOrElse(new js.Array[String])
 
   def doUndo(): Unit = {
     forwardChanges.push(editor.getValue());
@@ -383,8 +380,8 @@ trait LeonWeb {
       forwardChanges.splice(0, forwardChanges.length - maxHistory)
     }
 
-    localStorage.setItem("backwardChanges", JSON.stringify(backwardChanges));
-    localStorage.setItem("forwardChanges", JSON.stringify(forwardChanges));
+    LocalStorage.update("backwardChanges", JSON.stringify(backwardChanges))
+    LocalStorage.update("forwardChanges", JSON.stringify(forwardChanges))
   }
 
   updateUndoRedo()
@@ -465,9 +462,9 @@ trait LeonWeb {
     $("#invariant .progress-bar").css("width", percents + "%");
   }
 
-  val localFeatures = localStorage.getItem("leonFeatures")
-  if (localFeatures =!= null) {
-    val locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]]
+  val localFeatures = fromStorage[js.Dictionary[Feature]]("leonFeatures")
+
+  localFeatures foreach { locFeatures =>
     for ((f, locFeature) <- locFeatures) {
       features.get(f) match {
         case Some(feature) =>
@@ -490,7 +487,7 @@ trait LeonWeb {
       l(action = Action.featureSet, module = "main", feature = f, active = features(f).active))
     leonSocket.send(msg)
 
-    localStorage.setItem("leonFeatures", JSON.stringify(features));
+    LocalStorage.update("leonFeatures", JSON.stringify(features));
 
     recompile()
 
@@ -1324,7 +1321,7 @@ trait LeonWeb {
       lastChange = new js.Date().getTime();
     }
 
-    localStorage.setItem("leonEditorCode", editor.getValue());
+    LocalStorage.update("leonEditorCode", editor.getValue());
   }
 
   def loadSelectedExample(): Unit = {
@@ -1421,7 +1418,7 @@ trait LeonWeb {
     $("#terminationDialog").modal("show")
   }
 
-  var storedCode = localStorage.getItem("leonEditorCode")
+  var storedCode = LocalStorage("leonEditorCode")
 
   sealed class Placement(name: String) { override def toString = name }
   object Placement {
@@ -1431,7 +1428,7 @@ trait LeonWeb {
     case object Bottom extends Placement("bottom")
   }
 
-  val seenDemo = localStorage.getItem("leonSeenDemo").orIfNull("0").toInt
+  val seenDemo = LocalStorage("leonSeenDemo").getOrElse("0").toInt
   @ScalaJSDefined class Demo(_where: => JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
     def where: JQuery = _where
     val title: String = _title
@@ -1519,10 +1516,10 @@ trait LeonWeb {
 
         $("#demoPane").unbind("hide.bs.modal").on("hide.bs.modal", () => {
           if (action == "next") {
-            localStorage.setItem("leonSeenDemo", (id + 1).toString)
+            LocalStorage.update("leonSeenDemo", (id + 1).toString)
             js.timers.setTimeout(500) { showDemo(id + 1) }
           } else {
-            localStorage.setItem("leonSeenDemo", 100.toString)
+            LocalStorage.update("leonSeenDemo", 100.toString)
           }
         })
 
@@ -1545,7 +1542,7 @@ trait LeonWeb {
         lastDemo = where;
 
         if (where.length == 0) {
-          localStorage.setItem("leonSeenDemo", (id + 1).toString)
+          LocalStorage.update("leonSeenDemo", (id + 1).toString)
           hideDemo(id)
           showDemo(id + 1)
           return ;
@@ -1570,12 +1567,12 @@ trait LeonWeb {
         where.popover("show")
 
         $("#demoPane button[demo-action=\"close\"]").click(() => {
-          localStorage.setItem("leonSeenDemo", 100.toString)
+          LocalStorage.update("leonSeenDemo", 100.toString)
           hideDemo(id)
         })
 
         $("#demoPane button[demo-action=\"next\"]").click(() => {
-          localStorage.setItem("leonSeenDemo", (id + 1).toString)
+          LocalStorage.update("leonSeenDemo", (id + 1).toString)
           hideDemo(id)
           showDemo(id + 1)
         })
@@ -1600,14 +1597,15 @@ trait LeonWeb {
       showDemo(toShow)
     }
 
-    storedCode = null
+    storedCode = None
   }
 
-  if (storedCode =!= null) {
-    editor.setValue(storedCode);
+  storedCode foreach { code =>
+    editor.setValue(code);
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
+
   /*
   snowStorm.snowColor = "#ddddff";
   snowStorm.vMaxX = 2;
