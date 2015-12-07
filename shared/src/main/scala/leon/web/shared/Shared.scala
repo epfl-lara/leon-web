@@ -21,7 +21,7 @@ object Action {
   val switchBranch = "switchBranch"
 }
 
-object VerifStatus {
+object VerifStatus { // See leon/verification/VerificationCondition.scala
   val invalid = "invalid"
   val valid = "valid"
   val crashed = "crashed"
@@ -56,4 +56,5 @@ object Module {
     val execution = "execution"
     val repair = "repair"
     val invariant = "invariant"
+    val disambiguation = "disambiguation"
 }

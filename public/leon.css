@@ -356,6 +356,13 @@ table#synthesis_table td.subproblem {
   padding: 5px;
 }
 
+/* Disambiguation */
+
+a.disambiguationAlternative {
+	cursor:pointer;
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+}
+
 /* Execution */
 
 .ace_marker-layer .leon-explore-location {

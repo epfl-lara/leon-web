@@ -89,6 +89,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
         case Action.doSearch =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
+          
+          ctx.reporter.info("State of the program at the beginning of synthesis " + cstate.program)
 
           doSearch(cstate, fname, chooseId)
 
@@ -336,11 +338,11 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 an.composeSolutions(an.descendants.map { d =>
                   Stream(Solution.choose(d.p))
                 })
-              }.headOption
+              }
 
             case _ =>
               logInfo("Path "+path+" did not lead to an and node!")
-              None
+              Stream.Empty
           }
 
           sendSolution(cstate, synth, osol)
@@ -398,8 +400,9 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     (solCode, allCode)
   }
 
-  def sendSolution(cstate: CompilationState, synth: Synthesizer, osol: Option[Solution]): Unit = {
+  def sendSolution(cstate: CompilationState, synth: Synthesizer, ssol: Stream[Solution]): Unit = {
     val fd = synth.ci.fd
+    val osol = ssol.headOption
 
     osol match {
       case Some(sol) =>
@@ -418,6 +421,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           "total" -> toJson(1)
         ))
         logInfo("Application successful!")
+        
+        sender ! DispatchTo(shared.Module.disambiguation, NewSolutions(cstate, synth, ssol))
 
       case None =>
         event("synthesis_result", Map(
@@ -494,85 +499,88 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
          val ctx    = synth.context
          val prog   = synth.program
 
-         search.search(synth.sctx) match {
-            case _ if interruptManager.isInterrupted =>
-              val (closed, total) = search.g.getStats()
+         val solutions = search.search(synth.sctx)
+         if(interruptManager.isInterrupted) {
+          val (closed, total) = search.g.getStats()
 
-              event("synthesis_result", Map(
-                "result" -> toJson("failure"),
-                "closed" -> toJson(closed),
-                "total" -> toJson(total)
-              ))
+          event("synthesis_result", Map(
+            "result" -> toJson("failure"),
+            "closed" -> toJson(closed),
+            "total" -> toJson(total)
+          ))
 
-              // We refresh all synthesis state because an abort messes up with the search
-              self ! OnUpdateCode(cstate)
-
-            case sol #:: _ =>
-              val (newSol, succeeded) = if (!sol.isTrusted) {
-                // Validate solution
-                event("synthesis_proof", Map("status" -> toJson("init")))
-                synth.validateSolution(search, sol, 2.seconds) match {
-                  case (sol, true) =>
-                    event("synthesis_proof", Map("status" -> toJson("success")))
-                    (sol, true)
-                  case (sol, false) =>
-                    event("synthesis_proof", Map("status" -> toJson("failure")))
-                    (sol, false)
-                }
-              } else {
+          // We refresh all synthesis state because an abort messes up with the search
+          self ! OnUpdateCode(cstate)
+        } else if(solutions.isEmpty) {
+          val (closed, total) = search.g.getStats()
+          event("synthesis_result", Map(
+            "result" -> toJson("failure"),
+            "closed" -> toJson(closed),
+            "total" -> toJson(total)
+          ))
+          notifyError("Search failed.")
+          logInfo("Synthesis search failed!")
+        } else {
+          val sol = solutions.head
+          val (newSol, succeeded) = if (!sol.isTrusted) {
+            // Validate solution
+            event("synthesis_proof", Map("status" -> toJson("init")))
+            synth.validateSolution(search, sol, 2.seconds) match {
+              case (sol, true) =>
+                event("synthesis_proof", Map("status" -> toJson("success")))
                 (sol, true)
-              }
-
-              val solCode = newSol.toSimplifiedExpr(ctx, prog)
-              val fInt = new FileInterface(new MuteReporter())
-
-
-              val oldFd = ci.fd
-              val newFd = ci.fd.duplicate()
-              newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
-
-              val resFd = flattenFunctions(newFd, ctx, prog)
-
-              val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                            oldFd,
-                                            resFd)(ctx)
-
-              val (closed, total) = search.g.getStats()
-
-              event("synthesis_result", Map(
-                "result" -> toJson("success"),
-                "proven" -> toJson(succeeded),
-                "solCode" -> toJson(ScalaPrinter(solCode)),
-                "allCode" -> toJson(allCode),
-                "cursor" -> toJson(Map(
-                  "line"   -> oldFd.getPos.line,
-                  "column" -> (oldFd.getPos.col-1)
-                )),
-                "closed" -> toJson(closed),
-                "total" -> toJson(total)
-              ))
-
-              logInfo("Synthesis search succeeded!")
-
-            case _ =>
-              val (closed, total) = search.g.getStats()
-
-              event("synthesis_result", Map(
-                "result" -> toJson("failure"),
-                "closed" -> toJson(closed),
-                "total" -> toJson(total)
-              ))
-
-              notifyError("Search failed.")
-              logInfo("Synthesis search failed!")
+              case (sol, false) =>
+                event("synthesis_proof", Map("status" -> toJson("failure")))
+                (sol, false)
+            }
+          } else {
+            (sol, true)
           }
-        } catch {
-          case t: Throwable =>
-            notifyError("Woops, search crashed: "+t.getMessage)
-            logInfo("Synthesis search crashed", t)
+
+          val solCode = newSol.toSimplifiedExpr(ctx, prog)
+          val fInt = new FileInterface(new MuteReporter())
+
+
+          val oldFd = ci.fd
+          val newFd = ci.fd.duplicate()
+          newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
+
+          val resFd = flattenFunctions(newFd, ctx, prog)
+
+          val allCode = fInt.substitute(cstate.code.getOrElse(""),
+                                        oldFd,
+                                        resFd)(ctx)
+
+          val (closed, total) = search.g.getStats()
+
+          event("synthesis_result", Map(
+            "result" -> toJson("success"),
+            "proven" -> toJson(succeeded),
+            "solCode" -> toJson(ScalaPrinter(solCode)),
+            "allCode" -> toJson(allCode),
+            "cursor" -> toJson(Map(
+              "line"   -> oldFd.getPos.line,
+              "column" -> (oldFd.getPos.col-1)
+            )),
+            "closed" -> toJson(closed),
+            "total" -> toJson(total)
+          ))
+          
+          sender ! DispatchTo(shared.Module.disambiguation, NewSolutions(cstate, synth, solutions))
+
+          logInfo("Synthesis search succeeded!")
         }
+      } catch {
+        case t: Throwable =>
+          notifyError("Woops, search crashed: "+t.getMessage)
+          logInfo("Synthesis search crashed", t)
+      }
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }
+  }
+  
+  def doClarify(cstate: CompilationState, fname: String, cid: Int): Unit = {
+    
   }
 }

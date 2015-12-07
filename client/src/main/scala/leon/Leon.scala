@@ -185,6 +185,7 @@ trait LeonWeb {
   @ScalaJSDefined object Features extends js.Object {
     val verification=   Feature(active= true, name= "Verification")
     val synthesis=      Feature(active= true, name= "Synthesis")
+    val disambiguation= Feature(active= true, name="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
     val termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
     val presentation=   Feature(active= false, name= "Presentation Mode")
     val execution=      Feature(active= true, name= "Execution")
@@ -731,6 +732,18 @@ trait LeonWeb {
     
     if (hasFunctions && Features.synthesis.active) {
       $("#synthesis").show()
+      
+      if($("#synthesisDialog").is(":visible")) {
+        val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
+        
+        val msg = JSON.stringify(l(
+          module = "synthesis",
+          action = Action.getRulesToApply,
+          fname = fname,
+          cid = Handlers.synthesis_result_cid))
+
+        leonSocket.send(msg)
+      }
     } else {
       $("#synthesis").hide()
     }
@@ -886,7 +899,7 @@ trait LeonWeb {
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
         for((variable_name, value) <- vc.counterExample.get) { 
-          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td>" + value + "</td></tr>";
+          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td><pre>" + value + "</pre></td></tr>";
         }
         html += "  </table>"
 

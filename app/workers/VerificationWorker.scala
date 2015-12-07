@@ -41,7 +41,7 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
         }.headOption
       }.toMap
 
-      sender ! DispatchTo("execution", NewCounterExamples(cstate, allCEs))
+      sender ! DispatchTo(shared.Module.execution, NewCounterExamples(cstate, allCEs))
     }
 
     val fvcs = Json.obj(

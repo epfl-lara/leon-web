@@ -121,6 +121,20 @@ object HandlersTypes {
   }
   
   @ScalaJSDefined
+  trait HDisambiguationDisplay extends js.Any {
+    val display: String
+    val allCode: String
+  }
+  
+  @ScalaJSDefined
+  trait HDisambiguationResult extends js.Any {
+    val input: String
+    val fname: String
+    val confirm_solution: HDisambiguationDisplay
+    val alternatives: js.Array[HDisambiguationDisplay]
+  }
+  
+  @ScalaJSDefined
   trait HSynthesisExploration extends js.Object {
     val html: String
     val fname: String
@@ -251,7 +265,6 @@ object Handlers extends js.Object {
   }
 
   val update_overview = (data: HUpdateOverview) => {
-    console.log("Received overview:",data)
     if (data.module == "main") {
       overview.functions = js.Dictionary.empty[OverviewFunction];
 
@@ -338,14 +351,18 @@ object Handlers extends js.Object {
     txt.append(data.message + "\n");
     txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
   }
+  
+  var synthesis_result_fname: js.UndefOr[String] = js.undefined
+  var synthesis_result_cid: js.UndefOr[Int] = js.undefined
 
   val synthesis_result = (data: HSynthesisResult) => {
     val pb = $("#synthesisProgress")
     val pbb = $("#synthesisProgress .progress-bar")
-
+    
     // setup and open pane
     if (data.result == "init") {
       $("#synthesisResults").hide()
+      $("#synthesisDialog .clarificationResults").hide()
       $("#synthesisDialog").attr("cid", data.cid)
       $("#synthesisDialog").attr("fname", data.fname)
       $("#synthesisDialog .exploreButton").hide()
@@ -353,9 +370,12 @@ object Handlers extends js.Object {
       $("#synthesisDialog .closeButton").hide()
       $("#synthesisDialog .cancelButton").show()
       $("#synthesisDialog .code.problem").removeClass("prettyprinted")
-      $("#synthesisDialog .code.problem").html(data.problem)
+      $("#synthesisDialog .code.problem").text(data.problem)
       g.prettyPrint();
       $("#synthesisDialog").modal("show")
+      
+      synthesis_result_fname = data.fname
+      synthesis_result_cid = data.cid
 
       pbb.addClass("active progress-bar-striped")
       pbb.removeClass("progress-bar-success progress-bar-danger")
@@ -399,7 +419,7 @@ object Handlers extends js.Object {
       pbb.addClass("progress-bar-success")
 
       $("#synthesisResults .code.solution").removeClass("prettyprinted")
-      $("#synthesisResults .code.solution").html(data.solCode)
+      $("#synthesisResults .code.solution").text(data.solCode)
       $("#synthesisResults").show()
       g.prettyPrint();
       $("#synthesisDialog .exploreButton").show()
@@ -433,7 +453,49 @@ object Handlers extends js.Object {
       $("#synthesisDialog .cancelButton").hide()
       $("#synthesisDialog .closeButton").show()
       synthesizing = false;
+      disambiguationResultDisplay().empty()
     }
+  }
+  
+  def disambiguationResultDisplay(): JQuery = {
+    if($("#synthesisDialog").is(":visible")) {
+      $("#synthesisDialog .clarificationResults .clarificationQuestions")
+    } else if($("#synthesisExploreDialog").is(":visible")) {
+      $("#synthesisExploreDialog .clarificationResults .clarificationQuestions")
+    } else $("") // TODO: Exploration
+  }
+  
+  def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean): JQuery = {
+    $("<a>").addClass("disambiguationAlternative").text(alternative.display).on("click.alternative", () => {
+      Handlers.replace_code(new HReplaceCode { val newCode = alternative.allCode })
+      val toFill = disambiguationResultDisplay()
+      toFill.empty().append($("<code>").text(alternative.display))
+      toFill.append(" chosen. Looking for more ambiguities...")
+      /*if (data.cursor.isDefined) {
+        js.timers.setTimeout(100) {
+          Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
+        }
+      }*/
+    })
+  }
+  
+  val disambiguation_result = (data: HDisambiguationResult) => {
+    val toFill = disambiguationResultDisplay()
+    
+    val args = //if(data.input(0) == "(") {
+      data.input
+   /* } else {
+      "(" + data.input + ")"
+    }*/
+    toFill.empty()
+    var html = "<code>" + data.fname + " " + args + "</code> may produce different results. What is the correct one?<br>"
+    toFill.append(html)
+    toFill.append(displayAlternative(data.confirm_solution, current=true))
+    for(alternative <- data.alternatives) {
+      toFill.append("<br>")
+      toFill.append(displayAlternative(alternative, false))
+    }
+    $("#clarificationResults").show()
   }
 
   val synthesis_exploration = (data: HSynthesisExploration) => {
@@ -555,6 +617,14 @@ object Handlers extends js.Object {
 
       leonSocket.send(msg)
     })
+    if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
+      val msg = JSON.stringify(
+        l(action = Action.doSearch, module = "synthesis", fname = synthesis_result_fname, cid = synthesis_result_cid))
+
+      leonSocket.send(msg)
+    }
+
+    
     $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
       val msg = JSON.stringify(
           l("action" -> Action.doExplore,
@@ -628,7 +698,7 @@ object Handlers extends js.Object {
       pbb.addClass("progress-bar-success")
 
       $("#repairResults .code.solution").removeClass("prettyprinted")
-      $("#repairResults .code.solution").html(data.solCode)
+      $("#repairResults .code.solution").text(data.solCode)
       $("#repairResults").show()
       g.prettyPrint();
       $("#repairDialog .importButton").show()
