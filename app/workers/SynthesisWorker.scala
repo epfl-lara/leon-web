@@ -53,7 +53,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     case OnUpdateCode(cstate) =>
       var options = SynthesisSettings()
 
-      options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
+      //options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
 
       try {
         val synthesisInfos = SourceInfo.extractFromProgram(ctx, cstate.program).map {
@@ -578,9 +578,5 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }
-  }
-  
-  def doClarify(cstate: CompilationState, fname: String, cid: Int): Unit = {
-    
   }
 }

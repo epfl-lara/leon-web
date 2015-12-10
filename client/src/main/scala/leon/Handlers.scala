@@ -464,6 +464,13 @@ object Handlers extends js.Object {
       $("#synthesisExploreDialog .clarificationResults .clarificationQuestions")
     } else $("") // TODO: Exploration
   }
+  def disambiguationResultDisplayContainer(): JQuery = {
+    if($("#synthesisDialog").is(":visible")) {
+      $("#synthesisDialog .clarificationResults")
+    } else if($("#synthesisExploreDialog").is(":visible")) {
+      $("#synthesisExploreDialog .clarificationResults")
+    } else $("") // TODO: Exploration
+  }
   
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean): JQuery = {
     $("<a>").addClass("disambiguationAlternative").text(alternative.display).on("click.alternative", () => {
@@ -480,6 +487,7 @@ object Handlers extends js.Object {
   }
   
   val disambiguation_result = (data: HDisambiguationResult) => {
+    console.log("Going to fill disambiguation ", data)
     val toFill = disambiguationResultDisplay()
     
     val args = //if(data.input(0) == "(") {
@@ -495,7 +503,7 @@ object Handlers extends js.Object {
       toFill.append("<br>")
       toFill.append(displayAlternative(alternative, false))
     }
-    $("#clarificationResults").show()
+    disambiguationResultDisplayContainer().show()
   }
 
   val synthesis_exploration = (data: HSynthesisExploration) => {
