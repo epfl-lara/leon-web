@@ -15,6 +15,7 @@ import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
 
 object HandlersTypes {
+  
   @ScalaJSDefined
   trait HPermalink extends js.Object {
     val link: String
@@ -254,6 +255,7 @@ object Handlers extends js.Object {
   import HandlersTypes._
   def window = g
 
+  import Implicits._
   val permalink = (data: HPermalink) => {
     $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
     $("#permalink-value").show()
@@ -353,7 +355,6 @@ object Handlers extends js.Object {
   }
   
   var synthesis_result_fname: js.UndefOr[String] = js.undefined
-  var synthesis_result_cid: js.UndefOr[Int] = js.undefined
 
   val synthesis_result = (data: HSynthesisResult) => {
     val pb = $("#synthesisProgress")
@@ -375,7 +376,6 @@ object Handlers extends js.Object {
       $("#synthesisDialog").modal("show")
       
       synthesis_result_fname = data.fname
-      synthesis_result_cid = data.cid
 
       pbb.addClass("active progress-bar-striped")
       pbb.removeClass("progress-bar-success progress-bar-danger")
@@ -483,20 +483,20 @@ object Handlers extends js.Object {
           Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
         }
       }*/
-    })
+    }).add((if(current) $("<span>").text("(output of solution above)") else $("")))
   }
   
   val disambiguation_result = (data: HDisambiguationResult) => {
     console.log("Going to fill disambiguation ", data)
     val toFill = disambiguationResultDisplay()
     
-    val args = //if(data.input(0) == "(") {
+    val args = if(data.input(0) == "(") {
       data.input
-   /* } else {
+    } else {
       "(" + data.input + ")"
-    }*/
+    }
     toFill.empty()
-    var html = "<code>" + data.fname + " " + args + "</code> may produce different results. What is the correct one?<br>"
+    var html = "<code>" + data.fname + args + "</code> may produce different results. What is the correct one?<br>"
     toFill.append(html)
     toFill.append(displayAlternative(data.confirm_solution, current=true))
     for(alternative <- data.alternatives) {
@@ -591,6 +591,8 @@ object Handlers extends js.Object {
       }
     })
   }
+  
+  var synthesis_chosen_rule: Option[String] = None
 
   val synthesis_rulesToApply = (data: HSynthesisRulesToApply) => {
     val fname = data.fname
@@ -622,18 +624,29 @@ object Handlers extends js.Object {
     $(selector + " li a[action=\"search\"]").unbind("click").click(() => {
       val msg = JSON.stringify(
         l(action = Action.doSearch, module = "synthesis", fname = fname, cid = cid))
-
+      synthesis_chosen_rule = Some("search")
       leonSocket.send(msg)
     })
     if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
-      val msg = JSON.stringify(
-        l(action = Action.doSearch, module = "synthesis", fname = synthesis_result_fname, cid = synthesis_result_cid))
-
-      leonSocket.send(msg)
+      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+      synthesis_chosen_rule match {
+        case None => // Explore
+        case Some("search")=> // Search
+          val msg = JSON.stringify(
+            l(action = Action.doSearch, module = "synthesis", fname = synthesis_result_fname, cid = cid))
+    
+          leonSocket.send(msg)
+        case Some(rid) => // Rule chosen
+          val msg = JSON.stringify(
+            l(action = Action.doApplyRule, module = "synthesis", fname = fname, cid = cid, rid = rid.toInt))
+    
+          leonSocket.send(msg)
+      }
     }
 
     
     $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
+      synthesis_chosen_rule = None
       val msg = JSON.stringify(
           l("action" -> Action.doExplore,
             "module" -> "synthesis",
@@ -647,7 +660,7 @@ object Handlers extends js.Object {
     })
     $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
       val rid = $(self).attr("rid").toInt
-
+      synthesis_chosen_rule = Some(rid.toString)
       val msg = JSON.stringify(
         l(action = Action.doApplyRule, module = "synthesis", fname = fname, cid = cid, rid = rid))
 

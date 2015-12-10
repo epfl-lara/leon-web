@@ -733,14 +733,15 @@ trait LeonWeb {
     if (hasFunctions && Features.synthesis.active) {
       $("#synthesis").show()
       
-      if($("#synthesisDialog").is(":visible")) {
+      if($("#synthesisDialog").is(":visible")) { // Automatic retrieval of rules if the synthesis dialog is visible.
         val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
-        
+        val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+          
         val msg = JSON.stringify(l(
           module = "synthesis",
           action = Action.getRulesToApply,
           fname = fname,
-          cid = Handlers.synthesis_result_cid))
+          cid = cid))
 
         leonSocket.send(msg)
       }
@@ -899,7 +900,7 @@ trait LeonWeb {
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
         for((variable_name, value) <- vc.counterExample.get) { 
-          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td><pre>" + value + "</pre></td></tr>";
+          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true'>" + value + "</div></td></tr>";
         }
         html += "  </table>"
 
@@ -913,6 +914,9 @@ trait LeonWeb {
         html += "</tr>"
 
         tbl.append(html)
+        tbl.select("div.output").on("keyup", (e: JQueryEventObject) => {
+          
+        })
       }
     }
 
