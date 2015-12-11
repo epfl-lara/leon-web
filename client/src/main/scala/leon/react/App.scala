@@ -128,7 +128,7 @@ class App(private val api: LeonAPI) {
 
     $("#login-btn").click { e: JQueryEventObject =>
       e.preventDefault()
-      ReactDOM.render(LoginModal(true), el)
+      Actions.toggleLoginModal ! ToggleLoginModal(true)
     }
   }
 
