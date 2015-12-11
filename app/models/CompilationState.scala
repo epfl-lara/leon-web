@@ -10,7 +10,7 @@ import leon.purescala.Definitions._
 case class CompilationState (
   code: Option[String],
   project: Option[Project] = None,
-  tempFile: Option[String] = None,
+  savedFile: Option[String] = None,
   compResult: String,
   optProgram: Option[Program],
   // Imperative information
@@ -40,7 +40,7 @@ case class CompilationState (
     !(fd.annotations contains "library")
   }
 
-  def functions = project.flatMap(const(tempFile)) match {
+  def functions = project.flatMap(const(savedFile)) match {
     case None =>
       program.definedFunctions
         .toList
@@ -65,14 +65,14 @@ case class CompilationState (
 
 object CompilationState {
 
-  def failure(code: String, project: Option[Project] = None, tempFile: Option[String] = None) =
+  def failure(code: String, project: Option[Project] = None, savedFile: Option[String] = None) =
     CompilationState(
       code       = Some(code),
       compResult = "failure",
       optProgram = None,
       wasLoop    = Set(),
       project    = project,
-      tempFile   = tempFile
+      savedFile  = savedFile
     )
 
   def unknown =
@@ -82,7 +82,7 @@ object CompilationState {
       optProgram = None,
       wasLoop    = Set(),
       project    = None,
-      tempFile   = None
+      savedFile  = None
     )
 
 }

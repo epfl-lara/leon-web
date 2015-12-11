@@ -34,6 +34,7 @@ import leon.web.shared.{Action, Module, Project}
 import leon.web.utils.String._
 
 import java.io.File
+import java.io.PrintWriter
 import java.util.concurrent.atomic.AtomicBoolean
 
 import org.joda.time.DateTime
@@ -405,7 +406,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         clientLog("Compiling...")
         logInfo(s"Code updated:\n$code")
 
-        val tempFile = saveCode(code)
+        val savedFile = project match {
+          case None =>
+            saveCode(code)
+
+          case Some(p) =>
+            val path = {
+              val wc = RepositoryService.repositoryFor(user.get, p.owner, p.repo)
+              val (_, _, filePath) = wc.getFile(p.branch, p.file).get
+              s"${wc.path.getAbsolutePath()}/$filePath"
+            }
+
+            saveCode(code, Some(new File(path)))
+        }
 
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
@@ -418,7 +431,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         // load files from the repository
          val files = user.zip(project).headOption match {
             case None =>
-              tempFile.getAbsolutePath() :: Nil
+              savedFile.getAbsolutePath() :: Nil
 
             case Some((user, Project(owner, repo, branch, file, _))) =>
               val wc    = RepositoryService.repositoryFor(user, owner, repo)
@@ -430,7 +443,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 // `saveCode` just wrote.
                 .map { f =>
                   if (f === file)
-                    tempFile.getAbsolutePath()
+                    savedFile.getAbsolutePath()
                   else
                     s"${wc.path.getAbsolutePath()}/$f"
                 }
@@ -458,7 +471,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               compResult = "success",
               wasLoop    = Set(),
               project    = project,
-              tempFile   = Some(tempFile.getName())
+              savedFile  = Some(savedFile.getName())
             )
 
             lastCompilationState = cstate
@@ -504,7 +517,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             event("compilation", Map("status" -> toJson("failure")))
 
             lastCompilationState = CompilationState.failure(
-              code, project, Some(tempFile.getName())
+              code, project, Some(savedFile.getName())
             )
         }
 
@@ -549,20 +562,25 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
   }
 
-  def saveCode(code: String): File = {
-    import java.io.PrintWriter
+  def saveCode(code: String, file: Option[File] = None): File = file match {
+    case None =>
 
-    val d = new DateTime().toString(DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS"))
+      val format   = DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS")
+      val dateTime = new DateTime().toString(format)
+      val file     = new File(s"logs/inputs/$dateTime.scala")
 
-    val file = new File(s"logs/inputs/$d.scala");
-    val w = new PrintWriter(file , "UTF-8")
-    try {
-      w.print(code)
-    } finally {
-      w.close
-    }
+      saveCode(code, Some(file))
 
-    file
+    case Some(file) =>
+      val w = new PrintWriter(file , "UTF-8")
+
+      try {
+        w.print(code)
+      } finally {
+        w.close
+      }
+
+      file
   }
 
   def notifyAnnotations(annotations: Seq[CodeAnnotation]): Unit = {
