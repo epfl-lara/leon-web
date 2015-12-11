@@ -1286,7 +1286,7 @@ trait LeonWeb {
     }
 
     currentProject = project
-    recompile()
+    recompile(force = true)
   }
 
   def getCurrentProject() = currentProject
@@ -1296,7 +1296,7 @@ trait LeonWeb {
 
   var oldCode = ""
 
-  def recompile() = {
+  def recompile(force: Boolean = false) = {
     val currentCode = editor.getValue()
 
     if (oldCode =!= "" && oldCode =!= currentCode) {
@@ -1305,10 +1305,10 @@ trait LeonWeb {
       }
     }
 
-    if (connected && oldCode =!= currentCode) {
+    if (connected && (oldCode =!= currentCode || force)) {
 
       val msg = currentProject match {
-        case Some(Project(owner, repo, branch, file)) => l(
+        case Some(Project(owner, repo, branch, file, _)) => l(
           action = Action.doUpdateCodeInProject,
           module = "main",
           owner  = owner,

@@ -63,7 +63,8 @@ object Actions {
           owner  = r.repo.owner,
           repo   = r.repo.name,
           branch = b.branch,
-          file   = f.fileName
+          file   = f.fileName,
+          code   = Some(f.content)
         )
 
         SetCurrentProject(Some(project))
@@ -146,9 +147,6 @@ object Actions {
     loadFile
       .doWork(processAction)
       .flatMap(_ => Events.fileLoaded)
-      .doWork { e =>
-        updateEditorCode ! UpdateEditorCode(e.content)
-      }
       .map { e =>
         (state: AppState) =>
           state.copy(file = Some((e.fileName, e.content)))

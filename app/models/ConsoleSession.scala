@@ -420,7 +420,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             case None =>
               tempFile.getAbsolutePath() :: Nil
 
-            case Some((user, Project(owner, repo, branch, file))) =>
+            case Some((user, Project(owner, repo, branch, file, _))) =>
               val wc    = RepositoryService.repositoryFor(user, owner, repo)
               wc.getFiles(branch)
                 .getOrElse(Seq[String]())

@@ -112,6 +112,10 @@ class App(private val api: LeonAPI) {
     case SetCurrentProject(project) =>
       api.setCurrentProject(project)
 
+      project.flatMap(_.code).foreach { code =>
+        Actions.updateEditorCode ! UpdateEditorCode(code)
+      }
+
     case _ =>
   }
 
