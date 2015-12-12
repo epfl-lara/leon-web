@@ -13,6 +13,7 @@ import leon.purescala.Definitions._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.purescala.Types._
+import shared.Action
 
 import scala.concurrent.duration._
 
@@ -20,6 +21,8 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
   import ConsoleProtocol._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
+  
+  var counterExamplesExprs: List[Map[String, Expr]] = Nil
 
   def notifyVerifOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
@@ -189,6 +192,10 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
+        case Action.prettyPrintCounterExample =>
+          val pretty_printed = (event \ "output").as[String]
+          
+          
         case action =>
           notifyError("Received unknown action: "+action)
       }

@@ -2,6 +2,7 @@ package leon.web.shared
 
 object Constants {
   val invariantMainCode = "$$__invariantMainCode__$$"
+  val disambiguationPlaceHolder = "$$__disambiguationPlaceHolder__$$"
 }
 
 object Action {
@@ -12,6 +13,7 @@ object Action {
   val getRulesToApply = "getRulesToApply"
   val doCancel = "doCancel"
   val doExplore = "doExplore"
+  val prettyPrintCounterExample = "prettyPrintCounterExample"
   val doSearch = "doSearch"
   val doApplyRule = "doApplyRule"
   val doRepair = "doRepair"

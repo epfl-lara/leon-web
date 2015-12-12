@@ -132,6 +132,7 @@ object HandlersTypes {
     val input: String
     val fname: String
     val confirm_solution: HDisambiguationDisplay
+    val custom_alternative: HDisambiguationDisplay
     val alternatives: js.Array[HDisambiguationDisplay]
   }
   
@@ -472,8 +473,8 @@ object Handlers extends js.Object {
     } else $("") // TODO: Exploration
   }
   
-  def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean): JQuery = {
-    $("<a>").addClass("disambiguationAlternative").text(alternative.display).on("click.alternative", () => {
+  def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay): JQuery = {
+    val result: JQuery = $("<pre>").addClass("disambiguationAlternative").addClass(if(current) "current" else "").attr("title", if(current) "current output" else "").text(alternative.display).on("click.alternative", () => {
       Handlers.replace_code(new HReplaceCode { val newCode = alternative.allCode })
       val toFill = disambiguationResultDisplay()
       toFill.empty().append($("<code>").text(alternative.display))
@@ -483,14 +484,47 @@ object Handlers extends js.Object {
           Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
         }
       }*/
-    }).add((if(current) $("<span>").text("(output of solution above)") else $("")))
+    })
+    val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide()
+    val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative").text(alternative.display).hide()
+    val validatebox = $("""<i class="fa fa-check"></i>""").text("validate").hide()
+    
+    val container = $("<span>").append(result).append(edittext).append(editbox).append(validatebox)
+    container.mouseenter((e: JQueryEventObject) => {
+      if(!validatebox.is(":visible")) {
+        editbox.show()
+        editbox.height(container.height())
+      }
+      ().asInstanceOf[js.Any]
+    }).mouseleave((e: JQueryEventObject) => {
+      editbox.hide()
+      ().asInstanceOf[js.Any]
+    })
+    editbox.on("click", () => {
+      validatebox.show()
+      val lineHeight = result.css("line-height")
+      val a = lineHeight.substring(0, lineHeight.length - 2).toFloat
+      edittext.height(result.height() + a)
+      edittext.width(result.width() + a)
+      edittext.show()
+      edittext.click()
+      result.hide()
+    })
+    validatebox.on("click", () => {
+      val customCode = custom.allCode.replace("\""+leon.web.shared.Constants.disambiguationPlaceHolder + "\"", edittext.text())
+      Handlers.replace_code(new HReplaceCode { val newCode = customCode })
+      val toFill = disambiguationResultDisplay()
+      toFill.empty().append($("<code>").text(edittext.text()))
+      toFill.append(" chosen. Looking for more ambiguities...")
+    })
+    container
   }
   
   val disambiguation_result = (data: HDisambiguationResult) => {
     console.log("Going to fill disambiguation ", data)
     val toFill = disambiguationResultDisplay()
     
-    val args = if(data.input(0) == "(") {
+    val args = if(data.input(0) == '(') {
       data.input
     } else {
       "(" + data.input + ")"
@@ -498,10 +532,10 @@ object Handlers extends js.Object {
     toFill.empty()
     var html = "<code>" + data.fname + args + "</code> may produce different results. What is the correct one?<br>"
     toFill.append(html)
-    toFill.append(displayAlternative(data.confirm_solution, current=true))
+    toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative))
     for(alternative <- data.alternatives) {
       toFill.append("<br>")
-      toFill.append(displayAlternative(alternative, false))
+      toFill.append(displayAlternative(alternative, false, data.custom_alternative))
     }
     disambiguationResultDisplayContainer().show()
   }

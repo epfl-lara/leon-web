@@ -62,6 +62,9 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
         "confirm_solution" -> toJson(
             Map("display" -> question.current_output.asString(synth.program)(synth.context), 
                 "allCode" -> convertExampleToFullCode(cstate, synth, tupleWrap(question.inputs), question.current_output))),
+        "custom_alternative" -> toJson(
+            Map("display" -> shared.Constants.disambiguationPlaceHolder, 
+                "allCode" -> convertExampleToFullCode(cstate, synth, tupleWrap(question.inputs), StringLiteral(shared.Constants.disambiguationPlaceHolder)))),
         "alternatives" -> toJson(
             question.other_outputs.map(output =>
               Map("display" -> output.asString(synth.program)(synth.context), 

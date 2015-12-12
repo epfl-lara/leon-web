@@ -358,9 +358,37 @@ table#synthesis_table td.subproblem {
 
 /* Disambiguation */
 
-a.disambiguationAlternative {
+pre.disambiguationAlternative {
+    display: inline-block;
 	cursor:pointer;
+	color: blue;
 	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+	margin: 0;
+    padding: 0;
+    border: none;
+}
+pre.disambiguationAlternative + i.fa-pencil-square-o {
+	vertical-align: text-top;
+	cursor: pointer;
+	margin-left: 0.3em;
+}
+pre.disambiguationAlternative + i.fa-pencil-square-o:hover {
+	color: blue;
+}
+i.fa-pencil-square-o + i.fa-check {
+	vertical-align: text-top;
+	cursor: pointer;
+	margin-left: 0.3em;
+}
+i.fa-pencil-square-o + i.fa-check:hover {
+	color: blue;
+}
+pre.disambiguationAlternative:hover {
+	text-decoration:none;
+	background-color:rgba(128,128,128,0.2);
+}
+pre.disambiguationAlternative.current {
+	color: #5cb85c;
 }
 
 /* Execution */
