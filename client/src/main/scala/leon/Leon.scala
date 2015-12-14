@@ -906,7 +906,9 @@ trait LeonWeb {
 
         if (vc.execution.isDefined && vc.execution.get.result == "success" && Features.execution.active) {
           html += "  <p>It produced the following output:</p>";
-          html += "  <div class=\"output\">" + vc.execution.get.output + "</div>"
+          html += "  <table class=\"input\">";
+          html += "  "+ "<tr><td>" + "<div class='output'  contentEditable='true'>" + vc.execution.get.output + "</div>" + "</td></tr>"
+          html += "  </table>"
         }
 
         html += "    </div>"
@@ -1348,14 +1350,14 @@ trait LeonWeb {
 
   val editorSession = editor.getSession();
 
-  editor.commands.addCommand(js.use(new js.Object {
+  editor.commands.addCommand(new EditorCommand {
     var name = "save"
     var bindKey = l(win = "Ctrl-S", mac = "Command-S").asInstanceOf[js.Any]
-    var exec = ((editor: Editor) => {
+    var exec = (((editor: Editor) => {
       recompile()
-    }).asInstanceOf[js.Function]
+    }) :js.Function)
     var readOnly = true
-  }).as[EditorCommand]);
+  });
 
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");
