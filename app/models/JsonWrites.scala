@@ -17,13 +17,32 @@ trait JsonWrites {
   implicit val ctx: LeonContext;
   
   protected def program: Option[Program]
+  
+  /** Caches expr to string transformation to revert them back. */
+  protected var activateCache: Boolean = false
+  def updateExprCache(s: String, e: Expr) = if(activateCache) exprCache += s -> e
+  def getExprFromCache(s: String): Option[Expr] = if(activateCache) exprCache.get(s) else None
+  def clearExprCache() = exprCache = Map()
+  protected var exprCache = Map[String, Expr]()
+  
+  implicit val doWrites = new Writes[DualOutput] {
+    def writes(d: DualOutput) = {
+      Json.obj(
+          "rawoutput" -> d.rawoutput,
+          "prettyoutput" -> d.prettyoutput
+      )
+    }
+  } 
 
   implicit val erWrites = new Writes[EvaluationResults.Result[Expr]] {
     def writes(er: EvaluationResults.Result[Expr]) = er match {
       case EvaluationResults.Successful(ex) =>
+        val rawoutput = ex.asString
+        val exAsString = program.map(p => VerificationReport.userDefinedString(ex, ex.asString)(ctx, p)).getOrElse(rawoutput)
+        updateExprCache(rawoutput, ex)
         Json.obj(
           "result" -> "success",
-          "output" -> ex.asString
+          "output" -> DualOutput(rawoutput, exAsString)
         )
 
       case EvaluationResults.RuntimeError(msg) =>
@@ -44,8 +63,10 @@ trait JsonWrites {
     def writes(ex: Map[Identifier, Expr]) = Json.obj(
       ex.toSeq.sortBy(_._1).map {
         case (id, expr) =>
-          val exprAsString = program.map(p => VerificationReport.userDefinedString(expr, expr.asString)(ctx, p)).getOrElse(expr.asString)
-          id.asString -> (exprAsString: JsValueWrapper)
+          val rawoutput = expr.asString
+          val exprAsString = program.map(p => VerificationReport.userDefinedString(expr, rawoutput)(ctx, p)).getOrElse(rawoutput)
+          updateExprCache(rawoutput, expr)
+          id.asString -> (DualOutput(rawoutput, exprAsString): JsValueWrapper)
       } :_*
     )
   }

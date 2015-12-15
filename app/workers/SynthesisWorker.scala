@@ -1,21 +1,23 @@
 package leon.web
 package workers
 
-import akka.actor._
-import play.api.libs.json.Json._
 import scala.concurrent.duration._
-import models._
+
+import akka.actor._
 import leon.LeonContext
-import leon.utils._
-import leon.purescala.PrinterOptions
-import leon.purescala.PrinterContext
-import leon.purescala.ScalaPrinter
-import leon.synthesis._
+import leon.purescala.{ PrinterContext, PrinterOptions, ScalaPrinter }
 import leon.purescala.Common._
+import leon.purescala.DefOps
+import leon.purescala.Definitions.{ FunDef, ValDef }
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
+import leon.purescala.Types.StringType
+import leon.synthesis._
+import leon.synthesis.disambiguation.ExamplesAdder
+import leon.utils._
 import leon.web.shared.Action
-import leon.purescala.DefOps
+import models._
+import play.api.libs.json.Json._
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -119,6 +121,45 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           doExplore(cstate, fname, chooseId, path, ws, action)
       }
 
+    case CreateUpdatePrettyPrinter(cstate, fdUsingIt, in, out) =>
+      val tpe = in.getType
+      
+      // Look for an existing function which accepts this type and return a string
+      val program = cstate.program
+      program.definedFunctions.find { fd => fd.returnType == StringType && fd.id.name.toLowerCase().endsWith("tostring") && fd.params.length == 1 && fd.params(0).getType == tpe } match {
+        case Some(fd) =>
+          // Here we add an example to this function
+          val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefModified(fd){ nfd =>
+            new ExamplesAdder(ctx, program).addToFunDef(nfd, Seq((in, StringLiteral(out))))
+          }(cstate, ctx)
+          
+          event("replace_code", Map(
+            "newCode" -> toJson(allCode)
+          ))
+        case None =>
+          // Here we create a new pretty printing function
+          val fdUsingItOpt = fdUsingIt.orElse(program.definedFunctions.lastOption)
+          fdUsingItOpt match {
+            case Some(fdUsingIt) =>
+              val funName3 = in.getType.asString.replaceAll("[^a-zA-Z0-9_]","")
+              val funName = funName3(0).toLower + funName3.substring(1, 10) 
+              val newId = FreshIdentifier(funName +"ToString")
+              val newArgId = FreshIdentifier("in", in.getType)
+              val newFd = new FunDef(newId, Seq(), Seq(ValDef(newArgId)), StringType)
+              newFd.fullBody = Hole(StringType, Seq())
+              new ExamplesAdder(ctx, program).addToFunDef(newFd, Seq((in, StringLiteral(out))))
+              
+              val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefAdded(fdUsingIt)(newFd)(cstate, ctx)
+              event("replace_code", Map(
+                "newCode" -> toJson(allCode)
+              ))
+            case None =>
+              notifyError("Could not find a place where to add a toString function")
+          }
+          
+          
+      }
+      
     case _ =>
   }
 

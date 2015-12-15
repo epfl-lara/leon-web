@@ -19,41 +19,21 @@ import leon.purescala.Expressions._
 import leon.web.shared.Action
 import leon.purescala.DefOps
 import leon.synthesis.disambiguation._
+import leon.purescala.Definitions.Program
 import play.api.libs.json._
 import play.api.libs.json.Json._
 
 class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
-
+  
   def convertExampleToFullCode(cstate: CompilationState, synth: Synthesizer, in: Expr, out: Expr): String = {
-    import leon.purescala.PrinterHelpers._
-
     val ci = synth.ci
     val SourceInfo(fd, pc, src, spec, tb) = ci
 
-
-    val fInt = new FileInterface(new MuteReporter())
-
-    val nfd = fd.duplicate()
-    
-    val ea = new ExamplesAdder(synth.context, cstate.program)
-    
-    ea.addToFunDef(nfd, Seq((in, out)))
-
-    val fds = nfd :: Nil
-
-    val prog = DefOps.replaceFunDefs(cstate.program)(f => if(f == fd) Some(nfd) else None)
-    val p = new ScalaPrinter(PrinterOptions(), Some(prog._1))
-
-    val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                  fd,
-                                  (indent) => {
-      implicit val pctx = PrinterContext(fd, Nil, indent, p)
-      p"${nfd}"
-      p.toString
-    })
-
-    allCode
+    leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefModified(fd)(nfd => {
+      val ea = new ExamplesAdder(synth.context, cstate.program)
+      ea.addToFunDef(nfd, Seq((in, out)))
+    })(cstate, synth.context)
   }
   
   def convertQuestionToJson(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr]): Map[String, JsValue] = {

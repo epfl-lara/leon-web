@@ -69,6 +69,8 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
   )).copy(interruptManager = interruptManager, reporter = reporter)
   
   var program: Option[Program] = None
+  
+  activateCache = true
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean): Unit = {
     val params    = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
@@ -120,6 +122,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
+      this.clearExprCache()
       this.program = Some(cstate.program)
       val program = cstate.program
 
@@ -193,8 +196,17 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
         case Action.prettyPrintCounterExample =>
-          val pretty_printed = (event \ "output").as[String]
-          
+          val output = (event \ "output").as[String]
+          val rawoutput = (event \ "rawoutput").as[String]
+          val fname = (event \ "fname").as[String]
+          val exprOpt = getExprFromCache(rawoutput)
+          val fd = cstate.program.definedFunctions.find(_.id.name == fname)
+          exprOpt match {
+            case Some(expr) =>
+              sender ! DispatchTo(shared.Module.synthesis, CreateUpdatePrettyPrinter(cstate, fd, expr, output))
+            case None =>
+              notifyError("Could not find original expression of "+rawoutput)
+          }
           
         case action =>
           notifyError("Received unknown action: "+action)

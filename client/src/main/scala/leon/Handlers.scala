@@ -172,7 +172,14 @@ object HandlersTypes {
   @ScalaJSDefined
   trait ResultOutput extends js.Object {
     val result: String
-    val output: String
+    val output: DualOutput
+  }
+  
+  @ScalaJSDefined
+  trait DualOutput extends js.Object {
+    val rawoutput: String
+    val prettyoutput: String
+    var modifying: js.UndefOr[String]
   }
   
   @ScalaJSDefined 
@@ -180,7 +187,7 @@ object HandlersTypes {
     val fun: String
     val kind: String
     val time: String
-    val counterExample: js.UndefOr[js.Dictionary[String]]
+    val counterExample: js.UndefOr[js.Dictionary[DualOutput]]
     val execution: js.UndefOr[ResultOutput]
   }
   
@@ -474,7 +481,12 @@ object Handlers extends js.Object {
   }
   
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay): JQuery = {
-    val result: JQuery = $("<pre>").addClass("disambiguationAlternative").addClass(if(current) "current" else "").attr("title", if(current) "current output" else "").text(alternative.display).on("click.alternative", () => {
+    val result: JQuery = $("<pre>")
+      .addClass("disambiguationAlternative")
+      .addClass(if(current) "current" else "")
+      .attr("title", if(current) "current output" else "")
+      .text(alternative.display)
+      .on("click.alternative", () => {
       Handlers.replace_code(new HReplaceCode { val newCode = alternative.allCode })
       val toFill = disambiguationResultDisplay()
       toFill.empty().append($("<code>").text(alternative.display))
@@ -484,12 +496,14 @@ object Handlers extends js.Object {
           Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
         }
       }*/
+    }).dblclick(() => {
+      
     })
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide()
-    val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative").text(alternative.display).hide()
+    val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").text(alternative.display).hide()
     val validatebox = $("""<i class="fa fa-check"></i>""").text("validate").hide()
     
-    val container = $("<span>").append(result).append(edittext).append(editbox).append(validatebox)
+    val container = $("<span>").append(result).append(edittext).append(editbox).append(validatebox).hide()
     container.mouseenter((e: JQueryEventObject) => {
       if(!validatebox.is(":visible")) {
         editbox.show()

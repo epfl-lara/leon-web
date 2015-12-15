@@ -367,6 +367,9 @@ pre.disambiguationAlternative {
     padding: 0;
     border: none;
 }
+pre.disambiguationAlternative.editing {
+	cursor: text;
+}
 pre.disambiguationAlternative + i.fa-pencil-square-o {
 	vertical-align: text-top;
 	cursor: pointer;
@@ -389,6 +392,22 @@ pre.disambiguationAlternative:hover {
 }
 pre.disambiguationAlternative.current {
 	color: #5cb85c;
+}
+.save-expr-display {
+}
+.cancel-expr-display {
+}
+.mini-menu {
+	cursor: pointer;
+	margin-left: 0.15em;
+	margin-right: 0.15em;
+}
+.mini-menu:hover {
+	color: blue;
+}
+.mini-menu.checked {
+	text-decoration: underline;
+	color: green;
 }
 
 /* Execution */

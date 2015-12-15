@@ -40,7 +40,8 @@ object ConsoleProtocol {
 
   case class NewCounterExamples(cstate: CompilationState, ces: Map[TypedFunDef, Seq[Expr]])
   case class NewSolutions(cstate: CompilationState, synth: Synthesizer, solutions: Stream[leon.synthesis.Solution])
-
+  case class CreateUpdatePrettyPrinter(cstate: CompilationState, afterFun: Option[FunDef], expr: Expr, output: String)
+  
   case class DispatchTo(module: String, msg: Any)
 
   case object Stop
