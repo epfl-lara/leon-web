@@ -539,6 +539,7 @@ object Handlers extends js.Object {
         container.focus()
         editbox.click()
       }
+      editbox.text("(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_"))
       validatebox.show()
       validatebox.height(container.height())
     }
