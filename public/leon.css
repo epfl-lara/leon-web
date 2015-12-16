@@ -317,9 +317,10 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 /* Verification */
 
 tr.counter-example div.output {
-    text-align: center;
+    text-align: left;
     margin: 5px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    white-space: pre-wrap;
 }
 
 tr.counter-example table.input {
@@ -364,35 +365,36 @@ pre.disambiguationAlternative {
 	color: blue;
 	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
 	margin: 0;
-    padding: 0;
-    border: none;
+    padding: 2px;
+    border: 1px solid #888;
+    white-space: pre-wrap;
 }
 pre.disambiguationAlternative.editing {
 	cursor: text;
-}
-pre.disambiguationAlternative + i.fa-pencil-square-o {
-	vertical-align: text-top;
-	cursor: pointer;
-	margin-left: 0.3em;
-}
-pre.disambiguationAlternative + i.fa-pencil-square-o:hover {
-	color: blue;
-}
-i.fa-pencil-square-o + i.fa-check {
-	vertical-align: text-top;
-	cursor: pointer;
-	margin-left: 0.3em;
-}
-i.fa-pencil-square-o + i.fa-check:hover {
-	color: blue;
+	background: white;
+	color: black;
 }
 pre.disambiguationAlternative:hover {
 	text-decoration:none;
 	background-color:rgba(128,128,128,0.2);
 }
 pre.disambiguationAlternative.current {
-	color: #5cb85c;
+	border-color: #5cb85c;
 }
+
+span.menu-disambiguation > i.fa {
+	vertical-align: text-top;
+	cursor: pointer;
+	margin-left: 0.3em;
+	color: lightgray;
+}
+span.menu-disambiguation > i.fa.active {
+    color: black;
+}
+span.menu-disambiguation > i.fa:hover {
+	color: blue;
+}
+
 .save-expr-display {
 }
 .cancel-expr-display {

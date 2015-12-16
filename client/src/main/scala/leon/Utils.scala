@@ -1,7 +1,7 @@
 package leon.web.client
 
 import org.scalajs.jquery.{JQueryStatic, JQueryEventObject, JQuery}
-
+import org.scalajs.dom.html.Element
 import scala.scalajs.js
 import js.annotation._
 
@@ -25,6 +25,11 @@ trait JQueryExtended extends JQuery {
   def modal(e: String): JQuery = js.native
   
   def popover(parameters: js.Any): JQuery = js.native
+}
+
+@js.native
+trait HTMLElementExtended extends Element {
+  def innerText: js.UndefOr[String] = js.native
 }
 
 @js.native
@@ -62,8 +67,9 @@ object JQueryExtended {
 
 object Implicits {
   implicit class NullCheck[T](s: T) {
-    def orIfNull(default: T): T = if(s == null) default else s
+    def orIfNull(default: =>T): T = if(s == null || js.isUndefined(s)) default else s
   }
+  @inline implicit def toHTMLElementExtended(t: Element): HTMLElementExtended = t.asInstanceOf[HTMLElementExtended] 
 }
 
 case class Bool(b: Boolean) {   

@@ -391,7 +391,7 @@ trait LeonWeb {
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
     if (!$(self).hasClass("disabled")) {
       val msg = JSON.stringify(
-        l(action = Action.storePermaLink, ModuleName.main, code = editor.getValue()))
+        l(action = Action.storePermaLink, module = ModuleName.main, code = editor.getValue()))
       leonSocket.send(msg)
     }
     event.preventDefault()
@@ -486,7 +486,7 @@ trait LeonWeb {
     features(f).active = !features(f).active
 
     val msg = JSON.stringify(
-      l(action = Action.featureSet, ModuleName.main, feature = f, active = features(f).active))
+      l(action = Action.featureSet, module = ModuleName.main, feature = f, active = features(f).active))
     leonSocket.send(msg)
 
     localStorage.setItem("leonFeatures", JSON.stringify(features));
@@ -720,7 +720,7 @@ trait LeonWeb {
         val p = $(self).parents(".problem")
 
         val msg = JSON.stringify(l(
-          ModuleName.synthesis,
+          module = ModuleName.synthesis,
           action = Action.getRulesToApply,
           fname = p.attr("fname"),
           cid = p.attr("cid").orIfNull("0").toInt))
@@ -739,7 +739,7 @@ trait LeonWeb {
         val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
           
         val msg = JSON.stringify(l(
-          ModuleName.synthesis,
+          module = ModuleName.synthesis,
           action = Action.getRulesToApply,
           fname = fname,
           cid = cid))
@@ -916,8 +916,8 @@ trait LeonWeb {
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
         val outputs = js.Array[HandlersTypes.DualOutput]()
-        for((variable_name, value) <- vc.counterExample.get) { 
-          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true'>" + value.prettyoutput + "</div></td></tr>";
+        for((fname, value) <- vc.counterExample.get) { 
+          html += "<tr><td>" + fname + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true' tabindex=0>" + value.prettyoutput + "</div></td></tr>";
           outputs.push(value)
         }
         html += "  </table>"
@@ -925,7 +925,7 @@ trait LeonWeb {
         if (vc.execution.isDefined && vc.execution.get.result == "success" && Features.execution.active) {
           html += "  <p>It produced the following output:</p>";
           html += "  <table class=\"input\">";
-          html += "  "+ "<tr><td>" + "<div class='output'  contentEditable='true'>" + vc.execution.get.output.prettyoutput + "</div>" + "</td></tr>"
+          html += "  "+ "<tr><td>" + "<div class='output'  contentEditable='true' tabindex=0>" + vc.execution.get.output.prettyoutput + "</div>" + "</td></tr>"
           html += "  </table>"
           outputs.push(vc.execution.get.output)
         }
@@ -950,9 +950,17 @@ trait LeonWeb {
           
           validateBox.on("click", () => {
             val dualOutput = outputs(i)
-            dualOutput.modifying = $(elem).text()
+            console.log($(elem)(0))
+            dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+            console.log("Sending synthesis problem", dualOutput)
+            console.log("Fname = ", vc.fun)
             //TODO: Do something with the dual output
-            val msg = JSON.stringify(l(action = Action.prettyPrintCounterExample, module = ModuleName.verification, output = dualOutput.modifying, rawoutput = dualOutput.rawoutput))
+            val msg = JSON.stringify(l(
+                action = Action.prettyPrintCounterExample,
+                module = ModuleName.verification,
+                output = dualOutput.modifying,
+                rawoutput = dualOutput.rawoutput,
+                fname = vc.fun))
             leonSocket.send(msg)
             menuBox.hide()
           })
@@ -963,7 +971,14 @@ trait LeonWeb {
             menuBox.hide()
             $(elem).blur()
           })
+          // Focus/blure is not very robust. Here is what it does (if it needs to be extended later)
+          // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
+          // If the user unfocuses the div.output, the menu disappear after 10ms
+          // If the user focuses the originalBox, the menu disappearance is cancelled immediately
+          // If the user unfocuses the originalBox, the menu disappear after 10ms
+          
           originalBox.on("click", () => {
+            js.timers.clearTimeout($(elem).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
             console.log("cLicked on originalBox " + i)
             val dualOutput = outputs(i)
             if(originalBox.hasClass("checked")) {
@@ -973,18 +988,27 @@ trait LeonWeb {
             } else {
               originalBox.addClass("checked")
               $(elem).attr("contentEditable", false)
-              dualOutput.modifying = $(elem).text()
+              dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
               $(elem).text(dualOutput.rawoutput)
             }
+          }).on("blur", () => { // If not clicking on the div.output, hide the menu.
+            console.log("Blurring originalBox...")
+            $(elem).data("hidehandler", js.timers.setTimeout(100){
+              $(elem).parent().find(".menu-expr-display").hide("blind")
+            })
           })
         })
         .focus((e: JQueryEventObject) => {
           console.log("Focusing...")
+          js.timers.clearTimeout($(e.target).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
           $(e.target).parent().find(".menu-expr-display").show("blind")
         })
-        .parent().blur((e: JQueryEventObject) => {
-          console.log("Blurring...")
-          $(e.target).parent().find(".menu-expr-display").hide("blind")
+        .on("blur", (e: JQueryEventObject) => {
+          console.log("Blurring div.output")
+          $(e.target).data("hidehandler", js.timers.setTimeout(100){
+            console.log("Atual blur")
+            $(e.target).parent().find(".menu-expr-display").hide("blind")
+          })
         })
       }
     }
@@ -1216,7 +1240,7 @@ trait LeonWeb {
 
     for ((featureName, feature) <- features) {
       val msg = JSON.stringify(
-        l(action = Action.featureSet, ModuleName.main, feature = featureName, active = feature.active))
+        l(action = Action.featureSet, module = ModuleName.main, feature = featureName, active = feature.active))
 
       try {
         leonSocket.send(msg)
@@ -1238,7 +1262,7 @@ trait LeonWeb {
   def loadStaticLink(hash: String): Unit = {
     if (hash.indexOf("#link/") == 0) {
       val msg = JSON.stringify(
-        l(action = Action.accessPermaLink, ModuleName.main, link = hash.substring("#link/".length)))
+        l(action = Action.accessPermaLink, module = ModuleName.main, link = hash.substring("#link/".length)))
 
       leonSocket.send(msg)
       window.location.hash = ""
@@ -1354,7 +1378,7 @@ trait LeonWeb {
 
     if (connected && oldCode != currentCode) {
       val msg = JSON.stringify(
-        l(action = Action.doUpdateCode, ModuleName.main, code = currentCode))
+        l(action = Action.doUpdateCode, module = ModuleName.main, code = currentCode))
       oldCode = currentCode;
       lastSavedChange = lastChange;
       updateSaveButton();

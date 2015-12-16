@@ -63,11 +63,9 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       val ci = synth.ci
       val SourceInfo(fd, pc, src, spec, tb) = ci
       
-      val qb = new QuestionBuilder(fd.paramIds, ssol, expr => expr match {
-        case StringLiteral(s) => if(!s.contains(leon.synthesis.rules.StringRender.EDIT_ME)) Some(expr) else None
-        case _ => Some(expr)
-      })(synth.context, cstate.program)
-      
+      val qb = new QuestionBuilder(fd.paramIds, ssol, expr => Some(expr))(synth.context, cstate.program)
+      qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
+      qb.setKeepEmptyAlternativeQuestions { case StringLiteral(s) if s.contains(leon.synthesis.rules.StringRender.EDIT_ME) => true case e => false }
       val questions = qb.result()
       
       if(questions.nonEmpty) {

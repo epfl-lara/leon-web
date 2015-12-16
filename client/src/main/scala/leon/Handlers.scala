@@ -480,11 +480,11 @@ object Handlers extends js.Object {
     } else $("") // TODO: Exploration
   }
   
-  def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay): JQuery = {
+  def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
     val result: JQuery = $("<pre>")
       .addClass("disambiguationAlternative")
       .addClass(if(current) "current" else "")
-      .attr("title", if(current) "current output" else "")
+      .attr("title", if(current) "current output" else "alternative")
       .text(alternative.display)
       .on("click.alternative", () => {
       Handlers.replace_code(new HReplaceCode { val newCode = alternative.allCode })
@@ -499,11 +499,10 @@ object Handlers extends js.Object {
     }).dblclick(() => {
       
     })
-    val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide()
+    val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
     val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").text(alternative.display).hide()
-    val validatebox = $("""<i class="fa fa-check"></i>""").text("validate").hide()
-    
-    val container = $("<span>").append(result).append(edittext).append(editbox).append(validatebox).hide()
+    val validatebox = $("""<i class="fa fa-check"></i>""").addClass("validate").text("validate").hide()
+    val container = $("<span>").addClass("menu-disambiguation").append(result).append(edittext).append(editbox).append(validatebox)
     container.mouseenter((e: JQueryEventObject) => {
       if(!validatebox.is(":visible")) {
         editbox.show()
@@ -514,8 +513,14 @@ object Handlers extends js.Object {
       editbox.hide()
       ().asInstanceOf[js.Any]
     })
+    edittext.focus(() => {
+      validatebox.addClass("active")
+    }).blur(() => {
+      validatebox.removeClass("active")
+    })
     editbox.on("click", () => {
       validatebox.show()
+      validatebox.height(container.height())
       val lineHeight = result.css("line-height")
       val a = lineHeight.substring(0, lineHeight.length - 2).toFloat
       edittext.height(result.height() + a)
@@ -524,6 +529,20 @@ object Handlers extends js.Object {
       edittext.click()
       result.hide()
     })
+    if(directEdit) {
+      js.timers.setTimeout(150){
+        container.focus()
+        editbox.click()
+      }
+    } else if(alternative.display.indexOf("_edit_me_") > -1) { // Must edit when clicking.
+      js.timers.setTimeout(150){
+        container.focus()
+        editbox.click()
+      }
+      validatebox.show()
+      validatebox.height(container.height())
+    }
+    
     validatebox.on("click", () => {
       val customCode = custom.allCode.replace("\""+leon.web.shared.Constants.disambiguationPlaceHolder + "\"", edittext.text())
       Handlers.replace_code(new HReplaceCode { val newCode = customCode })
@@ -544,12 +563,21 @@ object Handlers extends js.Object {
       "(" + data.input + ")"
     }
     toFill.empty()
-    var html = "<code>" + data.fname + args + "</code> may produce different results. What is the correct one?<br>"
+    val (premessage, message) = if(data.alternatives.length == 0) {
+           ("To ensure completeness, please edit the pretty-printing of ", " below:")
+    } else ("What should be the output of ", "?")
+    val html = premessage + "<code>" + data.fname + args + "</code>"+message+"<br>"
     toFill.append(html)
-    toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative))
-    for(alternative <- data.alternatives) {
-      toFill.append("<br>")
-      toFill.append(displayAlternative(alternative, false, data.custom_alternative))
+    
+    if(data.alternatives.length == 0) {
+      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, true))
+      toFill.find(".validate").addClass("active")
+    } else {
+      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, false))
+      for(alternative <- data.alternatives) {
+        toFill.append("<br>")
+        toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
+      }
     }
     disambiguationResultDisplayContainer().show()
   }

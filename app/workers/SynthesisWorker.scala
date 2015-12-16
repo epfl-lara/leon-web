@@ -2,7 +2,6 @@ package leon.web
 package workers
 
 import scala.concurrent.duration._
-
 import akka.actor._
 import leon.LeonContext
 import leon.purescala.{ PrinterContext, PrinterOptions, ScalaPrinter }
@@ -11,17 +10,23 @@ import leon.purescala.DefOps
 import leon.purescala.Definitions.{ FunDef, ValDef }
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
-import leon.purescala.Types.StringType
+import leon.purescala.Types.{StringType, CaseClassType, AbstractClassType}
 import leon.synthesis._
 import leon.synthesis.disambiguation.ExamplesAdder
 import leon.utils._
 import leon.web.shared.Action
 import models._
 import play.api.libs.json.Json._
+import leon.purescala.TypeOps
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
+  override lazy implicit val ctx = leon.Main.processOptions(List(
+    "--feelinglucky",
+    "--solvers=smt-cvc4"
+  )).copy(interruptManager = interruptManager, reporter = reporter)
+  
   var searchesState = Map[String, Seq[WebSynthesizer]]()
 
   def notifySynthesisOverview(cstate: CompilationState): Unit = {
@@ -122,14 +127,15 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
       }
 
     case CreateUpdatePrettyPrinter(cstate, fdUsingIt, in, out) =>
-      val tpe = in.getType
-      
+      val tpe = in.getType match { case cct: CaseClassType => cct.root case  e => e}
+      clientLog("Doing for type " + tpe)
       // Look for an existing function which accepts this type and return a string
       val program = cstate.program
-      program.definedFunctions.find { fd => fd.returnType == StringType && fd.id.name.toLowerCase().endsWith("tostring") && fd.params.length == 1 && fd.params(0).getType == tpe } match {
+      program.definedFunctions.find { fd => fd.returnType == StringType && fd.id.name.toLowerCase().endsWith("tostring") && fd.params.length == 1 && TypeOps.isSubtypeOf(tpe, fd.params.head.getType) } match {
         case Some(fd) =>
-          // Here we add an example to this function
+          // Here we add an example to this function, removing the body if it existed before in order to resynthesize it.
           val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefModified(fd){ nfd =>
+            nfd.body = Some(new Hole(StringType, Nil))
             new ExamplesAdder(ctx, program).addToFunDef(nfd, Seq((in, StringLiteral(out))))
           }(cstate, ctx)
           
@@ -141,10 +147,10 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val fdUsingItOpt = fdUsingIt.orElse(program.definedFunctions.lastOption)
           fdUsingItOpt match {
             case Some(fdUsingIt) =>
-              val funName3 = in.getType.asString.replaceAll("[^a-zA-Z0-9_]","")
-              val funName = funName3(0).toLower + funName3.substring(1, 10) 
+              val funName3 = tpe.asString.replaceAll("[^a-zA-Z0-9_]","")
+              val funName = funName3(0).toLower + funName3.substring(1, Math.min(funName3.length, 10)) 
               val newId = FreshIdentifier(funName +"ToString")
-              val newArgId = FreshIdentifier("in", in.getType)
+              val newArgId = FreshIdentifier("in", tpe)
               val newFd = new FunDef(newId, Seq(), Seq(ValDef(newArgId)), StringType)
               newFd.fullBody = Hole(StringType, Seq())
               new ExamplesAdder(ctx, program).addToFunDef(newFd, Seq((in, StringLiteral(out))))
