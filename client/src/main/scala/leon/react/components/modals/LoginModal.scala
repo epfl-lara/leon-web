@@ -6,6 +6,8 @@ package react
 package components
 package modals
 
+import org.scalajs.dom.ext.LocalStorage
+
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
@@ -17,7 +19,7 @@ import leon.web.client.syntax.Observer._
   */
 object LoginModal {
 
-  case class State(processing: Boolean = false)
+  case class State(processing: Boolean = false, hideLogin: Boolean = false)
   case class Props(isOpen: Boolean = false)
 
   class Backend($: BackendScope[Props, State]) {
@@ -47,6 +49,17 @@ object LoginModal {
     def onLogin: Callback =
       $.modState(_.copy(processing = true))
 
+    def onToggleHideLogin(e: ReactEventI): Callback = Callback {
+      val value = e.target.checked.toString
+      LocalStorage.update("hideLogin", value)
+    } >> $.modState(_.copy(hideLogin = getHideLoginValue))
+
+    def getHideLoginValue: Boolean =
+      LocalStorage("hideLogin").map(_ == "true").getOrElse(false)
+
+    def onMount: Callback =
+      $.modState(_.copy(hideLogin = getHideLoginValue))
+
     def render(props: Props, state: State) =
       Modal(props.isOpen)(
         <.div(^.className := "modal-header",
@@ -70,6 +83,15 @@ object LoginModal {
           )
         ),
         <.div(^.className := "modal-footer",
+          <.span(^.className := "hide-login-footer",
+            <.input(
+              ^.`type`   := "checkbox",
+              ^.id       := "hide-login",
+              ^.checked  := state.hideLogin,
+              ^.onChange ==> onToggleHideLogin
+            ),
+            <.label(^.`for` := "hide-login", "Don't show again")
+          ),
           if (!state.processing) closeButton else EmptyTag,
           loginButton(state.processing)
         )
@@ -80,6 +102,7 @@ object LoginModal {
     ReactComponentB[Props]("LoginModal")
       .initialState(State())
       .renderBackend[Backend]
+      .componentDidMount(_.backend.onMount)
       .build
 
   def apply(isOpen: Boolean = false) = component(Props(isOpen))

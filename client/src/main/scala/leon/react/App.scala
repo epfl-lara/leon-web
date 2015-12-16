@@ -9,6 +9,7 @@ import scala.scalajs.js.JSON
 import scala.scalajs.js.Dynamic.{ literal => l }
 
 import org.scalajs.dom.document
+import org.scalajs.dom.ext.LocalStorage
 
 import org.scalajs.jquery
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
@@ -131,10 +132,16 @@ class App(private val api: LeonAPI) {
     ReactDOM.render(LoginModal(state.showLoginModal), el)
 
     $("#login-btn").click { e: JQueryEventObject =>
-      e.preventDefault()
-      Actions.toggleLoginModal ! ToggleLoginModal(true)
+      if (!shouldSkipLoginModal) {
+        e.preventDefault()
+        Actions.toggleLoginModal ! ToggleLoginModal(true)
+      }
     }
   }
+
+  private
+  def shouldSkipLoginModal: Boolean =
+    LocalStorage("hideLogin").map(_ == "true").getOrElse(false)
 
   private
   def renderLoadRepoPanel(state: AppState): Unit = {

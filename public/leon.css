@@ -455,6 +455,19 @@ pre.exploreBlock .header .name span {
   border-bottom-right-radius: 6px;
 }
 
+/* Login */
+.hide-login-footer {
+  margin-right: 10px;
+}
+
+.hide-login-footer input {
+  margin-right: 5px;
+}
+
+.hide-login-footer label {
+  font-weight: normal;
+}
+
 /* Load Repository Panel */
 #load-repo-panel {
   display: none;
