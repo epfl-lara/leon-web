@@ -89,6 +89,7 @@ object LoadRepositoryPanel {
 
     def renderBranches(repo: HRepository, branches: Seq[HBranch], selected: Option[String]) =
       <.span(^.id := "load-repo-branch",
+        "Branch:",
         BranchSelector(
           branches.map(_.name),
           onChooseBranch(repo),

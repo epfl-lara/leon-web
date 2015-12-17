@@ -491,7 +491,7 @@ pre.exploreBlock .header .name span {
 }
 
 #load-repo-branch {
-
+  margin-left: 10px;
 }
 
 .branch-list.form-control {
