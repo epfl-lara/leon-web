@@ -53,7 +53,7 @@ object Actions {
   val setCurrentProject   = PublishSubject[SetCurrentProject]()    // dump "SetCurrentProject"
   val setTreatAsProject   = PublishSubject[SetTreatAsProject]()    // dump "SetTreatAsProject"
 
-  val currentProject = Observable.merge(
+  lazy val currentProject = Observable.merge(
       setCurrentProject,
       Observable.combineLatest(
         Events.repositoryLoaded,
@@ -72,7 +72,6 @@ object Actions {
         SetCurrentProject(Some(project))
       }
     )
-    .startWith(SetCurrentProject(None))
 
   private
   var processAction: Action => Unit = x => {}
@@ -100,17 +99,18 @@ object Actions {
       .map { e =>
         e.project match {
           case None  => (state: AppState) =>
-            state.copy(repository = None, files = Seq(), file = None, branches = Seq())
+            state.copy(repository = None, files = Seq(), file = None, branches = Seq(), currentProject = None)
 
-          case Some(_) => identity[AppState] _
+          case Some(project) => (state: AppState) =>
+            state.copy(currentProject = Some(project))
         }
       }
       .subscribe(updates)
 
     setTreatAsProject
       .doWork(processAction)
-      .map { case SetTreatAsProject(value) =>
-        (state: AppState) => state.copy(treatAsProject = value)
+      .map { e =>
+        (state: AppState) => state.copy(treatAsProject = e.value)
       }
       .subscribe(updates)
 

@@ -8,6 +8,7 @@ import monifu.reactive._
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
+import leon.web.shared.Project
 
 case class AppState(
   // Repositories fetched from GitHub API
@@ -37,19 +38,36 @@ case class AppState(
   // Whether or not we are in the process of cloning `repository`
   isLoadingRepo     : Boolean                  = false,
 
+  // The current project, if any
+  currentProject    : Option[Project]          = None,
+
   // Whether or not to treat the repo as a project
   treatAsProject    : Boolean                  = true
-)
+) {
+
+  def toJSON: String = {
+    import upickle.default._
+    import leon.web.client.HandlersTypes.picklers._
+
+    write(this)
+  }
+
+}
+
+object AppState {
+  import upickle.default._
+  import leon.web.client.HandlersTypes.picklers._
+
+  def fromJSON(json: String): AppState =
+    read[AppState](json)
+}
 
 /** This objects holds the whole React application state,
   * and exposes a way to apply transformations to the state,
   * as well as an [[monifu.reactive.Observable]] that can be used
   * to track its modifications.
   */
-class GlobalAppState {
-
-  /** The initial app state. */
-  val initial = AppState()
+class GlobalAppState(val initial: AppState) {
 
   /** Tracks state transformations, the result of which can be observed
     * by subsribing to `asObservable`. */
@@ -62,6 +80,7 @@ class GlobalAppState {
 }
 
 object GlobalAppState {
-  def apply() = new GlobalAppState()
+  def apply()                  = new GlobalAppState(AppState())
+  def apply(initial: AppState) = new GlobalAppState(initial)
 }
 

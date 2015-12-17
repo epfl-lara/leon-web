@@ -26,7 +26,7 @@ import leon.web.client.syntax.BufferedWebSocket._
   * $ - Register WebSocket handlers in order to process messages
   *     sent by the server.
   * $ - Process actions trigger by the React components.
-  * $ - Holds, and tracks the application state, and trigger re-renders
+  * $ - Holds, tracks and restore the application state, then trigger re-renders
   *     of the components tree when needed.
   *
   * @see [[leon.web.client.react.AppState]]
@@ -39,10 +39,6 @@ class App(private val api: LeonAPI) {
   import leon.web.client.react.components.modals._
   import leon.web.shared.{Action => LeonAction}
 
-  /** Global application state */
-  private
-  val appState = GlobalAppState()
-
   def init(): Unit = {
     // Register the WebSocket handlers.
     Handlers.register(api.handlers)
@@ -50,12 +46,33 @@ class App(private val api: LeonAPI) {
     // Set the action handler.
     Actions.setActionHandler(processAction)
 
+    val appState =
+      LocalStorage("appState")
+        .map(AppState.fromJSON)
+        .map(GlobalAppState(_))
+        .getOrElse(GlobalAppState())
+
     // Trigger a re-render of the app, each time
     // the application state is updated.
-    appState.asObservable.foreach(render)
+    appState
+      .asObservable
+      .doWork(onStateUpdate)
+      .foreach(render)
 
     // Apply every state transformation to the application state.
     Actions.register(appState.updates)
+
+    // Let the rest of the app know about the current project,
+    // if any was set.
+    api.setCurrentProject(appState.initial.currentProject)
+    Actions.setTreatAsProject ! SetTreatAsProject(appState.initial.treatAsProject)
+  }
+
+  private
+  def onStateUpdate(state: AppState): Unit = {
+    js.timers.setTimeout(0) {
+      LocalStorage.update("appState", state.toJSON)
+    }
   }
 
   private

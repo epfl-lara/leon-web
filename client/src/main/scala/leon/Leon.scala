@@ -6,6 +6,7 @@ import scala.language.reflectiveCalls
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
 import scala.scalajs.js.JSON
+import scala.scalajs.js.JSConverters._
 import org.scalajs.dom
 import org.scalajs.dom.{alert, console, document}
 import org.scalajs.dom.html.Element
@@ -73,6 +74,7 @@ trait LeonAPI {
   def leonSocket: WebSocket
   def setEditorCode(code: String): Unit
   def setCurrentProject(project: Option[Project]): Unit
+  def getCurrentProject(): Option[Project]
   def setTreatAsProject(value: Boolean): Unit
   def handlers: js.Dictionary[Any]
 }
@@ -332,7 +334,9 @@ trait LeonWeb {
   val maxHistory = 20;
 
   def fromStorage[A <: js.Any](key: String): Option[A] =
-    LocalStorage(key).map(JSON.parse(_).asInstanceOf[A])
+    LocalStorage(key)
+      .flatMap(x => x.asInstanceOf[js.UndefOr[String]].toOption)
+      .map(JSON.parse(_).asInstanceOf[A])
 
   // Undo/Redo
   var backwardChanges = fromStorage[js.Array[String]]("backwardChanges").getOrElse(new js.Array[String])
@@ -1304,7 +1308,6 @@ trait LeonWeb {
   }
 
   def getCurrentProject() = currentProject
-
   def hideExamples(): Unit = $("#selectcolumn").hide()
   def showExamples(): Unit = $("#selectcolumn").show()
 
@@ -1320,7 +1323,6 @@ trait LeonWeb {
     }
 
     if (connected && (oldCode =!= currentCode || force)) {
-
       val msg = currentProject match {
         case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
           l(
