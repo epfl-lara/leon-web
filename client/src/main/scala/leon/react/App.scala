@@ -19,6 +19,7 @@ import japgolly.scalajs.react._
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.Observer._
+import leon.web.client.syntax.BufferedWebSocket._
 
 /** This class is in charge of the following:
   *
@@ -65,7 +66,7 @@ class App(private val api: LeonAPI) {
         module = "main"
       )
 
-      api.leonSocket.send(JSON.stringify(msg))
+      api.leonSocket.sendBuffered(JSON.stringify(msg))
 
     case LoadRepository(repo) =>
       val msg = l(
@@ -75,7 +76,7 @@ class App(private val api: LeonAPI) {
         repo   = repo.name
       )
 
-      api.leonSocket.send(JSON.stringify(msg))
+      api.leonSocket.sendBuffered(JSON.stringify(msg))
 
       Actions.modState ! (_.copy(
         repository    = Some(repo),
@@ -92,7 +93,7 @@ class App(private val api: LeonAPI) {
         branch = branch
       )
 
-      api.leonSocket.send(JSON.stringify(msg))
+      api.leonSocket.sendBuffered(JSON.stringify(msg))
 
     case LoadFile(repo, file) =>
       val msg = l(
@@ -103,7 +104,7 @@ class App(private val api: LeonAPI) {
         file   = file
       )
 
-      api.leonSocket.send(JSON.stringify(msg))
+      api.leonSocket.sendBuffered(JSON.stringify(msg))
 
     case UpdateEditorCode(code) =>
       api.setEditorCode(code)

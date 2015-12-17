@@ -33,6 +33,8 @@ import leon.web.shared.{Module => ModuleName, Constants, Action}
 import leon.web.shared.Project
 
 import leon.web.client.react.{App => ReactApp}
+import leon.web.client.utils.BufferedWebSocket
+import leon.web.client.syntax.BufferedWebSocket._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -1128,6 +1130,12 @@ trait LeonWeb {
     }
   }
 
+  def sendBufferedMessages(): Unit = {
+    val n = BufferedWebSocket.queue.length
+    println(s"Sending $n buffered messages...")
+    BufferedWebSocket.sendAll(leonSocket)
+  }
+
   def openEvent(event: Event): Unit = {
     if (lastReconnectDelay =!= 0) {
       notify("And we are back online!", "success")
@@ -1197,6 +1205,8 @@ trait LeonWeb {
 
     lastReconnectDelay = 0;
     reconnectIn = -1;
+
+    sendBufferedMessages()
   }
 
   def checkDisconnectStatus(): Unit = {
