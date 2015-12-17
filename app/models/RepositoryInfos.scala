@@ -31,7 +31,7 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
   */
-class RepositoryInfos(name: String, token: Option[String] = None) {
+class RepositoryInfos(val path: File, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {
@@ -44,10 +44,6 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
 
       res.reverse
     }
-  }
-
-  lazy val path = {
-    new File("repositories/"+name)
   }
 
   lazy val repo = {

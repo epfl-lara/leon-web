@@ -27,6 +27,7 @@ import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 import leon.web.stores.PermalinkStore
+import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
 import leon.web.shared.{Action, Module}
@@ -255,7 +256,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         clientLog(s"=> DONE")
 
         val (owner, name) = (repo.owner, repo.name)
-        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", Some(token))
+        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
 
         val progressActor = Akka.system.actorOf(Props(
           classOf[JGitProgressWorker],
@@ -285,7 +286,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case RepositoryLoaded(user, repo) =>
       val (owner, name) = (repo.owner, repo.name)
-      val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name", None)
+      val wc = RepositoryService.repositoryFor(user, owner, name)
 
       clientLog(s"Listing files in '$owner/$name'...")
 
@@ -315,7 +316,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       result onSuccess { case repo =>
         val (owner, name) = (repo.owner, repo.name)
-        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+        val wc = RepositoryService.repositoryFor(user, owner, name)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$owner/$name'")
@@ -353,7 +354,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       result onSuccess { case repo =>
         val (owner, name) = (repo.owner, repo.name)
-        val wc = new RepositoryInfos(s"${user.fullId}/$owner/$name")
+        val wc = RepositoryService.repositoryFor(user, owner, name)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$owner/$name'")
