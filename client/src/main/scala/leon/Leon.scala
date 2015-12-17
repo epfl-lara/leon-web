@@ -9,6 +9,8 @@ import scala.scalajs.js.JSON
 import org.scalajs.dom
 import org.scalajs.dom.{alert, console, document}
 import org.scalajs.dom.html.Element
+import org.scalajs.dom.WebSocket
+import org.scalajs.dom.{Event, MessageEvent, CloseEvent, ErrorEvent}
 import org.scalajs.dom.ext.LocalStorage
 import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 
@@ -65,17 +67,8 @@ object MainDelayed extends js.JSApp {
   $("#codebox").show()
 }
 
-@ScalaJSDefined
-trait LeonSocket extends js.Object {
-  def send(message: String): Unit
-  var onopen: js.Function1[JQueryEventObject, Any]
-  var onmessage: js.Function1[JQueryEventObject, Any]
-  var onclose: js.Function1[JQueryEventObject, Any]
-  var onerror: js.Function1[JQueryEventObject, Any]
-}
-
 trait LeonAPI {
-  def leonSocket: LeonSocket
+  def leonSocket: WebSocket
   def setEditorCode(code: String): Unit
   def setCurrentProject(project: Option[Project]): Unit
   def setTreatAsProject(value: Boolean): Unit
@@ -114,7 +107,7 @@ trait LeonWeb {
 
   @JSExport val WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
 
-  @JSExport("leonSocket") var leonSocket: LeonSocket = null
+  @JSExport("leonSocket") var leonSocket: WebSocket = null
 
   val headerHeight = $("#title").height() + 20
 
@@ -1105,14 +1098,14 @@ trait LeonWeb {
     alert(msg);
   }
 
-  val errorEvent = (event: JQueryEventObject) => {
+  def errorEvent(event: ErrorEvent): Unit = {
     console.log("ERROR")
     console.log(event)
   }
 
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
 
-  val receiveEvent = (event: JQueryEventObject) => {
+  def receiveEvent(event: MessageEvent): Unit = {
     val data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
     handlers.get(data.kind) match {
       case Some(handler) =>
@@ -1129,13 +1122,13 @@ trait LeonWeb {
   var lastReconnectDelay = 0;
   var reconnectIn = 0;
 
-  val closeEvent = (event: JQueryEventObject) => {
+  def closeEvent(event: CloseEvent): Unit = {
     if (connected) {
       setDisconnected()
     }
   }
 
-  val openEvent: JQueryEventObject => Unit = (event: JQueryEventObject) => {
+  def openEvent(event: Event): Unit = {
     if (lastReconnectDelay =!= 0) {
       notify("And we are back online!", "success")
       updateCompilationStatus("unknown")
@@ -1244,11 +1237,13 @@ trait LeonWeb {
   def connectWS(): Unit = if (!isConnecting) {
     isConnecting = true
 
-    leonSocket = jsnew(g.WebSocket /*WS*/ )(g._leon_websocket_url).asInstanceOf[LeonSocket]
-    leonSocket.onopen = openEvent
-    leonSocket.onmessage = receiveEvent
-    leonSocket.onclose = closeEvent
-    leonSocket.onerror = errorEvent
+    val url = g._leon_websocket_url.asInstanceOf[String]
+
+    leonSocket           = new WebSocket(url)
+    leonSocket.onopen    = openEvent _
+    leonSocket.onmessage = receiveEvent _
+    leonSocket.onclose   = closeEvent _
+    leonSocket.onerror   = errorEvent _
   }
 
   var lastChange = 0.0;
