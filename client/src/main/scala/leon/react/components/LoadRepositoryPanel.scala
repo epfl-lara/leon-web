@@ -50,13 +50,19 @@ object LoadRepositoryPanel {
       Actions.loadFile ! LoadFile(props.repository.get, file)
     }
 
-    def render(props: Props) =
+    def onChangeProjectType(e: ReactEventI): Callback = Callback {
+      Actions.setTreatAsProject ! SetTreatAsProject(e.target.checked)
+    }
+
+    def render(props: Props) = {
+      val hasRepo = props.repository.isDefined
       <.div(^.className := "panel",
         <.h3("Load a GitHub repository:"),
         <.div(
           LoadRepositoryButton(props.repository, onClickSelect, onClickUnload),
-          renderBranches(props.repository, props.branches, props.branch),
-          renderFiles(props.repository, props.files, props.file.map(_._1))
+          hasRepo ?= renderBranches(props.repository.get, props.branches, props.branch),
+          hasRepo ?= renderProjectType(props.treatAsProject),
+          hasRepo ?= renderFiles(props.files, props.file.map(_._1))
         ),
         <.div(
           LoadRepositoryModal(
@@ -67,28 +73,34 @@ object LoadRepositoryPanel {
           )
         )
       )
-
-    def renderBranches(repo: Option[HRepository], branches: Seq[HBranch], selected: Option[String]) = repo match {
-      case None => EmptyTag
-      case Some(repo) =>
-        <.div(^.id := "load-repo-branch",
-          BranchSelector(
-            branches.map(_.name),
-            onChooseBranch(repo),
-            selected orElse Some(repo.defaultBranch)
-          )
-        )
     }
 
-    def renderFiles(repo: Option[HRepository], files: Seq[String],
-                       selected: Option[String] = None) = repo match {
-
-      case None => EmptyTag
-      case Some(_) =>
-        <.div(^.id := "load-repo-file",
-          FileSelector(files, onChooseFile, selected)
-        )
+    def renderProjectType(treatAsProject: Boolean) = {
+      <.span(^.className := "project-type",
+        <.input(
+          ^.id        := "project-type-check",
+          ^.`type`    := "checkbox",
+          ^.checked   := treatAsProject,
+          ^.onChange ==> onChangeProjectType
+        ),
+        <.label(^.`for` := "project-type-check", "Treat as project")
+      )
     }
+
+    def renderBranches(repo: HRepository, branches: Seq[HBranch], selected: Option[String]) =
+      <.span(^.id := "load-repo-branch",
+        BranchSelector(
+          branches.map(_.name),
+          onChooseBranch(repo),
+          selected orElse Some(repo.defaultBranch)
+        )
+      )
+
+    def renderFiles(files: Seq[String], selected: Option[String] = None) =
+      <.div(^.id := "load-repo-file",
+        FileSelector(files, onChooseFile, selected)
+      )
+
   }
 
   val component =

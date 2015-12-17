@@ -78,6 +78,7 @@ trait LeonAPI {
   def leonSocket: LeonSocket
   def setEditorCode(code: String): Unit
   def setCurrentProject(project: Option[Project]): Unit
+  def setTreatAsProject(value: Boolean): Unit
   def handlers: js.Dictionary[Any]
 }
 
@@ -1277,6 +1278,14 @@ trait LeonWeb {
   }
 
   private
+  var treatAsProject = true
+
+  def setTreatAsProject(value: Boolean): Unit = {
+    treatAsProject = value
+    recompile(force = true)
+  }
+
+  private
   var currentProject = Option.empty[Project]
 
   def setCurrentProject(project: Option[Project]): Unit = {
@@ -1308,21 +1317,23 @@ trait LeonWeb {
     if (connected && (oldCode =!= currentCode || force)) {
 
       val msg = currentProject match {
-        case Some(Project(owner, repo, branch, file, _)) => l(
-          action = Action.doUpdateCodeInProject,
-          module = "main",
-          owner  = owner,
-          repo   = repo,
-          file   = file,
-          branch = branch,
-          code   = currentCode
-        )
+        case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
+          l(
+            action = Action.doUpdateCodeInProject,
+            module = "main",
+            owner  = owner,
+            repo   = repo,
+            file   = file,
+            branch = branch,
+            code   = currentCode
+          )
 
-        case None => l(
-          action = Action.doUpdateCode,
-          module = "main",
-          code   = currentCode
-        )
+        case _ =>
+          l(
+            action = Action.doUpdateCode,
+            module = "main",
+            code   = currentCode
+          )
       }
 
       oldCode         = currentCode;

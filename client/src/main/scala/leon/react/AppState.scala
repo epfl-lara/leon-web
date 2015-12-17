@@ -35,7 +35,10 @@ case class AppState(
   showLoginModal    : Boolean                  = false,
 
   // Whether or not we are in the process of cloning `repository`
-  isLoadingRepo     : Boolean                  = false
+  isLoadingRepo     : Boolean                  = false,
+
+  // Whether or not to treat the repo as a project
+  treatAsProject    : Boolean                  = true
 )
 
 /** This objects holds the whole React application state,

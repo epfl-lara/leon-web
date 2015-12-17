@@ -43,7 +43,7 @@ object Dropdown {
         }
       }
 
-    val classNames = Seq("form-control", "panel-element-full")
+    val classNames = Seq("form-control")
 
     def render(props: Props[A]) = {
       val selectedItem      = props.selected map props.renderOption

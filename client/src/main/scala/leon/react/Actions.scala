@@ -27,6 +27,7 @@ case class UpdateEditorCode(code: String) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
 case class SetCurrentProject(project: Option[Project]) extends Action
+case class SetTreatAsProject(value: Boolean) extends Action
 
 /**
   * Actions are how the React app performs side-effects.
@@ -50,6 +51,7 @@ object Actions {
   val toggleLoginModal    = PublishSubject[ToggleLoginModal]()     // dump "ToggleLoginModal"
   val modState            = PublishSubject[AppState => AppState]() // dump "ModState"
   val setCurrentProject   = PublishSubject[SetCurrentProject]()    // dump "SetCurrentProject"
+  val setTreatAsProject   = PublishSubject[SetTreatAsProject]()    // dump "SetTreatAsProject"
 
   val currentProject = Observable.merge(
       setCurrentProject,
@@ -102,6 +104,13 @@ object Actions {
 
           case Some(_) => identity[AppState] _
         }
+      }
+      .subscribe(updates)
+
+    setTreatAsProject
+      .doWork(processAction)
+      .map { case SetTreatAsProject(value) =>
+        (state: AppState) => state.copy(treatAsProject = value)
       }
       .subscribe(updates)
 

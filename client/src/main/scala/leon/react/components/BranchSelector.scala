@@ -20,7 +20,7 @@ object BranchSelector {
 
     def render(props: Props) = {
       Dropdown(
-        className    = "branch-list",
+        className    = "branch-list panel-element",
         items        = props.branches,
         header       = None,
         empty        = Some("No branches found"),

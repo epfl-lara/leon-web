@@ -117,6 +117,9 @@ class App(private val api: LeonAPI) {
         Actions.updateEditorCode ! UpdateEditorCode(code)
       }
 
+    case SetTreatAsProject(value) =>
+      api.setTreatAsProject(value)
+
     case _ =>
   }
 

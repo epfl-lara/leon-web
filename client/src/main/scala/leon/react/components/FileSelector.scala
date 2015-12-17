@@ -20,7 +20,7 @@ object FileSelector {
 
     def render(props: Props) = {
       Dropdown(
-        className    = "file-list",
+        className    = "file-list panel-element-full",
         items        = props.files,
         header       = Some("-- Select a file --"),
         empty        = Some("No .scala files found"),
