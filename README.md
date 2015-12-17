@@ -14,11 +14,16 @@ Later, when pulling changes, use the command `git submodule update`.
 
 Write `conf/setup.conf` and add the following lines, for example:
 
+    # Web application settings
     app.ssl=true
     app.url="https://leon.epfl.ch"
     assets.production.external.dir="/localhome/leonweb/git/leon-web/"
     http.port=9900
+    
+    # Path to where the Git repositories will be cloned
+    repositories.path="/localhome/leonweb/repos/"
 
+    # GitHub application credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
     auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
 
