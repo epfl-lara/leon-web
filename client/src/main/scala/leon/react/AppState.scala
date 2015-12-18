@@ -42,7 +42,10 @@ case class AppState(
   currentProject    : Option[Project]          = None,
 
   // Whether or not to treat the repo as a project
-  treatAsProject    : Boolean                  = true
+  treatAsProject    : Boolean                  = true,
+
+  // Whether or not a user is logged-in
+  isLoggedIn          : Boolean                = false
 ) {
 
   def toJSON: String = {

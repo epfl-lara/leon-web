@@ -6,7 +6,7 @@ package react
 
 import scala.scalajs.js
 import scala.scalajs.js.JSON
-import scala.scalajs.js.Dynamic.{ literal => l }
+import scala.scalajs.js.Dynamic.{ literal => l, global => g }
 
 import org.scalajs.dom.document
 import org.scalajs.dom.ext.LocalStorage
@@ -39,6 +39,8 @@ class App(private val api: LeonAPI) {
   import leon.web.client.react.components.modals._
   import leon.web.shared.{Action => LeonAction}
 
+  lazy val isLoggedIn = g._leon_isLoggedIn.asInstanceOf[Boolean]
+
   def init(): Unit = {
     // Register the WebSocket handlers.
     Handlers.register(api.handlers)
@@ -49,6 +51,7 @@ class App(private val api: LeonAPI) {
     val appState =
       LocalStorage("appState")
         .map(AppState.fromJSON)
+        .map(_.copy(isLoggedIn = isLoggedIn))
         .map(GlobalAppState(_))
         .getOrElse(GlobalAppState())
 
@@ -62,10 +65,12 @@ class App(private val api: LeonAPI) {
     // Apply every state transformation to the application state.
     Actions.register(appState.updates)
 
-    // Let the rest of the app know about the current project,
-    // if any was set.
-    api.setCurrentProject(appState.initial.currentProject)
-    Actions.setTreatAsProject ! SetTreatAsProject(appState.initial.treatAsProject)
+    // If the user is logged-in and was working on a project,
+    // restore such project.
+    if (isLoggedIn) {
+      api.setCurrentProject(appState.initial.currentProject)
+      Actions.setTreatAsProject ! SetTreatAsProject(appState.initial.treatAsProject)
+    }
   }
 
   private
