@@ -6,7 +6,6 @@ import scala.language.reflectiveCalls
 import scala.scalajs.js
 import scala.scalajs.js.annotation._
 import scala.scalajs.js.JSON
-import scala.scalajs.js.JSConverters._
 import org.scalajs.dom
 import org.scalajs.dom.{alert, console, document}
 import org.scalajs.dom.html.Element
@@ -35,7 +34,6 @@ import leon.web.shared.Project
 
 import leon.web.client.react.{App => ReactApp}
 import leon.web.client.utils.BufferedWebSocket
-import leon.web.client.syntax.BufferedWebSocket._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -1135,8 +1133,6 @@ trait LeonWeb {
   }
 
   def sendBufferedMessages(): Unit = {
-    val n = BufferedWebSocket.queue.length
-    println(s"Sending $n buffered messages...")
     BufferedWebSocket.sendAll(leonSocket)
   }
 

@@ -19,7 +19,7 @@ import japgolly.scalajs.react._
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.Observer._
-import leon.web.client.syntax.BufferedWebSocket._
+import leon.web.client.syntax.BufferedWebSocketOps._
 
 /** This class is in charge of the following:
   *
@@ -51,7 +51,7 @@ class App(private val api: LeonAPI) {
     val appState =
       LocalStorage("appState")
         .map(AppState.fromJSON)
-        .map(_.copy(isLoggedIn = isLoggedIn))
+        .map(_.copy(isLoggedIn = isLoggedIn, isLoadingRepo = false))
         .map(GlobalAppState(_))
         .getOrElse(GlobalAppState())
 

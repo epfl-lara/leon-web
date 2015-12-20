@@ -172,7 +172,10 @@ object Actions {
       .doWork(processAction)
       .map { e =>
         (state: AppState) =>
-          state.copy(showLoadRepoModal = e.value)
+          state.copy(
+            showLoadRepoModal = e.value,
+            isLoadingRepo     = false
+          )
       }
       .subscribe(updates)
 

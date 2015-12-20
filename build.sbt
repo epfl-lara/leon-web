@@ -80,7 +80,7 @@ lazy val client = (project in file("client")).settings(
   libraryDependencies ++= Seq(
     "org.scala-js" %%% "scalajs-dom" % "0.8.0",
     "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.1",
+    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.2",
     "org.monifu" %%% "monifu" % "1.0-RC4",
     "com.scalawarrior" %%% "scalajs-ace" % "0.0.2",
     "com.lihaoyi" %%% "upickle" % "0.3.6"
@@ -89,8 +89,16 @@ lazy val client = (project in file("client")).settings(
   scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),
   persistLauncher := true,
   jsDependencies ++= Seq(
-    "org.webjars.npm" % "react"     % "0.14.2" / "react-with-addons.js" commonJSName "React"    minified "react-with-addons.min.js",
-    "org.webjars.npm" % "react-dom" % "0.14.2" / "react-dom.js"         commonJSName "ReactDOM" minified "react-dom.min.js" dependsOn "react-with-addons.js"
+    "org.webjars.bower" % "react" % "0.14.3"
+      /        "react-with-addons.js"
+      minified "react-with-addons.min.js"
+      commonJSName "React",
+
+  "org.webjars.bower" % "react" % "0.14.3"
+      /         "react-dom.js"
+      minified  "react-dom.min.js"
+      dependsOn "react-with-addons.js"
+      commonJSName "ReactDOM"
   ),
   skip in packageJSDependencies := false
 ).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(sharedJs)

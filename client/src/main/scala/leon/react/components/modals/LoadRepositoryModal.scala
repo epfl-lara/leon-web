@@ -8,11 +8,14 @@ package modals
 
 import scala.concurrent.duration._
 
+import scala.scalajs.js
+
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
+import leon.web.client.utils.GitHubURL
 import leon.web.client.syntax.Observer._
 import leon.web.client.HandlersTypes.HRepository
 
@@ -31,18 +34,12 @@ object LoadRepositoryModal {
   )
 
   case class State(
-    selectedRepo: Option[HRepository] = None,
-    cloneProgress: Option[GitProgress] = None
+    selectedRepo  : Option[HRepository] = None,
+    url           : Option[String]      = None,
+    cloneProgress : Option[GitProgress] = None
   )
 
   class Backend($: BackendScope[Props, State]) {
-
-    def onSelectRepo(repo: HRepository): Callback = {
-      $.modState(_.copy(
-        selectedRepo = Some(repo),
-        cloneProgress = None
-      ))
-    }
 
     def subscribeToProgress: Callback = Callback {
       // We listen for this event here instead of
@@ -60,6 +57,44 @@ object LoadRepositoryModal {
           .map(props.onSelect(_))
           .getOrElse(Callback.empty)
       }
+
+    def urlToRepo(url: GitHubURL): HRepository = new HRepository {
+      val id            = 0L
+      val name          = url.repo
+      val fullName      = url.repopath
+      val owner         = url.user
+      val visibility    = ""
+      val fork          = false
+      val size          = 0L
+      val cloneURL      = s"https://github.com/${url.repopath}.git"
+      val defaultBranch = "master"
+      val branches      = new js.Array[String]
+    }
+
+    def repoToURL(repo: HRepository): String =
+      s"https://github.com/${repo.fullName}.git"
+
+    def onChangeURL(e: ReactEventI): Callback = {
+      val url   = e.target.value
+      val ghUrl = GitHubURL.parse(url)
+
+      $.modState(_.copy(url = Some(url))) >> CallbackTo.sequenceO {
+        ghUrl.map(urlToRepo).map { repo =>
+          $.modState(_.copy(
+            selectedRepo  = Some(repo),
+            cloneProgress = None
+          ))
+        }
+      }
+    }.void
+
+    def onSelectRepo(repo: HRepository): Callback = {
+      $.modState(_.copy(
+        selectedRepo  = Some(repo),
+        url           = Some(repoToURL(repo)),
+        cloneProgress = None
+      ))
+    }
 
     def onRequestHide: Callback = Callback {
       Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(false)
@@ -91,20 +126,42 @@ object LoadRepositoryModal {
           <.h3("Load a repository from GitHub")
         ),
         <.div(^.className := "modal-body",
-          <.p(
-            """Pick a repository to load from the list below:"""
-          ),
-          props.repos match {
-            case None        => loading
-            case Some(repos) =>
-              RepositoryList(
-                repos = repos,
-                onSelect = onSelectRepo,
-                disabled = props.cloning
-              )
-          }
+          renderURLForm(state.selectedRepo, state.url),
+          renderRepositoriesList(props.repos, state.selectedRepo, props.cloning)
         ),
         renderFooter(props, state)
+      )
+
+    def renderURLForm(repo: Option[HRepository], url: Option[String]) = {
+      <.div(^.className := "modal-section",
+        <.h5(
+          """Enter the URL of a GitHub repository below:"""
+        ),
+        <.input(
+          ^.`type`      := "text",
+          ^.className   := "form-control",
+          ^.placeholder := "https://github.com/romac/leon-web-testcases",
+          ^.value       := url.getOrElse(""),
+          ^.onChange   ==> onChangeURL
+        )
+      )
+    }
+
+    def renderRepositoriesList(repos: Option[Seq[HRepository]], selected: Option[HRepository], cloning: Boolean) =
+      <.div(^.className := "modal-section",
+        <.h5(
+          """Or pick a repository to load from the list below:"""
+        ),
+        repos match {
+          case None        => loading
+          case Some(repos) =>
+            RepositoryList(
+              repos    = repos,
+              onSelect = onSelectRepo,
+              selected = selected,
+              disabled = cloning
+            )
+        }
       )
 
     def renderFooter(props: Props, state: State) = {

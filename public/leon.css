@@ -308,6 +308,11 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 
 /* modals */
 
+.modal h3 {
+  font-size: 1.4em;
+  color: #333;
+}
+
 #synthesisProgress,
 #verifyProgress,
 #terminationProgress,
@@ -500,6 +505,12 @@ pre.exploreBlock .header .name span {
 }
 
 /* Load Repository Modal */
+
+.modal-section:first-child {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #aaa;
+}
 
 ul.repository-list {
   list-style: none;

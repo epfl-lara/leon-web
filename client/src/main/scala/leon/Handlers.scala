@@ -21,7 +21,6 @@ object HandlersTypes {
 
     import upickle.Js
     import upickle.default._
-    import js.JSConverters._
 
     def Bool(x: Boolean): Js.Value =
       if (x) Js.True else Js.False
