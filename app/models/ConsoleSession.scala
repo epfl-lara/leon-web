@@ -378,9 +378,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         else {
           val future = Future {
             if (wc.branchExists(branch))
-              wc.checkout(branch)
+              wc.checkout(branch, force = true)
             else
-              wc.checkoutRemote(branch)
+              wc.checkoutRemote(branch, force = true)
 
             wc.getFiles(branch)
               .getOrElse(Seq[String]())
@@ -412,12 +412,13 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           case Some(p) =>
             val path = {
-              val wc = RepositoryService.repositoryFor(user.get, p.owner, p.repo)
-              val (_, _, filePath) = wc.getFile(p.branch, p.file).get
-              s"${wc.path.getAbsolutePath()}/$filePath"
+              val wc   = RepositoryService.repositoryFor(user.get, p.owner, p.repo)
+              wc.getFile(p.branch, p.file)
+                .map(_._3)
+                .map(filePath => s"${wc.path.getAbsolutePath()}/$filePath")
             }
 
-            saveCode(code, Some(new File(path)))
+            saveCode(code, path.map(new File(_)))
         }
 
         val compReporter = new CompilingWSReporter(channel)
