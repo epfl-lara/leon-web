@@ -135,12 +135,12 @@ object LoadRepositoryModal {
     def renderURLForm(repo: Option[HRepository], url: Option[String]) = {
       <.div(^.className := "modal-section",
         <.h5(
-          """Enter the URL of a GitHub repository below:"""
+          """Enter the URL of a GitHub repository:"""
         ),
         <.input(
           ^.`type`      := "text",
           ^.className   := "form-control",
-          ^.placeholder := "https://github.com/romac/leon-web-testcases",
+          ^.placeholder := "https://github.com/user/reponame",
           ^.value       := url.getOrElse(""),
           ^.onChange   ==> onChangeURL
         )
