@@ -9,6 +9,7 @@ object Action {
   val featureSet = "featureSet"
   val accessPermaLink = "accessPermaLink"
   val doUpdateCode = "doUpdateCode"
+  val doUpdateCodeInProject = "doUpdateCodeInProject"
   val storePermaLink = "storePermaLink"
   val getRulesToApply = "getRulesToApply"
   val doCancel = "doCancel"

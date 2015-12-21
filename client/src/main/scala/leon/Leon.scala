@@ -1,4 +1,5 @@
-package leon.web.client
+package leon.web
+package client
 
 import scala.language.reflectiveCalls
 
@@ -8,6 +9,9 @@ import scala.scalajs.js.JSON
 import org.scalajs.dom
 import org.scalajs.dom.{alert, console, document}
 import org.scalajs.dom.html.Element
+import org.scalajs.dom.WebSocket
+import org.scalajs.dom.{Event, MessageEvent, CloseEvent, ErrorEvent}
+import org.scalajs.dom.ext.LocalStorage
 import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 
 import scala.collection.mutable.ListBuffer
@@ -27,8 +31,10 @@ import Implicits._
 
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
 import leon.web.shared.{Module => ModuleName, Constants, Action}
+import leon.web.shared.Project
 
 import leon.web.client.react.{App => ReactApp}
+import leon.web.client.utils.BufferedWebSocket
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -63,18 +69,12 @@ object MainDelayed extends js.JSApp {
   $("#codebox").show()
 }
 
-@ScalaJSDefined
-trait LeonSocket extends js.Object {
-  def send(message: String): Unit
-  var onopen: js.Function1[JQueryEventObject, Any]
-  var onmessage: js.Function1[JQueryEventObject, Any]
-  var onclose: js.Function1[JQueryEventObject, Any]
-  var onerror: js.Function1[JQueryEventObject, Any]
-}
-
 trait LeonAPI {
-  def leonSocket: LeonSocket
+  def leonSocket: WebSocket
   def setEditorCode(code: String): Unit
+  def setCurrentProject(project: Option[Project]): Unit
+  def getCurrentProject(): Option[Project]
+  def setTreatAsProject(value: Boolean): Unit
   def handlers: js.Dictionary[Any]
 }
 
@@ -89,7 +89,7 @@ object Main extends LeonWeb with LeonAPI {
     val reactApp = new ReactApp(this)
     reactApp.init()
 
-    js.timers.setTimeout(3000) {
+    js.timers.setTimeout(4000) {
       if (!connected) {
         $("#disconnectError").hide();
         $("#connectError").show().alert();
@@ -106,19 +106,11 @@ trait LeonWeb {
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
 
-  @ScalaJSDefined
-  trait LocalStorage extends js.Any {
-    def getItem(name: String): String
-    def setItem(name: String, value: String): Unit
-  }
-
-  def localStorage = window.localStorage.asInstanceOf[LocalStorage]
-
   val hash = window.location.hash.asInstanceOf[js.UndefOr[String]]
 
   @JSExport val WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
 
-  @JSExport("leonSocket") var leonSocket: LeonSocket = null
+  @JSExport("leonSocket") var leonSocket: WebSocket = null
 
   val headerHeight = $("#title").height() + 20
 
@@ -153,7 +145,7 @@ trait LeonWeb {
   }
 
   def showHighlight(range: Range, content: String) = {
-    if (range != lastDisplayedRange) {
+    if (range =!= lastDisplayedRange) {
       hideHighlight()
 
       lastDisplayedRange = range;
@@ -258,7 +250,7 @@ trait LeonWeb {
           }
         }
 
-        if (maxRes != null) {
+        if (maxRes =!= null) {
           showHighlight(maxRes.range, maxRes.res)
         } else {
           hideHighlight();
@@ -273,17 +265,35 @@ trait LeonWeb {
 
   $("#codecolumn").keyup(displayExplorationFacts _)
 
-  $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
-    val target = $(self).attr("ref")
-    val sel = "#" + target
+  def togglePanel(button: String, show: Boolean): Unit = {
+    val panel = "#" + $(button).attr("ref")
 
-    if ($(sel).is(":visible")) {
-      $(sel).hide()
-      $(self).addClass("disabled")
+    if (!show) {
+      $(panel).hide()
+      $(button).addClass("disabled")
     } else {
-      $(sel).show()
-      $(self).removeClass("disabled")
+      $(panel).show()
+      $(button).removeClass("disabled")
     }
+  }
+
+  var leonPanels =
+    fromStorage[js.Dictionary[Boolean]]("leonPanels")
+      .getOrElse(js.Dictionary.empty[Boolean])
+
+  leonPanels foreach { case (button, visible) =>
+    togglePanel(button, visible)
+  }
+
+  $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
+    val button  = "#" + $(self).attr("id")
+    val panel   = "#" + $(self).attr("ref")
+    val visible = $(panel).is(":visible")
+
+    togglePanel(button, !visible)
+
+    leonPanels += (button -> !visible)
+    LocalStorage.update("leonPanels", JSON.stringify(leonPanels))
 
   }): js.ThisFunction);
 
@@ -308,7 +318,7 @@ trait LeonWeb {
 
   def hasLocalStorage(): Boolean = {
     try {
-      !js.isUndefined(window.localStorage) && window.localStorage != null;
+      !js.isUndefined(window.localStorage) && window.localStorage =!= null;
     } catch {
       case e: Exception =>
         false
@@ -322,9 +332,15 @@ trait LeonWeb {
   var context = "unknown";
 
   val maxHistory = 20;
+
+  def fromStorage[A <: js.Any](key: String): Option[A] =
+    LocalStorage(key)
+      .flatMap(x => x.asInstanceOf[js.UndefOr[String]].toOption)
+      .map(JSON.parse(_).asInstanceOf[A])
+
   // Undo/Redo
-  val backwardChanges = JSON.parse(localStorage.getItem("backwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String])
-  var forwardChanges = JSON.parse(localStorage.getItem("forwardChanges")).asInstanceOf[js.UndefOr[js.Array[String]]].filter(_ != null).getOrElse(new js.Array[String]())
+  var backwardChanges = fromStorage[js.Array[String]]("backwardChanges").getOrElse(new js.Array[String])
+  var forwardChanges  = fromStorage[js.Array[String]]("forwardChanges").getOrElse(new js.Array[String])
 
   def doUndo(): Unit = {
     forwardChanges.push(editor.getValue());
@@ -349,7 +365,7 @@ trait LeonWeb {
   def storeCurrent(code: String): Unit = {
     forwardChanges = new js.Array[String]()
     if (backwardChanges.length >= 1) {
-      if (code != backwardChanges(backwardChanges.length - 1)) {
+      if (code =!= backwardChanges(backwardChanges.length - 1)) {
         backwardChanges.push(code)
       }
     } else {
@@ -382,8 +398,8 @@ trait LeonWeb {
       forwardChanges.splice(0, forwardChanges.length - maxHistory)
     }
 
-    localStorage.setItem("backwardChanges", JSON.stringify(backwardChanges));
-    localStorage.setItem("forwardChanges", JSON.stringify(forwardChanges));
+    LocalStorage.update("backwardChanges", JSON.stringify(backwardChanges))
+    LocalStorage.update("forwardChanges", JSON.stringify(forwardChanges))
   }
 
   updateUndoRedo()
@@ -462,9 +478,9 @@ trait LeonWeb {
     $("#invariant .progress-bar").css("width", percents + "%");
   }
 
-  val localFeatures = localStorage.getItem("leonFeatures")
-  if (localFeatures != null) {
-    val locFeatures = JSON.parse(localFeatures).asInstanceOf[js.Dictionary[Feature]]
+  val localFeatures = fromStorage[js.Dictionary[Feature]]("leonFeatures")
+
+  localFeatures foreach { locFeatures =>
     for ((f, locFeature) <- locFeatures) {
       features.get(f) match {
         case Some(feature) =>
@@ -485,7 +501,7 @@ trait LeonWeb {
 
     Backend.main.setFeatureActive(f, features(f).active)
 
-    localStorage.setItem("leonFeatures", JSON.stringify(features));
+    LocalStorage.update("leonFeatures", JSON.stringify(features));
 
     recompile()
 
@@ -1131,7 +1147,7 @@ trait LeonWeb {
         pbb.html("Terminates!")
         pbb.addClass("progress-bar-success")
         val reason = fdata.reason.getOrElse("")
-        tbl.append("""<tr class="success"> <td>This function terminates for all inputs."""+(if(reason != "") " (" + reason + ")" else "")+"""</td> </tr>""")
+        tbl.append("""<tr class="success"> <td>This function terminates for all inputs."""+(if(reason =!= "") " (" + reason + ")" else "")+"""</td> </tr>""")
 
       case TerminationStatus.loopsfor =>
         pbb.html("Non-terminating!")
@@ -1175,14 +1191,14 @@ trait LeonWeb {
     alert(msg);
   }
 
-  val errorEvent = (event: JQueryEventObject) => {
+  def errorEvent(event: ErrorEvent): Unit = {
     console.log("ERROR")
     console.log(event)
   }
 
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
 
-  val receiveEvent = (event: JQueryEventObject) => {
+  def receiveEvent(event: MessageEvent): Unit = {
     val data = JSON.parse(event.data.asInstanceOf[String]).asInstanceOf[Kind]
     handlers.get(data.kind) match {
       case Some(handler) =>
@@ -1194,18 +1210,23 @@ trait LeonWeb {
   }
 
   var connected = false
+  var isConnecting = false
 
   var lastReconnectDelay = 0;
   var reconnectIn = 0;
 
-  val closeEvent = (event: JQueryEventObject) => {
+  def closeEvent(event: CloseEvent): Unit = {
     if (connected) {
       setDisconnected()
     }
   }
 
-  val openEvent: JQueryEventObject => Unit = (event: JQueryEventObject) => {
-    if (lastReconnectDelay != 0) {
+  def sendBufferedMessages(): Unit = {
+    BufferedWebSocket.sendAll(leonSocket)
+  }
+
+  def openEvent(event: Event): Unit = {
+    if (lastReconnectDelay =!= 0) {
       notify("And we are back online!", "success")
       updateCompilationStatus("unknown")
       oldCode = ""
@@ -1223,7 +1244,7 @@ trait LeonWeb {
       }
     }
 
-    if (hash.isDefined && hash.get != "") {
+    if (hash.isDefined && hash.get =!= "") {
       loadStaticLink(hash.get)
     } else {
       recompile()
@@ -1248,6 +1269,8 @@ trait LeonWeb {
 
   def setDisconnected(): Unit = {
     connected = false
+    isConnecting = false
+
     updateCompilationStatus("disconnected")
     lastReconnectDelay = 5;
     reconnectIn = lastReconnectDelay;
@@ -1257,12 +1280,15 @@ trait LeonWeb {
 
   def setConnected(): Unit = {
     connected = true
+    isConnecting = false
 
     $("#connectError").hide();
     $("#disconnectError").hide();
 
     lastReconnectDelay = 0;
     reconnectIn = -1;
+
+    sendBufferedMessages()
   }
 
   def checkDisconnectStatus(): Unit = {
@@ -1272,9 +1298,10 @@ trait LeonWeb {
 
       connectWS()
 
-      // If still not connected after 2 seconds, consider failed
-      js.timers.setTimeout(2000) {
+      // If still not connected after 5 seconds, consider failed
+      js.timers.setTimeout(5000) {
         if (!connected) {
+          isConnecting = false
           if (lastReconnectDelay == 0) {
             lastReconnectDelay = 5;
           } else {
@@ -1299,12 +1326,16 @@ trait LeonWeb {
   }
 
   @JSExport
-  def connectWS(): Unit = {
-    leonSocket = jsnew(g.WebSocket /*WS*/ )(g._leon_websocket_url).asInstanceOf[LeonSocket]
-    leonSocket.onopen = openEvent
-    leonSocket.onmessage = receiveEvent
-    leonSocket.onclose = closeEvent
-    leonSocket.onerror = errorEvent
+  def connectWS(): Unit = if (!isConnecting) {
+    isConnecting = true
+
+    val url = g._leon_websocket_url.asInstanceOf[String]
+
+    leonSocket           = new WebSocket(url)
+    leonSocket.onopen    = openEvent _
+    leonSocket.onmessage = receiveEvent _
+    leonSocket.onclose   = closeEvent _
+    leonSocket.onerror   = errorEvent _
   }
 
   var lastChange = 0.0;
@@ -1333,22 +1364,69 @@ trait LeonWeb {
     }
   }
 
+  private
+  var treatAsProject = true
+
+  def setTreatAsProject(value: Boolean): Unit = {
+    treatAsProject = value
+    recompile(force = true)
+  }
+
+  private
+  var currentProject = Option.empty[Project]
+
+  def setCurrentProject(project: Option[Project]): Unit = {
+    project match {
+      case None    => showExamples()
+      case Some(_) => hideExamples()
+    }
+
+    currentProject = project
+    recompile(force = true)
+  }
+
+  def getCurrentProject() = currentProject
+  def hideExamples(): Unit = $("#selectcolumn").hide()
+  def showExamples(): Unit = $("#selectcolumn").show()
+
   var oldCode = ""
 
-  def recompile() = {
+  def recompile(force: Boolean = false) = {
     val currentCode = editor.getValue()
 
-    if (oldCode != "" && oldCode != currentCode) {
+    if (oldCode =!= "" && oldCode =!= currentCode) {
       if (forwardChanges.length == 0) {
         storeCurrent(oldCode)
       }
     }
 
-    if (connected && oldCode != currentCode) {
-      oldCode = currentCode;
+    if (connected && (oldCode =!= currentCode || force)) {
+      val msg = currentProject match {
+        case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
+          l(
+            action = Action.doUpdateCodeInProject,
+            module = "main",
+            owner  = owner,
+            repo   = repo,
+            file   = file,
+            branch = branch,
+            code   = currentCode
+          )
+
+        case _ =>
+          l(
+            action = Action.doUpdateCode,
+            module = "main",
+            code   = currentCode
+          )
+      }
+
+      oldCode         = currentCode;
       lastSavedChange = lastChange;
+
       updateSaveButton();
-      Backend.main.doUpdateCode(currentCode)
+      leonSocket.send(JSON.stringify(msg))
+
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }
@@ -1364,7 +1442,7 @@ trait LeonWeb {
       lastChange = new js.Date().getTime();
     }
 
-    localStorage.setItem("leonEditorCode", editor.getValue());
+    LocalStorage.update("leonEditorCode", editor.getValue());
   }
 
   def loadSelectedExample(): Unit = {
@@ -1463,7 +1541,7 @@ trait LeonWeb {
     $("#terminationDialog").modal("show")
   }
 
-  var storedCode = localStorage.getItem("leonEditorCode")
+  var storedCode = LocalStorage("leonEditorCode")
 
   sealed class Placement(name: String) { override def toString = name }
   object Placement {
@@ -1473,7 +1551,7 @@ trait LeonWeb {
     case object Bottom extends Placement("bottom")
   }
 
-  val seenDemo = localStorage.getItem("leonSeenDemo").orIfNull("0").toInt
+  val seenDemo = LocalStorage("leonSeenDemo").getOrElse("0").toInt
   @ScalaJSDefined class Demo(_where: => JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
     def where: JQuery = _where
     val title: String = _title
@@ -1561,10 +1639,10 @@ trait LeonWeb {
 
         $("#demoPane").unbind("hide.bs.modal").on("hide.bs.modal", () => {
           if (action == "next") {
-            localStorage.setItem("leonSeenDemo", (id + 1).toString)
+            LocalStorage.update("leonSeenDemo", (id + 1).toString)
             js.timers.setTimeout(500) { showDemo(id + 1) }
           } else {
-            localStorage.setItem("leonSeenDemo", 100.toString)
+            LocalStorage.update("leonSeenDemo", 100.toString)
           }
         })
 
@@ -1587,7 +1665,7 @@ trait LeonWeb {
         lastDemo = where;
 
         if (where.length == 0) {
-          localStorage.setItem("leonSeenDemo", (id + 1).toString)
+          LocalStorage.update("leonSeenDemo", (id + 1).toString)
           hideDemo(id)
           showDemo(id + 1)
           return ;
@@ -1612,12 +1690,12 @@ trait LeonWeb {
         where.popover("show")
 
         $("#demoPane button[demo-action=\"close\"]").click(() => {
-          localStorage.setItem("leonSeenDemo", 100.toString)
+          LocalStorage.update("leonSeenDemo", 100.toString)
           hideDemo(id)
         })
 
         $("#demoPane button[demo-action=\"next\"]").click(() => {
-          localStorage.setItem("leonSeenDemo", (id + 1).toString)
+          LocalStorage.update("leonSeenDemo", (id + 1).toString)
           hideDemo(id)
           showDemo(id + 1)
         })
@@ -1635,21 +1713,22 @@ trait LeonWeb {
       }
     }
 
-    val toShow = (seenDemo != 0) ? seenDemo | 0;
-    if (toShow != 0) {
+    val toShow = (seenDemo =!= 0) ? seenDemo | 0;
+    if (toShow =!= 0) {
       js.timers.setTimeout(1000) { showDemo(toShow) }
     } else {
       showDemo(toShow)
     }
 
-    storedCode = null
+    storedCode = None
   }
 
-  if (storedCode != null) {
-    editor.setValue(storedCode);
+  storedCode foreach { code =>
+    editor.setValue(code);
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
+
   /*
   snowStorm.snowColor = "#ddddff";
   snowStorm.vMaxX = 2;

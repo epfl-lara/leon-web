@@ -192,7 +192,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                   // as choose
 
                 case ExploreSelect(selected) =>
-                  n.descendants.zipWithIndex.find { case (d, i) => i == selected } match {
+                  n.descendants.zipWithIndex.find { case (d, i) => i === selected } match {
                     case Some((d, _)) =>
                       n.selected = List(d)
                       if (!d.isExpanded) {
@@ -231,7 +231,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                     if (n.isDeadEnd) {
                       Some(Solution.failed(n.p))
                     } else {
-                      if (n.selected == Nil || !n.isExpanded) {
+                      if (n.selected === Nil || !n.isExpanded) {
                         Some(Solution.chooseComplete(n.p))
                       } else {
                         val subSols = n.descendants.zipWithIndex.collect {
@@ -425,7 +425,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     val nfd = fd.duplicate()
 
     nfd.body = nfd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
-      case ch if ch == src && ch.getPos == src.getPos =>
+      case ch if ch === src && ch.getPos === src.getPos =>
         Some(expr)
       case _ =>
         None

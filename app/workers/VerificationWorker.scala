@@ -27,7 +27,7 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
   def notifyVerifOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
       // All functions that depend on an invalid function
-      val dependsOnInvalid = verifOverview.filter(_._2.status == "invalid").flatMap { r =>
+      val dependsOnInvalid = verifOverview.filter(_._2.status === "invalid").flatMap { r =>
         cstate.program.callGraph.transitiveCallers(r._1)
       }.toSet
 
@@ -147,7 +147,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
       for (f <- verifFunctions) {
         val h = FunctionHash(f)
 
-        oldVerifOverView find { case (fd, _) => FunctionHash(fd) == h } match {
+        oldVerifOverView find { case (fd, _) => FunctionHash(fd) === h } match {
           case Some((fd, vcs)) if !recomputeEverything=>
             verifOverview += f -> vcs
           case _ =>

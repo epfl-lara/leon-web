@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 package components
 
@@ -42,7 +43,7 @@ object Dropdown {
         }
       }
 
-    val classNames = Seq("form-control", "panel-element-full")
+    val classNames = Seq("form-control")
 
     def render(props: Props[A]) = {
       val selectedItem      = props.selected map props.renderOption

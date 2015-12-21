@@ -60,7 +60,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
       for (fd <- cstate.functions) {
         val veriStatus =
-          if (fd.hasTemplate || fd.getPostWoTemplate != tru) false
+          if (fd.hasTemplate || fd.getPostWoTemplate =!= tru) false
           else true
         invariantOverview += fd.id.name ->
           FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = veriStatus)

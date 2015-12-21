@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 
 import scala.scalajs.js
@@ -34,7 +35,7 @@ object Handlers {
   }
 
   val loadRepoHandler = (data: HRepositoryLoaded) => {
-    Events.repositoryLoaded ! RepositoryLoaded(data.files, data.branches)
+    Events.repositoryLoaded ! RepositoryLoaded(data.repository, data.files, data.branches)
   }
 
   val loadFileHandler = (data: HFileLoaded) => {

@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 package components
 
@@ -33,6 +34,10 @@ object LoadRepositoryPanel {
     def onClickSelect: Callback =
       showLoadRepoModal >> loadRepos
 
+    def onClickUnload: Callback = Callback {
+      Actions.setCurrentProject ! SetCurrentProject(None)
+    }
+
     def onLoadRepo(repo: HRepository): Callback = Callback {
       Actions.loadRepository ! LoadRepository(repo)
     }
@@ -45,13 +50,19 @@ object LoadRepositoryPanel {
       Actions.loadFile ! LoadFile(props.repository.get, file)
     }
 
-    def render(props: Props) =
+    def onChangeProjectType(e: ReactEventI): Callback = Callback {
+      Actions.setTreatAsProject ! SetTreatAsProject(e.target.checked)
+    }
+
+    def render(props: Props) = {
+      val hasRepo = props.repository.isDefined
       <.div(^.className := "panel",
         <.h3("Load a GitHub repository:"),
         <.div(
-          LoadRepositoryButton(props.repository, onClickSelect),
-          renderBranches(props.repository, props.branches, props.branch),
-          renderFiles(props.repository, props.files, props.file.map(_._1))
+          LoadRepositoryButton(props.repository, onClickSelect, onClickUnload),
+          hasRepo ?= renderBranches(props.repository.get, props.branches, props.branch),
+          hasRepo ?= renderProjectType(props.treatAsProject),
+          hasRepo ?= renderFiles(props.files, props.file.map(_._1))
         ),
         <.div(
           LoadRepositoryModal(
@@ -62,28 +73,35 @@ object LoadRepositoryPanel {
           )
         )
       )
-
-    def renderBranches(repo: Option[HRepository], branches: Seq[HBranch], selected: Option[String]) = repo match {
-      case None => EmptyTag
-      case Some(repo) =>
-        <.div(^.id := "load-repo-branch",
-          BranchSelector(
-            branches.map(_.name),
-            onChooseBranch(repo),
-            selected orElse Some(repo.defaultBranch)
-          )
-        )
     }
 
-    def renderFiles(repo: Option[HRepository], files: Seq[String],
-                       selected: Option[String] = None) = repo match {
-
-      case None => EmptyTag
-      case Some(_) =>
-        <.div(^.id := "load-repo-file",
-          FileSelector(files, onChooseFile, selected)
-        )
+    def renderProjectType(treatAsProject: Boolean) = {
+      <.span(^.className := "project-type",
+        <.input(
+          ^.id        := "project-type-check",
+          ^.`type`    := "checkbox",
+          ^.checked   := treatAsProject,
+          ^.onChange ==> onChangeProjectType
+        ),
+        <.label(^.`for` := "project-type-check", "Treat as project")
+      )
     }
+
+    def renderBranches(repo: HRepository, branches: Seq[HBranch], selected: Option[String]) =
+      <.span(^.id := "load-repo-branch",
+        "Branch:",
+        BranchSelector(
+          branches.map(_.name),
+          onChooseBranch(repo),
+          selected orElse Some(repo.defaultBranch)
+        )
+      )
+
+    def renderFiles(files: Seq[String], selected: Option[String] = None) =
+      <.div(^.id := "load-repo-file",
+        FileSelector(files, onChooseFile, selected)
+      )
+
   }
 
   val component =
@@ -97,7 +115,7 @@ object LoadRepositoryPanel {
 
 object LoadRepositoryButton {
 
-  case class Props(repo: Option[HRepository], onClick: Callback)
+  case class Props(repo: Option[HRepository], onClickSelect: Callback, onClickUnload: Callback)
   case class State(isHover: Boolean = false)
 
   class Backend($: BackendScope[Props, State]) {
@@ -109,25 +127,39 @@ object LoadRepositoryButton {
       $.modState(_.copy(isHover = false))
 
     def render(props: Props, state: State) =
-      <.button(
-        ^.id := "load-repo-btn",
-        ^.className   :=  "btn btn-default panel-element-full",
-        ^.onClick     --> props.onClick,
-        ^.onMouseOver --> onMouseOver,
-        ^.onMouseOut  --> onMouseOut,
-        renderContent(props.repo, state.isHover)
+      <.div(
+        <.button(
+          ^.id := "load-repo-btn",
+          ^.classSet1(
+            "btn btn-default panel-element-full",
+            "loaded" -> props.repo.isDefined
+          ),
+          ^.onClick     --> props.onClickSelect,
+          ^.onMouseOver --> onMouseOver,
+          ^.onMouseOut  --> onMouseOut,
+          renderContent(props.repo, state.isHover)
+        ),
+        props.repo.isDefined ?= renderUnloadButton(props.onClickUnload)
       )
 
-    def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
-      case Some(repo) if !isHover =>
-        <.span(
-          <.span(^.className := "octicon octicon-mark-github"),
-          repo.fullName
-        )
+    def octicon(name: String, content: String) = <.span(
+      <.span(^.className := s"octicon octicon-mark-$name"),
+      content
+    )
 
-      case Some(_) => <.span("Select another repository")
-      case None    => <.span("Select a GitHub repository")
+    def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
+      case Some(repo) if !isHover => octicon("github", repo.fullName)
+      case Some(_)                => octicon("github", "Select another repository")
+      case None                   => octicon("github", "Select a GitHub repository")
     }
+
+    def renderUnloadButton(onClick: Callback) =
+      <.button(
+        ^.id        := "unload-repo-btn",
+        ^.className := "btn btn-default",
+        ^.onClick  --> onClick,
+        "x"
+      )
 
   }
 
@@ -137,8 +169,8 @@ object LoadRepositoryButton {
       .renderBackend[Backend]
       .build
 
-  def apply(repo: Option[HRepository], onClick: Callback) =
-    component(Props(repo, onClick))
+  def apply(repo: Option[HRepository], onClickSelect: Callback, onClickUnload: Callback) =
+    component(Props(repo, onClickSelect, onClickUnload))
 
 }
 

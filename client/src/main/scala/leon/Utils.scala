@@ -1,4 +1,5 @@
-package leon.web.client
+package leon.web
+package client
 
 import org.scalajs.jquery.{JQueryStatic, JQueryEventObject, JQuery}
 import org.scalajs.dom.html.Element

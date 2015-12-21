@@ -33,7 +33,7 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
 
 
   def index(dir: String) = UserAwareAction { implicit request =>
-    val examples = if (dir == "") {
+    val examples = if (dir === "") {
       getExamples("verification") ++ getExamples("synthesis") ++ getExamples("invariant")
     } else {
       getExamples(dir)

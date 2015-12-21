@@ -8,6 +8,7 @@ import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.web.models.github.Repository
 import leon.synthesis.Synthesizer
+import leon.web.shared.Project
 
 object ConsoleProtocol {
   case object Init
@@ -16,7 +17,7 @@ object ConsoleProtocol {
 
   case class ProcessClientEvent(event: JsValue)
 
-  case class UpdateCode(code: String)
+  case class UpdateCode(code: String, user: Option[User], project: Option[Project])
 
   case class Cancelled(wa: WorkerActor)
   case object DoCancel
@@ -25,7 +26,7 @@ object ConsoleProtocol {
   case class AccessPermaLink(link: String)
 
   case class LoadRepositories(user: User)
-  case class LoadRepository(user: User, owner: String, name: String)
+  case class LoadRepository(user: User, owner: String, repo: String)
   case class LoadFile(user: User, owner: String, repo: String, file: String)
   case class SwitchBranch(user: User, owner: String, repo: String, branch: String)
   case class RepositoryLoaded(user: User, repo: Repository)

@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 package components
 
@@ -18,20 +19,18 @@ object RepositoryList {
 
   case class Props(
     repos: Seq[HRepository],
+    selected: Option[HRepository],
     onSelect: OnSelectCallback,
     disabled: Boolean
   )
 
-  case class State(selected: Option[HRepository] = None)
-
-  class Backend($: BackendScope[Props, State]) {
+  class Backend($: BackendScope[Props, Unit]) {
 
     def onSelectRepo(repo: HRepository)(e: ReactMouseEvent): Callback =
       e.preventDefaultCB >>
-      $.modState(_.copy(selected = Some(repo))) >>
       $.props.flatMap(_.onSelect(repo))
 
-    def render(props: Props, state: State) =
+    def render(props: Props) =
       <.ul(
         ^.classSet1(
           "repository-list",
@@ -41,7 +40,7 @@ object RepositoryList {
           <.li(
             ^.classSet1(
               repo.visibility,
-              "selected" -> state.selected.exists(_ == repo)
+              "selected" -> props.selected.exists(_.fullName == repo.fullName)
             ),
             <.a(^.onClick ==> onSelectRepo(repo) _,
               <.span(^.classSet1(
@@ -57,14 +56,14 @@ object RepositoryList {
 
   val component =
     ReactComponentB[Props]("RepositoryList")
-      .initialState(State())
       .renderBackend[Backend]
       .build
 
   def apply(repos: Seq[HRepository],
+            selected: Option[HRepository],
             onSelect: OnSelectCallback,
             disabled: Boolean) =
-    component(Props(repos, onSelect, disabled))
+    component(Props(repos, selected, onSelect, disabled))
 
 }
 

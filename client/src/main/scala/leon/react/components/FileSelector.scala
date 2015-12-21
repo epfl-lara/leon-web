@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 package components
 
@@ -19,7 +20,7 @@ object FileSelector {
 
     def render(props: Props) = {
       Dropdown(
-        className    = "file-list",
+        className    = "file-list panel-element-full",
         items        = props.files,
         header       = Some("-- Select a file --"),
         empty        = Some("No .scala files found"),

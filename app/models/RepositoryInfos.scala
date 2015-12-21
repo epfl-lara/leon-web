@@ -31,7 +31,7 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
   */
-class RepositoryInfos(name: String, token: Option[String] = None) {
+class RepositoryInfos(val path: File, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {
@@ -44,10 +44,6 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
 
       res.reverse
     }
-  }
-
-  lazy val path = {
-    new File("repositories/"+name)
   }
 
   lazy val repo = {
@@ -228,6 +224,21 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
 
   }
 
+  def reset(ref: String = "HEAD", hard: Boolean = false): Boolean = {
+    try {
+      val mode = if (hard) ResetCommand.ResetType.HARD else ResetCommand.ResetType.SOFT
+      git.reset()
+         .setRef(ref)
+         .setMode(mode)
+         .call()
+      true
+    } catch {
+      case NonFatal(e) =>
+        Logger.error(e.getMessage, e)
+        false
+    }
+  }
+
   def add(path: String): Boolean = {
     try {
       git.add().addFilepattern(path).call()
@@ -263,11 +274,15 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
   }
 
   def branchExists(branch: String): Boolean =
-    git.getRepository().getRef(branch) != null
+    git.getRepository().getRef(branch) =!= null
 
-  def checkout(branch: String): Boolean = {
+  def checkout(branch: String, force: Boolean = false): Boolean = {
     try {
-      git.checkout().setName(branch).call()
+      if (force) reset("HEAD", true)
+      git.checkout()
+         .setName(branch)
+         .setForce(force)
+         .call()
       true
     }
     catch {
@@ -277,10 +292,12 @@ class RepositoryInfos(name: String, token: Option[String] = None) {
     }
   }
 
-  def checkoutRemote(branch: String): Boolean = {
+  def checkoutRemote(branch: String, force: Boolean = false): Boolean = {
     try {
+      if (force) reset("HEAD", true)
       git.checkout()
          .setName(branch)
+         .setForce(force)
          .setCreateBranch(true)
          .setUpstreamMode(CreateBranchCommand.SetupUpstreamMode.TRACK)
          .setStartPoint(s"origin/$branch")
