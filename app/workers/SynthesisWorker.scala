@@ -107,7 +107,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val path = (event \ "path").as[List[Int]]
           val ws = (event \ "ws").as[Int]
 
-          val action = (event \ "explore-action").as[String] match {
+          val action = (event \ "exploreAction").as[String] match {
             case "select-alternative" =>
               val s = (event \ "select").as[Int]
               if (s < 0) {

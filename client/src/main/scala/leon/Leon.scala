@@ -390,9 +390,7 @@ trait LeonWeb {
 
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
     if (!$(self).hasClass("disabled")) {
-      val msg = JSON.stringify(
-        l(action = Action.storePermaLink, module = ModuleName.main, code = editor.getValue()))
-      leonSocket.send(msg)
+      Backend.main.storePermaLink(editor.getValue())
     }
     event.preventDefault()
   }): js.ThisFunction);
@@ -485,9 +483,7 @@ trait LeonWeb {
     val f = $(self).attr("ref")
     features(f).active = !features(f).active
 
-    val msg = JSON.stringify(
-      l(action = Action.featureSet, module = ModuleName.main, feature = f, active = features(f).active))
-    leonSocket.send(msg)
+    Backend.main.setFeatureActive(f, features(f).active)
 
     localStorage.setItem("leonFeatures", JSON.stringify(features));
 
@@ -719,13 +715,8 @@ trait LeonWeb {
       $("#synthesis .dropdown-toggle").click(((self: Element, e: JQueryEventObject) => {
         val p = $(self).parents(".problem")
 
-        val msg = JSON.stringify(l(
-          module = ModuleName.synthesis,
-          action = Action.getRulesToApply,
-          fname = p.attr("fname"),
-          cid = p.attr("cid").orIfNull("0").toInt))
+        Backend.synthesis.getRulesToApply(p.attr("fname"), p.attr("cid").orIfNull("0").toInt)
 
-        leonSocket.send(msg)
       }): js.ThisFunction)
     }
     
@@ -738,13 +729,7 @@ trait LeonWeb {
         val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
         val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
           
-        val msg = JSON.stringify(l(
-          module = ModuleName.synthesis,
-          action = Action.getRulesToApply,
-          fname = fname,
-          cid = cid))
-
-        leonSocket.send(msg)
+        Backend.synthesis.getRulesToApply(fname, cid)
       }
     } else {
       $("#synthesis").hide()
@@ -951,17 +936,12 @@ trait LeonWeb {
           validateBox.on("click", () => {
             val dualOutput = outputs(i)
             console.log($(elem)(0))
-            dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+            val newContent = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+            dualOutput.modifying = newContent
             console.log("Sending synthesis problem", dualOutput)
             console.log("Fname = ", vc.fun)
             //TODO: Do something with the dual output
-            val msg = JSON.stringify(l(
-                action = Action.prettyPrintCounterExample,
-                module = ModuleName.verification,
-                output = dualOutput.modifying,
-                rawoutput = dualOutput.rawoutput,
-                fname = vc.fun))
-            leonSocket.send(msg)
+            Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, vc.fun)
             menuBox.hide()
           })
           cancelBox.on("click", () => {
@@ -971,7 +951,7 @@ trait LeonWeb {
             menuBox.hide()
             $(elem).blur()
           })
-          // Focus/blure is not very robust. Here is what it does (if it needs to be extended later)
+          // Focus/blur is not very robust. Here is what it does (if it needs to be extended later)
           // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
           // If the user unfocuses the div.output, the menu disappear after 10ms
           // If the user focuses the originalBox, the menu disappearance is cancelled immediately
@@ -1021,12 +1001,7 @@ trait LeonWeb {
 
     if (canRepair && Features.repair.active) {
       $(".repairButton").unbind("click").click(() => {
-        val fname = targetFunction
-
-        val msg = JSON.stringify(
-          l(action = Action.doRepair, module = ModuleName.repair, fname = fname))
-
-        leonSocket.send(msg)
+        Backend.repair.doRepair(targetFunction)
 
         $("#verifyDialog").modal("hide")
       });
@@ -1239,13 +1214,9 @@ trait LeonWeb {
     setConnected()
 
     for ((featureName, feature) <- features) {
-      val msg = JSON.stringify(
-        l(action = Action.featureSet, module = ModuleName.main, feature = featureName, active = feature.active))
-
       try {
-        leonSocket.send(msg)
-      }
-      catch {
+        Backend.main.setFeatureActive(featureName, feature.active)
+      } catch {
         case _: Exception => js.timers.setTimeout(500) {
           openEvent(event)
         }
@@ -1261,10 +1232,7 @@ trait LeonWeb {
 
   def loadStaticLink(hash: String): Unit = {
     if (hash.indexOf("#link/") == 0) {
-      val msg = JSON.stringify(
-        l(action = Action.accessPermaLink, module = ModuleName.main, link = hash.substring("#link/".length)))
-
-      leonSocket.send(msg)
+      Backend.main.accessPermaLink(hash.substring("#link/".length))
       window.location.hash = ""
     }
     if (hash.indexOf("#demo/") == 0) {
@@ -1377,12 +1345,10 @@ trait LeonWeb {
     }
 
     if (connected && oldCode != currentCode) {
-      val msg = JSON.stringify(
-        l(action = Action.doUpdateCode, module = ModuleName.main, code = currentCode))
       oldCode = currentCode;
       lastSavedChange = lastChange;
       updateSaveButton();
-      leonSocket.send(msg)
+      Backend.main.doUpdateCode(currentCode)
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }

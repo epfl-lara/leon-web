@@ -362,8 +362,6 @@ object Handlers extends js.Object {
     txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
   }
   
-  var synthesis_result_fname: js.UndefOr[String] = js.undefined
-
   val synthesis_result = (data: HSynthesisResult) => {
     val pb = $("#synthesisProgress")
     val pbb = $("#synthesisProgress .progress-bar")
@@ -393,13 +391,7 @@ object Handlers extends js.Object {
       $("#synthesisProgressBox").show()
       synthesizing = true;
       $("#synthesisDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
-        if (synthesizing) {
-          val msg = JSON.stringify(l(
-            module = "main",
-            action = Action.doCancel))
-
-          leonSocket.send(msg)
-        }
+        if (synthesizing) Backend.main.cancel()
       })
     } else if (data.result == "progress") {
       val pc = (data.closed * 100) / data.total;
@@ -446,17 +438,7 @@ object Handlers extends js.Object {
 
         $("#synthesisDialog").modal("hide")
 
-        val msg = JSON.stringify(
-          l("action" -> Action.doExplore,
-            "module" -> "synthesis",
-            "fname" -> fname,
-            "cid" -> cid,
-            "explore-action" -> "init",
-            "path" -> js.Array[Int](),
-            "ws" -> 0)
-        )
-
-        leonSocket.send(msg)
+        Backend.synthesis.explore(fname, cid)
       })
       $("#synthesisDialog .cancelButton").hide()
       $("#synthesisDialog .closeButton").show()
@@ -596,11 +578,7 @@ object Handlers extends js.Object {
 
     d.unbind("hide.bs.modal").on("hide.bs.modal", () => {
       if (working) {
-        val msg = JSON.stringify(l(
-          module = "main",
-          action = Action.doCancel))
-
-        leonSocket.send(msg)
+        Backend.main.cancel()
       }
     })
 
@@ -623,39 +601,23 @@ object Handlers extends js.Object {
     }
 
     d.find("""select[data-action="select-alternative"]""").unbind("change").change(((_this: Element) => {
-
       $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
-
-      val msg = JSON.stringify(
-        l("action" -> Action.doExplore,
-          "module" -> "synthesis",
-          "plop" -> "plap",
-          "fname" -> data.fname,
-          "cid" -> data.cid,
-          "path" -> pathOf(_this),
-          "explore-action" -> $(_this).attr("data-action"),
-          "select" -> $(_this).value().asInstanceOf[String].toInt,
-          "ws" -> wsOf(_this))
-        )
-
-      leonSocket.send(msg)
+      Backend.synthesis.explore(
+          fname  = data.fname,
+          cid    = data.cid,
+          path   = pathOf(_this),
+          exploreAction = $(_this).attr("data-action"),
+          ws     = wsOf(_this),
+          select = $(_this).value().asInstanceOf[String].toInt)
     }): js.ThisFunction);
 
     d.find("span.knob").unbind("click").click(((self: Element) => {
       $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
-
-      val msg = JSON.stringify(
-        l("action" -> Action.doExplore,
-          "module" -> "synthesis",
-          "fname" -> data.fname,
-          "cid" -> data.cid,
-          "path" -> pathOf(self),
-          "explore-action" -> $(self).attr("data-action"),
-          "ws" -> wsOf(self))
-      )
-
-      leonSocket.send(msg)
-
+      Backend.synthesis.explore(
+          fname = data.fname,
+          cid   = data.cid, pathOf(self),
+          exploreAction = $(self).attr("data-action"),
+          ws    = wsOf(self))
       working = true
     }): js.ThisFunction);
 
@@ -670,6 +632,7 @@ object Handlers extends js.Object {
   }
   
   var synthesis_chosen_rule: Option[String] = None
+  var synthesis_result_fname: js.UndefOr[String] = js.undefined
 
   val synthesis_rulesToApply = (data: HSynthesisRulesToApply) => {
     val fname = data.fname
@@ -699,49 +662,29 @@ object Handlers extends js.Object {
     $(selector + " li.temp").remove()
     $(selector).append(html)
     $(selector + " li a[action=\"search\"]").unbind("click").click(() => {
-      val msg = JSON.stringify(
-        l(action = Action.doSearch, module = "synthesis", fname = fname, cid = cid))
       synthesis_chosen_rule = Some("search")
-      leonSocket.send(msg)
+      Backend.synthesis.search(fname, cid)
     })
     if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
       val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
       synthesis_chosen_rule match {
         case None => // Explore
-        case Some("search")=> // Search
-          val msg = JSON.stringify(
-            l(action = Action.doSearch, module = "synthesis", fname = synthesis_result_fname, cid = cid))
-    
-          leonSocket.send(msg)
+        case Some("search") => // Search
+          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
         case Some(rid) => // Rule chosen
-          val msg = JSON.stringify(
-            l(action = Action.doApplyRule, module = "synthesis", fname = fname, cid = cid, rid = rid.toInt))
-    
-          leonSocket.send(msg)
+          Backend.synthesis.doApplyRule(fname, cid, rid.toInt)
       }
     }
 
     
     $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
       synthesis_chosen_rule = None
-      val msg = JSON.stringify(
-          l("action" -> Action.doExplore,
-            "module" -> "synthesis",
-            "fname" -> fname,
-            "cid" -> cid,
-            "explore-action" -> "init",
-            "path" -> js.Array[js.Any](),
-            "ws" -> 0)
-        )
-      leonSocket.send(msg)
+      Backend.synthesis.explore(fname, cid)
     })
     $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
       val rid = $(self).attr("rid").toInt
       synthesis_chosen_rule = Some(rid.toString)
-      val msg = JSON.stringify(
-        l(action = Action.doApplyRule, module = "synthesis", fname = fname, cid = cid, rid = rid))
-
-      leonSocket.send(msg)
+      Backend.synthesis.doApplyRule(fname, cid, rid)
     }): js.ThisFunction)
   }
 
@@ -759,13 +702,7 @@ object Handlers extends js.Object {
       $("#repairDialog").modal("show")
 
       $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
-        if (synthesizing) {
-          val msg = JSON.stringify(l(
-            module = "repair",
-            action = Action.doCancel))
-
-          leonSocket.send(msg)
-        }
+        if (synthesizing) Backend.repair.cancel()
       })
     } else if (data.result == "progress") {
       pbb.addClass("active progress-bar-striped")
