@@ -1,6 +1,5 @@
 package leon.web.client
 import scala.scalajs.js
-import scala.scalajs.js.annotation._
 import scala.scalajs.js.JSON
 import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
@@ -17,7 +16,7 @@ object Backend {
   abstract class Module(val moduleName: String) {
     private def _send(msg: String): Unit = Main.leonSocket.send(msg)
     protected def _send(msg: js.Dynamic): Unit = _send(JSON.stringify(msg))
-    val send = new scala.Dynamic {
+    object send extends scala.Dynamic {
       def applyDynamicNamed(method: String)(fields: (String, js.Any)*): Unit = {
         _send(l.applyDynamicNamed("apply")((fields.toSeq :+ ("module" -> (moduleName: js.Any))): _*))
       }

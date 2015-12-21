@@ -1479,14 +1479,14 @@ trait LeonWeb {
 
   val editorSession = editor.getSession();
 
-  val saveCommand = new EditorCommand {
-    var name = "save"
-    var bindKey = l(win = "Ctrl-S", mac = "Command-S").asInstanceOf[js.Any]
-    var exec = (((editor: Editor) => {
+  val saveCommand = l(
+    name = "save",
+    bindKey = l(win = "Ctrl-S", mac = "Command-S").asInstanceOf[js.Any],
+    exec = (((editor: Editor) => {
       recompile()
-    }) :js.Function)
-    var readOnly = true
-  }
+    }) :js.Function),
+    readOnly = true
+  ).asInstanceOf[EditorCommand]
   console.log("Adding command", saveCommand)
   editor.commands.addCommand(saveCommand);
 
