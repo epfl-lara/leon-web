@@ -148,14 +148,16 @@ class App(private val api: LeonAPI) {
 
   private
   def render(state: AppState): Unit = {
-    renderLogin(state: AppState)
+    renderLogin(state)
     renderLoadRepoPanel(state)
   }
 
   private
   def renderLogin(state: AppState): Unit = {
-    val el = document.getElementById("login-modal")
-    ReactDOM.render(LoginModal(state.showLoginModal), el)
+    val el             = document.getElementById("login-modal")
+    val showLoginModal = !state.isLoggedIn && state.showLoginModal
+
+    ReactDOM.render(LoginModal(showLoginModal), el)
 
     $("#login-btn").click { e: JQueryEventObject =>
       if (!shouldSkipLoginModal) {
