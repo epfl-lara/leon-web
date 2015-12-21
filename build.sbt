@@ -62,7 +62,7 @@ scalaVersion := "2.11.7"
  ****************************/
 
 lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).
-  aggregate(aceJsProject, client).settings(
+  aggregate(client).settings(
   version := appVersion,
   libraryDependencies ++= appDependencies,
   resolvers += Resolver.sonatypeRepo("releases"),
@@ -80,17 +80,28 @@ lazy val client = (project in file("client")).settings(
   libraryDependencies ++= Seq(
     "org.scala-js" %%% "scalajs-dom" % "0.8.0",
     "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.1",
-    "org.monifu" %%% "monifu" % "1.0-RC4"
+    "com.github.japgolly.scalajs-react" %%% "core" % "0.10.2",
+    "org.monifu" %%% "monifu" % "1.0-RC4",
+    "com.scalawarrior" %%% "scalajs-ace" % "0.0.2",
+    "com.lihaoyi" %%% "upickle" % "0.3.6"
   ),
+  resolvers += "amateras-repo" at "http://amateras.sourceforge.jp/mvn/",
   scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),
   persistLauncher := true,
   jsDependencies ++= Seq(
-    "org.webjars.npm" % "react"     % "0.14.2" / "react-with-addons.js" commonJSName "React"    minified "react-with-addons.min.js",
-    "org.webjars.npm" % "react-dom" % "0.14.2" / "react-dom.js"         commonJSName "ReactDOM" minified "react-dom.min.js" dependsOn "react-with-addons.js"
+    "org.webjars.bower" % "react" % "0.14.3"
+      /        "react-with-addons.js"
+      minified "react-with-addons.min.js"
+      commonJSName "React",
+
+  "org.webjars.bower" % "react" % "0.14.3"
+      /         "react-dom.js"
+      minified  "react-dom.min.js"
+      dependsOn "react-with-addons.js"
+      commonJSName "ReactDOM"
   ),
   skip in packageJSDependencies := false
-).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(aceJsProject, sharedJs)
+).enablePlugins(ScalaJSPlugin, ScalaJSPlay).dependsOn(sharedJs)
 
 scalaVersion in client := "2.11.7"
 
@@ -109,17 +120,6 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared")).
 
 lazy val sharedJvm = shared.jvm.settings(name := "sharedJvm", EclipseKeys.skipProject := true)
 lazy val sharedJs = shared.js.settings(name := "sharedJs", EclipseKeys.skipProject := true)
-
-/****************************
- * Ace for scala-js         *
- ****************************/
-
-lazy val aceJsProject = RootProject(uri("https://github.com/MikaelMayer/scalajs-ace.git"))
-
-lazy val scalajsAceLocalBase = SettingKey[File]("scalajsAceLocalBase",  "local base for scalajs ace project")
-scalajsAceLocalBase := {
-  loadedBuild.value.units(aceJsProject.build).localBase
-}
 
 /****************************
  * Eclipse project creation *
@@ -159,13 +159,11 @@ updateEclipse in main := {
   """, "", jvmc),
     //("<link>\n *<name>.*leon-web-client.*</name>\n.*\n.*\n *</link>\n *","",jvmp),
     ("""<classpathentry kind="src" path="/sharedJs" exported="true" combineaccessrules="false"/>
- *""", "", jsc),
+ *""", "", jsc)
     /*("""<classpathentry output=".*" kind="src" path=".*leon-web-client-src-main.*"/>
   """, "", jvmc),*/
     /*("""<classpathentry kind="src" path="src"""+sep+"""test"""+sep+"""resources"/>
   ""","",jvmc),*/
-    ("""<classpathentry kind="src" path="/Scala.js Ace" exported="true" combineaccessrules="false"/>
-  ""","",jsc)
     // Set up the correct entry for the scalajs compiler
     // Remove duplicated entries in .project
     //("""(<link>(?:(?!</link>)(?:.|\r|\n))*</link>)\s*\1""","""$1""",jsp),//("""(<link>(?:(?!</link>)(?:.|\r|\n))*</link>)\s*\1""","""$1""",jvmp)
@@ -189,11 +187,7 @@ updateEclipse in main := {
   val isWindows = System.getProperty("os.name").toLowerCase().contains("win")
   def doubleSep(path: String) = if(isWindows) "\\\\".r.replaceAllIn(path, "\\\\\\\\") else path
   
-  val scalaJsAceFolder = doubleSep(scalajsAceLocalBase.value.getAbsolutePath())
   val srcmainscala = sep + "src" + sep + "main" + sep + "scala"
-  
-  addClassPath(jsc, s"""
-  <classpathentry kind="lib" path="$scalaJsAceFolder"""+sep+"target"+sep+"scala-2.11"+sep+"classes"+s"""" sourcepath="$scalaJsAceFolder$srcmainscala"/>""")
   
   def sepNormalize(path: String) = if(isWindows) "\\\\".r.replaceAllIn(path, "/") else path
   

@@ -1,10 +1,16 @@
 package leon.web
 package models
 
+import scala.Function.const
+
+import leon.web.utils.String._
+import leon.web.shared.Project
 import leon.purescala.Definitions._
 
 case class CompilationState (
   code: Option[String],
+  project: Option[Project] = None,
+  savedFile: Option[String] = None,
   compResult: String,
   optProgram: Option[Program],
   // Imperative information
@@ -34,17 +40,50 @@ case class CompilationState (
     !(fd.annotations contains "library")
   }
 
-  def functions = {
-    program.definedFunctions.toList.filter(filterFunction).sortWith(_.getPos < _.getPos)
+  def functions = project.flatMap(const(savedFile)) match {
+    case None =>
+      program.definedFunctions
+        .toList
+        .filter(filterFunction)
+        .sortWith(_.getPos < _.getPos)
+
+    case Some(file) =>
+      functionsInUnit(file.fileName)
+  }
+
+  def functionsInUnit(unit: String) = {
+    program.units
+      .filter(_.id.name === unit)
+      .flatMap(_.definedFunctions)
+      .toList
+      .filter(filterFunction)
+      .sortWith(_.getPos < _.getPos)
   }
 
 }
 
 
 object CompilationState {
-  def failure(code: String) =
-    CompilationState(Some(code), "failure", None, Set())
 
-  def unknown = 
-    CompilationState(None, "unknown", None, Set())
+  def failure(code: String, project: Option[Project] = None, savedFile: Option[String] = None) =
+    CompilationState(
+      code       = Some(code),
+      compResult = "failure",
+      optProgram = None,
+      wasLoop    = Set(),
+      project    = project,
+      savedFile  = savedFile
+    )
+
+  def unknown =
+    CompilationState(
+      code       = None,
+      compResult = "unknown",
+      optProgram = None,
+      wasLoop    = Set(),
+      project    = None,
+      savedFile  = None
+    )
+
 }
+

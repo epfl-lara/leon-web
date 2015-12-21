@@ -61,7 +61,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
       val timeoutMs = Some(30000l)
       val to = new TimeoutFor(ctx.interruptManager)
 
-      program.definedFunctions.find( _.id.name == fname) match {
+      program.definedFunctions.find( _.id.name === fname) match {
         case Some(fd) =>
           val rep = new Repairman(ctx, program, fd, timeoutMs, timeoutMs)
 

@@ -23,6 +23,14 @@ body#leon {
     background-color: #FFF;
 }
 
+label {
+  font-weight: normal;
+}
+
+input[type="checkbox"] + label {
+  margin-left: 5px;
+}
+
 .panel > h3, #title {
     background: #19214F !important;
 }
@@ -172,11 +180,14 @@ div.panel > h3 {
     color: white;
 }
 
-.panel-element-full {
+.panel-element, .panel-element-full {
     margin: 10px !important;
     padding: 3px !important;
-    width: 95% !important;
     font-size: 14px !important;
+}
+
+.panel-element-full {
+    width: 95% !important;
 }
 
 div.compilation-status {
@@ -296,6 +307,11 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 }
 
 /* modals */
+
+.modal h3 {
+  font-size: 1.4em;
+  color: #333;
+}
 
 #synthesisProgress,
 #verifyProgress,
@@ -455,9 +471,45 @@ pre.exploreBlock .header .name span {
   border-bottom-right-radius: 6px;
 }
 
+/* Login */
+.hide-login-footer {
+  margin-right: 10px;
+}
+
 /* Load Repository Panel */
 #load-repo-panel {
   display: none;
+}
+
+#load-repo-btn {
+  padding: 4px !important;
+}
+
+#load-repo-btn.loaded {
+  width: 82% !important;
+}
+
+#unload-repo-btn {
+  width: 10% !important;
+  padding: 4px !important;
+  font-size: 14px !important;
+}
+
+#load-repo-branch {
+  margin-left: 10px;
+}
+
+.branch-list.form-control {
+  width: auto !important;
+  display: inline-block !important;
+}
+
+/* Load Repository Modal */
+
+.modal-section:first-child {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px dashed #aaa;
 }
 
 ul.repository-list {

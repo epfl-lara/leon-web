@@ -1,6 +1,7 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
 package components
 
@@ -19,7 +20,7 @@ object BranchSelector {
 
     def render(props: Props) = {
       Dropdown(
-        className    = "branch-list",
+        className    = "branch-list panel-element",
         items        = props.branches,
         header       = None,
         empty        = Some("No branches found"),

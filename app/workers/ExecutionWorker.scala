@@ -54,7 +54,7 @@ class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                   res match {
                     case Error(tpe, msg) =>
                       val err = "Error: "+msg
-                      if (rp == tfd.getPos) {
+                      if (rp === tfd.getPos) {
                         // We don't want to report the global "Postcondition error" for the entire function
                         None
                       } else {

@@ -1,7 +1,10 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web.client
+package leon.web
+package client
 package react
+
+import scala.Function.const
 
 import monifu.reactive._
 import monifu.reactive.subjects._
@@ -10,6 +13,7 @@ import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
 import leon.web.client.syntax.Observer._
+import leon.web.shared.Project
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected
@@ -22,6 +26,8 @@ case class SwitchBranch(repo: HRepository, branch: String) extends Action
 case class UpdateEditorCode(code: String) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
+case class SetCurrentProject(project: Option[Project]) extends Action
+case class SetTreatAsProject(value: Boolean) extends Action
 
 /**
   * Actions are how the React app performs side-effects.
@@ -36,14 +42,36 @@ case class ToggleLoginModal(value: Boolean) extends Action
   */
 object Actions {
 
-  val loadRepositories    = PublishSubject[LoadRepositories]()
-  val loadRepository      = PublishSubject[LoadRepository]()
-  val loadFile            = PublishSubject[LoadFile]()
-  val switchBranch        = PublishSubject[SwitchBranch]()
-  val updateEditorCode    = PublishSubject[UpdateEditorCode]()
-  val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()
-  val toggleLoginModal    = PublishSubject[ToggleLoginModal]()
-  val modState            = PublishSubject[AppState => AppState]
+  val loadRepositories    = PublishSubject[LoadRepositories]()     // dump "LoadRepositories"
+  val loadRepository      = PublishSubject[LoadRepository]()       // dump "LoadRepository"
+  val loadFile            = PublishSubject[LoadFile]()             // dump "LoadFile"
+  val switchBranch        = PublishSubject[SwitchBranch]()         // dump "SwitchBranch"
+  val updateEditorCode    = PublishSubject[UpdateEditorCode]()     // dump "UpdateEditorCode"
+  val toggleLoadRepoModal = PublishSubject[ToggleLoadRepoModal]()  // dump "ToggleLoadRepoModal"
+  val toggleLoginModal    = PublishSubject[ToggleLoginModal]()     // dump "ToggleLoginModal"
+  val modState            = PublishSubject[AppState => AppState]() // dump "ModState"
+  val setCurrentProject   = PublishSubject[SetCurrentProject]()    // dump "SetCurrentProject"
+  val setTreatAsProject   = PublishSubject[SetTreatAsProject]()    // dump "SetTreatAsProject"
+
+  lazy val currentProject = Observable.merge(
+      setCurrentProject,
+      Observable.combineLatest(
+        Events.repositoryLoaded,
+        Events.branchChanged,
+        Events.fileLoaded
+      )
+      .map { case (r, b, f) =>
+        val project = Project(
+          owner  = r.repo.owner,
+          repo   = r.repo.name,
+          branch = b.branch,
+          file   = f.fileName,
+          code   = Some(f.content)
+        )
+
+        SetCurrentProject(Some(project))
+      }
+    )
 
   private
   var processAction: Action => Unit = x => {}
@@ -66,6 +94,26 @@ object Actions {
     * @see [[leon.web.client.react.AppState]]
     */
   def register(updates: Observer[AppState => AppState]) = {
+    currentProject
+      .doWork(processAction)
+      .map { e =>
+        e.project match {
+          case None  => (state: AppState) =>
+            state.copy(repository = None, files = Seq(), file = None, branches = Seq(), currentProject = None)
+
+          case Some(project) => (state: AppState) =>
+            state.copy(currentProject = Some(project))
+        }
+      }
+      .subscribe(updates)
+
+    setTreatAsProject
+      .doWork(processAction)
+      .map { e =>
+        (state: AppState) => state.copy(treatAsProject = e.value)
+      }
+      .subscribe(updates)
+
     loadRepositories
       .doWork(processAction)
       .flatMap(_ => Events.repositoriesLoaded)
@@ -78,9 +126,13 @@ object Actions {
     loadRepository
       .doWork(processAction)
       .flatMap(_ => Events.repositoryLoaded)
+      .doWork { e =>
+        Events.branchChanged ! BranchChanged(e.repo.defaultBranch, e.files)
+      }
       .map { e =>
         (state: AppState) =>
           state.copy(
+            repository        = Some(e.repo),
             files             = e.files,
             branches          = e.branches,
             isLoadingRepo     = false,
@@ -104,9 +156,6 @@ object Actions {
     loadFile
       .doWork(processAction)
       .flatMap(_ => Events.fileLoaded)
-      .doWork { e =>
-        updateEditorCode ! UpdateEditorCode(e.content)
-      }
       .map { e =>
         (state: AppState) =>
           state.copy(file = Some((e.fileName, e.content)))
@@ -116,14 +165,17 @@ object Actions {
     updateEditorCode
       .doWork(processAction)
       .flatMap(_ => Events.codeUpdated)
-      .map(_ => identity[AppState] _)
+      .map(const(identity[AppState](_)))
       .subscribe(updates)
 
     toggleLoadRepoModal
       .doWork(processAction)
       .map { e =>
         (state: AppState) =>
-          state.copy(showLoadRepoModal = e.value)
+          state.copy(
+            showLoadRepoModal = e.value,
+            isLoadingRepo     = false
+          )
       }
       .subscribe(updates)
 

@@ -1,0 +1,16 @@
+{
+  "name": "leon-parse-github-url",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "parse-github-url": "^0.2.1"
+  },
+  "version": "1.0.0",
+  "scripts": {
+    "build": "npm run build-js && npm run build-min",
+    "build-js": "browserify -o bundle.js -s leonParseGitHubURL index.js",
+    "build-min": "uglifyjs -o bundle.min.js bundle.js"
+  },
+  "author": "Romain Ruetschi <romain.ruetschi@gmail.com>",
+  "description": ""
+}
