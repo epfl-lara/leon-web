@@ -47,6 +47,13 @@ object Backend {
       send(action = Action.featureSet, feature = feature, active = active) andThenAnalytics (Action.featureSet, feature + "=" + active)
     def doUpdateCode(code: String) =
       send(action = Action.doUpdateCode, code = code) andThenAnalytics Action.doUpdateCode
+    def doUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String) =
+      send(action = Action.doUpdateCodeInProject,
+           owner  = owner,
+           repo   = repo,
+           file   = file,
+           branch = branch,
+           code   = code) andThenAnalytics (Action.doUpdateCodeInProject, s"$owner: $repo:$branch/$file")
     def cancel() =
       send(action = Action.doCancel) andThenAnalytics Action.doCancel
   }

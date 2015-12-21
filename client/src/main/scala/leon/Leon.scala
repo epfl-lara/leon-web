@@ -1401,11 +1401,13 @@ trait LeonWeb {
     }
 
     if (connected && (oldCode =!= currentCode || force)) {
-      val msg = currentProject match {
+      oldCode         = currentCode;
+      lastSavedChange = lastChange;
+
+      updateSaveButton();
+      currentProject match {
         case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
-          l(
-            action = Action.doUpdateCodeInProject,
-            module = "main",
+          Backend.main.doUpdateCodeInProject(
             owner  = owner,
             repo   = repo,
             file   = file,
@@ -1414,18 +1416,10 @@ trait LeonWeb {
           )
 
         case _ =>
-          l(
-            action = Action.doUpdateCode,
-            module = "main",
+          Backend.main.doUpdateCode(
             code   = currentCode
           )
       }
-
-      oldCode         = currentCode;
-      lastSavedChange = lastChange;
-
-      updateSaveButton();
-      leonSocket.send(JSON.stringify(msg))
 
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
