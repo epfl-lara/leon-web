@@ -183,7 +183,7 @@ object HandlersTypes {
   
   @ScalaJSDefined
   trait HDisambiguationDisplay extends js.Any {
-    val display: String
+    var display: String
     val allCode: String
   }
   
@@ -541,6 +541,7 @@ object Handlers extends js.Object {
     }).dblclick(() => {
       
     })
+    alternative.display = "(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
     val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").text(alternative.display).hide()
     val validatebox = $("""<i class="fa fa-check"></i>""").addClass("validate").text("validate").hide()
@@ -581,7 +582,7 @@ object Handlers extends js.Object {
         container.focus()
         editbox.click()
       }
-      editbox.text("(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_"))
+      editbox.text()
       validatebox.show()
       validatebox.height(container.height())
     }
