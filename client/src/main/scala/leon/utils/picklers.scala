@@ -20,8 +20,8 @@ object picklers {
     case r =>
       Js.Obj(
         "name"          -> Js.Str(r.name),
-        "fullName"      -> Js.Str(r.fullName),
         "owner"         -> Js.Str(r.owner),
+        "fullName"      -> Js.Str(r.fullName),
         "defaultBranch" -> Js.Str(r.defaultBranch)
       )
   }
@@ -29,19 +29,19 @@ object picklers {
   implicit val hRepositoryReader = Reader[HRepository] {
     case Js.Obj(
         ("name",          Js.Str(_name)),
-        ("fullName",      Js.Str(_fullName)),
         ("owner",         Js.Str(_owner)),
+        ("fullName",      Js.Str(_fullName)),
         ("defaultBranch", Js.Str(_defaultBranch))
       ) =>
         new HRepository {
           val id            = 0L
           val name          = _name
+          val owner         = _owner
+          val fullName      = _fullName
           val branches      = new js.Array[String]
           val cloneURL      = ""
           val defaultBranch = _defaultBranch
           val fork          = false
-          val fullName      = _fullName
-          val owner         = ""
           val size          = 0L
           val visibility    = "public"
         }
