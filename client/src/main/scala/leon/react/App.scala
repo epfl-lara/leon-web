@@ -18,8 +18,8 @@ import japgolly.scalajs.react._
 
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.syntax.Observer._
-import leon.web.client.syntax.BufferedWebSocketOps._
+import leon.web.client.syntax.observer._
+import leon.web.client.syntax.websocket._
 
 /** This class is in charge of the following:
   *

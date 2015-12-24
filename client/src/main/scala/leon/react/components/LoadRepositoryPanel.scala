@@ -10,7 +10,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.components.modals.LoadRepositoryModal
-import leon.web.client.syntax.Observer._
+import leon.web.client.syntax.observer._
 import leon.web.client.HandlersTypes.{HRepository, HBranch}
 
 /** Panel displayed in the sidebar on the right, wich lets

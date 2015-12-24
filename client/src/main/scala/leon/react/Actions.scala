@@ -12,7 +12,7 @@ import monifu.reactive.subjects._
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
-import leon.web.client.syntax.Observer._
+import leon.web.client.syntax.observer._
 import leon.web.shared.Project
 
 /** Actions that the React app can trigger.

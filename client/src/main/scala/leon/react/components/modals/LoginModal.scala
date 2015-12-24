@@ -12,7 +12,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
-import leon.web.client.syntax.Observer._
+import leon.web.client.syntax.observer._
 
 /** Inform the user of what is about to happen when they click the 'Login' button.
   * Redirect the user to `/login` once they do.

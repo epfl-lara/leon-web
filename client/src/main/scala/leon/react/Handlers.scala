@@ -7,7 +7,7 @@ package react
 import scala.scalajs.js
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.syntax.Observer._
+import leon.web.client.syntax.observer._
 import leon.web.client.HandlersTypes._
 
 /** Register WebSocket handlers, and push the received messages
