@@ -51,6 +51,27 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
                   "allCode" -> convertExampleToFullCode(cstate, synth, tupleWrap(question.inputs), output)))))
   }
   
+  def isGround(s: String): Boolean = {
+    s == s.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
+  }
+  
+  def filterRedundantExprs(prev: Seq[Expr], current: Expr): Option[Expr] = {
+    current match {
+      case StringLiteral(currentStr) => 
+        val currentStrSimp = currentStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
+        if(prev.forall { case StringLiteral(prevStr) =>
+            val prevStrSimp = prevStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
+            val res = isGround(prevStr) || prevStrSimp != currentStrSimp
+            println("For " + prevStr + ", " + currentStr + ", res = " + res)
+            res
+          case _ => true})
+          Some(current)
+        else
+          None
+      case _ => Some(current)
+    }
+  }
+  
   def receive = {
     case OnUpdateCode(cstate) =>
       // Do nothing, wait for the synthesis to complete.
@@ -63,7 +84,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       val ci = synth.ci
       val SourceInfo(fd, pc, src, spec, tb) = ci
       
-      val qb = new QuestionBuilder(fd.paramIds, ssol, expr => Some(expr))(synth.context, cstate.program)
+      val qb = new QuestionBuilder(fd.paramIds, ssol, filterRedundantExprs)(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
       qb.setKeepEmptyAlternativeQuestions { case StringLiteral(s) if s.contains(leon.synthesis.rules.StringRender.EDIT_ME) => true case e => false }
       val questions = qb.result()

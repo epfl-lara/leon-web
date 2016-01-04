@@ -441,6 +441,16 @@ object Handlers extends js.Object {
       g.prettyPrint();
       $("#synthesisDialog").modal("show")
       
+      $("#synthesisDialog .engineResult > ul a").off("click.tabs")
+      $("#synthesisDialog .engineResult > ul a").on("click.tabs", ((_this: Element, event: JQueryEventObject) => {
+          event.preventDefault();
+          $(_this).parent().addClass("current").show();
+          $(_this).parent().siblings().removeClass("current");
+          var tab = $(_this).attr("href");
+          $("#synthesisDialog .engineResult > div").not(tab).css("display", "none");
+          $(tab).fadeIn();
+      }): js.ThisFunction);
+      
       synthesis_result_fname = data.fname
 
       pbb.addClass("active progress-bar-striped")
@@ -480,7 +490,11 @@ object Handlers extends js.Object {
 
       $("#synthesisResults .code.solution").removeClass("prettyprinted")
       $("#synthesisResults .code.solution").text(data.solCode)
-      $("#synthesisResults").show()
+      
+      $("#synthesisDialog").find("a[href=#clarificationResults]").parent().hide()
+      $("#synthesisDialog").find("a[href=#synthesisResults]").click()
+      
+      //$("#synthesisResults").show()
       g.prettyPrint();
       $("#synthesisDialog .exploreButton").show()
       $("#synthesisDialog .importButton").show()
@@ -507,18 +521,21 @@ object Handlers extends js.Object {
     }
   }
   
+  def inDialog(selector: String): JQuery = {
+    $("#synthesisDialog .clarificationResults .clarificationQuestions")
+  }
+  
   def disambiguationResultDisplay(): JQuery = {
-    if($("#synthesisDialog").is(":visible")) {
-      $("#synthesisDialog .clarificationResults .clarificationQuestions")
-    } else if($("#synthesisExploreDialog").is(":visible")) {
-      $("#synthesisExploreDialog .clarificationResults .clarificationQuestions")
-    } else $("") // TODO: Exploration
+    disambiguationResultDisplayContainer.find(".clarificationQuestions")
   }
   def disambiguationResultDisplayContainer(): JQuery = {
+    engineResultDisplayContainer().find(".clarificationResults")
+  }
+  def engineResultDisplayContainer(): JQuery = {
     if($("#synthesisDialog").is(":visible")) {
-      $("#synthesisDialog .clarificationResults")
+      $("#synthesisDialog .engineResult")
     } else if($("#synthesisExploreDialog").is(":visible")) {
-      $("#synthesisExploreDialog .clarificationResults")
+      $("#synthesisExploreDialog .engineResult")
     } else $("") // TODO: Exploration
   }
   
@@ -543,7 +560,28 @@ object Handlers extends js.Object {
     })
     alternative.display = "(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
-    val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").text(alternative.display).hide()
+    val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").addClass(if(current) "current" else "").text(alternative.display).hide()
+    edittext.html(edittext.html().replaceAll("_edit_me_", """<span class="placeholder" style="font-family:FontAwesome">&#xf059;</span>"""))    
+    edittext.on("keyup paste click", () => {
+      val pos = SelectionHandler.getSelection(edittext.get(0).asInstanceOf[dom.raw.Element])
+      var changeSelection = false
+      edittext.find("font[face=FontAwesome]").each{ (index: js.Any, _this: dom.Element) =>
+        changeSelection = true
+        $(_this).replaceWith($(_this).html())
+      }
+      edittext.find("span.placeholder").each{ (index: js.Any, _this: dom.Element) =>
+        val oldHtml = $(_this).html()
+        if(oldHtml != "&#xf059;" && oldHtml != "") {
+          $(_this).replaceWith("&#xf059;|".r.replaceAllIn(oldHtml, ""))
+          changeSelection = true
+        }
+        ().asInstanceOf[js.Any]
+      }
+      if(changeSelection) {
+        SelectionHandler.setSelection(edittext.get(0).asInstanceOf[dom.raw.Element], pos)
+      }
+    })
+    
     val validatebox = $("""<i class="fa fa-check"></i>""").addClass("validate").text("validate").hide()
     val container = $("<span>").addClass("menu-disambiguation").append(result).append(edittext).append(editbox).append(validatebox)
     container.mouseenter((e: JQueryEventObject) => {
@@ -573,16 +611,16 @@ object Handlers extends js.Object {
       result.hide()
     })
     if(directEdit) {
-      js.timers.setTimeout(150){
-        container.focus()
+      result.hide()
+      js.timers.setTimeout(1){
         editbox.click()
+        container.focus()
       }
     } else if(alternative.display.indexOf("_edit_me_") > -1) { // Must edit when clicking.
-      js.timers.setTimeout(150){
-        container.focus()
+      result.hide()
+      js.timers.setTimeout(1){
         editbox.click()
       }
-      editbox.text()
       validatebox.show()
       validatebox.height(container.height())
     }
@@ -623,7 +661,9 @@ object Handlers extends js.Object {
         toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
       }
     }
-    disambiguationResultDisplayContainer().show()
+    //disambiguationResultDisplayContainer().show()
+    // Switch tabs:
+    engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
   }
 
   val synthesis_exploration = (data: HSynthesisExploration) => {

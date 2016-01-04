@@ -373,6 +373,56 @@ table#synthesis_table td.subproblem {
   padding: 5px;
 }
 
+/* Tabs */
+
+.engineResult > ul {
+	list-style: none;
+	padding-left: 0;
+    /*height: 30px;
+    float: left;
+    clear: both;*/
+}
+
+.engineResult > ul li {
+	margin-right: 10px;
+	display: inline;
+	/*float: left;*/
+    /*height: 30px;
+    line-height: 30px;
+    float: left;
+    margin-right: 10px;
+    background-color: #ccc;
+    border-top: 1px solid #d4d4d1;
+    border-right: 1px solid #d4d4d1;
+    border-left: 1px solid #d4d4d1;*/
+}
+
+.engineResult > ul li h4 {
+  display: inline-block;
+}
+
+.engineResult > ul li.current {
+    /*position: relative;
+    background-color: #fff;
+    border-bottom: 1px solid #fff;
+    z-index: 5;*/
+}
+
+.engineResult > ul li a {
+	color: black;
+    /*padding: 10px;
+    text-transform: uppercase;
+    color: #fff;
+    text-decoration: none; */
+}
+.engineResult > ul li:not(.current) a {
+	color: lightgray;
+}
+
+.engineResult > div {
+/*	float: left;*/
+}
+
 /* Disambiguation */
 
 pre.disambiguationAlternative {
