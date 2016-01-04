@@ -62,7 +62,6 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
         if(prev.forall { case StringLiteral(prevStr) =>
             val prevStrSimp = prevStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
             val res = isGround(prevStr) || prevStrSimp != currentStrSimp
-            println("For " + prevStr + ", " + currentStr + ", res = " + res)
             res
           case _ => true})
           Some(current)
