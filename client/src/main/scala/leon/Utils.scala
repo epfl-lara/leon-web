@@ -130,7 +130,8 @@ object SelectionHandler {
       // fromElem is an ancestor of anchorNode
       val parent = anchorNode.get.parentNode
       if(parent == null) acc else {
-        val delta: Int = (0 until parent.childNodes.length).toList.map(parent.childNodes.apply(_)).takeWhile { p => p != anchorNode }.map(_.textContent.length).sum
+        val delta: Int = (0 until parent.childNodes.length).toList.map(
+            parent.childNodes.apply(_)).takeWhile { p => p != anchorNode }.map(x => if(x.textContent == null) 0 else x.textContent.length).sum
         getAbsCursorPosition(fromElem, parent, acc + delta)
       }
     }
@@ -149,7 +150,7 @@ object SelectionHandler {
   /** Gets the inner most element along with the corresponding position */
   private def getElementOffset(node: Node, pos: Int): js.UndefOr[(Node, Int)] = {
     if(node.nodeType == 3) {
-      if(pos <= node.textContent.length) {
+      if(node.textContent != null && pos <= node.textContent.length) {
         (node, pos)
       } else {
         js.undefined
@@ -159,7 +160,7 @@ object SelectionHandler {
       var ppos = pos
       while(i < node.childNodes.length) {
         val child = node.childNodes(i)
-        if(child.textContent.length <= ppos) {
+        if(child.textContent != null && child.textContent.length <= ppos) {
           var res = getElementOffset(child, ppos)
           if(res.isDefined) return res
         }

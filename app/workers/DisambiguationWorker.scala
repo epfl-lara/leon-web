@@ -16,12 +16,14 @@ import leon.purescala.Common._
 import leon.purescala.ExprOps._
 import leon.purescala.Constructors._
 import leon.purescala.Expressions._
+import leon.purescala.Types._
 import leon.web.shared.Action
 import leon.purescala.DefOps
 import leon.synthesis.disambiguation._
 import leon.purescala.Definitions.Program
 import play.api.libs.json._
 import play.api.libs.json.Json._
+import leon.grammars.{ValueGrammar, ExpressionGrammar}
 
 class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -86,6 +88,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       val qb = new QuestionBuilder(fd.paramIds, ssol, filterRedundantExprs)(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
       qb.setKeepEmptyAlternativeQuestions { case StringLiteral(s) if s.contains(leon.synthesis.rules.StringRender.EDIT_ME) => true case e => false }
+      qb.setValueEnumerator(QuestionBuilder.SpecialStringValueGrammar)
       val questions = qb.result()
       
       if(questions.nonEmpty) {

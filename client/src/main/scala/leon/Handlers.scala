@@ -604,8 +604,10 @@ object Handlers extends js.Object {
       validatebox.height(container.height())
       val lineHeight = result.css("line-height")
       val a = lineHeight.substring(0, lineHeight.length - 2).toFloat
-      edittext.height(result.height() + a)
-      edittext.width(result.width() + a)
+      if(result.height() != 0 && result.width() != 0) {
+        edittext.height(result.height() + a)
+        edittext.width(result.width() + a)
+      }
       edittext.show()
       edittext.click()
       result.hide()
