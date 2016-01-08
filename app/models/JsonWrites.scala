@@ -12,6 +12,7 @@ import leon.purescala.Expressions._
 import leon.transformations.InstUtil
 import leon.purescala.Definitions._
 import leon.purescala.PrettyPrinter
+import leon.purescala.SelfPrettyPrinter
 
 trait JsonWrites {
   implicit val ctx: LeonContext;
@@ -38,7 +39,7 @@ trait JsonWrites {
     def writes(er: EvaluationResults.Result[Expr]) = er match {
       case EvaluationResults.Successful(ex) =>
         val rawoutput = ex.asString
-        val exAsString = program.map(p => VerificationReport.userDefinedString(ex, ex.asString)(ctx, p)).getOrElse(rawoutput)
+        val exAsString = program.map(p => SelfPrettyPrinter.print(ex, ex.asString)(ctx, p)).getOrElse(rawoutput)
         updateExprCache(rawoutput, ex)
         Json.obj(
           "result" -> "success",
@@ -64,7 +65,7 @@ trait JsonWrites {
       ex.toSeq.sortBy(_._1).map {
         case (id, expr) =>
           val rawoutput = expr.asString
-          val exprAsString = program.map(p => VerificationReport.userDefinedString(expr, rawoutput)(ctx, p)).getOrElse(rawoutput)
+          val exprAsString = program.map(p => SelfPrettyPrinter.print(expr, rawoutput)(ctx, p)).getOrElse(rawoutput)
           updateExprCache(rawoutput, expr)
           id.asString -> (DualOutput(rawoutput, exprAsString): JsValueWrapper)
       } :_*

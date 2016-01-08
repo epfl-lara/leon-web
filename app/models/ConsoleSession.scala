@@ -460,7 +460,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
         catch {
           case t: Throwable =>
-            logInfo("Failed to compile and/or extract")
+            logInfo("Failed to compile and/or extract "+t)
             None
         }
 
