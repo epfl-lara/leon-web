@@ -18,8 +18,8 @@ import japgolly.scalajs.react._
 
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.syntax.Observer._
-import leon.web.client.syntax.BufferedWebSocketOps._
+import leon.web.client.syntax.observer._
+import leon.web.client.syntax.websocket._
 
 /** This class is in charge of the following:
   *
@@ -148,14 +148,16 @@ class App(private val api: LeonAPI) {
 
   private
   def render(state: AppState): Unit = {
-    renderLogin(state: AppState)
+    renderLogin(state)
     renderLoadRepoPanel(state)
   }
 
   private
   def renderLogin(state: AppState): Unit = {
-    val el = document.getElementById("login-modal")
-    ReactDOM.render(LoginModal(state.showLoginModal), el)
+    val el             = document.getElementById("login-modal")
+    val showLoginModal = !state.isLoggedIn && state.showLoginModal
+
+    ReactDOM.render(LoginModal(showLoginModal), el)
 
     $("#login-btn").click { e: JQueryEventObject =>
       if (!shouldSkipLoginModal) {

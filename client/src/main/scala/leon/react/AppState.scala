@@ -10,6 +10,9 @@ import monifu.reactive.subjects._
 import leon.web.client.HandlersTypes._
 import leon.web.shared.Project
 
+import upickle.default._
+import leon.web.client.utils.picklers._
+
 case class AppState(
   // Repositories fetched from GitHub API
   repositories      : Option[Seq[HRepository]] = None,
@@ -49,18 +52,12 @@ case class AppState(
 ) {
 
   def toJSON: String = {
-    import upickle.default._
-    import leon.web.client.HandlersTypes.picklers._
-
     write(this)
   }
 
 }
 
 object AppState {
-  import upickle.default._
-  import leon.web.client.HandlersTypes.picklers._
-
   def fromJSON(json: String): AppState =
     read[AppState](json)
 }
