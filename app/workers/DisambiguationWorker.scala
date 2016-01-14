@@ -1,4 +1,5 @@
-package leon.web
+package leon
+package web
 package workers
 
 import akka.actor._
@@ -73,6 +74,19 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
     }
   }
   
+  /** Specific enumeration of strings, which can be used with the QuestionBuilder#setValueEnumerator method */
+  object NonEmptyValueGrammarfirst extends grammars.ExpressionGrammar[TypeTree] {
+    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[Gen] = t match {
+       case StringType =>
+          List(
+            terminal(StringLiteral("foo")),
+            terminal(StringLiteral("\"'\n\t")),
+            terminal(StringLiteral("Lara 2007"))
+          )
+       case _ => ValueGrammar.computeProductions(t)
+    }
+  }
+  
   def receive = {
     case OnUpdateCode(cstate) =>
       // Do nothing, wait for the synthesis to complete.
@@ -82,18 +96,21 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
 
     case NewSolutions(cstate, synth, ssol) =>
       logInfo("Receiving new solutions ! disambiguating ...")
+      event("disambiguation_started", Map())
       val ci = synth.ci
       val SourceInfo(fd, pc, src, spec, tb) = ci
       
       val qb = new QuestionBuilder(fd.paramIds, ssol, filterRedundantExprs)(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
       qb.setKeepEmptyAlternativeQuestions { case StringLiteral(s) if s.contains(leon.synthesis.rules.StringRender.EDIT_ME) => true case e => false }
-      qb.setValueEnumerator(QuestionBuilder.SpecialStringValueGrammar)
+      qb.setValueEnumerator(NonEmptyValueGrammarfirst)
       val questions = qb.result()
       
       if(questions.nonEmpty) {
         logInfo("Sending back results")
         event("disambiguation_result", convertQuestionToJson(cstate, synth, fd, questions.head))
+      } else {
+        event("disambiguation_noresult", Map())
       }
       logInfo("Finished disambiguating")
       

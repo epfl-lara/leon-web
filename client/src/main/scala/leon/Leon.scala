@@ -728,7 +728,7 @@ trait LeonWeb {
     t.html(html);
 
     if (compilationStatus == 1) {
-      $("#synthesis .dropdown-toggle").click(((self: Element, e: JQueryEventObject) => {
+      $("#synthesis .dropdown-toggle").unbind("click.droppdown").on("click.droppdown", ((self: Element, e: JQueryEventObject) => {
         val p = $(self).parents(".problem")
 
         Backend.synthesis.getRulesToApply(p.attr("fname"), p.attr("cid").orIfNull("0").toInt)
@@ -740,13 +740,6 @@ trait LeonWeb {
     
     if (hasFunctions && Features.synthesis.active) {
       $("#synthesis").show()
-      
-      if($("#synthesisDialog").is(":visible")) { // Automatic retrieval of rules if the synthesis dialog is visible.
-        val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
-        val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
-          
-        Backend.synthesis.getRulesToApply(fname, cid)
-      }
     } else {
       $("#synthesis").hide()
     }

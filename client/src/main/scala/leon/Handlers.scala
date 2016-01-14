@@ -354,6 +354,16 @@ object Handlers extends js.Object {
     if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
       synthesisOverview = data;
       drawSynthesisOverview();
+      
+      val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
+      if (hasFunctions && Features.synthesis.active) {
+        if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
+          val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
+          val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+          console.log("Finding rules to apply 2 " + new js.Date())
+          Backend.synthesis.getRulesToApply(fname, cid)
+        }
+      }
     }
   }
 
@@ -528,6 +538,7 @@ object Handlers extends js.Object {
   def disambiguationResultDisplay(): JQuery = {
     disambiguationResultDisplayContainer.find(".clarificationQuestions")
   }
+  /** The tab containing .clarificationQuestions */
   def disambiguationResultDisplayContainer(): JQuery = {
     engineResultDisplayContainer().find(".clarificationResults")
   }
@@ -637,8 +648,21 @@ object Handlers extends js.Object {
     container
   }
   
+  val disambiguation_started = (data: js.Dynamic) => {
+    $("""<i class="fa fa-refresh fa-spin" title=""></i>""").appendTo(
+      engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().addClass("loading").show()
+    )
+  }
+  
+  val disambiguation_noresult = (data: js.Dynamic) => {
+    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().hide()
+    .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
+  }
+  
   val disambiguation_result = (data: HDisambiguationResult) => {
-    console.log("Going to fill disambiguation ", data)
+    console.log("Received disambiguation data", data)
+    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent()
+    .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
     val toFill = disambiguationResultDisplay()
     
     val args = if(data.input(0) == '(') {
@@ -764,10 +788,10 @@ object Handlers extends js.Object {
     val selector = "#synthesis .problem[fname=\"" + fname + "\"][cid=\"" + cid + "\"] ul"
     $(selector + " li.temp").remove()
     $(selector).append(html)
-    $(selector + " li a[action=\"search\"]").unbind("click").click(() => {
+    $(selector + " li a[action=\"search\"]").unbind("click.searchaction").on("click.searchaction", (() => {
       synthesis_chosen_rule = Some("search")
       Backend.synthesis.search(fname, cid)
-    })
+    }))
     if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
       val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
       synthesis_chosen_rule match {
