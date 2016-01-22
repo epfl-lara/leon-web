@@ -51,7 +51,7 @@ object FileInterfaceWeb {
     val allCode = fInt.insertAfter(cstate.code.getOrElse(""),
                                    after,
                                    (indent) => {
-      implicit val pctx = PrinterContext(after, DefOps.pathFromRoot(after)(cstate.program), indent, p)
+      implicit val pctx = PrinterContext(after, DefOps.pathFromRoot(after)(prog), indent, p)
       for(fd <- toAdd)
         p"""|
             |
