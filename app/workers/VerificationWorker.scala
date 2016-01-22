@@ -131,16 +131,22 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
       val verifFunctions = cstate.functions.filter(fd => fd.hasBody).toSet
       
-      val recomputeEverything = verifFunctions exists { fd => 
-        fd.returnType == StringType && {
+      val recomputeEverything = (verifFunctions exists { fd => 
+        fd.returnType == StringType && { // If a pretty printer changed, we recompute everything.
           val h = FunctionHash(fd)
-          (oldVerifOverView find {
-            case (f, _) => f.id.name == fd.id.name
-          }) match {
-            case Some(f) => FunctionHash(f._1) != h 
-            case None => true // The function did not exist before
+          oldVerifOverView forall { case (f, _) =>
+            f.id.name != fd.id.name || FunctionHash(f) != h
           }
         }
+        // Or alternatively, it could be that a pretty printer has been deleted, so we need to regenerate everything
+      }) || oldVerifOverView.exists{
+        case (fd, _) =>
+          fd.returnType == StringType && {
+            val h = FunctionHash(fd)
+            verifFunctions forall ( f =>
+              f.id.name != fd.id.name || FunctionHash(f) != h
+            )
+          }
       }
 
       // Generate VCs
