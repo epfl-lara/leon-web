@@ -24,6 +24,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
   override lazy implicit val ctx = leon.Main.processOptions(List(
     "--feelinglucky",
+    "--debug=synthesis",
     "--solvers=smt-cvc4"
   )).copy(interruptManager = interruptManager, reporter = reporter)
   
@@ -144,9 +145,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           ))
         case None =>
           // Here we create a new pretty printing function
-          val fdUsingItOpt = fdUsingIt.orElse(program.definedFunctions.lastOption)
-          fdUsingItOpt match {
-            case Some(fdUsingIt) =>
+          fdUsingIt.orElse(program.definedFunctions.lastOption) match {
+            case Some(fdToInsertAfter) =>
               val funName3 = tpe.asString.replaceAll("[^a-zA-Z0-9_]","")
               val funName = funName3(0).toLower + funName3.substring(1, Math.min(funName3.length, 10)) 
               val newId = FreshIdentifier(funName +"ToString")
@@ -155,7 +155,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               newFd.fullBody = Hole(StringType, Seq())
               new ExamplesAdder(ctx, program).addToFunDef(newFd, Seq((in, StringLiteral(out))))
               
-              val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefAdded(fdUsingIt)(newFd)(cstate, ctx)
+              val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefAdded(fdToInsertAfter)(newFd)(cstate, ctx)
               event("replace_code", Map(
                 "newCode" -> toJson(allCode)
               ))
@@ -618,9 +618,12 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           logInfo("Synthesis search succeeded!")
         }
       } catch {
+        case t:leon.evaluators.ContextualEvaluator#EvalError =>
+          notifyError("Woops, search crashed: "+t.msg)
+          logInfo("Synthesis search crashed - "+t.msg, t)
         case t: Throwable =>
           notifyError("Woops, search crashed: "+t.getMessage)
-          logInfo("Synthesis search crashed", t)
+          logInfo("Synthesis search crashed - "+t.getMessage, t)
       }
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")

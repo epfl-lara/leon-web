@@ -132,7 +132,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case ProcessClientEvent(event) =>
       try {
-        logInfo("[<] "+(event \ "action").as[String])
+        logInfo("[<] "+(event \ "action").as[String] + " for " + (event \ "module").as[String])
 
         (event \ "module").as[String] match {
           case "main" =>

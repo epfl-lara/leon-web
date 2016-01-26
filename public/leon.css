@@ -426,6 +426,7 @@ pre.disambiguationAlternative {
     padding: 2px;
     border: 1px solid #888;
     white-space: pre-wrap;
+    max-width: 100%;
 }
 pre.disambiguationAlternative.editing {
 	cursor: text;
