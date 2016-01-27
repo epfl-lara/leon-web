@@ -68,13 +68,13 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
   def filterRedundantExprs(prev: Seq[Expr], current: Expr): Option[Expr] = {
     val currentStr = current.toString
     val currentStrSimp = currentStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
-    if(prev.forall { prev => val prevStr = prev.toString
+    if(prev.exists { prev => val prevStr = prev.toString
         val prevStrSimp = prevStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
-        val res = isGround(prevStr) || prevStrSimp != currentStrSimp
-        res })
-      Some(current)
-    else
+        (!isGround(prevStr) && prevStrSimp == currentStrSimp) || ExprOps.canBeHomomorphic(prev, current).nonEmpty
+      })
       None
+    else
+      Some(current)
   }
   
   /** Specific enumeration of strings, which can be used with the QuestionBuilder#setValueEnumerator method */
