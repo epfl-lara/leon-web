@@ -79,7 +79,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
   
   /** Specific enumeration of strings, which can be used with the QuestionBuilder#setValueEnumerator method */
   object NonEmptyValueGrammarfirst extends grammars.ExpressionGrammar[TypeTree] {
-    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[Gen] = t match {
+    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[Prod] = t match {
        case StringType =>
           List(
             terminal(StringLiteral("foo")),
