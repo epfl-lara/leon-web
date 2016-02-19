@@ -28,7 +28,6 @@ object LoadRepositoryModal {
 
   case class Props(
     onSelect: HRepository => Callback,
-    isOpen: Boolean = false,
     cloning: Boolean = false,
     repos: Option[Seq[HRepository]] = None
   )
@@ -120,7 +119,7 @@ object LoadRepositoryModal {
     val loading = Spinner()
 
     def render(props: Props, state: State) =
-      Modal(props.isOpen)(
+      Modal(onRequestHide)(
         <.div(^.className := "modal-header",
           Modal.closeButton(onRequestHide),
           <.h3("Load a repository from GitHub")
@@ -189,10 +188,9 @@ object LoadRepositoryModal {
 
   def apply(
     onSelect: HRepository => Callback,
-    isOpen: Boolean = false,
     loading: Boolean = false,
     repos: Option[Seq[HRepository]] = None
-  ) = component(Props(onSelect, isOpen, loading, repos))
+  ) = component(Props(onSelect, loading, repos))
 
 }
 

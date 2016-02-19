@@ -1293,6 +1293,9 @@ trait LeonWeb {
   private
   var currentProject = Option.empty[Project]
 
+  def getCurrentProject(): Option[Project] =
+    currentProject
+
   def setCurrentProject(project: Option[Project]): Unit = {
     project match {
       case None    => showExamples()
@@ -1300,10 +1303,11 @@ trait LeonWeb {
     }
 
     currentProject = project
+    project.flatMap(_.code).foreach(setEditorCode(_))
+
     recompile(force = true)
   }
 
-  def getCurrentProject() = currentProject
   def hideExamples(): Unit = $("#selectcolumn").hide()
   def showExamples(): Unit = $("#selectcolumn").show()
 
@@ -1339,8 +1343,8 @@ trait LeonWeb {
           )
       }
 
-      oldCode         = currentCode;
-      lastSavedChange = lastChange;
+      oldCode         = currentCode
+      lastSavedChange = lastChange
 
       updateSaveButton();
       leonSocket.send(JSON.stringify(msg))

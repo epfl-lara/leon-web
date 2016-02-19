@@ -41,15 +41,37 @@ case class AppState(
   // Whether or not we are in the process of cloning `repository`
   isLoadingRepo     : Boolean                  = false,
 
-  // The current project, if any
-  currentProject    : Option[Project]          = None,
-
   // Whether or not to treat the repo as a project
   treatAsProject    : Boolean                  = true,
 
   // Whether or not a user is logged-in
   isLoggedIn          : Boolean                = false
 ) {
+
+  lazy val currentProject: Option[Project] = {
+    for {
+      r      <- repository
+      b      <- branch
+      (f, c) <- file
+    }
+    yield Project(
+      owner  = r.owner,
+      repo   = r.name,
+      branch = b,
+      file   = f,
+      code   = Some(c)
+    )
+  }
+
+  lazy val unloadProject: AppState =
+    copy(
+      repository     = None,
+      branch         = None,
+      branches       = Seq(),
+      file           = None,
+      files          = Seq(),
+      treatAsProject = false
+    )
 
   def toJSON: String = {
     write(this)

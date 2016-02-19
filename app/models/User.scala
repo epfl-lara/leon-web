@@ -22,6 +22,16 @@ case class User(
 
   def fullId: String          = s"${providerId.value}-${userId.value}"
   def toProfile: BasicProfile = User.toProfile(this)
+
+  def nameOrEmail: Option[String] = {
+    lazy val firstLast =
+      firstName
+        .zip(lastName)
+        .headOption
+        .map { case (f, l) => s"$f $l" }
+
+    fullName orElse firstLast orElse email.map(_.value)
+  }
 }
 
 object User {

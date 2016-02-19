@@ -31,7 +31,7 @@ import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
   */
-class RepositoryInfos(val path: File, token: Option[String] = None) {
+class RepositoryInfos(val path: File, user: User, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {
@@ -68,6 +68,12 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
 
     git.branchList().setListMode(mode).call()
   }
+
+  def branch(): Ref =
+    repo.getRef(Constants.HEAD).getTarget()
+
+  def branchName(full: Boolean = false): String =
+    if (full) repo.getFullBranch() else repo.getBranch()
 
   def getLastCommits(n: Int = 5): Iterable[Commit] = {
     try {
@@ -193,6 +199,10 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
     }
   }
 
+  def status(): Status = {
+    git.status().call()
+  }
+
   def pull(progressMonitor: Option[ProgressMonitor] = None): Boolean = {
     try {
       val config = git.getRepository().getConfig();
@@ -263,7 +273,16 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
 
   def commit(msg: String): Boolean = {
     try {
-      git.commit().setMessage(msg).call()
+      val userId = user.userId.value
+      val name   = user.nameOrEmail.getOrElse(userId)
+      val email  = user.email.map(_.value).getOrElse(userId)
+
+      git.commit()
+         .setAll(true)
+         .setCommitter(name, email)
+         .setMessage(msg)
+         .call()
+
       true
     } catch {
       case NonFatal(e) =>

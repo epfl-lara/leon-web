@@ -12,8 +12,7 @@ import monifu.reactive.subjects._
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
-import leon.web.client.syntax.observer._
-import leon.web.shared.Project
+import leon.web.shared.{Project, GitOperation}
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected
@@ -28,6 +27,7 @@ case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
 case class SetCurrentProject(project: Option[Project]) extends Action
 case class SetTreatAsProject(value: Boolean) extends Action
+case class DoGitOperation(op: GitOperation) extends Action
 
 /**
   * Actions are how the React app performs side-effects.
@@ -52,26 +52,7 @@ object Actions {
   val modState            = PublishSubject[AppState => AppState]() // dump "ModState"
   val setCurrentProject   = PublishSubject[SetCurrentProject]()    // dump "SetCurrentProject"
   val setTreatAsProject   = PublishSubject[SetTreatAsProject]()    // dump "SetTreatAsProject"
-
-  lazy val currentProject = Observable.merge(
-      setCurrentProject,
-      Observable.combineLatest(
-        Events.repositoryLoaded,
-        Events.branchChanged,
-        Events.fileLoaded
-      )
-      .map { case (r, b, f) =>
-        val project = Project(
-          owner  = r.repo.owner,
-          repo   = r.repo.name,
-          branch = b.branch,
-          file   = f.fileName,
-          code   = Some(f.content)
-        )
-
-        SetCurrentProject(Some(project))
-      }
-    )
+  val doGitOperation      = PublishSubject[DoGitOperation]()       // dump "DoGitOperation"
 
   private
   var processAction: Action => Unit = x => {}
@@ -94,23 +75,20 @@ object Actions {
     * @see [[leon.web.client.react.AppState]]
     */
   def register(updates: Observer[AppState => AppState]) = {
-    currentProject
+    setCurrentProject
       .doWork(processAction)
+      .filter(_.project.isEmpty)
       .map { e =>
-        e.project match {
-          case None  => (state: AppState) =>
-            state.copy(repository = None, files = Seq(), file = None, branches = Seq(), currentProject = None)
-
-          case Some(project) => (state: AppState) =>
-            state.copy(currentProject = Some(project))
-        }
+        (state: AppState) =>
+          state.unloadProject
       }
       .subscribe(updates)
 
     setTreatAsProject
       .doWork(processAction)
       .map { e =>
-        (state: AppState) => state.copy(treatAsProject = e.value)
+        (state: AppState) =>
+          state.copy(treatAsProject = e.value)
       }
       .subscribe(updates)
 
@@ -126,15 +104,14 @@ object Actions {
     loadRepository
       .doWork(processAction)
       .flatMap(_ => Events.repositoryLoaded)
-      .doWork { e =>
-        Events.branchChanged ! BranchChanged(e.repo.defaultBranch, e.files)
-      }
       .map { e =>
         (state: AppState) =>
           state.copy(
             repository        = Some(e.repo),
             files             = e.files,
+            file              = None,
             branches          = e.branches,
+            branch            = Some(e.currentBranch),
             isLoadingRepo     = false,
             showLoadRepoModal = false
           )
@@ -148,7 +125,8 @@ object Actions {
         (state: AppState) =>
           state.copy(
             branch = Some(e.branch),
-            files  = e.files
+            files  = e.files,
+            file   = None
           )
       }
       .subscribe(updates)
@@ -168,7 +146,14 @@ object Actions {
       .map(const(identity[AppState](_)))
       .subscribe(updates)
 
+    doGitOperation
+      .doWork(processAction)
+      .flatMap(_ => Events.gitOperationDone)
+      .map(const(identity[AppState](_)))
+      .subscribe(updates)
+
     toggleLoadRepoModal
+      .distinctUntilChanged
       .doWork(processAction)
       .map { e =>
         (state: AppState) =>
@@ -180,6 +165,7 @@ object Actions {
       .subscribe(updates)
 
     toggleLoginModal
+      .distinctUntilChanged
       .doWork(processAction)
       .map { e =>
         (state: AppState) =>

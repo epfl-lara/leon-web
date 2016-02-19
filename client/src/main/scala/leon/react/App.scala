@@ -8,18 +8,21 @@ import scala.scalajs.js
 import scala.scalajs.js.JSON
 import scala.scalajs.js.Dynamic.{ literal => l, global => g }
 
-import org.scalajs.dom.document
 import org.scalajs.dom.ext.LocalStorage
+import org.scalajs.dom.{console, document}
 
 import org.scalajs.jquery
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
 
 import japgolly.scalajs.react._
+import japgolly.scalajs.react.vdom.prefix_<^._
 
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.observer._
 import leon.web.client.syntax.websocket._
+
+import leon.web.shared.GitOperation
 
 /** This class is in charge of the following:
   *
@@ -37,6 +40,8 @@ class App(private val api: LeonAPI) {
 
   import leon.web.client.react.components._
   import leon.web.client.react.components.modals._
+  import leon.web.client.react.components.panels._
+
   import leon.web.shared.{Action => LeonAction}
 
   lazy val isLoggedIn = g._leon_isLoggedIn.asInstanceOf[Boolean]
@@ -51,7 +56,7 @@ class App(private val api: LeonAPI) {
     val appState =
       LocalStorage("appState")
         .map(AppState.fromJSON)
-        .map(_.copy(isLoggedIn = isLoggedIn, isLoadingRepo = false))
+        .map(resetAppState)
         .map(GlobalAppState(_))
         .getOrElse(GlobalAppState())
 
@@ -68,13 +73,32 @@ class App(private val api: LeonAPI) {
     // If the user is logged-in and was working on a project,
     // restore such project.
     if (isLoggedIn) {
-      api.setCurrentProject(appState.initial.currentProject)
-      Actions.setTreatAsProject ! SetTreatAsProject(appState.initial.treatAsProject)
+      restoreAppState(appState.initial)
     }
   }
 
   private
+  def resetAppState(state: AppState): AppState = state.copy(
+    isLoggedIn     = isLoggedIn,
+    showLoginModal = state.showLoginModal && !isLoggedIn,
+    repository     = if (isLoggedIn) state.repository else None,
+    branch         = if (isLoggedIn) state.branch     else None,
+    file           = if (isLoggedIn) state.file       else None,
+    isLoadingRepo  = false
+  )
+
+  private
+  def restoreAppState(state: AppState): Unit = {
+    println("Restoring application state...")
+
+    api.setCurrentProject(state.currentProject)
+    Actions.setTreatAsProject ! SetTreatAsProject(state.treatAsProject)
+  }
+
+  private
   def onStateUpdate(state: AppState): Unit = {
+    api.setCurrentProject(state.currentProject)
+
     js.timers.setTimeout(0) {
       LocalStorage.update("appState", state.toJSON)
     }
@@ -143,6 +167,33 @@ class App(private val api: LeonAPI) {
     case SetTreatAsProject(value) =>
       api.setTreatAsProject(value)
 
+    case DoGitOperation(op) =>
+      api.getCurrentProject() match {
+        case None =>
+          console.error("No project is currently set, cannot perform Git operation")
+
+        case Some(project) =>
+          val commitMessage = op match {
+            case GitOperation.Commit(msg) => msg
+            case _ => ""
+          }
+
+          val msg = l(
+            action  = LeonAction.doGitOperation,
+            module  = "main",
+            op      = op.name,
+            msg     = commitMessage,
+            project = l(
+              owner  = project.owner,
+              repo   = project.repo,
+              branch = project.branch,
+              file   = project.file
+            )
+          )
+
+          api.leonSocket.send(JSON.stringify(msg))
+      }
+
     case _ =>
   }
 
@@ -157,7 +208,15 @@ class App(private val api: LeonAPI) {
     val el             = document.getElementById("login-modal")
     val showLoginModal = !state.isLoggedIn && state.showLoginModal
 
-    ReactDOM.render(LoginModal(showLoginModal), el)
+    def onRequestHide: Callback = Callback {
+      Actions.toggleLoginModal ! ToggleLoginModal(false)
+    }
+
+    if (showLoginModal) {
+      ReactDOM.render(LoginModal(onRequestHide), el)
+    } else {
+      ReactDOM.render(<.span(), el)
+    }
 
     $("#login-btn").click { e: JQueryEventObject =>
       if (!shouldSkipLoginModal) {

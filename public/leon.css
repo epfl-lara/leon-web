@@ -504,6 +504,40 @@ pre.exploreBlock .header .name span {
   display: inline-block !important;
 }
 
+/* Git operations panel */
+
+#git-ops-panel > ul {
+  list-style: none;
+  margin: 0;
+  padding: 10px;
+}
+
+#git-ops-panel > ul > li {
+  display: inline-block;
+  margin-right: 10px;
+}
+
+/* Git Commit View */
+
+.git-status-section h5 {
+    font-weight: bold;
+    margin: 0;
+}
+
+ul.git-status-files {
+  list-style-type: square;
+  margin-top: 5px;
+  padding-left: 15px;
+}
+
+ul.git-status-files li {
+  display: block;
+}
+
+textarea.git-commit-msg {
+  margin-top: 20px;
+}
+
 /* Load Repository Modal */
 
 .modal-section:first-child {
@@ -511,6 +545,8 @@ pre.exploreBlock .header .name span {
     padding-bottom: 20px;
     border-bottom: 1px dashed #aaa;
 }
+
+/* Repository List */
 
 ul.repository-list {
   list-style: none;

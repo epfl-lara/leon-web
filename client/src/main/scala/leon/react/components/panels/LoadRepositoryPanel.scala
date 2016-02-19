@@ -4,11 +4,13 @@ package leon.web
 package client
 package react
 package components
+package panels
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
+import leon.web.client.react.utils._
 import leon.web.client.react.components.modals.LoadRepositoryModal
 import leon.web.client.syntax.observer._
 import leon.web.client.HandlersTypes.{HRepository, HBranch}
@@ -64,14 +66,14 @@ object LoadRepositoryPanel {
           hasRepo ?= renderProjectType(props.treatAsProject),
           hasRepo ?= renderFiles(props.files, props.file.map(_._1))
         ),
-        <.div(
+        props.showLoadRepoModal ?= <.div(
           LoadRepositoryModal(
             onLoadRepo,
-            props.showLoadRepoModal,
             props.isLoadingRepo,
             props.repositories
           )
-        )
+        ),
+        props.repository.isDefined ?= GitPanel()
       )
     }
 
@@ -142,15 +144,10 @@ object LoadRepositoryButton {
         props.repo.isDefined ?= renderUnloadButton(props.onClickUnload)
       )
 
-    def octicon(name: String, content: String) = <.span(
-      <.span(^.className := s"octicon octicon-mark-$name"),
-      content
-    )
-
     def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
-      case Some(repo) if !isHover => octicon("github", repo.fullName)
-      case Some(_)                => octicon("github", "Select another repository")
-      case None                   => octicon("github", "Select a GitHub repository")
+      case Some(repo) if !isHover => octicon("mark-github", repo.fullName)
+      case Some(_)                => octicon("mark-github", "Select another repository")
+      case None                   => octicon("mark-github", "Select a GitHub repository")
     }
 
     def renderUnloadButton(onClick: Callback) =

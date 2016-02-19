@@ -30,7 +30,7 @@ import leon.web.stores.PermalinkStore
 import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
-import leon.web.shared.{Action, Module, Project}
+import leon.web.shared.{Action, Module, Project, GitOperation}
 import leon.web.utils.String._
 
 import java.io.File
@@ -187,6 +187,27 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 self ! SwitchBranch(user, owner, repo, branch)
               }
 
+              case Action.doGitOperation => withUser { user =>
+                val project = Project(
+                  owner   = (event \ "project" \ "owner" ).as[String],
+                  repo    = (event \ "project" \ "repo"  ).as[String],
+                  branch  = (event \ "project" \ "branch").as[String],
+                  file    = (event \ "project" \ "file"  ).as[String]
+                )
+
+                val op = (event \ "op").as[String] match {
+                  case GitOperation.STATUS => GitOperation.Status
+                  case GitOperation.PUSH   => GitOperation.Push
+                  case GitOperation.PULL   => GitOperation.Pull
+                  case GitOperation.RESET  => GitOperation.Reset
+                  case GitOperation.COMMIT =>
+                    val msg = (event \ "msg").as[String]
+                    GitOperation.Commit(msg)
+                }
+
+                self ! DoGitOperation(user, project, op)
+              }
+
               case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
@@ -291,21 +312,21 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             clientLog(s"=> DONE")
           }
 
-          RepositoryLoaded(user, repo)
+          RepositoryLoaded(user, repo, wc.branchName())
         }
 
         future pipeTo self
       }
     }
 
-    case RepositoryLoaded(user, repo) =>
+    case RepositoryLoaded(user, repo, currentBranch) =>
       val (owner, name) = (repo.owner, repo.name)
       val wc = RepositoryService.repositoryFor(user, owner, name)
 
       clientLog(s"Listing files in '$owner/$name'...")
 
       val future = Future {
-        wc.getFiles(repo.defaultBranch)
+        wc.getFiles(currentBranch)
           .getOrElse(Seq[String]())
           .filter(_.extension === "scala")
       }
@@ -313,9 +334,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       future foreach { files =>
         clientLog(s"=> DONE")
         event("repository_loaded", Map(
-          "repository" -> toJson(repo),
-          "files"      -> toJson(files),
-          "branches"   -> toJson(repo.branches)
+          "repository"    -> toJson(repo),
+          "files"         -> toJson(files),
+          "branches"      -> toJson(repo.branches),
+          "currentBranch" -> toJson(currentBranch)
         ))
       }
 
@@ -377,22 +399,78 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
         else {
           val future = Future {
-            if (wc.branchExists(branch))
-              wc.checkout(branch, force = true)
-            else
-              wc.checkoutRemote(branch, force = true)
+            val switched =
+              if (wc.branchExists(branch))
+                wc.checkout(branch)
+              else
+                wc.checkoutRemote(branch)
 
-            wc.getFiles(branch)
-              .getOrElse(Seq[String]())
-              .filter(_.extension === "scala")
+            if (switched) {
+              val files = wc.getFiles(branch)
+                            .getOrElse(Seq[String]())
+                            .filter(_.extension === "scala")
+
+              Some(files)
+            }
+            else
+              None
           }
 
-          future foreach { files =>
+          future onSuccess {
+            case Some(files) =>
+              clientLog(s"=> DONE")
+              event("branch_changed", Map(
+                "success" -> toJson(true),
+                "branch"  -> toJson(branch),
+                "files"   -> toJson(files)
+              ))
+
+            case None =>
+              val error = s"Failed to checkout branch '$branch', please commit " +
+                          s"or reset your changes and try again."
+
+              clientLog(s"=> ERROR: $error")
+              notifyError(error)
+
+              event("branch_changed", Map(
+                "success" -> toJson(true),
+                "error"   -> toJson(error)
+              ))
+          }
+        }
+      }
+    }
+
+    case DoGitOperation(user, project, op) => withToken(user) { token =>
+      clientLog(s"Executing Git operation: $op")
+
+      val (owner, name) = (project.owner, project.repo)
+      val gh            = GitHubService(token)
+      val result        = gh.getRepository(owner, name)
+
+      result onFailure { case err =>
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
+
+      result onSuccess { case _ =>
+        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
+
+        if (!wc.exists) {
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        }
+        else {
+          val future = Future {
+            RepositoryService.perform(op, wc, project)
+          }
+
+          future onSuccess { case (success, data) =>
             clientLog(s"=> DONE")
 
-            event("branch_changed", Map(
-              "branch" -> toJson(branch),
-              "files"  -> toJson(files)
+            event("git_operation_done", Map(
+              "op"      -> toJson(op.name),
+              "success" -> toJson(success),
+              "data"    -> toJson(data.getOrElse(Map[String, Set[String]]()))
             ))
           }
         }
@@ -402,6 +480,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case UpdateCode(code, user, project) =>
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
+
+        println(project)
 
         clientLog("Compiling...")
         logInfo(s"Code updated:\n$code")
@@ -450,6 +530,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 }
                 .toList
           }
+
+         println(files)
 
           val (_, program) = pipeline.run(compContext, files)
 

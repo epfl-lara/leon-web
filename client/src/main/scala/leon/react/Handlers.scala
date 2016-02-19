@@ -28,6 +28,7 @@ object Handlers {
     handlers += ("file_loaded"         -> loadFileHandler)
     handlers += ("branch_changed"      -> changeBranchHandler)
     handlers += ("git_progress"        -> gitProgressHandler)
+    handlers += ("git_operation_done"  -> gitOperationDoneHandler)
   }
 
   val reposHandler = (data: HRepositories) => {
@@ -35,7 +36,7 @@ object Handlers {
   }
 
   val loadRepoHandler = (data: HRepositoryLoaded) => {
-    Events.repositoryLoaded ! RepositoryLoaded(data.repository, data.files, data.branches)
+    Events.repositoryLoaded ! RepositoryLoaded(data.repository, data.files, data.branches, data.currentBranch)
   }
 
   val loadFileHandler = (data: HFileLoaded) => {
@@ -43,11 +44,16 @@ object Handlers {
   }
 
   val changeBranchHandler = (data: HBranchChanged) => {
-    Events.branchChanged ! BranchChanged(data.branch, data.files)
+    if (data.success)
+      Events.branchChanged ! BranchChanged(data.branch.get, data.files.get)
   }
 
   val gitProgressHandler = (data: HGitProgress) => {
     Events.gitProgress ! GitProgress(data.taskName, data.percentage.toOption)
+  }
+
+  val gitOperationDoneHandler = (data: HGitOperationResult) => {
+    Events.gitOperationDone ! GitOperationDone(data)
   }
 
 }
