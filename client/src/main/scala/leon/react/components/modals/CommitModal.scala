@@ -58,7 +58,7 @@ object CommitModal {
 
     def listenForStatus: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op == GitOperation.STATUS)
+        .filter(_.result.op === GitOperation.STATUS)
         .take(1)
         .map(_.result)
         .doWork { res => onStatusUpdate(res).runNow() }
@@ -75,7 +75,7 @@ object CommitModal {
 
     def listenForCommit: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op == GitOperation.COMMIT)
+        .filter(_.result.op === GitOperation.COMMIT)
         .take(1)
         .map(_.result)
         .doWork { _ => onCommitDone.runNow() }

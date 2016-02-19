@@ -38,7 +38,6 @@ import leon.web.shared.GitOperation
   */
 class App(private val api: LeonAPI) {
 
-  import leon.web.client.react.components._
   import leon.web.client.react.components.modals._
   import leon.web.client.react.components.panels._
 
@@ -229,7 +228,7 @@ class App(private val api: LeonAPI) {
 
   private
   def shouldSkipLoginModal: Boolean =
-    LocalStorage("hideLogin").map(_ == "true").getOrElse(false)
+    LocalStorage("hideLogin").map(_ === "true").getOrElse(false)
 
   private
   def renderLoadRepoPanel(state: AppState): Unit = {

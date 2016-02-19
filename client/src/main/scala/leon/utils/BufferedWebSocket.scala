@@ -13,7 +13,7 @@ import scala.collection.mutable.Queue
 class BufferedWebSocket(val webSocket: WebSocket) extends AnyVal {
 
   def isOpen: Boolean =
-    webSocket.readyState == WebSocket.OPEN
+    webSocket.readyState === WebSocket.OPEN
 
   def queue: Queue[String] =
     BufferedWebSocket.queue

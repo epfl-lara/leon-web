@@ -54,7 +54,7 @@ object LoginModal {
     } >> $.modState(_.copy(hideLogin = getHideLoginValue))
 
     def getHideLoginValue: Boolean =
-      LocalStorage("hideLogin").map(_ == "true").getOrElse(false)
+      LocalStorage("hideLogin").map(_ === "true").getOrElse(false)
 
     def onMount: Callback =
       $.modState(_.copy(hideLogin = getHideLoginValue))
