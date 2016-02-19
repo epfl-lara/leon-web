@@ -22,7 +22,7 @@ case class LoadRepositories() extends Action
 case class LoadRepository(repo: HRepository) extends Action
 case class LoadFile(repo: HRepository, file: String) extends Action
 case class SwitchBranch(repo: HRepository, branch: String) extends Action
-case class UpdateEditorCode(code: String) extends Action
+case class UpdateEditorCode(code: String, updateEditor: Boolean = true) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
 case class SetCurrentProject(project: Option[Project]) extends Action
@@ -143,7 +143,15 @@ object Actions {
     updateEditorCode
       .doWork(processAction)
       .flatMap(_ => Events.codeUpdated)
-      .map(const(identity[AppState](_)))
+      .map { e =>
+        (state: AppState) => {
+          val file = state.file.map { case (name, _) =>
+            (name, e.code)
+          }
+
+          state.copy(file = file)
+        }
+      }
       .subscribe(updates)
 
     doGitOperation

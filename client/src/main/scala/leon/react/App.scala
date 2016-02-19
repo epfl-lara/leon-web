@@ -152,10 +152,11 @@ class App(private val api: LeonAPI) {
 
       api.leonSocket.sendBuffered(JSON.stringify(msg))
 
-    case UpdateEditorCode(code) =>
-      api.setEditorCode(code)
+    case UpdateEditorCode(code, updateEditor) =>
+      if (updateEditor)
+        api.setEditorCode(code)
 
-      Events.codeUpdated ! CodeUpdated()
+      Events.codeUpdated ! CodeUpdated(code)
 
     case SetCurrentProject(project) =>
       api.setCurrentProject(project)

@@ -17,7 +17,7 @@ case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
 case class RepositoryLoaded(repo: HRepository, files: Seq[String], branches: Seq[HBranch], currentBranch: String) extends Event
 case class FileLoaded(fileName: String, content: String) extends Event
 case class BranchChanged(branch: String, files: Seq[String]) extends Event
-case class CodeUpdated() extends Event
+case class CodeUpdated(code: String) extends Event
 case class GitProgress(task: String, percentage: Option[String]) extends Event
 case class GitOperationDone(result: HGitOperationResult) extends Event
 
