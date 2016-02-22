@@ -562,9 +562,17 @@ textarea.git-commit-msg {
   margin-top: 20px;
 }
 
-.git-diff-view pre {
+.git-diff-view pre.diff {
   max-height: 350px;
   overflow: scroll;
+}
+
+.git-diff-view pre.diff .added {
+  color: green;
+}
+
+.git-diff-view pre.diff .removed {
+  color: red;
 }
 
 /* Load Repository Modal */

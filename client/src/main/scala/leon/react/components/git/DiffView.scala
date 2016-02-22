@@ -17,11 +17,18 @@ object DiffView {
   class Backend($: BackendScope[Props, Unit]) {
     def render(props: Props) = {
       <.div(^.className := "git-diff-view",
-        <.pre(
-          props.diff
+        <.pre(^.className := "diff",
+          colorize(props.diff)
         )
       )
     }
+
+    def colorize(diff: String) =
+      diff.linesWithSeparators.map { line => line.headOption match {
+        case Some('+') => <.span(^.className := "added", line)
+        case Some('-') => <.span(^.className := "removed", line)
+        case _         => <.span(line)
+      } }
   }
 
   val component =
