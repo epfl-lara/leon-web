@@ -538,6 +538,24 @@ textarea.git-commit-msg {
   margin-top: 20px;
 }
 
+/* Git Log View */
+
+.git-log-view h5 {
+  font-weight: bold;
+  margin-top: 0;
+}
+
+.git-log-view ul.commits {
+  padding-left: 20px;
+}
+
+.git-log-view .commit > .hash {
+  font-family: monospace;
+}
+
+.git-log-view .commit > .msg {
+}
+
 /* Load Repository Modal */
 
 .modal-section:first-child {

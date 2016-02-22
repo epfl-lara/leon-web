@@ -199,8 +199,14 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
     }
   }
 
-  def status(): Status = {
-    git.status().call()
+  def status(): Option[Status] = {
+    try {
+      Some(git.status().call())
+    } catch {
+      case NonFatal(e) =>
+        Logger.error(e.getMessage, e)
+        None
+    }
   }
 
   def pull(progressMonitor: Option[ProgressMonitor] = None): Boolean = {

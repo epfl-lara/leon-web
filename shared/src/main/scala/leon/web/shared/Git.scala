@@ -10,6 +10,7 @@ object GitOperation {
   val PUSH   = "push"
   val PULL   = "pull"
   val RESET  = "reset"
+  val LOG    = "log"
 
   case object Status extends GitOperation(STATUS)
   case object Push   extends GitOperation(PUSH)
@@ -17,5 +18,6 @@ object GitOperation {
   case object Reset  extends GitOperation(RESET)
 
   case class Commit(message: String) extends GitOperation(COMMIT)
+  case class Log(number: Int)        extends GitOperation(LOG)
 }
 

@@ -173,16 +173,17 @@ class App(private val api: LeonAPI) {
           console.error("No project is currently set, cannot perform Git operation")
 
         case Some(project) =>
-          val commitMessage = op match {
-            case GitOperation.Commit(msg) => msg
-            case _ => ""
+          val data = op match {
+            case GitOperation.Commit(msg) => l(msg = msg)
+            case GitOperation.Log(count)  => l(count = count)
+            case _                        => l()
           }
 
           val msg = l(
             action  = LeonAction.doGitOperation,
             module  = "main",
             op      = op.name,
-            msg     = commitMessage,
+            data    = data,
             project = l(
               owner  = project.owner,
               repo   = project.repo,

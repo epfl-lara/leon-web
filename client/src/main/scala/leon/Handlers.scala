@@ -82,6 +82,18 @@ object HandlersTypes {
     val success: Boolean
     val data: Any
   }
+
+  @ScalaJSDefined
+  trait HCommit extends js.Object {
+    val hash: String
+    val shortHash: String
+    val shortMessage: String
+    val fullMessage: String
+    val commitTime: String
+    val author: String
+    val committer: String
+    val desc: String
+  }
   
   @ScalaJSDefined 
   trait HMoveCursor extends js.Object { val line: Double }

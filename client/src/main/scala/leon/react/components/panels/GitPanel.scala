@@ -44,6 +44,7 @@ object GitPanel {
     def displayModal(op: String) =
       op match {
         case GitOperation.COMMIT => CommitModal(onRequestHideModal)
+        case GitOperation.PUSH   => PushModal(onRequestHideModal)
       }
 
     def onRequestHideModal: Callback =

@@ -8,6 +8,7 @@ import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.util.Try
 import scala.io.Source
+import scala.collection.JavaConverters._
 
 import play.api._
 import play.api.libs.json._
@@ -200,8 +201,13 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   case GitOperation.PUSH   => GitOperation.Push
                   case GitOperation.PULL   => GitOperation.Pull
                   case GitOperation.RESET  => GitOperation.Reset
+
+                  case GitOperation.LOG    =>
+                    val count = (event \ "data" \ "count").as[Int]
+                    GitOperation.Log(count)
+
                   case GitOperation.COMMIT =>
-                    val msg = (event \ "msg").as[String]
+                    val msg = (event \ "data" \ "msg").as[String]
                     GitOperation.Commit(msg)
                 }
 
@@ -460,18 +466,79 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
         }
         else {
-          val future = Future {
-            RepositoryService.perform(op, wc, project)
-          }
+          op match {
+            case GitOperation.Status =>
+              val status = wc.status()
+              clientLog(s"=> DONE")
 
-          future onSuccess { case (success, data) =>
-            clientLog(s"=> DONE")
+              status match {
+                case Some(status) =>
+                  val data = Map(
+                    "added"     -> status.getAdded(),
+                    "changed"   -> status.getChanged(),
+                    "modified"  -> status.getModified(),
+                    "removed"   -> status.getRemoved(),
+                    "untracked" -> status.getUntracked()
+                  )
 
-            event("git_operation_done", Map(
-              "op"      -> toJson(op.name),
-              "success" -> toJson(success),
-              "data"    -> toJson(data.getOrElse(Map[String, Set[String]]()))
-            ))
+                  event("git_operation_done", Map(
+                    "op"      -> toJson(op.name),
+                    "success" -> toJson(true),
+                    "data"    -> toJson(data.mapValues(_.asScala.toSet))
+                  ))
+
+                case None =>
+                  event("git_operation_done", Map(
+                    "op"      -> toJson(op.name),
+                    "success" -> toJson(false)
+                  ))
+              }
+
+            case GitOperation.Push =>
+              val success = wc.push()
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Pull =>
+              val success = wc.pull()
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Reset =>
+              val success = wc.reset(hard = true)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Commit(message) =>
+              val success = wc.add(project.file) && wc.commit(message)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Log(count) =>
+              val commits = wc.getLastCommits(count)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(commits.nonEmpty),
+                "data"    -> toJson(commits.map(_.toJson))
+              ))
           }
         }
       }
@@ -480,8 +547,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case UpdateCode(code, user, project) =>
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
-
-        println(project)
 
         clientLog("Compiling...")
         logInfo(s"Code updated:\n$code")
