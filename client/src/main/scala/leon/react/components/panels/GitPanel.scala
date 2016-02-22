@@ -26,7 +26,7 @@ object GitPanel {
 
   class Backend($: BackendScope[Unit, State]) {
 
-    def onCommit = showModal(GitOperation.COMMIT) >> fetchStatus
+    def onCommit = showModal(GitOperation.COMMIT)
     def onPush   = showModal(GitOperation.PUSH)
     def onPull   = showModal(GitOperation.PULL)
     def onReset  = showModal(GitOperation.RESET)
