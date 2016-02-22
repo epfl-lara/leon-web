@@ -46,6 +46,7 @@ object GitPanel {
         case GitOperation.COMMIT => CommitModal(onRequestHideModal)
         case GitOperation.PUSH   => PushModal(onRequestHideModal)
         case GitOperation.PULL   => PullModal(onRequestHideModal)
+        case GitOperation.RESET  => ResetModal(onRequestHideModal)
       }
 
     def onRequestHideModal: Callback =
