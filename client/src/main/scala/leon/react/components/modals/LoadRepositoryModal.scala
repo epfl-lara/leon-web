@@ -97,7 +97,7 @@ object LoadRepositoryModal {
     }
 
     def onRequestHide: Callback = Callback {
-      Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(false)
+      Actions dispatch ToggleLoadRepoModal(false)
     }
 
     val cancelButton =

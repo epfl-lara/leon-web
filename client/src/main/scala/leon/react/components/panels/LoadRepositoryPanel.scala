@@ -26,34 +26,34 @@ object LoadRepositoryPanel {
   class Backend($: BackendScope[Props, Unit]) {
 
     def showLoadRepoModal: Callback = Callback {
-      Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(true)
+      Actions dispatch ToggleLoadRepoModal(true)
     }
 
     def loadRepos: Callback = Callback {
-      Actions.loadRepositories ! LoadRepositories()
+      Actions dispatch LoadRepositories()
     }
 
     def onClickSelect: Callback =
       showLoadRepoModal >> loadRepos
 
     def onClickUnload: Callback = Callback {
-      Actions.setCurrentProject ! SetCurrentProject(None)
+      Actions dispatch SetCurrentProject(None)
     }
 
     def onLoadRepo(repo: HRepository): Callback = Callback {
-      Actions.loadRepository ! LoadRepository(repo)
+      Actions dispatch LoadRepository(repo)
     }
 
     def onChooseBranch(repo: HRepository)(branch: String): Callback = Callback {
-      Actions.switchBranch ! SwitchBranch(repo, branch)
+      Actions dispatch SwitchBranch(repo, branch)
     }
 
     def onChooseFile(file: String): Callback = $.props.map { props =>
-      Actions.loadFile ! LoadFile(props.repository.get, file)
+      Actions dispatch LoadFile(props.repository.get, file)
     }
 
     def onChangeProjectType(e: ReactEventI): Callback = Callback {
-      Actions.setTreatAsProject ! SetTreatAsProject(e.target.checked)
+      Actions dispatch SetTreatAsProject(e.target.checked)
     }
 
     def render(props: Props) = {

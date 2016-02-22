@@ -30,7 +30,7 @@ object ResetModal {
   class Backend($: BackendScope[Props, State]) {
 
     def doGitOperation(op: GitOperation): Callback = Callback {
-      Actions.doGitOperation ! DoGitOperation(op)
+      Actions dispatch DoGitOperation(op)
     }
 
     def reset: Callback =
@@ -51,7 +51,7 @@ object ResetModal {
       onRequestHide
 
     def reloadCurrentFile: Callback = Callback {
-      Actions.reloadCurrentFile ! ReloadCurrentFile()
+      Actions dispatch ReloadCurrentFile()
     }
 
     def onRequestHide: Callback =

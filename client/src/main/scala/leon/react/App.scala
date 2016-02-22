@@ -4,6 +4,8 @@ package leon.web
 package client
 package react
 
+import scala.concurrent.Future
+
 import scala.scalajs.js
 import scala.scalajs.js.JSON
 import scala.scalajs.js.Dynamic.{ literal => l, global => g }
@@ -17,6 +19,7 @@ import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
+import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.observer._
@@ -49,9 +52,6 @@ class App(private val api: LeonAPI) {
     // Register the WebSocket handlers.
     Handlers.register(api.handlers)
 
-    // Set the action handler.
-    Actions.setActionHandler(processAction)
-
     val appState =
       LocalStorage("appState")
         .map(AppState.fromJSON)
@@ -67,7 +67,7 @@ class App(private val api: LeonAPI) {
       .foreach(render)
 
     // Apply every state transformation to the application state.
-    Actions.register(appState.updates)
+    Actions.bus.map(processAction).subscribe(appState.updates)
 
     // If the user is logged-in and was working on a project,
     // restore such project.
@@ -91,7 +91,6 @@ class App(private val api: LeonAPI) {
     println("Restoring application state...")
 
     api.setCurrentProject(state.currentProject)
-    Actions.setTreatAsProject ! SetTreatAsProject(state.treatAsProject)
   }
 
   private
@@ -104,7 +103,25 @@ class App(private val api: LeonAPI) {
   }
 
   private
-  def processAction(action: Action): Unit = action match {
+  def now[A](x: A): Future[A] =
+    Future.successful(x)
+
+  private
+  def onEvent[E <: Event](event: Observable[E])(f: E => AppState => AppState): Unit =
+    event
+      .head
+      .doWork { e =>
+        Actions dispatch UpdateState(f(e))
+      }
+      .subscribe()
+
+  private
+  def processAction(action: Action)(state: AppState): Future[AppState] = action match {
+    case UpdateState(update) =>
+      now {
+        update(state)
+      }
+
     case LoadRepositories() =>
       val msg = l(
         action = LeonAction.loadRepositories,
@@ -112,6 +129,12 @@ class App(private val api: LeonAPI) {
       )
 
       api.leonSocket.sendBuffered(JSON.stringify(msg))
+
+      onEvent(Events.repositoriesLoaded) { e => state =>
+        state.copy(repositories = Some(e.repos))
+      }
+
+      now(state)
 
     case LoadRepository(repo) =>
       val msg = l(
@@ -123,11 +146,25 @@ class App(private val api: LeonAPI) {
 
       api.leonSocket.sendBuffered(JSON.stringify(msg))
 
-      Actions.modState ! (_.copy(
-        repository    = Some(repo),
-        branch        = Some(repo.defaultBranch),
-        isLoadingRepo = true
-      ))
+      onEvent(Events.repositoryLoaded) { e => state =>
+        state.copy(
+          repository        = Some(e.repo),
+          files             = e.files,
+          file              = None,
+          branches          = e.branches,
+          branch            = Some(e.currentBranch),
+          isLoadingRepo     = false,
+          showLoadRepoModal = false
+        )
+      }
+
+      now {
+        state.copy(
+          repository    = Some(repo),
+          branch        = Some(repo.defaultBranch),
+          isLoadingRepo = true
+        )
+      }
 
     case SwitchBranch(repo, branch) =>
       val msg = l(
@@ -140,6 +177,16 @@ class App(private val api: LeonAPI) {
 
       api.leonSocket.sendBuffered(JSON.stringify(msg))
 
+      onEvent(Events.branchChanged) { e => state =>
+        state.copy(
+          branch = Some(e.branch),
+          files  = e.files,
+          file   = None
+        )
+      }
+
+      now(state)
+
     case LoadFile(repo, file) =>
       val msg = l(
         action = LeonAction.loadFile,
@@ -151,21 +198,44 @@ class App(private val api: LeonAPI) {
 
       api.leonSocket.sendBuffered(JSON.stringify(msg))
 
-    case UpdateEditorCode(code, updateEditor) =>
-      if (updateEditor)
-        api.setEditorCode(code)
+      onEvent(Events.fileLoaded) { e => state =>
+        state.copy(file = Some((e.fileName, e.content)))
+      }
 
-      Events.codeUpdated ! CodeUpdated(code)
+      now(state)
+
+    case UpdateEditorCode(code, updateEditor) =>
+      // if (updateEditor)
+      //   api.setEditorCode(code)
+
+      now {
+        val file = state.file.map { case (name, _) =>
+          (name, code)
+        }
+
+        state.copy(file = file)
+      }
 
     case SetCurrentProject(project) =>
       api.setCurrentProject(project)
 
       project.flatMap(_.code).foreach { code =>
-        Actions.updateEditorCode ! UpdateEditorCode(code)
+        Actions dispatch UpdateEditorCode(code)
       }
+
+      val newState = project match {
+        case None    => state.unloadProject
+        case Some(_) => state
+      }
+
+      now(newState)
 
     case SetTreatAsProject(value) =>
       api.setTreatAsProject(value)
+
+      now {
+        state.copy(treatAsProject = value)
+      }
 
     case DoGitOperation(op) =>
       api.getCurrentProject() match {
@@ -195,7 +265,23 @@ class App(private val api: LeonAPI) {
           api.leonSocket.send(JSON.stringify(msg))
       }
 
+      now(state)
+
+    case ToggleLoadRepoModal(value) =>
+      now {
+        state.copy(
+          showLoadRepoModal = value,
+          isLoadingRepo     = false
+        )
+      }
+
+    case ToggleLoginModal(value) =>
+      now {
+        state.copy(showLoginModal = value)
+      }
+
     case _ =>
+      now(state)
   }
 
   private
@@ -210,7 +296,7 @@ class App(private val api: LeonAPI) {
     val showLoginModal = !state.isLoggedIn && state.showLoginModal
 
     def onRequestHide: Callback = Callback {
-      Actions.toggleLoginModal ! ToggleLoginModal(false)
+      Actions dispatch ToggleLoginModal(false)
     }
 
     if (showLoginModal) {
@@ -222,7 +308,7 @@ class App(private val api: LeonAPI) {
     $("#login-btn").click { e: JQueryEventObject =>
       if (!shouldSkipLoginModal) {
         e.preventDefault()
-        Actions.toggleLoginModal ! ToggleLoginModal(true)
+        Actions dispatch ToggleLoginModal(true)
       }
     }
   }
