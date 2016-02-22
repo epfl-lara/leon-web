@@ -6,8 +6,6 @@ package react
 package components
 package modals
 
-import scala.collection.mutable
-
 import scala.scalajs.js
 
 import japgolly.scalajs.react._
@@ -88,7 +86,7 @@ object PushModal {
         ^.className := "btn btn-primary",
         ^.role      := "button",
         ^.onClick  --> onClickPush,
-        if (state.pushing) "Processing..." else "Push"
+        if (state.pushing) "Pushing..." else "Push"
       )
 
     def renderBody(state: State) = state.commits match {
@@ -131,7 +129,7 @@ object PushModal {
   }
 
   val component =
-    ReactComponentB[Props]("PushButton")
+    ReactComponentB[Props]("PushModal")
       .initialState(State())
       .renderBackend[Backend]
       .componentDidMount(_.backend.onMount)

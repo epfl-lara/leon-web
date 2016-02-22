@@ -504,7 +504,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               ))
 
             case GitOperation.Pull =>
-              val success = wc.pull()
+              val progressActor = Akka.system.actorOf(Props(
+                classOf[JGitProgressWorker],
+                "git_progress", self
+              ))
+
+              val progressMonitor = new JGitProgressMonitor(progressActor)
+
+              val success = wc.pull(Some(progressMonitor))
 
               clientLog(s"=> DONE")
               event("git_operation_done", Map(
