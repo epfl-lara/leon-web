@@ -448,7 +448,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
 
     case DoGitOperation(user, project, op) => withToken(user) { token =>
-      clientLog(s"Executing Git operation: $op")
+      clientLog(s"Performing Git operation: $op")
 
       val (owner, name) = (project.owner, project.repo)
       val gh            = GitHubService(token)

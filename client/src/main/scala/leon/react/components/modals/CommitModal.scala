@@ -50,7 +50,8 @@ object CommitModal {
     def commit(message: String): Callback =
       listenForCommit >> doGitOperation(GitOperation.Commit(message))
 
-    def onMount: Callback = listenForStatus >> fetchStatus
+    def onMount: Callback =
+      listenForStatus >> fetchStatus
 
     def listenForStatus: Callback = Callback {
       Events.gitOperationDone
