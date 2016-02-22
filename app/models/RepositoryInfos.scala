@@ -110,14 +110,15 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
     p
   }
 
-  def diff(from: String, to: String): Option[String] = {
+  def diff(from: Option[String], to: Option[String]): Option[String] = {
     try {
       val out = new ByteArrayOutputStream()
-      new Git(repo).diff()
-        .setOutputStream(out)
-        .setOldTree(getTreeIterator(from))
-        .setNewTree(getTreeIterator(to))
-        .call()
+      val cmd = git.diff().setOutputStream(out)
+
+      from.foreach(ref => cmd.setOldTree(getTreeIterator(ref)))
+      to.foreach(ref => cmd.setNewTree(getTreeIterator(ref)))
+
+      cmd.call()
 
       Some(out.toString)
     } catch {

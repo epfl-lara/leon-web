@@ -27,13 +27,9 @@ object CommitModal {
 
   case class Props(onRequestHide: Callback)
 
-  case class Changeset(changes: Map[String, Set[String]]) {
+  case class Changeset(changes: Map[String, Set[String]], diff: String) {
     lazy val isEmpty: Boolean  = changes.values.forall(_.isEmpty)
     lazy val nonEmpty: Boolean = !isEmpty
-  }
-
-  object Changeset {
-    def empty = Changeset(Map.empty)
   }
 
   case class State(
@@ -66,9 +62,11 @@ object CommitModal {
     }
 
     def onStatusUpdate(res: HGitOperationResult): Callback = {
-      val data      = res.data.asInstanceOf[js.Dictionary[js.Array[String]]]
-      val changes   = data.mapValues(_.toArray.toSet).toMap
-      val changeset = Changeset(changes)
+      val data      = res.data.asInstanceOf[js.Dictionary[js.Any]]
+      val status    = data("status").asInstanceOf[js.Dictionary[js.Array[String]]]
+      val diff      = data("diff").asInstanceOf[String]
+      val changes   = status.mapValues(_.toArray.toSet).toMap
+      val changeset = Changeset(changes, diff)
 
       $.modState(_.copy(changeset = Some(changeset)))
     }
@@ -121,7 +119,8 @@ object CommitModal {
       case Some(changeset) if changeset.isEmpty  => <.div("No changes.")
       case Some(changeset) if changeset.nonEmpty => <.div(
         git.StatusView(changeset.changes),
-        git.CommitMessageView(state.commitMessage, onCommitMessageChange)
+        git.CommitMessageView(state.commitMessage, onCommitMessageChange),
+        git.DiffView(changeset.diff)
       )
     }
 

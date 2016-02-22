@@ -556,6 +556,17 @@ textarea.git-commit-msg {
 .git-log-view .commit > .msg {
 }
 
+/* Git Diff View */
+
+.git-diff-view {
+  margin-top: 20px;
+}
+
+.git-diff-view pre {
+  max-height: 350px;
+  overflow: scroll;
+}
+
 /* Load Repository Modal */
 
 .modal-section:first-child {

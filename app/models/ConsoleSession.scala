@@ -469,11 +469,12 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           op match {
             case GitOperation.Status =>
               val status = wc.status()
+              val diff   = wc.diff(Some("HEAD"), None)
               clientLog(s"=> DONE")
 
               status match {
                 case Some(status) =>
-                  val data = Map(
+                  val statusData = Map(
                     "added"     -> status.getAdded(),
                     "changed"   -> status.getChanged(),
                     "modified"  -> status.getModified(),
@@ -481,10 +482,15 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                     "untracked" -> status.getUntracked()
                   )
 
+                  val diffData = diff.getOrElse("")
+
                   event("git_operation_done", Map(
                     "op"      -> toJson(op.name),
                     "success" -> toJson(true),
-                    "data"    -> toJson(data.mapValues(_.asScala.toSet))
+                    "data"    -> toJson(Map(
+                      "status" -> toJson(statusData.mapValues(_.asScala.toSet)),
+                      "diff"   -> toJson(diffData)
+                    ))
                   ))
 
                 case None =>
