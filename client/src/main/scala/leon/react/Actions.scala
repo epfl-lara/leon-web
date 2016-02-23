@@ -4,14 +4,7 @@ package leon.web
 package client
 package react
 
-import scala.Function.const
-
-import japgolly.scalajs.react._
-
-import monifu.reactive._
 import monifu.reactive.subjects._
-
-import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
 import leon.web.shared.{Project, GitOperation}
