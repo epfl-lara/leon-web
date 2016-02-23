@@ -33,17 +33,9 @@ case class SetTreatAsProject(value: Boolean) extends Action
 case class DoGitOperation(op: GitOperation) extends Action
 case class UpdateState(state: AppState => AppState) extends Action
 
-/**
-  * Actions are how the React app performs side-effects.
-  * To do so, a React component can send a message to one of
-  * the [[monifu.react.subjects.Subject]] defined below.
-  *
-  * This event will trigger a state transformation that, once applied, will
-  * itself trigger a re-render of the whole components tree.
-  */
 object Actions {
 
-  val bus = PublishSubject[Action] dump "Action"
+  val bus = PublishSubject[Action] // dump "Action"
 
   def dispatch(action: Action): Unit =
     bus onNext action
