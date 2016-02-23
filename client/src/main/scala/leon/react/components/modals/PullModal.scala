@@ -62,7 +62,13 @@ object PullModal {
       $.modState(_.copy(progress = Some(progress)))
 
     def onPullDone: Callback =
-      $.modState(_.copy(pulling = false)) >> onRequestHide
+      reloadFile >>
+      $.modState(_.copy(pulling = false)) >>
+      onRequestHide
+
+    def reloadFile: Callback = Callback {
+      Actions dispatch ReloadCurrentFile()
+    }
 
     def onRequestHide: Callback =
       $.props.flatMap(_.onRequestHide)

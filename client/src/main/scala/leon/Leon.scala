@@ -1298,15 +1298,17 @@ trait LeonWeb {
     currentProject
 
   def setCurrentProject(project: Option[Project]): Unit = {
-    project match {
-      case None    => showExamples()
-      case Some(_) => hideExamples()
+    if (project =!= currentProject) {
+      project match {
+        case None    => showExamples()
+        case Some(_) => hideExamples()
+      }
+
+      currentProject = project
+      project.flatMap(_.code).foreach(setEditorCode(_))
+
+      recompile(force = true)
     }
-
-    currentProject = project
-    project.flatMap(_.code).foreach(setEditorCode(_))
-
-    recompile(force = true)
   }
 
   def hideExamples(): Unit = $("#selectcolumn").hide()

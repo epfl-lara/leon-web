@@ -203,9 +203,34 @@ class App(private val api: LeonAPI) {
 
       now(state)
 
+    case ReloadCurrentFile() =>
+      val msg =
+        for {
+          repo          <- state.repository
+          (fileName, _) <- state.file
+        }
+        yield l(
+          action = LeonAction.loadFile,
+          module = "main",
+          owner  = repo.owner,
+          repo   = repo.name,
+          file   = fileName
+        )
+
+      msg foreach { msg =>
+        api.leonSocket.sendBuffered(JSON.stringify(msg))
+
+        onEvent(Events.fileLoaded) { e => state =>
+          Actions dispatch UpdateEditorCode(e.content)
+          state.copy(file = Some((e.fileName, e.content)))
+        }
+      }
+
+      now(state)
+
     case UpdateEditorCode(code, updateEditor) =>
-      // if (updateEditor)
-      //   api.setEditorCode(code)
+      if (updateEditor)
+        api.setEditorCode(code)
 
       now {
         val file = state.file.map { case (name, _) =>
@@ -279,8 +304,6 @@ class App(private val api: LeonAPI) {
         state.copy(showLoginModal = value)
       }
 
-    case _ =>
-      now(state)
   }
 
   private
