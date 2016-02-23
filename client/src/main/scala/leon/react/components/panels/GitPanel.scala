@@ -8,7 +8,6 @@ package panels
 
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals._
-import leon.web.client.syntax.observer._
 import leon.web.shared.GitOperation
 
 import japgolly.scalajs.react._

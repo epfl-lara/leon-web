@@ -7,7 +7,6 @@ package react
 import scala.scalajs.js
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.syntax.observer._
 import leon.web.client.HandlersTypes._
 
 /** Register WebSocket handlers, and push the received messages
@@ -32,28 +31,28 @@ object Handlers {
   }
 
   val reposHandler = (data: HRepositories) => {
-    Events.repositoriesLoaded ! RepositoriesLoaded(data.repos)
+    Events.repositoriesLoaded onNext RepositoriesLoaded(data.repos)
   }
 
   val loadRepoHandler = (data: HRepositoryLoaded) => {
-    Events.repositoryLoaded ! RepositoryLoaded(data.repository, data.files, data.branches, data.currentBranch)
+    Events.repositoryLoaded onNext RepositoryLoaded(data.repository, data.files, data.branches, data.currentBranch)
   }
 
   val loadFileHandler = (data: HFileLoaded) => {
-    Events.fileLoaded ! FileLoaded(data.file, data.content)
+    Events.fileLoaded onNext FileLoaded(data.file, data.content)
   }
 
   val changeBranchHandler = (data: HBranchChanged) => {
     if (data.success)
-      Events.branchChanged ! BranchChanged(data.branch.get, data.files.get)
+      Events.branchChanged onNext BranchChanged(data.branch.get, data.files.get)
   }
 
   val gitProgressHandler = (data: HGitProgress) => {
-    Events.gitProgress ! GitProgress(data.taskName, data.percentage.toOption)
+    Events.gitProgress onNext GitProgress(data.taskName, data.percentage.toOption)
   }
 
   val gitOperationDoneHandler = (data: HGitOperationResult) => {
-    Events.gitOperationDone ! GitOperationDone(data)
+    Events.gitOperationDone onNext GitOperationDone(data)
   }
 
 }

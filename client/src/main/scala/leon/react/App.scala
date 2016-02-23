@@ -22,7 +22,6 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.syntax.observer._
 import leon.web.client.syntax.websocket._
 
 import leon.web.shared.GitOperation

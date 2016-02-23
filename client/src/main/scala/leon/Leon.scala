@@ -35,7 +35,6 @@ import leon.web.shared.Project
 import leon.web.client.react.{App => ReactApp}
 import leon.web.client.react.{Actions, UpdateEditorCode}
 import leon.web.client.utils.BufferedWebSocket
-import leon.web.client.syntax.observer._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
