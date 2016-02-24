@@ -4,6 +4,8 @@ package leon.web
 package client
 package react
 
+import japgolly.scalajs.react.Callback
+
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
@@ -32,6 +34,10 @@ object Actions {
 
   def dispatch(action: Action): Unit =
     bus onNext action
+
+  def dispatchCB(action: Action): Callback = Callback {
+    bus onNext action
+  }
 
 }
 

@@ -14,7 +14,6 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
-import leon.web.client.HandlersTypes.{HGitOperationResult, HCommit}
 
 import leon.web.shared.GitOperation
 
@@ -28,9 +27,8 @@ object ResetModal {
 
   class Backend($: BackendScope[Props, State]) {
 
-    def doGitOperation(op: GitOperation): Callback = Callback {
-      Actions dispatch DoGitOperation(op)
-    }
+    def doGitOperation(op: GitOperation): Callback =
+      Actions dispatchCB DoGitOperation(op)
 
     def reset: Callback =
       listenForReset >> doGitOperation(GitOperation.Reset)
@@ -49,9 +47,8 @@ object ResetModal {
       $.modState(_.copy(resetting = false)) >>
       onRequestHide
 
-    def reloadCurrentFile: Callback = Callback {
-      Actions dispatch ReloadCurrentFile()
-    }
+    def reloadCurrentFile: Callback =
+      Actions dispatchCB ReloadCurrentFile()
 
     def onRequestHide: Callback =
       $.props.flatMap(_.onRequestHide)

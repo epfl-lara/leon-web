@@ -31,9 +31,8 @@ object PullModal {
 
   class Backend($: BackendScope[Props, State]) {
 
-    def doGitOperation(op: GitOperation): Callback = Callback {
-      Actions dispatch DoGitOperation(op)
-    }
+    def doGitOperation(op: GitOperation): Callback =
+      Actions dispatchCB DoGitOperation(op)
 
     def pull: Callback =
       subscribeToPullUpdate >>
@@ -66,9 +65,8 @@ object PullModal {
       $.modState(_.copy(pulling = false)) >>
       onRequestHide
 
-    def reloadFile: Callback = Callback {
-      Actions dispatch ReloadCurrentFile()
-    }
+    def reloadFile: Callback =
+      Actions dispatchCB ReloadCurrentFile()
 
     def onRequestHide: Callback =
       $.props.flatMap(_.onRequestHide)

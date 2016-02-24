@@ -33,9 +33,8 @@ object GitPanel {
     def showModal(op: String): Callback =
       $.modState(_.copy(showModalForOp = Some(op)))
 
-    def doGitOperation(op: GitOperation): Callback = Callback {
-      Actions dispatch DoGitOperation(op)
-    }
+    def doGitOperation(op: GitOperation): Callback =
+      Actions dispatchCB DoGitOperation(op)
 
     def fetchStatus: Callback =
       doGitOperation(GitOperation.Status)

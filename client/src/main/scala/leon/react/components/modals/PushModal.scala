@@ -30,9 +30,8 @@ object PushModal {
 
   class Backend($: BackendScope[Props, State]) {
 
-    def doGitOperation(op: GitOperation): Callback = Callback {
-      Actions dispatch DoGitOperation(op)
-    }
+    def doGitOperation(op: GitOperation): Callback =
+      Actions dispatchCB DoGitOperation(op)
 
     def push: Callback =
       listenForPush >> doGitOperation(GitOperation.Push)

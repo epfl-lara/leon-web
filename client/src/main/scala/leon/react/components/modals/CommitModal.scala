@@ -39,9 +39,8 @@ object CommitModal {
 
   class Backend($: BackendScope[Props, State]) {
 
-    def doGitOperation(op: GitOperation): Callback = Callback {
-      Actions dispatch DoGitOperation(op)
-    }
+    def doGitOperation(op: GitOperation): Callback =
+      Actions dispatchCB DoGitOperation(op)
 
     def fetchStatus: Callback =
       doGitOperation(GitOperation.Status)

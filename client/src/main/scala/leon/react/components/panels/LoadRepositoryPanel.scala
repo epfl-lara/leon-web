@@ -24,36 +24,30 @@ object LoadRepositoryPanel {
 
   class Backend($: BackendScope[Props, Unit]) {
 
-    def showLoadRepoModal: Callback = Callback {
-      Actions dispatch ToggleLoadRepoModal(true)
-    }
+    def showLoadRepoModal: Callback =
+      Actions dispatchCB ToggleLoadRepoModal(true)
 
-    def loadRepos: Callback = Callback {
-      Actions dispatch LoadRepositories()
-    }
+    def loadRepos: Callback =
+      Actions dispatchCB LoadRepositories()
 
     def onClickSelect: Callback =
       showLoadRepoModal >> loadRepos
 
-    def onClickUnload: Callback = Callback {
-      Actions dispatch SetCurrentProject(None)
+    def onClickUnload: Callback =
+      Actions dispatchCB SetCurrentProject(None)
+
+    def onLoadRepo(repo: HRepository): Callback =
+      Actions dispatchCB LoadRepository(repo)
+
+    def onChooseBranch(repo: HRepository)(branch: String): Callback =
+      Actions dispatchCB SwitchBranch(repo, branch)
+
+    def onChooseFile(file: String): Callback = $.props.flatMap { props =>
+      Actions dispatchCB LoadFile(props.repository.get, file)
     }
 
-    def onLoadRepo(repo: HRepository): Callback = Callback {
-      Actions dispatch LoadRepository(repo)
-    }
-
-    def onChooseBranch(repo: HRepository)(branch: String): Callback = Callback {
-      Actions dispatch SwitchBranch(repo, branch)
-    }
-
-    def onChooseFile(file: String): Callback = $.props.map { props =>
-      Actions dispatch LoadFile(props.repository.get, file)
-    }
-
-    def onChangeProjectType(e: ReactEventI): Callback = Callback {
-      Actions dispatch SetTreatAsProject(e.target.checked)
-    }
+    def onChangeProjectType(e: ReactEventI): Callback =
+      Actions dispatchCB SetTreatAsProject(e.target.checked)
 
     def render(props: Props) = {
       val hasRepo = props.repository.isDefined
