@@ -24,10 +24,10 @@ object DiffView {
     }
 
     def colorize(diff: String) =
-      diff.linesWithSeparators.map { line => line.headOption match {
-        case Some('+') => <.span(^.className := "added", line)
-        case Some('-') => <.span(^.className := "removed", line)
-        case _         => <.span(line)
+      diff.linesWithSeparators.zipWithIndex.map { case (line, n) => line.headOption match {
+        case Some('+') => <.span(^.className := "added",   ^.key := s"line-$n", line)
+        case Some('-') => <.span(^.className := "removed", ^.key := s"line-$n", line)
+        case _         => <.span(line, ^.key := s"line-$n")
       } }
   }
 
