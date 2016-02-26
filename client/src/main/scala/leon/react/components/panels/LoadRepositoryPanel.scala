@@ -66,7 +66,7 @@ object LoadRepositoryPanel {
             props.repositories
           )
         ),
-        props.repository.isDefined ?= GitPanel()
+        props.currentProject.isDefined ?= GitPanel()
       )
     }
 
