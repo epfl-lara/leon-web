@@ -217,7 +217,7 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
       config.setString("branch", "master", "merge", "refs/heads/master");
       config.save();
 
-      val cmd = git.pull()
+      val cmd = git.pull().setRebase(false)
       progressMonitor.foreach(cmd.setProgressMonitor(_))
       withCredentials(cmd).call()
       true
@@ -228,9 +228,9 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
     }
   }
 
-  def push(): Boolean = {
+  def push(force: Boolean = false): Boolean = {
     try {
-      val cmd = git.push().setRemote("origin").setPushAll()
+      val cmd = git.push().setRemote("origin").setForce(force)
       withCredentials(cmd).call()
       true
     } catch {
