@@ -1351,7 +1351,7 @@ trait LeonWeb {
 
       updateSaveButton()
 
-      // Actions dispatch UpdateEditorCode(currentCode, updateEditor = false)
+      Actions dispatch UpdateEditorCode(currentCode, updateEditor = false)
 
       leonSocket.send(JSON.stringify(msg))
 
