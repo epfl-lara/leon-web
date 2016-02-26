@@ -198,13 +198,16 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
                 val op = (event \ "op").as[String] match {
                   case GitOperation.STATUS => GitOperation.Status
-                  case GitOperation.PUSH   => GitOperation.Push
                   case GitOperation.PULL   => GitOperation.Pull
                   case GitOperation.RESET  => GitOperation.Reset
 
                   case GitOperation.LOG    =>
                     val count = (event \ "data" \ "count").as[Int]
                     GitOperation.Log(count)
+
+                  case GitOperation.PUSH   =>
+                    val force = (event \ "data" \ "force").as[Boolean]
+                    GitOperation.Push(force)
 
                   case GitOperation.COMMIT =>
                     val msg = (event \ "data" \ "msg").as[String]
@@ -500,8 +503,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   ))
               }
 
-            case GitOperation.Push =>
-              val success = wc.push()
+            case GitOperation.Push(force) =>
+              val success = wc.push(force)
 
               clientLog(s"=> DONE")
               event("git_operation_done", Map(

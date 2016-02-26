@@ -26,15 +26,20 @@ object PushModal {
 
   case class Props(onRequestHide: Callback)
 
-  case class State(pushing: Boolean = false, commits: Option[Seq[HCommit]] = None)
+  case class State(
+    pushing: Boolean = false,
+    forcePush: Boolean = false,
+    commits: Option[Seq[HCommit]] = None
+  )
 
   class Backend($: BackendScope[Props, State]) {
 
     def doGitOperation(op: GitOperation): Callback =
       Actions dispatchCB DoGitOperation(op)
 
-    def push: Callback =
-      listenForPush >> doGitOperation(GitOperation.Push)
+    def push: Callback = $.state.flatMap { state =>
+      listenForPush >> doGitOperation(GitOperation.Push(state.forcePush))
+    }
 
     def onMount: Callback =
       listenForLog >> doGitOperation(GitOperation.Log(COMMITS_COUNT))
@@ -68,6 +73,9 @@ object PushModal {
     def onRequestHide: Callback =
       $.props.flatMap(_.onRequestHide)
 
+    def onForcePushChange(e: ReactEventI): Callback =
+      $.modState(_.copy(forcePush = e.target.checked))
+
     def onClickPush: Callback =
       $.modState(_.copy(pushing = true)) >> push
 
@@ -86,6 +94,18 @@ object PushModal {
         ^.onClick  --> onClickPush,
         if (state.pushing) "Pushing..." else "Push"
       )
+
+    def forcePushCheckbox(checked: Boolean) = <.span(
+      <.input(
+        ^.`type`    := "checkbox",
+        ^.id        := "force-push-check",
+        ^.checked   := checked,
+        ^.onChange ==> onForcePushChange
+      ),
+      <.label(^.`for` := "force-push-check",
+        "Force (will overwrite remote history!)"
+      )
+    )
 
     def renderBody(state: State) = state.commits match {
       case None          => <.div("Loading...")
@@ -119,6 +139,7 @@ object PushModal {
 
     def renderFooter(props: Props, state: State) = {
       <.div(^.className := "modal-footer",
+        forcePushCheckbox(state.forcePush),
         cancelButton,
         pushButton(state)
       )

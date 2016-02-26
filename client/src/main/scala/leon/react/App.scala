@@ -269,6 +269,7 @@ class App(private val api: LeonAPI) {
         case Some(project) =>
           val data = op match {
             case GitOperation.Commit(msg) => l(msg = msg)
+            case GitOperation.Push(force) => l(force = force)
             case GitOperation.Log(count)  => l(count = count)
             case _                        => l()
           }
