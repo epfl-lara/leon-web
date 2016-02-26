@@ -478,11 +478,13 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               status match {
                 case Some(status) =>
                   val statusData = Map(
-                    "added"     -> status.getAdded(),
-                    "changed"   -> status.getChanged(),
-                    "modified"  -> status.getModified(),
-                    "removed"   -> status.getRemoved(),
-                    "untracked" -> status.getUntracked()
+                    "added"       -> status.getAdded(),
+                    "changed"     -> status.getChanged(),
+                    "modified"    -> status.getModified(),
+                    "removed"     -> status.getRemoved(),
+                    "conflicting" -> status.getConflicting(),
+                    "missing"     -> status.getMissing(),
+                    "untracked"   -> status.getUntracked()
                   )
 
                   val diffData = diff.getOrElse("")

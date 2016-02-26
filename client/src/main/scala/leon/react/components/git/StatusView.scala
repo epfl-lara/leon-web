@@ -17,11 +17,13 @@ object StatusView {
   class Backend($: BackendScope[Props, Unit]) {
 
     val sections = List(
-      "added"     -> "Added",
-      "changed"   -> "Changed",
-      "modified"  -> "Modified",
-      "removed"   -> "Removed",
-      "untracked" -> "Untracked"
+      "added"       -> "Added",
+      "changed"     -> "Changed",
+      "modified"    -> "Modified",
+      "removed"     -> "Removed",
+      "conflicting" -> "Conflicting",
+      "missing"     -> "Missing",
+      "untracked"   -> "Untracked"
     )
 
     def render(props: Props) = {
