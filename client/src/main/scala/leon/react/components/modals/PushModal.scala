@@ -28,6 +28,7 @@ object PushModal {
 
   case class State(
     pushing: Boolean = false,
+    failed: Boolean = false,
     forcePush: Boolean = false,
     commits: Option[Seq[HCommit]] = None
   )
@@ -63,12 +64,14 @@ object PushModal {
         .filter(_.result.op === GitOperation.PUSH)
         .take(1)
         .map(_.result)
-        .doWork { _ => onPushDone.runNow() }
+        .doWork { res => onPushDone(res.success).runNow() }
         .subscribe()
     }
 
-    def onPushDone: Callback =
-      $.modState(_.copy(pushing = false)) >> onRequestHide
+    def onPushDone(success: Boolean): Callback = success match {
+      case true  => $.modState(_.copy(pushing = false)) >> onRequestHide
+      case false => $.modState(_.copy(pushing = false, failed = true))
+    }
 
     def onRequestHide: Callback =
       $.props.flatMap(_.onRequestHide)
@@ -125,6 +128,11 @@ object PushModal {
         <.span(^.className := "msg", c.shortMessage)
       )
 
+    def renderFailed =
+      <.div(^.className := "push-failed modal-error",
+        "Push failed. Please pull from the remote repository and fix any merge conflicts before pushing again."
+      )
+
     def render(props: Props, state: State) =
       Modal(onRequestHide)(
         <.div(^.className := "modal-header",
@@ -132,7 +140,8 @@ object PushModal {
           <.h3("Push your changes")
         ),
         <.div(^.className := "modal-body",
-          renderBody(state)
+          renderBody(state),
+          state.failed ?= renderFailed
         ),
         renderFooter(props, state)
       )

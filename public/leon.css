@@ -330,6 +330,18 @@ div#codebox.compilation-error div.ace_gutter-active-line {
     font-size: 1.2em;
 }
 
+.modal-footer > span > label {
+    margin-right: 15px;
+}
+
+.modal-error {
+    background: rgba(255, 0, 0, 0.3);
+    padding: 10px 15px;
+    border-radius: 5px;
+    margin-bottom: 0px;
+    font-weight: bold;
+}
+
 /* Verification */
 
 tr.counter-example div.output {

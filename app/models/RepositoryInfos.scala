@@ -26,6 +26,7 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import org.eclipse.jgit.treewalk.TreeWalk
 import org.eclipse.jgit.api.ListBranchCommand.ListMode
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
+import org.eclipse.jgit.transport.RemoteRefUpdate
 
 /** Provides a type-safe wrapper around a subset of the JGit API.
   *
@@ -230,9 +231,18 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
 
   def push(force: Boolean = false): Boolean = {
     try {
-      val cmd = git.push().setRemote("origin").setForce(force)
-      withCredentials(cmd).call()
-      true
+      val cmd      = git.push().setRemote("origin").setForce(force)
+      val results  = withCredentials(cmd).call()
+      val statuses = results.map { result =>
+        result.getRemoteUpdates().forall(_.getStatus() match {
+          case RemoteRefUpdate.Status.OK         => true
+          case RemoteRefUpdate.Status.UP_TO_DATE => true
+          case _                                 => false
+        })
+      }
+
+      statuses.forall(identity)
+
     } catch {
       case NonFatal(e) =>
         Logger.error(e.getMessage, e)
