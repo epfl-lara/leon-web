@@ -16,7 +16,6 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
-import leon.web.client.syntax.observer._
 import leon.web.client.HandlersTypes.HRepository
 
 import monifu.concurrent.Implicits.globalScheduler
@@ -28,7 +27,6 @@ object LoadRepositoryModal {
 
   case class Props(
     onSelect: HRepository => Callback,
-    isOpen: Boolean = false,
     cloning: Boolean = false,
     repos: Option[Seq[HRepository]] = None
   )
@@ -42,11 +40,12 @@ object LoadRepositoryModal {
   class Backend($: BackendScope[Props, State]) {
 
     def subscribeToProgress: Callback = Callback {
-      // We listen for this event here instead of
-      // relying on the global app state for performance reasons.
-      Events.gitProgress.throttleLast(500.millis).doWork(p => {
-        $.modState(_.copy(cloneProgress = Some(p))).runNow()
-      }).subscribe()
+      Events.gitProgress
+        .throttleLast(500.millis)
+        .doWork { p =>
+          $.modState(_.copy(cloneProgress = Some(p))).runNow()
+        }
+        .subscribe()
     }
 
     def onClickLoad(e: ReactMouseEvent): Callback =
@@ -96,9 +95,8 @@ object LoadRepositoryModal {
       ))
     }
 
-    def onRequestHide: Callback = Callback {
-      Actions.toggleLoadRepoModal ! ToggleLoadRepoModal(false)
-    }
+    def onRequestHide: Callback =
+      Actions dispatchCB ToggleLoadRepoModal(false)
 
     val cancelButton =
       <.button(
@@ -120,7 +118,7 @@ object LoadRepositoryModal {
     val loading = Spinner()
 
     def render(props: Props, state: State) =
-      Modal(props.isOpen)(
+      Modal(onRequestHide)(
         <.div(^.className := "modal-header",
           Modal.closeButton(onRequestHide),
           <.h3("Load a repository from GitHub")
@@ -189,10 +187,9 @@ object LoadRepositoryModal {
 
   def apply(
     onSelect: HRepository => Callback,
-    isOpen: Boolean = false,
     loading: Boolean = false,
     repos: Option[Seq[HRepository]] = None
-  ) = component(Props(onSelect, isOpen, loading, repos))
+  ) = component(Props(onSelect, loading, repos))
 
 }
 

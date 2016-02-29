@@ -52,6 +52,7 @@ object HandlersTypes {
     val repository: HRepository
     val files: js.Array[String]
     val branches: js.Array[HBranch]
+    val currentBranch: String
   }
 
   @ScalaJSDefined
@@ -62,8 +63,10 @@ object HandlersTypes {
 
   @ScalaJSDefined
   trait HBranchChanged extends js.Object {
-    val branch: String
-    val files: js.Array[String]
+    val success: Boolean
+    val branch: js.UndefOr[String]
+    val files: js.UndefOr[js.Array[String]]
+    val error: js.UndefOr[String]
   }
 
   @ScalaJSDefined
@@ -71,6 +74,25 @@ object HandlersTypes {
     val taskName: String
     val status: String
     val percentage: js.UndefOr[String]
+  }
+
+  @ScalaJSDefined
+  trait HGitOperationResult extends js.Object {
+    val op: String
+    val success: Boolean
+    val data: Any
+  }
+
+  @ScalaJSDefined
+  trait HCommit extends js.Object {
+    val hash: String
+    val shortHash: String
+    val shortMessage: String
+    val fullMessage: String
+    val commitTime: String
+    val author: String
+    val committer: String
+    val desc: String
   }
   
   @ScalaJSDefined 
@@ -302,8 +324,6 @@ object Handlers extends js.Object {
       context = "unknown";
 
       $("#annotations").html("");
-
-      if(annotations.length > 0) dom.console.log(annotations)
 
       for (a <- annotations) {
         if (a.`type` == "verification") {

@@ -4,6 +4,11 @@ package leon.web
 package client
 package react
 
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import japgolly.scalajs.react._
+
 import monifu.reactive._
 import monifu.reactive.subjects._
 
@@ -41,15 +46,37 @@ case class AppState(
   // Whether or not we are in the process of cloning `repository`
   isLoadingRepo     : Boolean                  = false,
 
-  // The current project, if any
-  currentProject    : Option[Project]          = None,
-
   // Whether or not to treat the repo as a project
   treatAsProject    : Boolean                  = true,
 
   // Whether or not a user is logged-in
   isLoggedIn          : Boolean                = false
 ) {
+
+  lazy val currentProject: Option[Project] = {
+    for {
+      r      <- repository
+      b      <- branch
+      (f, c) <- file
+    }
+    yield Project(
+      owner  = r.owner,
+      repo   = r.name,
+      branch = b,
+      file   = f,
+      code   = Some(c)
+    )
+  }
+
+  lazy val unloadProject: AppState =
+    copy(
+      repository     = None,
+      branch         = None,
+      branches       = Seq(),
+      file           = None,
+      files          = Seq(),
+      treatAsProject = false
+    )
 
   def toJSON: String = {
     write(this)
@@ -71,12 +98,16 @@ class GlobalAppState(val initial: AppState) {
 
   /** Tracks state transformations, the result of which can be observed
     * by subsribing to `asObservable`. */
-  val updates = BehaviorSubject[AppState => AppState]((x: AppState) => x)
+   val updates: BehaviorSubject[AppState => Future[AppState]] =
+    BehaviorSubject(Future.successful)
 
   /** Listen for new transformations and applies them to the current state. */
-  val asObservable: Observable[AppState] = updates.scan(initial) { (state, op) =>
-    op(state)
-  }.distinctUntilChanged
+  val asObservable: Observable[AppState] =
+    updates.flatScan(initial) { (state, op) =>
+      Observable.fromFuture {
+        op(state)
+      }
+    }.distinctUntilChanged
 }
 
 object GlobalAppState {

@@ -14,21 +14,23 @@ import leon.web.client.HandlersTypes._
   */
 sealed trait Event
 case class RepositoriesLoaded(repos: Seq[HRepository]) extends Event
-case class RepositoryLoaded(repo: HRepository, files: Seq[String], branches: Seq[HBranch]) extends Event
+case class RepositoryLoaded(repo: HRepository, files: Seq[String], branches: Seq[HBranch], currentBranch: String) extends Event
 case class FileLoaded(fileName: String, content: String) extends Event
 case class BranchChanged(branch: String, files: Seq[String]) extends Event
-case class CodeUpdated() extends Event
+case class CodeUpdated(code: String) extends Event
 case class GitProgress(task: String, percentage: Option[String]) extends Event
+case class GitOperationDone(result: HGitOperationResult) extends Event
 
 /** Exposes those events as [[monifu.reactive.subjects.Subject]]. */
 object Events {
 
   val repositoriesLoaded = PublishSubject[RepositoriesLoaded]() // dump "RepositoriesLoaded"
-  val repositoryLoaded   = PublishSubject[RepositoryLoaded]()   // dump "RepositoryLoaded"
-  val fileLoaded         = PublishSubject[FileLoaded]()         // dump "FileLoaded"
-  val branchChanged      = PublishSubject[BranchChanged]()      // dump "BranchChanged"
-  val codeUpdated        = PublishSubject[CodeUpdated]()        // dump "CodeUpdated"
-  val gitProgress        = PublishSubject[GitProgress]()        // dump "GitProgress"
+  val repositoryLoaded   = PublishSubject[RepositoryLoaded  ]() // dump "RepositoryLoaded"
+  val fileLoaded         = PublishSubject[FileLoaded        ]() // dump "FileLoaded"
+  val branchChanged      = PublishSubject[BranchChanged     ]() // dump "BranchChanged"
+  val codeUpdated        = PublishSubject[CodeUpdated       ]() // dump "CodeUpdated"
+  val gitProgress        = PublishSubject[GitProgress       ]() // dump "GitProgress"
+  val gitOperationDone   = PublishSubject[GitOperationDone  ]() // dump "GitOperationDone"
 
 }
 

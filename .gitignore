@@ -1,4 +1,5 @@
 conf/setup.conf
+repositories
 logs
 project/project
 project/target
@@ -27,4 +28,5 @@ version
 /bin/
 /.cache-main
 
-repositories/
+.ensime
+.ensime_cache

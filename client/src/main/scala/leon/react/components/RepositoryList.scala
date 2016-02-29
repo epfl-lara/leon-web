@@ -40,7 +40,7 @@ object RepositoryList {
           <.li(
             ^.classSet1(
               repo.visibility,
-              "selected" -> props.selected.exists(_.fullName == repo.fullName)
+              "selected" -> props.selected.exists(_.fullName === repo.fullName)
             ),
             <.a(^.onClick ==> onSelectRepo(repo) _,
               <.span(^.classSet1(

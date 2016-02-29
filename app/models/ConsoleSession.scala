@@ -8,6 +8,7 @@ import scala.concurrent.Await
 import scala.concurrent.Future
 import scala.util.Try
 import scala.io.Source
+import scala.collection.JavaConverters._
 
 import play.api._
 import play.api.libs.json._
@@ -30,7 +31,7 @@ import leon.web.stores.PermalinkStore
 import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
-import leon.web.shared.{Action, Module, Project}
+import leon.web.shared.{Action, Module, Project, GitOperation}
 import leon.web.utils.String._
 
 import java.io.File
@@ -187,6 +188,35 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 self ! SwitchBranch(user, owner, repo, branch)
               }
 
+              case Action.doGitOperation => withUser { user =>
+                val project = Project(
+                  owner   = (event \ "project" \ "owner" ).as[String],
+                  repo    = (event \ "project" \ "repo"  ).as[String],
+                  branch  = (event \ "project" \ "branch").as[String],
+                  file    = (event \ "project" \ "file"  ).as[String]
+                )
+
+                val op = (event \ "op").as[String] match {
+                  case GitOperation.STATUS => GitOperation.Status
+                  case GitOperation.PULL   => GitOperation.Pull
+                  case GitOperation.RESET  => GitOperation.Reset
+
+                  case GitOperation.LOG    =>
+                    val count = (event \ "data" \ "count").as[Int]
+                    GitOperation.Log(count)
+
+                  case GitOperation.PUSH   =>
+                    val force = (event \ "data" \ "force").as[Boolean]
+                    GitOperation.Push(force)
+
+                  case GitOperation.COMMIT =>
+                    val msg = (event \ "data" \ "msg").as[String]
+                    GitOperation.Commit(msg)
+                }
+
+                self ! DoGitOperation(user, project, op)
+              }
+
               case Action.featureSet =>
                 val f      = (event \ "feature").as[String]
                 val active = (event \ "active").as[Boolean]
@@ -291,21 +321,21 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             clientLog(s"=> DONE")
           }
 
-          RepositoryLoaded(user, repo)
+          RepositoryLoaded(user, repo, wc.branchName())
         }
 
         future pipeTo self
       }
     }
 
-    case RepositoryLoaded(user, repo) =>
+    case RepositoryLoaded(user, repo, currentBranch) =>
       val (owner, name) = (repo.owner, repo.name)
       val wc = RepositoryService.repositoryFor(user, owner, name)
 
       clientLog(s"Listing files in '$owner/$name'...")
 
       val future = Future {
-        wc.getFiles(repo.defaultBranch)
+        wc.getFiles(currentBranch)
           .getOrElse(Seq[String]())
           .filter(_.extension === "scala")
       }
@@ -313,9 +343,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       future foreach { files =>
         clientLog(s"=> DONE")
         event("repository_loaded", Map(
-          "repository" -> toJson(repo),
-          "files"      -> toJson(files),
-          "branches"   -> toJson(repo.branches)
+          "repository"    -> toJson(repo),
+          "files"         -> toJson(files),
+          "branches"      -> toJson(repo.branches),
+          "currentBranch" -> toJson(currentBranch)
         ))
       }
 
@@ -377,23 +408,155 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
         else {
           val future = Future {
-            if (wc.branchExists(branch))
-              wc.checkout(branch, force = true)
-            else
-              wc.checkoutRemote(branch, force = true)
+            val switched =
+              if (wc.branchExists(branch))
+                wc.checkout(branch)
+              else
+                wc.checkoutRemote(branch)
 
-            wc.getFiles(branch)
-              .getOrElse(Seq[String]())
-              .filter(_.extension === "scala")
+            if (switched) {
+              val files = wc.getFiles(branch)
+                            .getOrElse(Seq[String]())
+                            .filter(_.extension === "scala")
+
+              Some(files)
+            }
+            else
+              None
           }
 
-          future foreach { files =>
-            clientLog(s"=> DONE")
+          future onSuccess {
+            case Some(files) =>
+              clientLog(s"=> DONE")
+              event("branch_changed", Map(
+                "success" -> toJson(true),
+                "branch"  -> toJson(branch),
+                "files"   -> toJson(files)
+              ))
 
-            event("branch_changed", Map(
-              "branch" -> toJson(branch),
-              "files"  -> toJson(files)
-            ))
+            case None =>
+              val error = s"Failed to checkout branch '$branch', please commit " +
+                          s"or reset your changes and try again."
+
+              clientLog(s"=> ERROR: $error")
+              notifyError(error)
+
+              event("branch_changed", Map(
+                "success" -> toJson(true),
+                "error"   -> toJson(error)
+              ))
+          }
+        }
+      }
+    }
+
+    case DoGitOperation(user, project, op) => withToken(user) { token =>
+      clientLog(s"Performing Git operation: $op")
+
+      val (owner, name) = (project.owner, project.repo)
+      val gh            = GitHubService(token)
+      val result        = gh.getRepository(owner, name)
+
+      result onFailure { case err =>
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+      }
+
+      result onSuccess { case _ =>
+        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
+
+        if (!wc.exists) {
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+        }
+        else {
+          op match {
+            case GitOperation.Status =>
+              val status = wc.status()
+              val diff   = wc.diff(Some("HEAD"), None)
+              clientLog(s"=> DONE")
+
+              status match {
+                case Some(status) =>
+                  val statusData = Map(
+                    "added"       -> status.getAdded(),
+                    "changed"     -> status.getChanged(),
+                    "modified"    -> status.getModified(),
+                    "removed"     -> status.getRemoved(),
+                    "conflicting" -> status.getConflicting(),
+                    "missing"     -> status.getMissing(),
+                    "untracked"   -> status.getUntracked()
+                  )
+
+                  val diffData = diff.getOrElse("")
+
+                  event("git_operation_done", Map(
+                    "op"      -> toJson(op.name),
+                    "success" -> toJson(true),
+                    "data"    -> toJson(Map(
+                      "status" -> toJson(statusData.mapValues(_.asScala.toSet)),
+                      "diff"   -> toJson(diffData)
+                    ))
+                  ))
+
+                case None =>
+                  event("git_operation_done", Map(
+                    "op"      -> toJson(op.name),
+                    "success" -> toJson(false)
+                  ))
+              }
+
+            case GitOperation.Push(force) =>
+              val success = wc.push(force)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Pull =>
+              val progressActor = Akka.system.actorOf(Props(
+                classOf[JGitProgressWorker],
+                "git_progress", self
+              ))
+
+              val progressMonitor = new JGitProgressMonitor(progressActor)
+
+              val success = wc.pull(Some(progressMonitor))
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Reset =>
+              val success = wc.reset(hard = true)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Commit(message) =>
+              val success = wc.add(project.file) && wc.commit(message)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(success)
+              ))
+
+            case GitOperation.Log(count) =>
+              val commits = wc.getLastCommits(count)
+
+              clientLog(s"=> DONE")
+              event("git_operation_done", Map(
+                "op"      -> toJson(op.name),
+                "success" -> toJson(commits.nonEmpty),
+                "data"    -> toJson(commits.map(_.toJson))
+              ))
           }
         }
       }
@@ -450,6 +613,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 }
                 .toList
           }
+
+         println(files)
 
           val (_, program) = pipeline.run(compContext, files)
 
