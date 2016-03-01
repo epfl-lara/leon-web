@@ -8,6 +8,13 @@ fi
 
 ./gen_version.sh
 
+mkdir -p target/universal/stage/
+if [ -d target/universal/stage/logs ];
+then
+   rm -r target/universal/stage/logs
+fi
+ln -s ../../../logs target/universal/stage/
+
 while [ /bin/true ]; do
     activator "start $PORT"
     echo "Shutdown finished!"
