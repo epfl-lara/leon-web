@@ -26,12 +26,13 @@ import org.eclipse.jgit.treewalk.CanonicalTreeParser
 import org.eclipse.jgit.treewalk.TreeWalk
 import org.eclipse.jgit.api.ListBranchCommand.ListMode
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
+import org.eclipse.jgit.transport.RemoteRefUpdate
 
 /** Provides a type-safe wrapper around a subset of the JGit API.
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
   */
-class RepositoryInfos(val path: File, token: Option[String] = None) {
+class RepositoryInfos(val path: File, user: User, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {
@@ -69,6 +70,12 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
     git.branchList().setListMode(mode).call()
   }
 
+  def branch(): Ref =
+    repo.getRef(Constants.HEAD).getTarget()
+
+  def branchName(full: Boolean = false): String =
+    if (full) repo.getFullBranch() else repo.getBranch()
+
   def getLastCommits(n: Int = 5): Iterable[Commit] = {
     try {
       val log = git.log;
@@ -104,14 +111,15 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
     p
   }
 
-  def diff(from: String, to: String): Option[String] = {
+  def diff(from: Option[String], to: Option[String]): Option[String] = {
     try {
       val out = new ByteArrayOutputStream()
-      new Git(repo).diff()
-        .setOutputStream(out)
-        .setOldTree(getTreeIterator(from))
-        .setNewTree(getTreeIterator(to))
-        .call()
+      val cmd = git.diff().setOutputStream(out)
+
+      from.foreach(ref => cmd.setOldTree(getTreeIterator(ref)))
+      to.foreach(ref => cmd.setNewTree(getTreeIterator(ref)))
+
+      cmd.call()
 
       Some(out.toString)
     } catch {
@@ -193,6 +201,16 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
     }
   }
 
+  def status(): Option[Status] = {
+    try {
+      Some(git.status().call())
+    } catch {
+      case NonFatal(e) =>
+        Logger.error(e.getMessage, e)
+        None
+    }
+  }
+
   def pull(progressMonitor: Option[ProgressMonitor] = None): Boolean = {
     try {
       val config = git.getRepository().getConfig();
@@ -200,7 +218,7 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
       config.setString("branch", "master", "merge", "refs/heads/master");
       config.save();
 
-      val cmd = git.pull()
+      val cmd = git.pull().setRebase(false)
       progressMonitor.foreach(cmd.setProgressMonitor(_))
       withCredentials(cmd).call()
       true
@@ -211,11 +229,20 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
     }
   }
 
-  def push(): Boolean = {
+  def push(force: Boolean = false): Boolean = {
     try {
-      val cmd = git.push().setRemote("origin").setPushAll()
-      withCredentials(cmd).call()
-      true
+      val cmd      = git.push().setRemote("origin").setForce(force)
+      val results  = withCredentials(cmd).call()
+      val statuses = results.map { result =>
+        result.getRemoteUpdates().forall(_.getStatus() match {
+          case RemoteRefUpdate.Status.OK         => true
+          case RemoteRefUpdate.Status.UP_TO_DATE => true
+          case _                                 => false
+        })
+      }
+
+      statuses.forall(identity)
+
     } catch {
       case NonFatal(e) =>
         Logger.error(e.getMessage, e)
@@ -263,7 +290,16 @@ class RepositoryInfos(val path: File, token: Option[String] = None) {
 
   def commit(msg: String): Boolean = {
     try {
-      git.commit().setMessage(msg).call()
+      val userId = user.userId.value
+      val name   = user.nameOrEmail.getOrElse(userId)
+      val email  = user.email.map(_.value).getOrElse(userId)
+
+      git.commit()
+         .setAll(true)
+         .setCommitter(name, email)
+         .setMessage(msg)
+         .call()
+
       true
     } catch {
       case NonFatal(e) =>

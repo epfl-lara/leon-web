@@ -4,11 +4,19 @@ package leon.web
 package client
 package react
 
+import scala.concurrent.Future
+import scala.concurrent.ExecutionContext.Implicits.global
+
+import japgolly.scalajs.react._
+
 import monifu.reactive._
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
 import leon.web.shared.Project
+
+import upickle.default._
+import leon.web.client.utils.picklers._
 
 case class AppState(
   // Repositories fetched from GitHub API
@@ -38,9 +46,6 @@ case class AppState(
   // Whether or not we are in the process of cloning `repository`
   isLoadingRepo     : Boolean                  = false,
 
-  // The current project, if any
-  currentProject    : Option[Project]          = None,
-
   // Whether or not to treat the repo as a project
   treatAsProject    : Boolean                  = true,
 
@@ -48,19 +53,38 @@ case class AppState(
   isLoggedIn          : Boolean                = false
 ) {
 
-  def toJSON: String = {
-    import upickle.default._
-    import leon.web.client.HandlersTypes.picklers._
+  lazy val currentProject: Option[Project] = {
+    for {
+      r      <- repository
+      b      <- branch
+      (f, c) <- file
+    }
+    yield Project(
+      owner  = r.owner,
+      repo   = r.name,
+      branch = b,
+      file   = f,
+      code   = Some(c)
+    )
+  }
 
+  lazy val unloadProject: AppState =
+    copy(
+      repository     = None,
+      branch         = None,
+      branches       = Seq(),
+      file           = None,
+      files          = Seq(),
+      treatAsProject = false
+    )
+
+  def toJSON: String = {
     write(this)
   }
 
 }
 
 object AppState {
-  import upickle.default._
-  import leon.web.client.HandlersTypes.picklers._
-
   def fromJSON(json: String): AppState =
     read[AppState](json)
 }
@@ -74,12 +98,16 @@ class GlobalAppState(val initial: AppState) {
 
   /** Tracks state transformations, the result of which can be observed
     * by subsribing to `asObservable`. */
-  val updates = BehaviorSubject[AppState => AppState]((x: AppState) => x)
+   val updates: BehaviorSubject[AppState => Future[AppState]] =
+    BehaviorSubject(Future.successful)
 
   /** Listen for new transformations and applies them to the current state. */
-  val asObservable: Observable[AppState] = updates.scan(initial) { (state, op) =>
-    op(state)
-  }.distinctUntilChanged
+  val asObservable: Observable[AppState] =
+    updates.flatScan(initial) { (state, op) =>
+      Observable.fromFuture {
+        op(state)
+      }
+    }.distinctUntilChanged
 }
 
 object GlobalAppState {

@@ -12,15 +12,14 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
-import leon.web.client.syntax.Observer._
 
 /** Inform the user of what is about to happen when they click the 'Login' button.
   * Redirect the user to `/login` once they do.
   */
 object LoginModal {
 
+  case class Props(onRequestHide: Callback)
   case class State(processing: Boolean = false, hideLogin: Boolean = false)
-  case class Props(isOpen: Boolean = false)
 
   class Backend($: BackendScope[Props, State]) {
 
@@ -44,7 +43,7 @@ object LoginModal {
 
     def onClose: Callback =
       $.modState(_.copy(processing = false)) >>
-      Callback { Actions.toggleLoginModal ! ToggleLoginModal(false) }
+      $.props.flatMap(_.onRequestHide)
 
     def onLogin: Callback =
       $.modState(_.copy(processing = true))
@@ -55,13 +54,13 @@ object LoginModal {
     } >> $.modState(_.copy(hideLogin = getHideLoginValue))
 
     def getHideLoginValue: Boolean =
-      LocalStorage("hideLogin").map(_ == "true").getOrElse(false)
+      LocalStorage("hideLogin").map(_ === "true").getOrElse(false)
 
     def onMount: Callback =
       $.modState(_.copy(hideLogin = getHideLoginValue))
 
-    def render(props: Props, state: State) =
-      Modal(props.isOpen)(
+    def render(state: State) =
+      Modal(onClose)(
         <.div(^.className := "modal-header",
           Modal.closeButton(onClose),
           <.h3("Login with GitHub")
@@ -105,7 +104,7 @@ object LoginModal {
       .componentDidMount(_.backend.onMount)
       .build
 
-  def apply(isOpen: Boolean = false) = component(Props(isOpen))
+  def apply(onRequestHide: Callback) = component(Props(onRequestHide))
 
 }
 

@@ -1,4 +1,5 @@
-package leon.web.shared
+package leon.web
+package shared
 
 case class Project(
   owner: String,

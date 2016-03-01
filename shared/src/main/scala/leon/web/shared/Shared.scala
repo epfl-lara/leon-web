@@ -22,6 +22,7 @@ object Action {
   val loadRepository = "loadRepository"
   val loadFile = "loadFile"
   val switchBranch = "switchBranch"
+  val doGitOperation = "doGitOperation"
 }
 
 object VerifStatus { // See leon/verification/VerificationCondition.scala

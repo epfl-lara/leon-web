@@ -34,6 +34,7 @@ import leon.web.shared.{Module => ModuleName, Constants, Action}
 import leon.web.shared.Project
 
 import leon.web.client.react.{App => ReactApp}
+import leon.web.client.react.{Actions, UpdateEditorCode}
 import leon.web.client.utils.BufferedWebSocket
 
 @ScalaJSDefined
@@ -1368,17 +1369,23 @@ trait LeonWeb {
   private
   var currentProject = Option.empty[Project]
 
+  def getCurrentProject(): Option[Project] =
+    currentProject
+
   def setCurrentProject(project: Option[Project]): Unit = {
+    if (project =!= currentProject) {
     project match {
       case None    => showExamples()
       case Some(_) => hideExamples()
     }
 
     currentProject = project
+      project.flatMap(_.code).foreach(setEditorCode(_))
+
     recompile(force = true)
   }
+  }
 
-  def getCurrentProject() = currentProject
   def hideExamples(): Unit = $("#selectcolumn").hide()
   def showExamples(): Unit = $("#selectcolumn").show()
 
@@ -1394,10 +1401,10 @@ trait LeonWeb {
     }
 
     if (connected && (oldCode =!= currentCode || force)) {
-      oldCode         = currentCode;
-      lastSavedChange = lastChange;
+      oldCode         = currentCode
+      lastSavedChange = lastChange
 
-      updateSaveButton();
+      updateSaveButton()
       currentProject match {
         case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
           Backend.main.doUpdateCodeInProject(
@@ -1414,6 +1421,7 @@ trait LeonWeb {
           )
       }
 
+      Actions dispatch UpdateEditorCode(currentCode, updateEditor = false)
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }

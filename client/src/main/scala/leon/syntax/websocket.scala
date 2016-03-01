@@ -8,7 +8,7 @@ import org.scalajs.dom.WebSocket
 
 import leon.web.client.utils.BufferedWebSocket
 
-object BufferedWebSocketOps {
+object websocket {
 
   implicit def toBufferedWebSocket(webSocket: WebSocket): BufferedWebSocket =
     new BufferedWebSocket(webSocket)

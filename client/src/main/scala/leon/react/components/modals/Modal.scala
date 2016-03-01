@@ -23,7 +23,7 @@ import leon.web.client.react.attrs._
   * import japgolly.scalajs.react.vdom.prefix_<^._
   * import leon.web.client.react.components.modals.Modal
   *
-  * def render = <.Modal(isOpen = true) (
+  * def render = Modal(onRequestHide)(
   *   <.div(^.className := "modal-header",
   *     Modal.closeButton,
   *     <.h3("Load a repository from GitHub")
@@ -50,7 +50,7 @@ object Modal {
     override def toString = "hide"
   }
 
-  case class Props(isOpen: Boolean = false, onRequestHide: Callback)
+  case class Props(onRequestHide: Callback)
 
   val ref = Ref[HTMLDivElement]("modal")
 
@@ -68,9 +68,8 @@ object Modal {
       modal(Hide) >> props.onRequestHide
     }
 
-    def onMount: Callback = $.props flatMap { props =>
-      if (props.isOpen) show() else hide()
-    }
+    def onMount: Callback =
+      show()
 
     def onUnmount: Callback =
       hide()
@@ -103,8 +102,8 @@ object Modal {
       .componentDidUpdate(scope => scope.$.backend.onUpdate(scope.prevProps))
       .build
 
-  def apply(isOpen: Boolean, onRequestHide: Callback = Callback.empty)(children: ReactNode*) =
-    component(Props(isOpen, onRequestHide), children: _*)
+  def apply(onRequestHide: Callback = Callback.empty)(children: ReactNode*) =
+    component(Props(onRequestHide), children: _*)
 
   def closeButton(onRequestHide: Callback = Callback.empty) =
     <.button(
