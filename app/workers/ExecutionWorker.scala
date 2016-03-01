@@ -7,14 +7,16 @@ import play.api.libs.json.Json._
 import models._
 import leon.utils._
 import leon.purescala.Expressions._
-import leon.purescala.Definitions.TypedFunDef
+import leon.purescala.Definitions.{TypedFunDef, Program}
 
 class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites {
   import ConsoleProtocol._
   import leon.evaluators._
 
+  protected var program: Option[Program] = None
   def receive = {
     case OnUpdateCode(cstate) =>
+      program = Some(cstate.program)
       val groundFunctions = cstate.functions.collect {
         case fd if fd.params.isEmpty => fd.typed -> Seq[Expr]()
       }.toMap

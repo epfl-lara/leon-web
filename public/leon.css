@@ -345,9 +345,10 @@ div#codebox.compilation-error div.ace_gutter-active-line {
 /* Verification */
 
 tr.counter-example div.output {
-    text-align: center;
+    text-align: left;
     margin: 5px;
     font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+    white-space: pre-wrap;
 }
 
 tr.counter-example table.input {
@@ -382,6 +383,104 @@ table#synthesis_table td.subproblem {
 
 #synthesisDialog pre.problem {
   padding: 5px;
+}
+
+/* Tabs for clarification and synthesis */
+
+.engineResult > ul {
+	list-style: none;
+	padding-left: 0;
+}
+
+.engineResult > ul li {
+	margin-right: 10px;
+	display: inline;
+}
+
+.engineResult > ul li.loading {
+	display: inline;
+}
+
+.engineResult > ul li.loading i.fa-refresh {
+	color: lightgray;
+}
+
+.engineResult > ul li h4 {
+  display: inline-block;
+}
+
+.engineResult > ul li.current {
+}
+
+.engineResult > ul li a {
+	color: black;
+    /*padding: 10px;
+    text-transform: uppercase;
+    color: #fff;
+    text-decoration: none; */
+}
+.engineResult > ul li:not(.current) a {
+	color: lightgray;
+}
+
+.engineResult > div {
+/*	float: left;*/
+}
+
+/* Disambiguation or clarification */
+
+pre.disambiguationAlternative {
+    display: inline-block;
+	cursor:pointer;
+	color: blue;
+	font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+	margin: 0;
+    padding: 2px;
+    border: 1px solid #888;
+    white-space: pre-wrap;
+    max-width: 100%;
+}
+pre.disambiguationAlternative.editing {
+	cursor: text;
+	background: white;
+	color: black;
+}
+pre.disambiguationAlternative:hover {
+	text-decoration:none;
+	background-color:rgba(128,128,128,0.2);
+}
+pre.disambiguationAlternative.current {
+	border-color: #5cb85c;
+}
+
+span.menu-disambiguation > i.fa {
+	vertical-align: text-top;
+	cursor: pointer;
+	margin-left: 0.3em;
+	color: lightgray;
+}
+span.menu-disambiguation > i.fa.active {
+    color: black;
+}
+span.menu-disambiguation > i.fa:hover {
+	color: blue;
+}
+
+.save-expr-display {
+}
+.cancel-expr-display {
+}
+.mini-menu {
+	cursor: pointer;
+	margin-left: 0.15em;
+	margin-right: 0.15em;
+}
+.mini-menu:hover {
+	color: blue;
+}
+.mini-menu.checked {
+	text-decoration: underline;
+	color: green;
 }
 
 /* Execution */

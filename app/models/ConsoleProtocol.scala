@@ -2,12 +2,12 @@ package leon.web
 package models
 
 import workers.WorkerActor
-
 import play.api.libs.json._
 import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.web.models.github.Repository
+import leon.synthesis.Synthesizer
 import leon.web.shared.{Project, GitOperation}
 
 object ConsoleProtocol {
@@ -41,7 +41,9 @@ object ConsoleProtocol {
   case object VerificationDone
 
   case class NewCounterExamples(cstate: CompilationState, ces: Map[TypedFunDef, Seq[Expr]])
-
+  case class NewSolutions(cstate: CompilationState, synth: Synthesizer, solutions: Stream[leon.synthesis.Solution])
+  case class CreateUpdatePrettyPrinter(cstate: CompilationState, afterFun: Option[FunDef], expr: Expr, output: String)
+  
   case class DispatchTo(module: String, msg: Any)
 
   case object Stop

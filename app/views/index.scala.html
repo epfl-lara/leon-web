@@ -168,10 +168,19 @@
                   <div class="progress-bar progress-bar-striped" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
                 </div>
             </div>
-            <div id="synthesisResults">
-                <h4>Solution:</h4>
-                <pre class="code solution prettyprint lang-scala">
-                </pre>
+            <div class="engineResult">
+            	<ul>
+	                <li class="current"><a href="#synthesisResults"><h4>Solution</h4></a></li>
+	                <li style="display:none"><a href="#clarificationResults"><h4>Clarification</h4></a></li>
+                </ul>
+	            <div id="synthesisResults">
+	                <pre class="code solution prettyprint lang-scala">
+	                </pre>
+	            </div>
+	            <div id="clarificationResults" class="clarificationResults" style="display:none">
+	                <div class="clarificationQuestions">
+	                </div>
+	            </div>
             </div>
           </div>
           <div class="modal-footer">
@@ -198,6 +207,11 @@
                   </pre>
                 </div>
                 </pre>
+            </div>
+            <div class="clarificationResults" style="display:none">
+                <h4>Clarification:</h4>
+                <div class="clarificationQuestions">
+                </div>
             </div>
           </div>
           <div class="modal-footer">

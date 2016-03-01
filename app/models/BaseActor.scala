@@ -17,7 +17,7 @@ trait BaseActor extends Actor {
   }
 
   def logInfo(msg: String): Unit = {
-    Logger.info(msg)
+    println(msg)
   }
 
   def logInfo(msg: String, t: Throwable): Unit = {

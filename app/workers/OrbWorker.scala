@@ -36,6 +36,7 @@ import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 import scala.util.Failure
+import leon.purescala.Definitions.Program
 
 /**
  * @author Mikael
@@ -47,7 +48,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
   private var allCode: Option[String] = None
 
   private var inferEngine: Option[InferenceEngine] = None
-
+  protected var program: Option[Program] = None
   def receive = {
     case DoCancel =>
       inferEngine.foreach(_.interrupt())
@@ -55,6 +56,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       sender ! Cancelled(this)
 
     case OnUpdateCode(cstate) =>
+      program = Some(cstate.program)
 
       for (fd <- cstate.functions) {
         val veriStatus =

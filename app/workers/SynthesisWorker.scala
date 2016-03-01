@@ -1,25 +1,33 @@
 package leon.web
 package workers
 
-import akka.actor._
-import play.api.libs.json.Json._
 import scala.concurrent.duration._
-
-import models._
+import akka.actor._
 import leon.LeonContext
-import leon.utils._
-import leon.purescala.PrinterOptions
-import leon.purescala.PrinterContext
-import leon.purescala.ScalaPrinter
-import leon.synthesis._
+import leon.purescala.{ PrinterContext, PrinterOptions, ScalaPrinter }
 import leon.purescala.Common._
+import leon.purescala.DefOps
+import leon.purescala.Definitions.{ FunDef, ValDef }
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
+import leon.purescala.Types.{StringType, CaseClassType, AbstractClassType}
+import leon.synthesis._
+import leon.synthesis.disambiguation.ExamplesAdder
+import leon.utils._
 import leon.web.shared.Action
+import models._
+import play.api.libs.json.Json._
+import leon.purescala.TypeOps
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
+  override lazy implicit val ctx = leon.Main.processOptions(List(
+    "--feelinglucky",
+    "--debug=synthesis",
+    "--solvers=smt-cvc4"
+  )).copy(interruptManager = interruptManager, reporter = reporter)
+  
   var searchesState = Map[String, Seq[WebSynthesizer]]()
 
   def notifySynthesisOverview(cstate: CompilationState): Unit = {
@@ -53,7 +61,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     case OnUpdateCode(cstate) =>
       var options = SynthesisSettings()
 
-      options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
+      //options = options.copy(rules = options.rules diff Seq(leon.synthesis.rules.TEGIS))
 
       try {
         val synthesisInfos = SourceInfo.extractFromProgram(ctx, cstate.program).map {
@@ -89,6 +97,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
         case Action.doSearch =>
           val fname = (event \ "fname").as[String]
           val chooseId = (event \ "cid").as[Int]
+          
+          ctx.reporter.info("State of the program at the beginning of synthesis " + cstate.program)
 
           doSearch(cstate, fname, chooseId)
 
@@ -98,7 +108,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val path = (event \ "path").as[List[Int]]
           val ws = (event \ "ws").as[Int]
 
-          val action = (event \ "explore-action").as[String] match {
+          val action = (event \ "exploreAction").as[String] match {
             case "select-alternative" =>
               val s = (event \ "select").as[Int]
               if (s < 0) {
@@ -117,6 +127,45 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           doExplore(cstate, fname, chooseId, path, ws, action)
       }
 
+    case CreateUpdatePrettyPrinter(cstate, fdUsingIt, in, out) =>
+      val tpe = in.getType match { case cct: CaseClassType => cct.root case  e => e}
+      clientLog("Doing for type " + tpe)
+      // Look for an existing function which accepts this type and return a string
+      val program = cstate.program
+      program.definedFunctions.find { fd => fd.returnType == StringType && fd.id.name.toLowerCase().endsWith("tostring") && fd.params.length == 1 && TypeOps.isSubtypeOf(tpe, fd.params.head.getType) } match {
+        case Some(fd) =>
+          // Here we add an example to this function, removing the body if it existed before in order to resynthesize it.
+          val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefModified(fd){ nfd =>
+            nfd.body = Some(new Hole(StringType, Nil))
+            new ExamplesAdder(ctx, program).addToFunDef(nfd, Seq((in, StringLiteral(out))))
+          }(cstate, ctx)
+          
+          event("replace_code", Map(
+            "newCode" -> toJson(allCode)
+          ))
+        case None =>
+          // Here we create a new pretty printing function
+          fdUsingIt.orElse(program.definedFunctions.lastOption) match {
+            case Some(fdToInsertAfter) =>
+              val funName3 = tpe.asString.replaceAll("[^a-zA-Z0-9_]","")
+              val funName = funName3(0).toLower + funName3.substring(1, Math.min(funName3.length, 10)) 
+              val newId = FreshIdentifier(funName +"ToString")
+              val newArgId = FreshIdentifier("in", tpe)
+              val newFd = new FunDef(newId, Seq(), Seq(ValDef(newArgId)), StringType)
+              newFd.fullBody = Hole(StringType, Seq())
+              new ExamplesAdder(ctx, program).addToFunDef(newFd, Seq((in, StringLiteral(out))))
+              
+              val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefAdded(fdToInsertAfter)(newFd)(cstate, ctx)
+              event("replace_code", Map(
+                "newCode" -> toJson(allCode)
+              ))
+            case None =>
+              notifyError("Could not find a place where to add a toString function")
+          }
+          
+          
+      }
+      
     case _ =>
   }
 
@@ -336,11 +385,11 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 an.composeSolutions(an.descendants.map { d =>
                   Stream(Solution.choose(d.p))
                 })
-              }.headOption
+              }
 
             case _ =>
               logInfo("Path "+path+" did not lead to an and node!")
-              None
+              Stream.Empty
           }
 
           sendSolution(cstate, synth, osol)
@@ -384,7 +433,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val fds = nfd :: defs.toList.sortBy(_.id.name)
 
-    val p = new ScalaPrinter(PrinterOptions(), cstate.optProgram)
+    val prog = DefOps.addFunDefs(cstate.program, fds, fd)
+    val p = new ScalaPrinter(PrinterOptions(), Some(prog))
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                   fd,
@@ -397,8 +447,9 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     (solCode, allCode)
   }
 
-  def sendSolution(cstate: CompilationState, synth: Synthesizer, osol: Option[Solution]): Unit = {
+  def sendSolution(cstate: CompilationState, synth: Synthesizer, ssol: Stream[Solution]): Unit = {
     val fd = synth.ci.fd
+    val osol = ssol.headOption
 
     osol match {
       case Some(sol) =>
@@ -417,6 +468,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           "total" -> toJson(1)
         ))
         logInfo("Application successful!")
+        
+        sender ! DispatchTo(shared.Module.disambiguation, NewSolutions(cstate, synth, ssol))
 
       case None =>
         event("synthesis_result", Map(
@@ -493,83 +546,85 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
          val ctx    = synth.context
          val prog   = synth.program
 
-         search.search(synth.sctx) match {
-            case _ if interruptManager.isInterrupted =>
-              val (closed, total) = search.g.getStats()
+         val solutions = search.search(synth.sctx)
+         if(interruptManager.isInterrupted) {
+          val (closed, total) = search.g.getStats()
 
-              event("synthesis_result", Map(
-                "result" -> toJson("failure"),
-                "closed" -> toJson(closed),
-                "total" -> toJson(total)
-              ))
+          event("synthesis_result", Map(
+            "result" -> toJson("failure"),
+            "closed" -> toJson(closed),
+            "total" -> toJson(total)
+          ))
 
-              // We refresh all synthesis state because an abort messes up with the search
-              self ! OnUpdateCode(cstate)
-
-            case sol #:: _ =>
-              val (newSol, succeeded) = if (!sol.isTrusted) {
-                // Validate solution
-                event("synthesis_proof", Map("status" -> toJson("init")))
-                synth.validateSolution(search, sol, 2.seconds) match {
-                  case (sol, true) =>
-                    event("synthesis_proof", Map("status" -> toJson("success")))
-                    (sol, true)
-                  case (sol, false) =>
-                    event("synthesis_proof", Map("status" -> toJson("failure")))
-                    (sol, false)
-                }
-              } else {
+          // We refresh all synthesis state because an abort messes up with the search
+          self ! OnUpdateCode(cstate)
+        } else if(solutions.isEmpty) {
+          val (closed, total) = search.g.getStats()
+          event("synthesis_result", Map(
+            "result" -> toJson("failure"),
+            "closed" -> toJson(closed),
+            "total" -> toJson(total)
+          ))
+          notifyError("Search failed.")
+          logInfo("Synthesis search failed!")
+        } else {
+          val sol = solutions.head
+          val (newSol, succeeded) = if (!sol.isTrusted) {
+            // Validate solution
+            event("synthesis_proof", Map("status" -> toJson("init")))
+            synth.validateSolution(search, sol, 2.seconds) match {
+              case (sol, true) =>
+                event("synthesis_proof", Map("status" -> toJson("success")))
                 (sol, true)
-              }
-
-              val solCode = newSol.toSimplifiedExpr(ctx, prog)
-              val fInt = new FileInterface(new MuteReporter())
-
-
-              val oldFd = ci.fd
-              val newFd = ci.fd.duplicate()
-              newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
-
-              val resFd = flattenFunctions(newFd, ctx, prog)
-
-              val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                            oldFd,
-                                            resFd)(ctx)
-
-              val (closed, total) = search.g.getStats()
-
-              event("synthesis_result", Map(
-                "result" -> toJson("success"),
-                "proven" -> toJson(succeeded),
-                "solCode" -> toJson(ScalaPrinter(solCode)),
-                "allCode" -> toJson(allCode),
-                "cursor" -> toJson(Map(
-                  "line"   -> oldFd.getPos.line,
-                  "column" -> (oldFd.getPos.col-1)
-                )),
-                "closed" -> toJson(closed),
-                "total" -> toJson(total)
-              ))
-
-              logInfo("Synthesis search succeeded!")
-
-            case _ =>
-              val (closed, total) = search.g.getStats()
-
-              event("synthesis_result", Map(
-                "result" -> toJson("failure"),
-                "closed" -> toJson(closed),
-                "total" -> toJson(total)
-              ))
-
-              notifyError("Search failed.")
-              logInfo("Synthesis search failed!")
+              case (sol, false) =>
+                event("synthesis_proof", Map("status" -> toJson("failure")))
+                (sol, false)
+            }
+          } else {
+            (sol, true)
           }
-        } catch {
-          case t: Throwable =>
-            notifyError("Woops, search crashed: "+t.getMessage)
-            logInfo("Synthesis search crashed", t)
+
+          val solCode = newSol.toSimplifiedExpr(ctx, prog)
+          val fInt = new FileInterface(new MuteReporter())
+
+
+          val oldFd = ci.fd
+          val newFd = ci.fd.duplicate()
+          newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
+
+          val resFd = flattenFunctions(newFd, ctx, prog)
+
+          val allCode = fInt.substitute(cstate.code.getOrElse(""),
+                                        oldFd,
+                                        resFd)(ctx)
+
+          val (closed, total) = search.g.getStats()
+
+          event("synthesis_result", Map(
+            "result" -> toJson("success"),
+            "proven" -> toJson(succeeded),
+            "solCode" -> toJson(ScalaPrinter(solCode)),
+            "allCode" -> toJson(allCode),
+            "cursor" -> toJson(Map(
+              "line"   -> oldFd.getPos.line,
+              "column" -> (oldFd.getPos.col-1)
+            )),
+            "closed" -> toJson(closed),
+            "total" -> toJson(total)
+          ))
+          
+          sender ! DispatchTo(shared.Module.disambiguation, NewSolutions(cstate, synth, solutions))
+
+          logInfo("Synthesis search succeeded!")
         }
+      } catch {
+        case t:leon.evaluators.ContextualEvaluator#EvalError =>
+          notifyError("Woops, search crashed: "+t.msg)
+          logInfo("Synthesis search crashed - "+t.msg, t)
+        case t: Throwable =>
+          notifyError("Woops, search crashed: "+t.getMessage)
+          logInfo("Synthesis search crashed - "+t.getMessage, t)
+      }
       case None =>
         notifyError("Can't find synthesis problem "+fname+"["+cid+"]")
     }

@@ -4,5 +4,5 @@ package models
 import leon._
 
 class MuteReporter() extends DefaultReporter(Set()) {
-  override def emit(msg: Message) = {}
+  override def emit(msg: Message) = { println("Mute reporter called") }
 }

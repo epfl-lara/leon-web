@@ -21,6 +21,6 @@ class WorkerReporter(session: ActorRef) extends Reporter(Set()) {
     }
 
     session ! NotifyClient(toJson(Map("kind" -> "log", "message" -> (prefix + msg.msg.toString))))
-    Logger.info((prefix + msg.msg.toString))
+    println((prefix + msg.msg.toString))
   }
 }

@@ -103,12 +103,13 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       interruptManager = new InterruptManager(reporter)
 
-      modules += ModuleEntry(Module.verification, new VerificationWorker(self, interruptManager))
-      modules += ModuleEntry(Module.termination , new TerminationWorker(self, interruptManager))
-      modules += ModuleEntry(Module.synthesis   , new SynthesisWorker(self, interruptManager))
-      modules += ModuleEntry(Module.execution   , new ExecutionWorker(self, interruptManager))
-      modules += ModuleEntry(Module.repair      , new RepairWorker(self, interruptManager))
-      modules += ModuleEntry(Module.invariant   , new OrbWorker(self, interruptManager))
+      modules += ModuleEntry(Module.verification  , new VerificationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.termination   , new TerminationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.synthesis     , new SynthesisWorker(self, interruptManager))
+      modules += ModuleEntry(Module.disambiguation, new DisambiguationWorker(self, interruptManager))
+      modules += ModuleEntry(Module.execution     , new ExecutionWorker(self, interruptManager))
+      modules += ModuleEntry(Module.repair        , new RepairWorker(self, interruptManager))
+      modules += ModuleEntry(Module.invariant     , new OrbWorker(self, interruptManager))
 
       logInfo("New client")
 
@@ -132,7 +133,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case ProcessClientEvent(event) =>
       try {
-        logInfo("[<] "+(event \ "action").as[String])
+        logInfo("[<] "+(event \ "action").as[String] + " for " + (event \ "module").as[String])
 
         (event \ "module").as[String] match {
           case "main" =>
@@ -624,7 +625,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
         catch {
           case t: Throwable =>
-            logInfo("Failed to compile and/or extract")
+            logInfo("Failed to compile and/or extract "+t)
             None
         }
 

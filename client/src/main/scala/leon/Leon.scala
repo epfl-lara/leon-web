@@ -18,6 +18,7 @@ import scala.collection.mutable.ListBuffer
 import scala.collection.mutable.{ HashMap => MMap }
 
 import japgolly.scalajs.react._
+//import japgolly.scalajs.react.vdom.prefix_<^._
 
 import com.scalawarrior.scalajs.ace._
 
@@ -178,6 +179,7 @@ trait LeonWeb {
   @ScalaJSDefined object Features extends js.Object {
     val verification=   Feature(active= true, name= "Verification")
     val synthesis=      Feature(active= true, name= "Synthesis")
+    val disambiguation= Feature(active= true, name="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
     val termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
     val presentation=   Feature(active= false, name= "Presentation Mode")
     val execution=      Feature(active= true, name= "Execution")
@@ -405,9 +407,7 @@ trait LeonWeb {
 
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
     if (!$(self).hasClass("disabled")) {
-      val msg = JSON.stringify(
-        l(action = Action.storePermaLink, module = "main", code = editor.getValue()))
-      leonSocket.send(msg)
+      Backend.main.storePermaLink(editor.getValue())
     }
     event.preventDefault()
   }): js.ThisFunction);
@@ -500,9 +500,7 @@ trait LeonWeb {
     val f = $(self).attr("ref")
     features(f).active = !features(f).active
 
-    val msg = JSON.stringify(
-      l(action = Action.featureSet, module = "main", feature = f, active = features(f).active))
-    leonSocket.send(msg)
+    Backend.main.setFeatureActive(f, features(f).active)
 
     LocalStorage.update("leonFeatures", JSON.stringify(features));
 
@@ -731,16 +729,11 @@ trait LeonWeb {
     t.html(html);
 
     if (compilationStatus == 1) {
-      $("#synthesis .dropdown-toggle").click(((self: Element, e: JQueryEventObject) => {
+      $("#synthesis .dropdown-toggle").unbind("click.droppdown").on("click.droppdown", ((self: Element, e: JQueryEventObject) => {
         val p = $(self).parents(".problem")
 
-        val msg = JSON.stringify(l(
-          module = "synthesis",
-          action = Action.getRulesToApply,
-          fname = p.attr("fname"),
-          cid = p.attr("cid").orIfNull("0").toInt))
+        Backend.synthesis.getRulesToApply(p.attr("fname"), p.attr("cid").orIfNull("0").toInt)
 
-        leonSocket.send(msg)
       }): js.ThisFunction)
     }
     
@@ -844,6 +837,10 @@ trait LeonWeb {
     var canRepair = false
 
     status match {
+      case VerifStatus.crashed =>
+        pbb.html("Crashed!")
+        pbb.addClass("progress-bar-danger")
+
       case VerifStatus.cond_valid =>
         pbb.html("Conditionally Valid!")
         pbb.addClass("progress-bar-warning")
@@ -876,7 +873,7 @@ trait LeonWeb {
       val vc = vcs(i)
       targetFunction = vc.fun
       var icon = "check"
-      if (vc.status == "invalid") {
+      if (vc.status == "invalid" || vc.status == "crashed") {
         icon = "warning"
       } else if (vc.status == "unknown") {
         icon = "question"
@@ -885,7 +882,7 @@ trait LeonWeb {
       }
 
       var clas = "success"
-      if (vc.status == "invalid") {
+      if (vc.status == "invalid" || vc.status == "crashed") {
         clas = "danger"
       } else if (vc.status == "unknown" || vc.status == "timeout") {
         clas = "warning"
@@ -894,18 +891,38 @@ trait LeonWeb {
       tbl.append("<tr class=\"" + clas + "\"> <td>" + vc.fun + "</td> <td>" + vc.kind + "</td> <td><i class=\"fa fa-" + icon + "\"></i> " + vc.status + "</td> <td>" + vc.time + "</td> </tr>")
 
       if (vc.counterExample.isDefined) {
+        /*<.tr(^.classSet(clas -> true, "counter-example" -> true),
+          <.td(^.colSpan := 4,
+            <.div(
+              <.p("The following inputs violate the VC:"),
+              <.table(^.className := "input",
+                for((variable_name, value) <- vc.counterExample.get) yield { 
+                  <.tr(<.td(variable_name), <.td("&nbsp;:=&nbsp"), <.td(<.div(^.className := "output", ^.contentEditable := true, value)));
+                }
+              )
+              // TODO : Continue
+            )
+          )
+        )*/
+        
+        
         var html = "<tr class=\"" + clas + " counter-example\"><td colspan=\"4\">"
         html += "<div>"
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
-        for((variable_name, value) <- vc.counterExample.get) { 
-          html += "<tr><td>" + variable_name + "</td><td>&nbsp;:=&nbsp;</td><td>" + value + "</td></tr>";
+        val outputs = js.Array[HandlersTypes.DualOutput]()
+        for((fname, value) <- vc.counterExample.get) { 
+          html += "<tr><td>" + fname + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true' tabindex=0>" + value.prettyoutput + "</div></td></tr>";
+          outputs.push(value)
         }
         html += "  </table>"
 
         if (vc.execution.isDefined && vc.execution.get.result == "success" && Features.execution.active) {
           html += "  <p>It produced the following output:</p>";
-          html += "  <div class=\"output\">" + vc.execution.get.output + "</div>"
+          html += "  <table class=\"input\">";
+          html += "  "+ "<tr><td>" + "<div class='output'  contentEditable='true' tabindex=0>" + vc.execution.get.output.prettyoutput + "</div>" + "</td></tr>"
+          html += "  </table>"
+          outputs.push(vc.execution.get.output)
         }
 
         html += "    </div>"
@@ -913,6 +930,76 @@ trait LeonWeb {
         html += "</tr>"
 
         tbl.append(html)
+        
+        tbl.find("div.output")
+        .each((index: js.Any, elem: dom.Element) => {
+          val i = index.asInstanceOf[Int]
+          //e.target.
+          //TODO: Display the "validate" and "cancel" button
+          //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
+          val validateBox = $("""<i class="fa fa-check save-expr-display mini-menu"></i>""").text("Confirm").attr("title", "Creates a new pretty-printer using the provided example")
+          val cancelBox = $("""<i class="fa fa-times cancel-expr-display mini-menu"></i>""").text("Cancel").attr("title", "Cancel the edition of this example")
+          val originalBox = $("""<i class="fa fa-eye original-expr-display mini-menu"></i>""").text("Show original").attr("title", "Show the original. Click again to return to editing")
+          val menuBox = $("<div>").addClass("menu-expr-display").append(validateBox).append(cancelBox).append(originalBox).hide()
+          menuBox.appendTo($(elem).parent())
+          
+          validateBox.on("click", () => {
+            val dualOutput = outputs(i)
+            console.log($(elem)(0))
+            val newContent = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+            dualOutput.modifying = newContent
+            console.log("Sending synthesis problem", dualOutput)
+            console.log("Fname = ", vc.fun)
+            //TODO: Do something with the dual output
+            Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, vc.fun)
+            menuBox.hide()
+          })
+          cancelBox.on("click", () => {
+            val dualOutput = outputs(i)
+            dualOutput.modifying = dualOutput.prettyoutput
+            $(elem).text(dualOutput.prettyoutput)
+            menuBox.hide()
+            $(elem).blur()
+          })
+          // Focus/blur is not very robust. Here is what it does (if it needs to be extended later)
+          // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
+          // If the user unfocuses the div.output, the menu disappear after 10ms
+          // If the user focuses the originalBox, the menu disappearance is cancelled immediately
+          // If the user unfocuses the originalBox, the menu disappear after 10ms
+          
+          originalBox.on("click", () => {
+            js.timers.clearTimeout($(elem).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
+            console.log("cLicked on originalBox " + i)
+            val dualOutput = outputs(i)
+            if(originalBox.hasClass("checked")) {
+              originalBox.removeClass("checked")
+              $(elem).attr("contentEditable", true)
+              $(elem).text(dualOutput.modifying.getOrElse(dualOutput.prettyoutput))
+            } else {
+              originalBox.addClass("checked")
+              $(elem).attr("contentEditable", false)
+              dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+              $(elem).text(dualOutput.rawoutput)
+            }
+          }).on("blur", () => { // If not clicking on the div.output, hide the menu.
+            console.log("Blurring originalBox...")
+            $(elem).data("hidehandler", js.timers.setTimeout(100){
+              $(elem).parent().find(".menu-expr-display").hide("blind")
+            })
+          })
+        })
+        .focus((e: JQueryEventObject) => {
+          console.log("Focusing...")
+          js.timers.clearTimeout($(e.target).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
+          $(e.target).parent().find(".menu-expr-display").show("blind")
+        })
+        .on("blur", (e: JQueryEventObject) => {
+          console.log("Blurring div.output")
+          $(e.target).data("hidehandler", js.timers.setTimeout(100){
+            console.log("Atual blur")
+            $(e.target).parent().find(".menu-expr-display").hide("blind")
+          })
+        })
       }
     }
 
@@ -924,12 +1011,7 @@ trait LeonWeb {
 
     if (canRepair && Features.repair.active) {
       $(".repairButton").unbind("click").click(() => {
-        val fname = targetFunction
-
-        val msg = JSON.stringify(
-          l(action = Action.doRepair, module = "repair", fname = fname))
-
-        leonSocket.send(msg)
+        Backend.repair.doRepair(targetFunction)
 
         $("#verifyDialog").modal("hide")
       });
@@ -1147,13 +1229,9 @@ trait LeonWeb {
     setConnected()
 
     for ((featureName, feature) <- features) {
-      val msg = JSON.stringify(
-        l(action = Action.featureSet, module = "main", feature = featureName, active = feature.active))
-
       try {
-        leonSocket.send(msg)
-      }
-      catch {
+        Backend.main.setFeatureActive(featureName, feature.active)
+      } catch {
         case _: Exception => js.timers.setTimeout(500) {
           openEvent(event)
         }
@@ -1169,10 +1247,7 @@ trait LeonWeb {
 
   def loadStaticLink(hash: String): Unit = {
     if (hash.indexOf("#link/") == 0) {
-      val msg = JSON.stringify(
-        l(action = Action.accessPermaLink, module = "main", link = hash.substring("#link/".length)))
-
-      leonSocket.send(msg)
+      Backend.main.accessPermaLink(hash.substring("#link/".length))
       window.location.hash = ""
     }
     if (hash.indexOf("#demo/") == 0) {
@@ -1299,16 +1374,16 @@ trait LeonWeb {
 
   def setCurrentProject(project: Option[Project]): Unit = {
     if (project =!= currentProject) {
-      project match {
-        case None    => showExamples()
-        case Some(_) => hideExamples()
-      }
+    project match {
+      case None    => showExamples()
+      case Some(_) => hideExamples()
+    }
 
-      currentProject = project
+    currentProject = project
       project.flatMap(_.code).foreach(setEditorCode(_))
 
-      recompile(force = true)
-    }
+    recompile(force = true)
+  }
   }
 
   def hideExamples(): Unit = $("#selectcolumn").hide()
@@ -1326,11 +1401,13 @@ trait LeonWeb {
     }
 
     if (connected && (oldCode =!= currentCode || force)) {
-      val msg = currentProject match {
+      oldCode         = currentCode
+      lastSavedChange = lastChange
+
+      updateSaveButton()
+      currentProject match {
         case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
-          l(
-            action = Action.doUpdateCodeInProject,
-            module = "main",
+          Backend.main.doUpdateCodeInProject(
             owner  = owner,
             repo   = repo,
             file   = file,
@@ -1339,22 +1416,12 @@ trait LeonWeb {
           )
 
         case _ =>
-          l(
-            action = Action.doUpdateCode,
-            module = "main",
+          Backend.main.doUpdateCode(
             code   = currentCode
           )
       }
 
-      oldCode         = currentCode
-      lastSavedChange = lastChange
-
-      updateSaveButton()
-
       Actions dispatch UpdateEditorCode(currentCode, updateEditor = false)
-
-      leonSocket.send(JSON.stringify(msg))
-
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }
@@ -1413,14 +1480,16 @@ trait LeonWeb {
 
   val editorSession = editor.getSession();
 
-  editor.commands.addCommand(js.use(new js.Object {
-    var name = "save"
-    var bindKey = l(win = "Ctrl-S", mac = "Command-S").asInstanceOf[js.Any]
-    var exec = ((editor: Editor) => {
+  val saveCommand = l(
+    name = "save",
+    bindKey = l(win = "Ctrl-S", mac = "Command-S").asInstanceOf[js.Any],
+    exec = (((editor: Editor) => {
       recompile()
-    }).asInstanceOf[js.Function]
-    var readOnly = true
-  }).as[EditorCommand]);
+    }) :js.Function),
+    readOnly = true
+  ).asInstanceOf[EditorCommand]
+  console.log("Adding command", saveCommand)
+  editor.commands.addCommand(saveCommand);
 
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");

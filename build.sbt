@@ -58,7 +58,7 @@ EclipseKeys.skipProject in leon := true
 scalaVersion := "2.11.7"
 
 /****************************
- * Main play project *
+ * Main play project        *
  ****************************/
 
 lazy val main = Project(appName, file(".")).enablePlugins(PlayScala).

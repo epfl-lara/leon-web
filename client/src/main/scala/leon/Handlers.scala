@@ -146,6 +146,21 @@ object HandlersTypes {
   }
   
   @ScalaJSDefined
+  trait HDisambiguationDisplay extends js.Any {
+    var display: String
+    val allCode: String
+  }
+  
+  @ScalaJSDefined
+  trait HDisambiguationResult extends js.Any {
+    val input: String
+    val fname: String
+    val confirm_solution: HDisambiguationDisplay
+    val custom_alternative: HDisambiguationDisplay
+    val alternatives: js.Array[HDisambiguationDisplay]
+  }
+  
+  @ScalaJSDefined
   trait HSynthesisExploration extends js.Object {
     val html: String
     val fname: String
@@ -181,7 +196,14 @@ object HandlersTypes {
   @ScalaJSDefined
   trait ResultOutput extends js.Object {
     val result: String
-    val output: String
+    val output: DualOutput
+  }
+  
+  @ScalaJSDefined
+  trait DualOutput extends js.Object {
+    val rawoutput: String
+    val prettyoutput: String
+    var modifying: js.UndefOr[String]
   }
   
   @ScalaJSDefined 
@@ -189,7 +211,7 @@ object HandlersTypes {
     val fun: String
     val kind: String
     val time: String
-    val counterExample: js.UndefOr[js.Dictionary[String]]
+    val counterExample: js.UndefOr[js.Dictionary[DualOutput]]
     val execution: js.UndefOr[ResultOutput]
   }
   
@@ -265,6 +287,7 @@ object Handlers extends js.Object {
   import HandlersTypes._
   def window = g
 
+  import Implicits._
   val permalink = (data: HPermalink) => {
     $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
     $("#permalink-value").show()
@@ -276,7 +299,6 @@ object Handlers extends js.Object {
   }
 
   val update_overview = (data: HUpdateOverview) => {
-    console.log("Received overview:",data)
     if (data.module == "main") {
       overview.functions = js.Dictionary.empty[OverviewFunction];
 
@@ -296,6 +318,16 @@ object Handlers extends js.Object {
     if (JSON.stringify(synthesisOverview) != JSON.stringify(data)) {
       synthesisOverview = data;
       drawSynthesisOverview();
+      
+      val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
+      if (hasFunctions && Features.synthesis.active) {
+        if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
+          val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
+          val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+          console.log("Finding rules to apply 2 " + new js.Date())
+          Backend.synthesis.getRulesToApply(fname, cid)
+        }
+      }
     }
   }
 
@@ -361,14 +393,15 @@ object Handlers extends js.Object {
     txt.append(data.message + "\n");
     txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
   }
-
+  
   val synthesis_result = (data: HSynthesisResult) => {
     val pb = $("#synthesisProgress")
     val pbb = $("#synthesisProgress .progress-bar")
-
+    
     // setup and open pane
     if (data.result == "init") {
       $("#synthesisResults").hide()
+      $("#synthesisDialog .clarificationResults").hide()
       $("#synthesisDialog").attr("cid", data.cid)
       $("#synthesisDialog").attr("fname", data.fname)
       $("#synthesisDialog .exploreButton").hide()
@@ -376,9 +409,21 @@ object Handlers extends js.Object {
       $("#synthesisDialog .closeButton").hide()
       $("#synthesisDialog .cancelButton").show()
       $("#synthesisDialog .code.problem").removeClass("prettyprinted")
-      $("#synthesisDialog .code.problem").html(data.problem)
+      $("#synthesisDialog .code.problem").text(data.problem)
       g.prettyPrint();
       $("#synthesisDialog").modal("show")
+      
+      $("#synthesisDialog .engineResult > ul a").off("click.tabs")
+      $("#synthesisDialog .engineResult > ul a").on("click.tabs", ((_this: Element, event: JQueryEventObject) => {
+          event.preventDefault();
+          $(_this).parent().addClass("current").show();
+          $(_this).parent().siblings().removeClass("current");
+          var tab = $(_this).attr("href");
+          $("#synthesisDialog .engineResult > div").not(tab).css("display", "none");
+          $(tab).fadeIn();
+      }): js.ThisFunction);
+      
+      synthesis_result_fname = data.fname
 
       pbb.addClass("active progress-bar-striped")
       pbb.removeClass("progress-bar-success progress-bar-danger")
@@ -388,13 +433,7 @@ object Handlers extends js.Object {
       $("#synthesisProgressBox").show()
       synthesizing = true;
       $("#synthesisDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
-        if (synthesizing) {
-          val msg = JSON.stringify(l(
-            module = "main",
-            action = Action.doCancel))
-
-          leonSocket.send(msg)
-        }
+        if (synthesizing) Backend.main.cancel()
       })
     } else if (data.result == "progress") {
       val pc = (data.closed * 100) / data.total;
@@ -422,8 +461,12 @@ object Handlers extends js.Object {
       pbb.addClass("progress-bar-success")
 
       $("#synthesisResults .code.solution").removeClass("prettyprinted")
-      $("#synthesisResults .code.solution").html(data.solCode)
-      $("#synthesisResults").show()
+      $("#synthesisResults .code.solution").text(data.solCode)
+      
+      $("#synthesisDialog").find("a[href=#clarificationResults]").parent().hide()
+      $("#synthesisDialog").find("a[href=#synthesisResults]").click()
+      
+      //$("#synthesisResults").show()
       g.prettyPrint();
       $("#synthesisDialog .exploreButton").show()
       $("#synthesisDialog .importButton").show()
@@ -441,22 +484,174 @@ object Handlers extends js.Object {
 
         $("#synthesisDialog").modal("hide")
 
-        val msg = JSON.stringify(
-          l("action" -> Action.doExplore,
-            "module" -> "synthesis",
-            "fname" -> fname,
-            "cid" -> cid,
-            "explore-action" -> "init",
-            "path" -> js.Array[Int](),
-            "ws" -> 0)
-        )
-
-        leonSocket.send(msg)
+        Backend.synthesis.explore(fname, cid)
       })
       $("#synthesisDialog .cancelButton").hide()
       $("#synthesisDialog .closeButton").show()
       synthesizing = false;
+      disambiguationResultDisplay().empty()
     }
+  }
+  
+  def inDialog(selector: String): JQuery = {
+    $("#synthesisDialog .clarificationResults .clarificationQuestions")
+  }
+  
+  def disambiguationResultDisplay(): JQuery = {
+    disambiguationResultDisplayContainer.find(".clarificationQuestions")
+  }
+  /** The tab containing .clarificationQuestions */
+  def disambiguationResultDisplayContainer(): JQuery = {
+    engineResultDisplayContainer().find(".clarificationResults")
+  }
+  def engineResultDisplayContainer(): JQuery = {
+    if($("#synthesisDialog").is(":visible")) {
+      $("#synthesisDialog .engineResult")
+    } else if($("#synthesisExploreDialog").is(":visible")) {
+      $("#synthesisExploreDialog .engineResult")
+    } else $("") // TODO: Exploration
+  }
+  
+  def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
+    val result: JQuery = $("<pre>")
+      .addClass("disambiguationAlternative")
+      .addClass(if(current) "current" else "")
+      .attr("title", if(current) "current output" else "alternative")
+      .text(alternative.display)
+      .on("click.alternative", () => {
+      Handlers.replace_code(new HReplaceCode { val newCode = alternative.allCode })
+      val toFill = disambiguationResultDisplay()
+      toFill.empty().append($("<code>").text(alternative.display))
+      toFill.append(" chosen. Looking for more ambiguities...")
+      /*if (data.cursor.isDefined) {
+        js.timers.setTimeout(100) {
+          Handlers.move_cursor(data.cursor.get.asInstanceOf[HMoveCursor])
+        }
+      }*/
+    }).dblclick(() => {
+      
+    })
+    alternative.display = "(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_")
+    val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
+    val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").addClass(if(current) "current" else "").text(alternative.display).hide()
+    edittext.html(edittext.html().replaceAll("_edit_me_", """<span class="placeholder" style="font-family:FontAwesome">&#xf059;</span>"""))    
+    edittext.on("keyup paste click", () => {
+      val pos = SelectionHandler.getSelection(edittext.get(0).asInstanceOf[dom.raw.Element])
+      var changeSelection = false
+      edittext.find("font[face=FontAwesome]").each{ (index: js.Any, _this: dom.Element) =>
+        changeSelection = true
+        $(_this).replaceWith($(_this).html())
+      }
+      edittext.find("span.placeholder").each{ (index: js.Any, _this: dom.Element) =>
+        val oldHtml = $(_this).html()
+        if(oldHtml != "&#xf059;" && oldHtml != "") {
+          $(_this).replaceWith("&#xf059;|".r.replaceAllIn(oldHtml, ""))
+          changeSelection = true
+        }
+        ().asInstanceOf[js.Any]
+      }
+      if(changeSelection) {
+        SelectionHandler.setSelection(edittext.get(0).asInstanceOf[dom.raw.Element], pos)
+      }
+    })
+    
+    val validatebox = $("""<i class="fa fa-check"></i>""").addClass("validate").text("validate").hide()
+    val container = $("<span>").addClass("menu-disambiguation").append(result).append(edittext).append(editbox).append(validatebox)
+    container.mouseenter((e: JQueryEventObject) => {
+      if(!validatebox.is(":visible")) {
+        editbox.show()
+        editbox.height(container.height())
+      }
+      ().asInstanceOf[js.Any]
+    }).mouseleave((e: JQueryEventObject) => {
+      editbox.hide()
+      ().asInstanceOf[js.Any]
+    })
+    edittext.focus(() => {
+      validatebox.addClass("active")
+    }).blur(() => {
+      validatebox.removeClass("active")
+    })
+    editbox.on("click", () => {
+      validatebox.show()
+      validatebox.height(container.height())
+      val lineHeight = result.css("line-height")
+      val a = lineHeight.substring(0, lineHeight.length - 2).toFloat
+      if(result.height() != 0 && result.width() != 0) {
+        edittext.height(result.height() + a)
+        edittext.width(result.width() + a)
+      }
+      edittext.show()
+      edittext.click()
+      result.hide()
+    })
+    if(directEdit) {
+      result.hide()
+      js.timers.setTimeout(1){
+        editbox.click()
+        container.focus()
+      }
+    } else if(alternative.display.indexOf("_edit_me_") > -1) { // Must edit when clicking.
+      result.hide()
+      js.timers.setTimeout(1){
+        editbox.click()
+      }
+      validatebox.show()
+      validatebox.height(container.height())
+    }
+    
+    validatebox.on("click", () => {
+      val customCode = custom.allCode.replace("\""+leon.web.shared.Constants.disambiguationPlaceHolder + "\"", edittext.text())
+      Handlers.replace_code(new HReplaceCode { val newCode = customCode })
+      val toFill = disambiguationResultDisplay()
+      toFill.empty().append($("<code>").text(edittext.text()))
+      toFill.append(" chosen. Looking for more ambiguities...")
+    })
+    container
+  }
+  
+  val disambiguation_started = (data: js.Dynamic) => {
+    $("""<i class="fa fa-refresh fa-spin" title=""></i>""").appendTo(
+      engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().addClass("loading").show()
+    )
+  }
+  
+  val disambiguation_noresult = (data: js.Dynamic) => {
+    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().hide()
+    .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
+  }
+  
+  val disambiguation_result = (data: HDisambiguationResult) => {
+    console.log("Received disambiguation data", data)
+    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent()
+    .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
+    val toFill = disambiguationResultDisplay()
+    
+    val args = if(data.input(0) == '(') {
+      data.input
+    } else {
+      "(" + data.input + ")"
+    }
+    toFill.empty()
+    val (premessage, message) = if(data.alternatives.length == 0) {
+           ("To ensure completeness, please edit the pretty-printing of ", " below:")
+    } else ("What should be the output of ", "?")
+    val html = premessage + "<code>" + data.fname + args + "</code>"+message+"<br>"
+    toFill.append(html)
+    
+    if(data.alternatives.length == 0) {
+      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, true))
+      toFill.find(".validate").addClass("active")
+    } else {
+      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, false))
+      for(alternative <- data.alternatives) {
+        toFill.append("<br>")
+        toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
+      }
+    }
+    //disambiguationResultDisplayContainer().show()
+    // Switch tabs:
+    engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
   }
 
   val synthesis_exploration = (data: HSynthesisExploration) => {
@@ -472,11 +667,7 @@ object Handlers extends js.Object {
 
     d.unbind("hide.bs.modal").on("hide.bs.modal", () => {
       if (working) {
-        val msg = JSON.stringify(l(
-          module = "main",
-          action = Action.doCancel))
-
-        leonSocket.send(msg)
+        Backend.main.cancel()
       }
     })
 
@@ -499,39 +690,23 @@ object Handlers extends js.Object {
     }
 
     d.find("""select[data-action="select-alternative"]""").unbind("change").change(((_this: Element) => {
-
       $(_this).after(""" <span class="fa fa-spin fa-circle-o-notch"></span>""");
-
-      val msg = JSON.stringify(
-        l("action" -> Action.doExplore,
-          "module" -> "synthesis",
-          "plop" -> "plap",
-          "fname" -> data.fname,
-          "cid" -> data.cid,
-          "path" -> pathOf(_this),
-          "explore-action" -> $(_this).attr("data-action"),
-          "select" -> $(_this).value().asInstanceOf[String].toInt,
-          "ws" -> wsOf(_this))
-        )
-
-      leonSocket.send(msg)
+      Backend.synthesis.explore(
+          fname  = data.fname,
+          cid    = data.cid,
+          path   = pathOf(_this),
+          exploreAction = $(_this).attr("data-action"),
+          ws     = wsOf(_this),
+          select = $(_this).value().asInstanceOf[String].toInt)
     }): js.ThisFunction);
 
     d.find("span.knob").unbind("click").click(((self: Element) => {
       $(self).removeClass("fa-arrow-right fa-arrow-left").addClass("fa-spin fa-refresh")
-
-      val msg = JSON.stringify(
-        l("action" -> Action.doExplore,
-          "module" -> "synthesis",
-          "fname" -> data.fname,
-          "cid" -> data.cid,
-          "path" -> pathOf(self),
-          "explore-action" -> $(self).attr("data-action"),
-          "ws" -> wsOf(self))
-      )
-
-      leonSocket.send(msg)
-
+      Backend.synthesis.explore(
+          fname = data.fname,
+          cid   = data.cid, pathOf(self),
+          exploreAction = $(self).attr("data-action"),
+          ws    = wsOf(self))
       working = true
     }): js.ThisFunction);
 
@@ -544,6 +719,9 @@ object Handlers extends js.Object {
       }
     })
   }
+  
+  var synthesis_chosen_rule: Option[String] = None
+  var synthesis_result_fname: js.UndefOr[String] = js.undefined
 
   val synthesis_rulesToApply = (data: HSynthesisRulesToApply) => {
     val fname = data.fname
@@ -572,31 +750,30 @@ object Handlers extends js.Object {
     val selector = "#synthesis .problem[fname=\"" + fname + "\"][cid=\"" + cid + "\"] ul"
     $(selector + " li.temp").remove()
     $(selector).append(html)
-    $(selector + " li a[action=\"search\"]").unbind("click").click(() => {
-      val msg = JSON.stringify(
-        l(action = Action.doSearch, module = "synthesis", fname = fname, cid = cid))
+    $(selector + " li a[action=\"search\"]").unbind("click.searchaction").on("click.searchaction", (() => {
+      synthesis_chosen_rule = Some("search")
+      Backend.synthesis.search(fname, cid)
+    }))
+    if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
+      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+      synthesis_chosen_rule match {
+        case None => // Explore
+        case Some("search") => // Search
+          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
+        case Some(rid) => // Rule chosen
+          Backend.synthesis.doApplyRule(fname, cid, rid.toInt)
+      }
+    }
 
-      leonSocket.send(msg)
-    })
+    
     $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
-      val msg = JSON.stringify(
-          l("action" -> Action.doExplore,
-            "module" -> "synthesis",
-            "fname" -> fname,
-            "cid" -> cid,
-            "explore-action" -> "init",
-            "path" -> js.Array[js.Any](),
-            "ws" -> 0)
-        )
-      leonSocket.send(msg)
+      synthesis_chosen_rule = None
+      Backend.synthesis.explore(fname, cid)
     })
     $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
       val rid = $(self).attr("rid").toInt
-
-      val msg = JSON.stringify(
-        l(action = Action.doApplyRule, module = "synthesis", fname = fname, cid = cid, rid = rid))
-
-      leonSocket.send(msg)
+      synthesis_chosen_rule = Some(rid.toString)
+      Backend.synthesis.doApplyRule(fname, cid, rid)
     }): js.ThisFunction)
   }
 
@@ -614,13 +791,7 @@ object Handlers extends js.Object {
       $("#repairDialog").modal("show")
 
       $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
-        if (synthesizing) {
-          val msg = JSON.stringify(l(
-            module = "repair",
-            action = Action.doCancel))
-
-          leonSocket.send(msg)
-        }
+        if (synthesizing) Backend.repair.cancel()
       })
     } else if (data.result == "progress") {
       pbb.addClass("active progress-bar-striped")
@@ -651,7 +822,7 @@ object Handlers extends js.Object {
       pbb.addClass("progress-bar-success")
 
       $("#repairResults .code.solution").removeClass("prettyprinted")
-      $("#repairResults .code.solution").html(data.solCode)
+      $("#repairResults .code.solution").text(data.solCode)
       $("#repairResults").show()
       g.prettyPrint();
       $("#repairDialog .importButton").show()

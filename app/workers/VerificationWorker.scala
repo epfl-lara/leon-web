@@ -12,6 +12,8 @@ import leon.solvers._
 import leon.purescala.Definitions._
 import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
+import leon.purescala.Types._
+import shared.Action
 
 import scala.concurrent.duration._
 
@@ -19,6 +21,8 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
   import ConsoleProtocol._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
+  
+  var counterExamplesExprs: List[Map[String, Expr]] = Nil
 
   def notifyVerifOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
@@ -40,7 +44,7 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
         }.headOption
       }.toMap
 
-      sender ! DispatchTo("execution", NewCounterExamples(cstate, allCEs))
+      sender ! DispatchTo(shared.Module.execution, NewCounterExamples(cstate, allCEs))
     }
 
     val fvcs = Json.obj(
@@ -60,9 +64,12 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   override lazy implicit val ctx = leon.Main.processOptions(List(
     "--feelinglucky",
-    "--solvers=smt-cvc4,smt-z3,ground",
-    "--evalground"
+    "--solvers=smt-cvc4,smt-z3,ground"
   )).copy(interruptManager = interruptManager, reporter = reporter)
+  
+  var program: Option[Program] = None
+  
+  activateCache = true
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean): Unit = {
     val params    = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
@@ -89,8 +96,13 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
             case _ =>
               None
           }
+          val ovr2 = ovr match {
+            case Some(VCResult(VCStatus.Unknown, a, b)) =>
+              Some(VCResult(VCStatus.Crashed, a, b))
+            case e => e
+          }
 
-          (vc, (ovr, cexExec))
+          (vc, (ovr2, cexExec))
         }
 
         verifOverview += f -> FunVerifStatus(f, resultsWithCex)
@@ -109,21 +121,41 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   def receive = {
     case OnUpdateCode(cstate) if cstate.isCompiled =>
+      this.clearExprCache()
+      this.program = Some(cstate.program)
       val program = cstate.program
 
       var toGenerate = Set[FunDef]()
       val oldVerifOverView = verifOverview
 
       val verifFunctions = cstate.functions.filter(fd => fd.hasBody).toSet
+      
+      val recomputeEverything = (verifFunctions exists { fd => 
+        fd.returnType == StringType && { // If a pretty printer changed, we recompute everything.
+          val h = FunctionHash(fd)
+          oldVerifOverView forall { case (f, _) =>
+            f.id.name != fd.id.name || FunctionHash(f) != h
+          }
+        }
+        // Or alternatively, it could be that a pretty printer has been deleted, so we need to regenerate everything
+      }) || oldVerifOverView.exists{
+        case (fd, _) =>
+          fd.returnType == StringType && {
+            val h = FunctionHash(fd)
+            verifFunctions forall ( f =>
+              f.id.name != fd.id.name || FunctionHash(f) != h
+            )
+          }
+      }
 
       // Generate VCs
       for (f <- verifFunctions) {
         val h = FunctionHash(f)
 
         oldVerifOverView find { case (fd, _) => FunctionHash(fd) === h } match {
-          case Some((fd, vcs)) =>
+          case Some((fd, vcs)) if !recomputeEverything=>
             verifOverview += f -> vcs
-          case None =>
+          case _ =>
             verifOverview -= f
             toGenerate += f
         }
@@ -168,6 +200,19 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
     case OnClientEvent(cstate, event) =>
       (event \ "action").as[String] match {
+        case Action.prettyPrintCounterExample =>
+          val output = (event \ "output").as[String]
+          val rawoutput = (event \ "rawoutput").as[String]
+          val fname = (event \ "fname").as[String]
+          val exprOpt = getExprFromCache(rawoutput)
+          val fd = cstate.program.definedFunctions.find(_.id.name == fname)
+          exprOpt match {
+            case Some(expr) =>
+              sender ! DispatchTo(shared.Module.synthesis, CreateUpdatePrettyPrinter(cstate, fd, expr, output))
+            case None =>
+              notifyError("Could not find original expression of "+rawoutput)
+          }
+          
         case action =>
           notifyError("Received unknown action: "+action)
       }

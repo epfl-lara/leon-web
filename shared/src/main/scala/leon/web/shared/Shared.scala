@@ -2,6 +2,7 @@ package leon.web.shared
 
 object Constants {
   val invariantMainCode = "$$__invariantMainCode__$$"
+  val disambiguationPlaceHolder = "$$__disambiguationPlaceHolder__$$"
 }
 
 object Action {
@@ -13,6 +14,7 @@ object Action {
   val getRulesToApply = "getRulesToApply"
   val doCancel = "doCancel"
   val doExplore = "doExplore"
+  val prettyPrintCounterExample = "prettyPrintCounterExample"
   val doSearch = "doSearch"
   val doApplyRule = "doApplyRule"
   val doRepair = "doRepair"
@@ -23,7 +25,7 @@ object Action {
   val doGitOperation = "doGitOperation"
 }
 
-object VerifStatus {
+object VerifStatus { // See leon/verification/VerificationCondition.scala
   val invalid = "invalid"
   val valid = "valid"
   val crashed = "crashed"
@@ -52,10 +54,12 @@ object InvariantStatus {
 }
 
 object Module {
-    val verification = "verification"
-    val termination = "termination"
-    val synthesis = "synthesis"
-    val execution = "execution"
-    val repair = "repair"
-    val invariant = "invariant"
+  val main = "main"
+  val verification = "verification"
+  val termination = "termination"
+  val synthesis = "synthesis"
+  val execution = "execution"
+  val repair = "repair"
+  val invariant = "invariant"
+  val disambiguation = "disambiguation"
 }

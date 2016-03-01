@@ -10,16 +10,40 @@ import leon.utils._
 import leon.purescala.Common._
 import leon.purescala.Expressions._
 import leon.transformations.InstUtil
+import leon.purescala.Definitions._
+import leon.purescala.PrettyPrinter
+import leon.purescala.SelfPrettyPrinter
 
 trait JsonWrites {
   implicit val ctx: LeonContext;
+  
+  protected def program: Option[Program]
+  
+  /** Caches expr to string transformation to revert them back. */
+  protected var activateCache: Boolean = false
+  def updateExprCache(s: String, e: Expr) = if(activateCache) exprCache += s -> e
+  def getExprFromCache(s: String): Option[Expr] = if(activateCache) exprCache.get(s) else None
+  def clearExprCache() = exprCache = Map()
+  protected var exprCache = Map[String, Expr]()
+  
+  implicit val doWrites = new Writes[DualOutput] {
+    def writes(d: DualOutput) = {
+      Json.obj(
+          "rawoutput" -> d.rawoutput,
+          "prettyoutput" -> d.prettyoutput
+      )
+    }
+  } 
 
   implicit val erWrites = new Writes[EvaluationResults.Result[Expr]] {
     def writes(er: EvaluationResults.Result[Expr]) = er match {
       case EvaluationResults.Successful(ex) =>
+        val rawoutput = ex.asString
+        val exAsString = program.map(p => SelfPrettyPrinter.print(ex, ex.asString)(ctx, p)).getOrElse(rawoutput)
+        updateExprCache(rawoutput, ex)
         Json.obj(
           "result" -> "success",
-          "output" -> ex.asString
+          "output" -> DualOutput(rawoutput, exAsString)
         )
 
       case EvaluationResults.RuntimeError(msg) =>
@@ -39,10 +63,23 @@ trait JsonWrites {
   implicit val idMapWrites = new Writes[Map[Identifier, Expr]] {
     def writes(ex: Map[Identifier, Expr]) = Json.obj(
       ex.toSeq.sortBy(_._1).map {
-        case (id, expr) => id.asString -> (expr.asString: JsValueWrapper)
+        case (id, expr) =>
+          val rawoutput = expr.asString
+          val exprAsString = program.map(p => SelfPrettyPrinter.print(expr, rawoutput)(ctx, p)).getOrElse(rawoutput)
+          updateExprCache(rawoutput, expr)
+          id.asString -> (DualOutput(rawoutput, exprAsString): JsValueWrapper)
       } :_*
     )
   }
+  
+  implicit val idMapStringWrites = new Writes[Map[Identifier, String]] {
+    def writes(ex: Map[Identifier, String]) = Json.obj(
+      ex.toSeq.sortBy(_._1).map {
+        case (id, expr) => id.asString -> (expr: JsValueWrapper)
+      } :_*
+    )
+  }
+
 
   implicit val vrWrites = new Writes[(VC, VCResult, Option[EvaluationResults.Result[Expr]])] {
     def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])) = {
@@ -59,6 +96,7 @@ trait JsonWrites {
 
       res.status match {
         case VCStatus.Invalid(cex) =>
+          
           cexExec match {
             case Some(er) =>
               base ++ Json.obj(
