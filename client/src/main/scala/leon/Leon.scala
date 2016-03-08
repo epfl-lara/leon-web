@@ -911,7 +911,9 @@ trait LeonWeb {
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
         val outputs = js.Array[HandlersTypes.DualOutput]()
+        var suggestEdit = false
         for((fname, value) <- vc.counterExample.get) { 
+          suggestEdit = suggestEdit || (value.prettyoutput == value.rawoutput && value.rawoutput.indexOf(",") >= 0)
           html += "<tr><td>" + fname + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true' tabindex=0>" + value.prettyoutput + "</div></td></tr>";
           outputs.push(value)
         }
@@ -931,6 +933,9 @@ trait LeonWeb {
 
         tbl.append(html)
         
+        if(suggestEdit) Main.showContextDemo(Main.demoEditCounterExamples)
+        
+        // Pretty-printing options.
         tbl.find("div.output")
         .each((index: js.Any, elem: dom.Element) => {
           val i = index.asInstanceOf[Int]
@@ -950,6 +955,7 @@ trait LeonWeb {
             dualOutput.modifying = newContent
             console.log("Sending synthesis problem", dualOutput)
             console.log("Fname = ", vc.fun)
+            onSynthesisTabDisplay = Some(() => Main.showContextDemo(Main.demoSynthesizePrettyPrinter))
             //TODO: Do something with the dual output
             Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, vc.fun)
             menuBox.hide()
@@ -1537,6 +1543,8 @@ trait LeonWeb {
   }
 
   var storedCode = LocalStorage("leonEditorCode")
+  
+  var onSynthesisTabDisplay: Option[() => Unit] = None
 
   sealed class Placement(name: String) { override def toString = name }
   object Placement {
@@ -1544,6 +1552,7 @@ trait LeonWeb {
     case object Right extends Placement("right")
     case object Modal extends Placement("modal")
     case object Bottom extends Placement("bottom")
+    case object Top extends Placement("top")
   }
 
   val seenDemo = LocalStorage("leonSeenDemo").getOrElse("0").toInt
@@ -1592,7 +1601,35 @@ trait LeonWeb {
       where = $("#button-permalink"),
       placement = Placement.Bottom,
       title = "Permalinks",
-      content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!"));
+      content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!")
+  );
+  
+  def getHtmlDemo(demo: Demo, last: Boolean): String = {
+    var content = """<div id="demoPane" class="demo">"""
+    content += demo.content
+    content += """  <div class="demo-nav">"""
+    if (last) {
+      // last demo
+      content += """    <button class="btn btn-success" demo-action="close">Ok!</button>""";
+    } else {
+      content += """    <button class="btn" demo-action="close">Got it</button>""";
+      content += """    <button class="btn btn-success" demo-action="next">Next <i class="fa fa-forward"></i></button>""";
+    }
+    content += """  </div>"""
+    content += """</div>"""
+    content
+  }
+       
+  /** Creates a progress bar with "current" filled circles out of "max" circles. */
+  def createProgress(current: Int, max: Int): String = {
+    (for (i <- 0 until max) yield {
+      if (i < current) {
+        """<i class="fa fa-circle"></i>"""
+      } else {
+        """<i class="fa fa-circle-o"></i>"""
+      }
+    }).mkString("")
+  }
 
   if (seenDemo == 0 || (seenDemo < demos.length - 1)) {
 
@@ -1642,22 +1679,9 @@ trait LeonWeb {
         })
 
       } else {
-        var content = """<div id="demoPane" class="demo">"""
-        content += demo.content
-        content += """  <div class="demo-nav">"""
-        if (id == demos.length - 1) {
-          // last demo
-          content += """    <button class="btn btn-success" demo-action="close">Ok!</button>""";
-        } else {
-          content += """    <button class="btn" demo-action="close">Got it</button>""";
-          content += """    <button class="btn btn-success" demo-action="next">Next <i class="fa fa-forward"></i></button>""";
-        }
-        content += """  </div>"""
-        content += """</div>"""
-
+        lastDemo = demo.where;
+        
         val where = demo.where
-
-        lastDemo = where;
 
         if (where.length == 0) {
           LocalStorage.update("leonSeenDemo", (id + 1).toString)
@@ -1666,20 +1690,14 @@ trait LeonWeb {
           return ;
         }
 
-        val progress = (for (i <- 0 until (demos.length - 1)) yield {
-          if (i < id) {
-            """<i class="fa fa-circle"></i>"""
-          } else {
-            """<i class="fa fa-circle-o"></i>"""
-          }
-        }).mkString("")
+        val progress = createProgress(id, demos.length - 1)
 
         where.popover(l(
           html = true,
           placement = demo.placement.toString,
           trigger = "manual",
           title = """<span class="demo-progress">""" + progress + """</span>""" + demo.title,
-          content = content,
+          content = getHtmlDemo(demo, id == demos.length - 1),
           container = "body"))
 
         where.popover("show")
@@ -1723,6 +1741,72 @@ trait LeonWeb {
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
+  
+  /* Demos to be shown in context of some events. */
+  
+  val demoClarification =
+    Demo(
+      where = $("#clarificationResults"),
+      placement = Placement.Top,
+      title = "Clarification",
+      content = """The clarification tab shows ambiguous outputs produced by custom examples.<br>You may edit them - especially to replace the <span class="placeholder" style="font-family:FontAwesome">&#xf059;</span> markers. If you edit them, remember to validate them."""
+    )
+
+  val demoEditCounterExamples =
+    Demo(
+      where = $("#verifyResults"),
+      placement = Placement.Top,
+      title = "Edit counter examples",
+      content = """You are looking at counter-examples which look complex.<br>If you wish, you can edit how they should be rendered by clicking on one of them, editing it and clicking on "validate"."""
+    )
+    
+  val demoSynthesizePrettyPrinter =
+    Demo(
+      where = $("#synthesis_table td.problem").first(),
+      placement = Placement.Left,
+      title = "Synthesize Pretty Printer",
+      content = """After showing how to render the counter-example, click to synthesize the renderer. After doing so and having clicked on "import code", the pretty printer will be ready."""
+    )
+    
+  def showContextDemo(demo: Demo, demos: Demo*): Unit = showContextDemo(demo +: demos.toSeq, 0)
+    
+  def showContextDemo(demos: Seq[Demo], index: Int): Unit = {
+    if(demos.length == 0 || index >= demos.length) return;
+    val nth = index + 1
+    val maxNth = demos.length
+    val demo = demos(index)
+    def storageName(demo: Demo) = "leonSeenDemo_"+demo.title
+    def next() = showContextDemo(demos, index + 1)
+
+    val seenDemo = LocalStorage(storageName(demo)).getOrElse("") == "closed"
+    if(seenDemo) return next();
+    
+    val content = getHtmlDemo(demo, last = true)
+    val where = demo.where
+    
+    val progress = createProgress(nth, maxNth)
+    where.popover(l(
+      html = true,
+      placement = demo.placement.toString,
+      trigger = "manual",
+      title = """<span class="demo-progress">""" + progress + """</span>""" + demo.title,
+      content = getHtmlDemo(demo, nth == maxNth),
+      container = "body"))
+
+    where.popover("show")
+    
+    $("#demoPane button[demo-action=\"close\"]").click(() => {
+      LocalStorage.update(storageName(demo), "closed")
+      where.popover("destroy")
+    })
+
+    $("#demoPane button[demo-action=\"next\"]").click(() => {
+      LocalStorage.update(storageName(demo), "closed")
+      where.popover("destroy")
+      next()
+    })
+  }
+  
 
   /*
   snowStorm.snowColor = "#ddddff";

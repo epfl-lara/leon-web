@@ -319,6 +319,12 @@ object Handlers extends js.Object {
       synthesisOverview = data;
       drawSynthesisOverview();
       
+      Main.onSynthesisTabDisplay match {
+        case Some(handler) => handler()
+          Main.onSynthesisTabDisplay = None
+        case None =>
+      }
+      
       val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
       if (hasFunctions && Features.synthesis.active) {
         if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
@@ -652,6 +658,7 @@ object Handlers extends js.Object {
     //disambiguationResultDisplayContainer().show()
     // Switch tabs:
     engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
+    Main.showContextDemo(Main.demoClarification)
   }
 
   val synthesis_exploration = (data: HSynthesisExploration) => {
