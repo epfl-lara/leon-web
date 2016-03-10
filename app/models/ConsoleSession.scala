@@ -624,6 +624,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           Some(program)
         }
         catch {
+          case e: java.nio.channels.ClosedChannelException =>
+            logInfo("Channel closed")
+            None
+
           case t: Throwable =>
             logInfo("Failed to compile and/or extract "+t)
             None
