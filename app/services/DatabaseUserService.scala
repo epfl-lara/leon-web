@@ -15,6 +15,8 @@ import leon.web.stores.UserStore
 
 import scala.concurrent.Future
 
+import _root_.java.sql.Connection
+
 /** SecureSocial UserService implementation that stores and
   * retrieves users from the default database.
   */
