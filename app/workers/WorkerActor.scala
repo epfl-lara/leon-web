@@ -18,7 +18,7 @@ abstract class WorkerActor(val session: ActorRef, val interruptManager: Interrup
                                       interruptManager = interruptManager,
                                       options =
                                         Seq(
-                                            LeonOption(SharedOptions.optSelectedSolvers)(Set("smt-cvc4","smt-z3"))
+                                            LeonOption(GlobalOptions.optSelectedSolvers)(Set("smt-cvc4","smt-z3"))
                                         ))
 
   def pushMessage(v: JsValue) = session ! NotifyClient(v)

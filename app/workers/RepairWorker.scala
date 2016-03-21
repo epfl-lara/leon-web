@@ -86,7 +86,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                     error("Failed to repair :(")
                   } else {
                     val (sol, isTrusted) = solutions.last
-                    val expr = sol.toSimplifiedExpr(ctx, program)
+                    val expr = sol.toSimplifiedExpr(ctx, program, fd)
 
                     val fdDup = fd.duplicate()
                     fdDup.body = Some(expr)

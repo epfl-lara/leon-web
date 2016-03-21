@@ -5,6 +5,8 @@ import leon._
 import leon.synthesis._
 import leon.synthesis.graph._
 import play.api.libs.json.Json._
+import leon.synthesis.strategies.CostBasedStrategy
+import leon.synthesis.strategies.BoundedStrategy
 
 class SimpleWebSearch(cs: BaseActor,
                       ctx: LeonContext,
@@ -12,17 +14,24 @@ class SimpleWebSearch(cs: BaseActor,
                       p: Problem,
                       costModel: CostModel,
                       bound: Option[Int]
-                      ) extends SimpleSearch(ctx, ci, p, costModel, bound) {
+                      ) extends Search(ctx, ci, p, {
+                          val cbs = new CostBasedStrategy(ctx, costModel)
+                          bound match {
+                            case Some(bound) => BoundedStrategy(cbs, bound)
+                            case None => cbs
+                          }
+                      }) {
 
-  override def doStep(n: Node, sctx: SynthesisContext) = {
-    super.doStep(n, sctx);
-
-    val (closed, total) = g.getStats()
-
-    cs.event("synthesis_result", Map(
-      "result" -> toJson("progress"),
-      "closed" -> toJson(closed),
-      "total" -> toJson(total)
-    ))
+  override def doExpand(n: Node, sctx: SynthesisContext) = {
+    if (!n.isExpanded) {
+      super.doExpand(n, sctx)
+      val (closed, total) = g.getStats()
+  
+      cs.event("synthesis_result", Map(
+        "result" -> toJson("progress"),
+        "closed" -> toJson(closed),
+        "total" -> toJson(total)
+      ))
+    }
   }
 }
