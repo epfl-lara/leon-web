@@ -180,7 +180,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
         try {
           search.traversePath(path) match {
             case Some(n) =>
-              val hctx = SearchContext(synth.sctx, synth.ci, n, search)
+              val hctx = new SearchContext(synth.sctx, synth.ci.source, n, search)
 
               if (!n.isExpanded) {
                 n.expand(hctx)
@@ -247,7 +247,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
               def solutionsTree(n: Node, path: List[Int], ws: Int): String = {
 
-                val hctx = SearchContext(synth.sctx, synth.ci, n, search)
+                val hctx = new SearchContext(synth.sctx, synth.ci.source, n, search)
 
                 val osol = n.solutions.flatMap ( sols => 
                   if (sols.isDefinedAt(n.selectedSolution)) {
@@ -377,7 +377,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               
 
               if (!an.isExpanded) {
-                val hctx = SearchContext(sctx, synth.ci, an, search)
+                val hctx = new SearchContext(sctx, synth.ci.source, an, search)
                 an.expand(hctx)
               }
 
@@ -414,9 +414,9 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     import leon.purescala.PrinterHelpers._
 
     val ci = synth.ci
-    val SourceInfo(fd, pc, src, spec, tb) = ci
+    val SourceInfo(fd, src, pb) = ci //SourceInfo(fd, pc, src, spec, tb) = ci
 
-    val solCode = sol.toSimplifiedExpr(synth.context, synth.program)
+    val solCode = sol.toSimplifiedExpr(synth.context, synth.program, fd)
 
     val (defs, expr) = liftClosures(solCode)
 
@@ -490,7 +490,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val orNode = search.g.root
           
           if (!orNode.isExpanded) {
-            val hctx = SearchContext(synth.sctx, synth.ci, orNode, synth.search)
+            val hctx = new SearchContext(synth.sctx, synth.ci.source, orNode, synth.search)
             orNode.expand(hctx)
           }
 
@@ -573,18 +573,21 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             // Validate solution
             event("synthesis_proof", Map("status" -> toJson("init")))
             synth.validateSolution(search, sol, 2.seconds) match {
-              case (sol, true) =>
+              case (sol, Some(true)) =>
                 event("synthesis_proof", Map("status" -> toJson("success")))
                 (sol, true)
-              case (sol, false) =>
+              case (sol, Some(false)) =>
                 event("synthesis_proof", Map("status" -> toJson("failure")))
+                (sol, false)
+              case (sol, None) =>
+                event("synthesis_proof", Map("status" -> toJson("unknown")))
                 (sol, false)
             }
           } else {
             (sol, true)
           }
 
-          val solCode = newSol.toSimplifiedExpr(ctx, prog)
+          val solCode = newSol.toSimplifiedExpr(ctx, prog, ci.fd)
           val fInt = new FileInterface(new MuteReporter())
 
 

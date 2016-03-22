@@ -32,7 +32,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
   
   def convertExampleToFullCode(cstate: CompilationState, synth: Synthesizer, in: Expr, out: Expr): String = {
     val ci = synth.ci
-    val SourceInfo(fd, pc, src, spec, tb) = ci
+    val SourceInfo(fd, src, pb) = ci //pc, , spec, tb
 
     leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefModified(fd)(nfd => {
       val ea = new ExamplesAdder(synth.context, cstate.program)
@@ -105,7 +105,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       logInfo("Receiving new solutions ! disambiguating ...")
       event("disambiguation_started", Map())
       val ci = synth.ci
-      val SourceInfo(fd, pc, src, spec, tb) = ci
+      val SourceInfo(fd, src, pb) = ci
       
       val qb = new QuestionBuilder(fd.paramIds.filter(x => !x.getType.isInstanceOf[FunctionType]), ssol, filterRedundantExprs)(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
