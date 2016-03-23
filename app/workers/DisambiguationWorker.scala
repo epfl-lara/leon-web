@@ -76,14 +76,15 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
     else
       Some(current)
   }
+  import leon.grammars._
   
   /** Specific enumeration of strings, which can be used with the QuestionBuilder#setValueEnumerator method */
-  object NonEmptyValueGrammarfirst extends leon.grammars.ExpressionGrammar[TypeTree] {
-    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[Prod] = t match {
+  object NonEmptyValueGrammarfirst extends SimpleExpressionGrammar {
+    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[ProductionRule[TypeTree, Expr]] = t match {
        case StringType =>
           List(
-            terminal(StringLiteral("foo")),
-            terminal(StringLiteral("\"'\n\t"))
+            terminal(StringLiteral("foo"), Tags.Constant),
+            terminal(StringLiteral("\"'\n\t"), Tags.Constant)
             //terminal(StringLiteral("Lara 2007"))
           )
        case tp: TypeParameter =>
