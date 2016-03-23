@@ -37,6 +37,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 import scala.util.Failure
 import leon.purescala.Definitions.Program
+import laziness._
+import LazinessUtil._
 
 /**
  * @author Mikael
@@ -57,10 +59,9 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
     case OnUpdateCode(cstate) =>
       program = Some(cstate.program)
-
       for (fd <- cstate.functions) {
         val veriStatus =
-          if (fd.hasTemplate || fd.getPostWoTemplate =!= tru) false
+          if (fd.hasTemplate || fd.getPostWoTemplate != tru) false
           else true
         invariantOverview += fd.id.name ->
           FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = veriStatus)
@@ -69,9 +70,6 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       notifyInvariantOverview(cstate)
 
       val startProg = cstate.program
-      //val nctx = this.ctx.copy(reporter = new TestSilentReporter)
-      val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=7") //, s"--functions=${inFun.id.name}")
-
       inferEngine match {
         case Some(engine) =>
           engine.interrupt()
@@ -79,10 +77,14 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
           leonctx.interruptManager.recoverInterrupt()
         case None =>
       }
+      if(hasLazyEval(cstate.program)) { // we need to use laziness extension phase
 
-      val inferContext = new InferenceContext(startProg, leonctx)
-      val engine = (new InferenceEngine(inferContext))
-      inferEngine = Some(engine)
+      } else {
+        val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=3", "--solvers=smt-z3") //, s"--functions=${inFun.id.name}")
+        val inferContext = new InferenceContext(startProg, leonctx)
+        val engine = (new InferenceEngine(inferContext))
+        inferEngine = Some(engine)
+      }
 
       Future {
         engine.runWithTimeout(Some(
@@ -121,6 +123,16 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
     case OnClientEvent(cstate, event) =>
 
     case _                            =>
+  }
+
+  def hasLazyEval(program: Program): Boolean = {
+    userLevelFunctions(program).exists{fd =>
+      isMemoized(fd) || exists(isLazyInvocation(_)(program))(fd.fullBody)
+    }
+  }
+
+  def hasTemplates(program: Program): Boolean = {
+    userLevelFunctions(program).exists(_.hasTemplate)
   }
 
   def notifyInvariantOverview(cstate: CompilationState): Unit = {
