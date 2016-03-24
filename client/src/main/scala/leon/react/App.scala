@@ -329,16 +329,10 @@ class App(private val api: LeonAPI) {
     }
 
     $("#login-btn").click { e: JQueryEventObject =>
-      if (!shouldSkipLoginModal) {
-        e.preventDefault()
-        Actions dispatch ToggleLoginModal(true)
-      }
+      e.preventDefault()
+      Actions dispatch ToggleLoginModal(true)
     }
   }
-
-  private
-  def shouldSkipLoginModal: Boolean =
-    LocalStorage("hideLogin").map(_ === "true").getOrElse(false)
 
   private
   def renderLoadRepoPanel(state: AppState): Unit = {

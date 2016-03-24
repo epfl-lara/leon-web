@@ -6,17 +6,17 @@ import play.api.Logger
 case class Debug(logger: Logger) {
 
   def log(msg: String)(implicit line: sourcecode.Line, file: sourcecode.File): Unit = {
-    logger.info(s"${file.value}:${line.value} $msg")
+    println(s"${file.value}:${line.value} $msg")
   }
 
   def debug[V](value: sourcecode.Text[V])
               (implicit enclosing: sourcecode.Enclosing): Unit = {
-    logger.debug(s"${enclosing.value}: ${value.value}")
+    println(s"${enclosing.value}: ${value.value}")
   }
 
   def debugSource[V](value: sourcecode.Text[V])
               (implicit enclosing: sourcecode.Enclosing): Unit = {
-    logger.debug(s"${enclosing.value} [${value.source}]: ${value.value}")
+    println(s"${enclosing.value} [${value.source}]: ${value.value}")
   }
 
   def apply[V](value: sourcecode.Text[V])

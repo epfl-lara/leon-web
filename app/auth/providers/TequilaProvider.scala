@@ -29,15 +29,13 @@ class TequilaProvider(routesService: RoutesService, cacheService: CacheService, 
     val profileUrl = TequilaProvider.GetProfileApi(info.accessToken)
 
     client.retrieveProfile(profileUrl) map { json =>
-      println(info)
-
       (json \ Error).asOpt[String] match {
         case Some(msg) =>
           logger.error(s"[securesocial] error retrieving profile information from Tequila. Message = $msg")
           throw new AuthenticationException()
 
         case None =>
-          val userId    = (json \ Sciper).as[String]
+          val userId    = (json \ Sciper).as[Int]
           val firstName = (json \ FirstName).asOpt[String]
           val lastName  = (json \ LastName).asOpt[String]
           val email     = (json \ Email).asOpt[String].filter(!_.isEmpty)
@@ -45,7 +43,7 @@ class TequilaProvider(routesService: RoutesService, cacheService: CacheService, 
 
         BasicProfile(
           providerId   = id,
-          userId       = userId,
+          userId       = userId.toString,
           firstName    = firstName,
           lastName     = lastName,
           fullName     = None,
@@ -71,11 +69,16 @@ object TequilaProvider {
 
   val Tequila = "tequila"
 
-  private val Root                 = "https://tequila.epfl.ch/cgi-bin/OAuth2IdP"
+  private val Root = "https://tequila.epfl.ch/cgi-bin/OAuth2IdP"
 
-  val GetCodeApi                   = s"$Root/auth?response_type=code"
-  def GetProfileApi(token: String) = s"$Root/userinfo?access_token=$token"
+  val GetCodeApi = s"$Root/auth?response_type=code"
 
+  def GetProfileApi(token: String) = {
+    import play.utils.UriEncoding
+
+    val encodedToken = UriEncoding.encodePathSegment(token, "UTF-8")
+    s"$Root/userinfo?access_token=$encodedToken"
+  }
 
 }
 

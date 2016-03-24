@@ -18,7 +18,7 @@ import org.joda.time.DateTime
 
 import _root_.java.sql.Connection
 
-import leon.web.models.{User, UserId}
+import leon.web.models.User
 
 class CookieAuthenticatorStore(implicit executionContext: ExecutionContext)
   extends AuthenticatorStore[CookieAuthenticator[User]] {
@@ -36,11 +36,11 @@ class CookieAuthenticatorStore(implicit executionContext: ExecutionContext)
       creationDate   <- get[DateTime]("creation_date")
     } yield CookieAuthenticator(
       authId,
-      UserId(userId),
+      User.UserId(userId),
       expirationDate,
       lastUsed,
       creationDate,
-      this.asInstanceOf[AuthenticatorStore[CookieAuthenticator[UserId]]]
+      this.asInstanceOf[AuthenticatorStore[CookieAuthenticator[User.UserId]]]
     )
   }
 

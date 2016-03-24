@@ -31,6 +31,10 @@ input[type="checkbox"] + label {
   margin-left: 5px;
 }
 
+.center {
+  text-align: center;
+}
+
 .panel > h3, #title {
     background: #19214F !important;
 }
@@ -583,6 +587,11 @@ pre.exploreBlock .header .name span {
 }
 
 /* Login */
+.auth-buttons {
+  margin-top: 2em;
+  margin-bottom: 1em;
+}
+
 .hide-login-footer {
   margin-right: 10px;
 }

@@ -16,6 +16,21 @@
 
   <logger name="play" level="INFO" />
   <logger name="application" level="INFO" />
+  <logger name="services.UserService" level="DEBUG">
+    <appender-ref ref="STDOUT" />
+  </logger>
+
+  <logger name="com.jolbox.bonecp" level="DEBUG">
+    <appender-ref ref="STDOUT" />
+  </logger>
+
+  <logger name="securesocial.controllers.ProviderController" level="DEBUG">
+    <appender-ref ref="STDOUT" />
+  </logger>
+
+  <logger name="leon.web.auth.providers.TequilaProvider" level="DEBUG">
+    <appender-ref ref="STDOUT" />
+  </logger>
 
   <root level="ERROR">
     <appender-ref ref="STDOUT" />

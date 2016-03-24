@@ -16,7 +16,8 @@ GET   /assets/*file                 controllers.Assets.at(path="/public", file)
 GET   /assets/*file                 securesocial.controllers.Assets.at(path = "/public/securesocial", file)
 
 # Login page
-GET   /login                        @leon.web.controllers.Account.login
+GET   /login                        @leon.web.controllers.Account.redirect(path="/")
+GET   /login/:provider              @leon.web.controllers.Account.login(provider)
 GET   /logout                       @securesocial.controllers.LoginPage.logout
 
 # Authentication entry points for all providers

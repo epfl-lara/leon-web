@@ -16,7 +16,7 @@ val appDependencies = Seq(
     exclude("javax.jms", "jms")
     exclude("com.sun.jdmk", "jmxtools")
     exclude("com.sun.jmx", "jmxri")
-    exclude("org.sl4j", "slf4j-log4j12")
+    exclude("org.slf4j", "slf4j-log4j12")
     exclude("log4j", "log4j"),
 
   jdbc,
@@ -31,6 +31,12 @@ val appDependencies = Seq(
   "org.webjars" % "octicons" % "3.1.0",
   "org.webjars" % "prettify" % "4-Mar-2013",
   "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"
+)
+
+excludeDependencies ++= Seq(
+  "org.slf4j" % "slf4j-jdk14",
+  "org.slf4j" % "slf4j-nop",
+  "org.slf4j" % "slf4j-log4j12"
 )
 
 val compilerOptions = Seq(

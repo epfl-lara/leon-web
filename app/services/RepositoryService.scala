@@ -16,7 +16,7 @@ object RepositoryService {
   }
 
   def repositoryFor(user: User, owner: String, name: String, token: Option[String] = None): RepositoryInfos = {
-    val path = new File(s"$root/${user.fullId}/$owner/$name")
+    val path = new File(s"$root/${user.userId.value}/$owner/$name")
     new RepositoryInfos(path, user, token)
   }
 
