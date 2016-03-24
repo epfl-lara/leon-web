@@ -36,7 +36,11 @@ import scala.concurrent._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 import scala.util.Failure
+import scala.util.Try
 import leon.purescala.Definitions.Program
+import laziness._
+import LazinessUtil._
+import verification._
 
 /**
  * @author Mikael
@@ -56,71 +60,134 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       sender ! Cancelled(this)
 
     case OnUpdateCode(cstate) =>
+      initState(cstate)
       program = Some(cstate.program)
-
-      for (fd <- cstate.functions) {
-        val veriStatus =
-          if (fd.hasTemplate || fd.getPostWoTemplate =!= tru) false
-          else true
-        invariantOverview += fd.id.name ->
-          FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = veriStatus)
-      }
-      allCode = None
-      notifyInvariantOverview(cstate)
-
       val startProg = cstate.program
-      //val nctx = this.ctx.copy(reporter = new TestSilentReporter)
-      val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=7") //, s"--functions=${inFun.id.name}")
-
       inferEngine match {
         case Some(engine) =>
           engine.interrupt()
           // reinitialize the interrupt manager
-          leonctx.interruptManager.recoverInterrupt()
+          this.ctx.interruptManager.recoverInterrupt()
         case None =>
       }
 
-      val inferContext = new InferenceContext(startProg, leonctx)
-      val engine = (new InferenceEngine(inferContext))
-      inferEngine = Some(engine)
-
-      Future {
-        engine.runWithTimeout(Some(
-          (ic: InferenceCondition) => {
-            ic.prettyInv match {
-              case Some(inv) =>
-                val timeExecution = ic.time
-                val funName = InstUtil.userFunctionName(ic.fd)
-                val userFun = functionByName(funName, startProg).get
-                // replace '?' in the template
-                val template = userFun.template.map { k =>
-                  PrettyPrinter(simplePostTransform {
-                    case Variable(id) if id.name.startsWith("q?") =>
-                      Variable(FreshIdentifier("?", id.getType))
-                    case e => e
-                  }(k))
-                }.getOrElse("")
-                val invStr = PrettyPrinter(inv)
-                invariantOverview += funName ->
-                  FunInvariantStatus(Some(userFun), Some(template), Some(invStr), None, timeExecution, true)
-                notifyInvariantOverview(cstate)
-              case _ => Nil
-            }
-          }))
-      } onComplete {
+      // a call-back for updating progress in the interface
+      val progressCallback: InferenceCondition => Unit = (ic: InferenceCondition) => {
+        val funName = InstUtil.userFunctionName(ic.fd)
+        val userFun = functionByName(funName, startProg).get
+        // replace '?' in the template
+        val template = userFun.template.map { k =>
+          PrettyPrinter(simplePostTransform {
+            case Variable(id) if id.name.startsWith("q?") =>
+              Variable(FreshIdentifier("?", id.getType))
+            case e => e
+          }(k))
+        }.getOrElse("")
+        val timeExecution = ic.time
+        invariantOverview += funName ->
+          FunInvariantStatus(Some(userFun), Some(template), ic.prettyInv.map(inv => PrettyPrinter(inv)),
+              None, timeExecution, ic.prettyInv.isDefined)
+        notifyInvariantOverview(cstate)
+      }
+      // a call-back that would be invoked when inference, which is running in a Future, is completed
+      val onInferComplete: InferenceContext => Try[InferenceReport] => Unit = inferctx => _ match {
         case Success(result: InferenceReport) =>
           inferEngine = None
           // TODO : Update ONLY the function, not all the code.
-          allCode = Some(ScalaPrinter(InferenceReportUtil.pushResultsToInput(inferContext, result.conditions)))
+          allCode = Some(ScalaPrinter(InferenceReportUtil.pushResultsToInput(inferctx, result.conditions)))
           notifyInvariantOverview(cstate)
         case Failure(msg) =>
           inferEngine = None
-          clientLog("Failed for no reason except: " + msg)
+          clientLog("Failed due to: " + msg)
+      }
+
+      if (hasLazyEval(startProg)) { // we need to use laziness extension phase
+        val leonctx = createLeonContext(ctx, s"--lazy", s"--useOrb", s"--timeout=100")
+        val (stateVeriProg, resourceVeriProg) = LazinessEliminationPhase.genVerifiablePrograms(this.ctx, startProg)
+        val checkCtx = LazyVerificationPhase.contextForChecks(leonctx)
+        Future {
+          LazyVerificationPhase.checkSpecifications(stateVeriProg, checkCtx)
+        } onComplete {
+          case Success(stateResult: VerificationReport) =>
+            var failed = false
+            stateResult.vrs foreach {
+              case (vc, vr) =>
+                val funName = vc.fd.id.name
+                val userFun = functionByName(funName, startProg).getOrElse(vc.fd)
+                val success = vr.isValid
+                if (!success) {
+                  invariantOverview += (funName ->
+                    FunInvariantStatus(Some(userFun), None, None, None, vr.timeMs.map(_ / 1000.0), false, true))
+                  notifyInvariantOverview(cstate)
+                  failed = true
+                }
+            }
+            if (!failed) {
+              //set up state for resource inference
+              for (fd <- cstate.functions)
+                invariantOverview += fd.id.name -> FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = !fd.hasTemplate)
+              notifyInvariantOverview(cstate)
+              // resource inference
+              val inferctx = LazyVerificationPhase.getInferenceContext(checkCtx, resourceVeriProg)
+              val engine = new InferenceEngine(inferctx)
+              inferEngine = Some(engine)
+              Future {
+                LazyVerificationPhase.checkUsingOrb(engine, inferctx, Some(progressCallback))
+              } onComplete {
+                onInferComplete(inferctx)
+              }
+            }
+          case Failure(msg) =>
+            inferEngine = None
+            clientLog("Failed due to: " + msg)
+        }
+      } else {
+        setStateBeforeInference(cstate)
+        val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=3", "--solvers=smt-z3") //, s"--functions=${inFun.id.name}")
+        val inferContext = new InferenceContext(startProg, leonctx)
+        val engine = (new InferenceEngine(inferContext))
+        inferEngine = Some(engine)
+        Future {
+          engine.runWithTimeout(Some(progressCallback))
+        } onComplete {
+          onInferComplete(inferContext)
+        }
       }
 
     case OnClientEvent(cstate, event) =>
 
     case _                            =>
+  }
+
+  def initState(cstate: CompilationState) = {
+    for (fd <- cstate.functions) {
+      invariantOverview += fd.id.name ->
+        FunInvariantStatus(Some(fd), None, None, None, None, false)
+    }
+    allCode = None
+    notifyInvariantOverview(cstate)
+  }
+
+  def setStateBeforeInference(cstate: CompilationState) = {
+    for (fd <- cstate.functions) {
+      val veriStatus =
+        if (fd.hasTemplate || fd.getPostWoTemplate != tru) false
+        else true
+      invariantOverview += fd.id.name ->
+        FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = veriStatus)
+    }
+    allCode = None
+    notifyInvariantOverview(cstate)
+  }
+
+  def hasLazyEval(program: Program): Boolean = {
+    userLevelFunctions(program).exists{fd =>
+      isMemoized(fd) || exists(isLazyInvocation(_)(program))(fd.fullBody)
+    }
+  }
+
+  def hasTemplates(program: Program): Boolean = {
+    userLevelFunctions(program).exists(_.hasTemplate)
   }
 
   def notifyInvariantOverview(cstate: CompilationState): Unit = {
