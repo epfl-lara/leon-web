@@ -16,6 +16,7 @@ import securesocial.core.providers.GitHubProvider
 import leon.web.models.User
 import leon.web.services.DatabaseUserService
 import leon.web.stores.CookieAuthenticatorStore
+import leon.web.auth.providers.TequilaProvider
 
 object Global extends GlobalSettings {
 
@@ -28,7 +29,8 @@ object Global extends GlobalSettings {
     )
 
     override lazy val providers = ListMap(
-      include(new GitHubProvider(routes, cacheService, oauth2ClientFor(GitHubProvider.GitHub)))
+      include(new GitHubProvider(routes, cacheService, oauth2ClientFor(GitHubProvider.GitHub))),
+      include(new TequilaProvider(routes, cacheService, oauth2ClientFor(TequilaProvider.Tequila)))
     )
   }
 

@@ -41,6 +41,10 @@ Later, when pulling changes, use the command `git submodule update --recursive`.
     # GitHub application credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
     auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"```
+
+    # Tequila application credentials
+    auth.tequila.clientId="YOUR_TEQUILA_APP_CLIENT_ID"
+    auth.tequila.clientSecret="YOUR_TEQUILA_APP_CLIENT_SECRET"
     
 #### Launch your local leon server
 
