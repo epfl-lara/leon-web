@@ -7,8 +7,6 @@ package react
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
-import japgolly.scalajs.react._
-
 import monifu.reactive._
 import monifu.reactive.subjects._
 

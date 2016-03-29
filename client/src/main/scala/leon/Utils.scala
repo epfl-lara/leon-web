@@ -118,13 +118,12 @@ trait ObjectWithBracketAccess extends js.Object {
 }
 
 object SelectionHandler {
-  import Implicits._
   import dom.raw.Node
   
   private def getAbsCursorPosition(fromElem: Node, anchorNode: js.UndefOr[Node], acc: Int): Int = {
     if(anchorNode.isEmpty || anchorNode.get == null) {
       acc
-    } else if(anchorNode == fromElem) {
+    } else if(anchorNode.get === fromElem) {
       acc
     } else {
       // fromElem is an ancestor of anchorNode
