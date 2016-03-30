@@ -3,60 +3,36 @@
 package leon.web
 package models
 
-import leon.web.utils.Hash
 import leon.web.shared.Provider
 
 import securesocial.core._
 
 case class User(
   userId: User.UserId,
-  identities: Set[Identity],
-  firstName: Option[String],
-  lastName: Option[String],
-  fullName: Option[String],
-  email: Option[User.Email],
-  avatarUrl: Option[String],
-  authMethod: AuthenticationMethod,
-  oAuth2Info: Option[OAuth2Info] = None) {
+  main: Identity,
+  identities: Set[Identity]
+) {
 
   def identity(provider: Provider): Option[Identity] =
     identities.find(_.provider == provider)
 
-  def nameOrEmail: Option[String] = {
-    lazy val firstLast =
-      firstName
-        .zip(lastName)
-        .headOption
-        .map { case (f, l) => s"$f $l" }
+  lazy val github  = identity(Provider.GitHub)
+  lazy val tequila = identity(Provider.Tequila)
 
-    fullName orElse firstLast orElse email.map(_.value)
-  }
 }
 
 object User {
 
-  case class UserId(value: String) extends AnyVal
-  case class Email(value: String)  extends AnyVal
+  type Email = Identity.Email
 
-  def toProfile(u: User, provider: Provider): BasicProfile =
-    BasicProfile(
-      u.identity(provider).map(_.fullId).getOrElse("???"),
-      u.userId.value,
-      u.firstName, u.lastName, u.fullName,
-      u.email.map(_.value), u.avatarUrl,
-      u.authMethod, None, u.oAuth2Info, None
-    )
+  case class UserId(value: String) extends AnyVal
+
+  def apply(userId: UserId, ids: Set[Identity], mainProvider: Provider): User =
+    new User(userId, ids.find(_.provider === mainProvider).get, ids)
 
   def fromProfile(p: BasicProfile): User = {
-    val userId = Hash.hash(p.providerId + "-" + p.userId, 0)
-
-    User(
-      UserId(userId),
-      Set(),
-      p.firstName, p.lastName, p.fullName,
-      p.email.map(Email), p.avatarUrl,
-      p.authMethod, p.oAuth2Info
-    )
+    val id = Identity.fromProfile(p)
+    User(id.userId, id, Set(id))
   }
 
 }

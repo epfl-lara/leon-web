@@ -47,11 +47,9 @@ class DatabaseUserService extends UserServiceBase {
     val provider      = Provider(providerId)
     val serviceUserId = ServiceUserId(userId)
 
-    for {
-      id   <- IdentityStore.findByProviderAndServiceUserId(provider, serviceUserId)
-      user <- UserStore.findById(id.userId)
-    }
-    yield User.toProfile(user, provider)
+    val id = IdentityStore.findByProviderAndServiceUserId(provider, serviceUserId)
+
+    id.map(Identity.toProfile)
   }
 
   /**
@@ -87,12 +85,7 @@ class DatabaseUserService extends UserServiceBase {
     val user          = identity flatMap { id => UserStore.findById(id.userId) }
 
     user.getOrElse {
-      val newUser  = UserStore.save(User.fromProfile(profile))
-      val identity = Identity(newUser.userId, provider, serviceUserId)
-
-      IdentityStore.save(identity)
-
-      newUser.copy(identities = newUser.identities + identity)
+      UserStore.save(User.fromProfile(profile))
     }
   }
 
@@ -108,7 +101,7 @@ class DatabaseUserService extends UserServiceBase {
 
     val provider      = Provider(to.providerId)
     val serviceUserId = ServiceUserId(to.userId)
-    val identity      = Identity(current.userId, provider, serviceUserId)
+    val identity      = Identity.fromProfile(to, Some(current.userId))
 
     IdentityStore.save(identity)
 

@@ -4,7 +4,7 @@
   case Some(user) => {
     <a id="logout-btn" href="@securesocial.controllers.routes.LoginPage.logout">
       <i class="fa fa-sign-out"></i>
-      <span>Logout @user.email.map("(" + _.value + ")").getOrElse("")</span>
+      <span>Logout @user.main.email.map("(" + _.value + ")").getOrElse("")</span>
     </a>
   }
 

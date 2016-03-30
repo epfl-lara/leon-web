@@ -44,7 +44,7 @@
                 <strong>Error:</strong> @msg
               </div>
             }
-            @if(user.isDefined) {
+            @if(user.flatMap(_.github).isDefined) {
               <div id="load-repo-panel"></div>
             }
             <div id="selectcolumn" class="panel">

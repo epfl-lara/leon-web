@@ -9,6 +9,7 @@ import java.sql.Connection
 import play.api.Play.current
 
 import leon.web.models.User
+import leon.web.shared.Provider
 
 import securesocial.core._
 
@@ -23,23 +24,10 @@ object UserStore {
 
   def parser = {
     for {
-      userId      <- str("user_id")
-      firstName   <- str("first_name").?
-      lastName    <- str("last_name").?
-      fullName    <- str("full_name").?
-      email       <- str("email").?
-      avatarUrl   <- str("avatar_url").?
-      authMethod  <- str("auth_method")
-      accessToken <- str("access_token").?
+      userId         <- str("user_id")
+      mainProviderId <- str("main_provider_id")
     }
-    yield User(
-      UserId(userId),
-      Set(),
-      firstName, lastName, fullName,
-      email.map(Email), avatarUrl,
-      AuthenticationMethod(authMethod),
-      accessToken.map(OAuth2Info(_, None, None, None))
-    )
+    yield (UserId(userId), Provider(mainProviderId))
   }
 
   def findById(userId: UserId)(implicit c: Connection): Option[User] = {
@@ -49,29 +37,21 @@ object UserStore {
       LIMIT 1
       """
 
-    query.as(parser.singleOpt) map { user =>
-      val ids = IdentityStore.findByUserId(user.userId)
-      user.copy(identities = ids)
+    query.as(parser.singleOpt) map { case (id, provider) =>
+      val ids = IdentityStore.findByUserId(id)
+      User(id, ids, provider)
     }
   }
 
   def save(u: User)(implicit c: Connection): User = {
     val query = SQL"""
-    MERGE INTO users (
-      user_id,
-      first_name, last_name, full_name,
-      email, avatar_url,
-      auth_method, access_token
-    )
-    VALUES (
-      ${u.userId.value},
-      ${u.firstName}, ${u.lastName}, ${u.fullName},
-      ${u.email.map(_.value)}, ${u.avatarUrl},
-      ${u.authMethod.method}, ${u.oAuth2Info.map(_.accessToken)}
-    )
+      MERGE INTO users (user_id, main_provider_id)
+      VALUES (${u.userId.value}, ${u.main.provider.id})
     """
 
     query.executeInsert()
+
+    u.identities.foreach(IdentityStore.save)
 
     findById(u.userId).get
   }

@@ -65,22 +65,26 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
   }
 
-  def withUser(f: User => Unit): Unit = user match {
-    case Some(user) =>
+  def withGitHubUser(f: User => Unit): Unit = user match {
+    case Some(user) if user.github.isDefined =>
       f(user)
 
     case None =>
-      notifyError("Cannot perform this operation when user is not logged-in.")
-      logInfo("Cannot perform this operation when user is not logged-in.")
+      notifyError("Cannot perform this operation when user is not logged-in with GitHub.")
+      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
   }
 
-  def withToken(user: User)(f: String => Unit): Unit = user.oAuth2Info.map(_.accessToken) match {
-    case Some(token) =>
-      f(token)
+  def withGitHubToken(user: User)(f: String => Unit): Unit = {
+    val token = user.github.flatMap(_.oAuth2Info).map(_.accessToken)
 
-    case None =>
-      notifyError("Cannot perform this operation when user has no OAuth token.")
-      logInfo("Cannot perform this operation when user has no OAuth token.")
+    token match {
+      case Some(token) =>
+        f(token)
+
+      case None =>
+        notifyError("Cannot perform this operation when user has no OAuth token.")
+        logInfo("Cannot perform this operation when user has no OAuth token.")
+    }
   }
 
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
@@ -144,7 +148,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Action.doUpdateCode =>
                 self ! UpdateCode((event \ "code").as[String], None, None)
 
-              case Action.doUpdateCodeInProject => withUser { user =>
+              case Action.doUpdateCodeInProject => withGitHubUser { user =>
                 val owner  = (event \ "owner" ).as[String]
                 val repo   = (event \ "repo"  ).as[String]
                 val branch = (event \ "branch").as[String]
@@ -162,18 +166,18 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
-              case Action.loadRepositories => withUser { user =>
+              case Action.loadRepositories => withGitHubUser { user =>
                 self ! LoadRepositories(user)
               }
 
-              case Action.loadRepository => withUser { user =>
+              case Action.loadRepository => withGitHubUser { user =>
                 val owner = (event \ "owner").as[String]
                 val repo  = (event \ "repo").as[String]
 
                 self ! LoadRepository(user, owner, repo)
               }
 
-              case Action.loadFile => withUser { user =>
+              case Action.loadFile => withGitHubUser { user =>
                 val owner = (event \ "owner").as[String]
                 val repo  = (event \ "repo").as[String]
                 val file  = (event \ "file").as[String]
@@ -181,7 +185,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 self ! LoadFile(user, owner, repo, file)
               }
 
-              case Action.switchBranch => withUser { user =>
+              case Action.switchBranch => withGitHubUser { user =>
                 val owner  = (event \ "owner" ).as[String]
                 val repo   = (event \ "repo"  ).as[String]
                 val branch = (event \ "branch").as[String]
@@ -189,7 +193,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 self ! SwitchBranch(user, owner, repo, branch)
               }
 
-              case Action.doGitOperation => withUser { user =>
+              case Action.doGitOperation => withGitHubUser { user =>
                 val project = Project(
                   owner   = (event \ "project" \ "owner" ).as[String],
                   repo    = (event \ "project" \ "repo"  ).as[String],
@@ -268,7 +272,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           notifyError("Link not found ?!?: "+link)
       }
 
-      case LoadRepositories(user) => withToken(user) { token =>
+      case LoadRepositories(user) => withGitHubToken(user) { token =>
         clientLog(s"Fetching repositories list...")
 
         val gh     = GitHubService(token)
@@ -283,11 +287,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
 
         result onFailure { case err =>
-          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '${err.getMessage}'")
+          notifyError(s"Failed to load repositories. Reason: '${err.getMessage}'")
         }
       }
 
-    case LoadRepository(user, owner, name) => withToken(user) { token =>
+    case LoadRepository(user, owner, name) => withGitHubToken(user) { token =>
       clientLog(s"Fetching repository information...")
 
       val gh     = GitHubService(token)
@@ -351,7 +355,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         ))
       }
 
-    case LoadFile(user, owner, name, file) => withToken(user) { token =>
+    case LoadFile(user, owner, name, file) => withGitHubToken(user) { token =>
       clientLog(s"Loading file '$file'...")
 
       val gh     = GitHubService(token)
@@ -389,7 +393,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
     }
 
-    case SwitchBranch(user, owner, name, branch) => withToken(user) { token =>
+    case SwitchBranch(user, owner, name, branch) => withGitHubToken(user) { token =>
       clientLog(s"Checking out branch '$branch'...")
 
       val gh     = GitHubService(token)
@@ -451,7 +455,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
     }
 
-    case DoGitOperation(user, project, op) => withToken(user) { token =>
+    case DoGitOperation(user, project, op) => withGitHubToken(user) { token =>
       clientLog(s"Performing Git operation: $op")
 
       val (owner, name) = (project.owner, project.repo)

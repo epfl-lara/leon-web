@@ -291,8 +291,8 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
   def commit(msg: String): Boolean = {
     try {
       val userId = user.userId.value
-      val name   = user.nameOrEmail.getOrElse(userId)
-      val email  = user.email.map(_.value).getOrElse(userId)
+      val name   = user.github.flatMap(_.nameOrEmail).getOrElse(userId)
+      val email  = user.github.flatMap(_.email.map(_.value)).getOrElse(userId)
 
       git.commit()
          .setAll(true)

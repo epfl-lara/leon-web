@@ -26,11 +26,22 @@ object IdentityStore {
       userId        <- str("user_id")
       providerId    <- str("provider_id")
       serviceUserId <- str("service_user_id")
+      firstName     <- str("first_name").?
+      lastName      <- str("last_name").?
+      fullName      <- str("full_name").?
+      email         <- str("email").?
+      avatarUrl     <- str("avatar_url").?
+      authMethod    <- str("auth_method")
+      accessToken   <- str("access_token").?
     }
     yield Identity(
       User.UserId(userId),
       Provider(providerId),
-      ServiceUserId(serviceUserId)
+      ServiceUserId(serviceUserId),
+      firstName, lastName, fullName,
+      email.map(Email), avatarUrl,
+      AuthenticationMethod(authMethod),
+      accessToken.map(OAuth2Info(_, None, None, None))
     )
   }
 
@@ -67,10 +78,16 @@ object IdentityStore {
   def save(i: Identity)(implicit c: Connection): Identity = {
     val query = SQL"""
     MERGE INTO identities (
-      user_id, provider_id, service_user_id
+      user_id, provider_id, service_user_id,
+      first_name, last_name, full_name,
+      email, avatar_url,
+      auth_method, access_token
     )
     VALUES (
-      ${i.userId.value}, ${i.provider.id}, ${i.serviceUserId.value}
+      ${i.userId.value}, ${i.provider.id}, ${i.serviceUserId.value},
+      ${i.firstName}, ${i.lastName}, ${i.fullName},
+      ${i.email.map(_.value)}, ${i.avatarUrl},
+      ${i.authMethod.method}, ${i.oAuth2Info.map(_.accessToken)}
     )
     """
 
