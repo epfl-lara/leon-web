@@ -60,5 +60,22 @@ object Identity {
       p.authMethod, p.oAuth2Info
     )
   }
+
+  import play.api.libs.json.JsValue
+
+  def toJson(id: Identity): JsValue = {
+    import play.api.libs.json._
+
+    Json.obj(
+      "userId"    -> id.serviceUserId.value,
+      "provider"  -> id.provider.id,
+      "firstName" -> id.firstName,
+      "lastName"  -> id.lastName,
+      "fullName"  -> id.fullName,
+      "email"     -> id.email.map(_.value),
+      "avatarUrl" -> id.avatarUrl
+    )
+  }
+
 }
 

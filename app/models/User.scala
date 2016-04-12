@@ -35,5 +35,20 @@ object User {
     User(id.userId, id, Set(id))
   }
 
+  import play.api.libs.json.JsValue
+
+  def toJson(user: User): JsValue = {
+    import play.api.libs.json._
+
+    Json.obj(
+      "id"         -> user.userId.value,
+      "main"       -> user.main.provider.id,
+      "identities" -> Json.obj(
+        "github"  -> user.github.map(Identity.toJson),
+        "tequila" -> user.tequila.map(Identity.toJson)
+      )
+    )
+  }
+
 }
 

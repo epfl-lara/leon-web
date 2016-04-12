@@ -1,4 +1,8 @@
-@(webconfig: leon.web.models.LeonWebConfig, user: Option[leon.web.models.User])(implicit request: RequestHeader)
+@import play.api.libs.json.Json
+@import leon.web.models.LeonWebConfig
+@import leon.web.models.User
+
+@(webconfig: LeonWebConfig, user: Option[User])(implicit request: RequestHeader)
 
 @main("Leon Online", webconfig) {
   <div id="allcontent">
@@ -24,6 +28,8 @@
         var _leon_websocket_url = "@leon.web.controllers.routes.Interface.openConsole().webSocketURL(webconfig.isSSL)";
 
         var _leon_isLoggedIn = @user.isDefined;
+
+        var _leon_user = @Html(user.map(u => Json.stringify(User.toJson(u))).getOrElse("null"))
     </script>
 
     <div class="container-fluid">
