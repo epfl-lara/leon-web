@@ -15,6 +15,7 @@ object DiffView {
   case class Props(diff: String)
 
   class Backend($: BackendScope[Props, Unit]) {
+
     def render(props: Props) = {
       <.div(^.className := "git-diff-view",
         <.pre(^.className := "diff",
@@ -23,11 +24,21 @@ object DiffView {
       )
     }
 
+    def isHeader(line: String): Boolean =
+      if (line.length >= 3) {
+        val first3 = line.substring(0, 3)
+        first3 === "---" || first3 === "+++"
+      }
+      else false
+
     def colorize(diff: String) =
-      diff.linesWithSeparators.zipWithIndex.map { case (line, n) => line.headOption match {
-        case Some('+') => <.span(^.className := "added",   ^.key := s"line-$n", line)
-        case Some('-') => <.span(^.className := "removed", ^.key := s"line-$n", line)
-        case _         => <.span(line, ^.key := s"line-$n")
+      diff.linesWithSeparators.zipWithIndex.map { case (line, n) =>
+        line.headOption match {
+          case _ if isHeader(line) => <.span(^.className := "diff-header",   ^.key := s"line-$n", line)
+          case Some('+')           => <.span(^.className := "diff-addition", ^.key := s"line-$n", line)
+          case Some('-')           => <.span(^.className := "diff-deletion", ^.key := s"line-$n", line)
+          case Some('@')           => <.span(^.className := "diff-chunk",    ^.key := s"line-$n", line)
+          case _                   => <.span(line, ^.key := s"line-$n")
       } }
   }
 

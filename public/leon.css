@@ -683,16 +683,26 @@ textarea.git-commit-msg {
 }
 
 .git-diff-view pre.diff {
+  background-color: #f8f8f8;
   max-height: 350px;
   overflow: scroll;
 }
 
-.git-diff-view pre.diff .added {
-  color: green;
+.git-diff-view pre.diff .diff-addition {
+  background: #dfd;
 }
 
-.git-diff-view pre.diff .removed {
-  color: red;
+.git-diff-view pre.diff .diff-deletion {
+  background: #fdd;
+}
+
+.git-diff-view pre.diff .diff-header {
+  color: #998;
+  font-style: italic;
+}
+
+.git-diff-view pre.diff .diff-chunk {
+  color: #aaa;
 }
 
 /* Load Repository Modal */
