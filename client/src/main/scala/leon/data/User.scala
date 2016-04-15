@@ -1,4 +1,5 @@
 package leon.web
+package client
 package data
 
 import scala.scalajs.js
@@ -16,16 +17,13 @@ case class User(
 object User {
 
   private
-  lazy val _user: Option[User.Raw] = {
+  lazy val _initial: Option[User.Raw] = {
     val user = global._leon_user.asInstanceOf[User.Raw]
     Option(user)
   }
 
-  lazy val isDefined: Boolean =
-    current.isDefined
-
-  lazy val current: Option[User] =
-    _user map apply
+  lazy val initial: Option[User] =
+    _initial map User.apply
 
   def apply(u: User.Raw): User = {
     val ids = u.identities.toMap.mapValues(Identity(_))

@@ -15,6 +15,8 @@ import js.JSConverters._
 
 import com.scalawarrior.scalajs.ace._
 
+import leon.web.client.data.User
+
 object HandlersTypes {
 
   @ScalaJSDefined
@@ -93,6 +95,11 @@ object HandlersTypes {
     val author: String
     val committer: String
     val desc: String
+  }
+
+  @ScalaJSDefined
+  trait HUserUpdated extends js.Object {
+    val user: User.Raw
   }
   
   @ScalaJSDefined 

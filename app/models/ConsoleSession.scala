@@ -590,22 +590,20 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         case Some(id) =>
           import play.api.db._
 
-          implicit val c = DB.getConnection()
-          IdentityStore.delete(id)
+          val c = DB.getConnection()
+          IdentityStore.delete(id)(c)
 
-          currentUser = Some(user.unlink(id))
+          val newUser = user unlink id
+          currentUser = Some(newUser)
 
           clientLog("=> DONE")
-          event("unlink_account", Map(
-            "success" -> toJson(true)
+
+          event("user_updated", Map(
+            "user" -> toJson(newUser)
           ))
 
         case None =>
           clientLog("=> ERROR: No such account found.")
-          event("unlink_account", Map(
-            "success" -> toJson(false),
-            "error"   -> toJson("No such account found.")
-          ))
       }
 
 

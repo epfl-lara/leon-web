@@ -10,7 +10,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
-import leon.web.data.{User, Identity}
+import leon.web.client.data.{User, Identity}
 import leon.web.shared.Provider
 
 object AccountModal {
@@ -75,9 +75,9 @@ object AccountModal {
         <.div(^.className := "modal-body",
           <.div(^.className := "account-identities",
             <.h4("You are currently logged-in with the following providers:"),
-            <.table(^.className := "table",
+            <.table(^.className := "table", <.tbody(
               ids.map(id => renderIdentity(id, id === user.main))
-            )
+            ))
           ),
           <.div(^.className := "account-link-another",
             <.h4("Link another account:"),

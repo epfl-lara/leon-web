@@ -7,16 +7,22 @@ package react
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
 
+import upickle.default._
+
 import monifu.reactive._
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
+import leon.web.client.data.User
 import leon.web.shared.Project
 
-import upickle.default._
 import leon.web.client.utils.picklers._
 
 case class AppState(
+
+  // Currently logged-in user (if any)
+  user              : Option[User]             = None,
+
   // Repositories fetched from GitHub API
   repositories      : Option[Seq[HRepository]] = None,
 

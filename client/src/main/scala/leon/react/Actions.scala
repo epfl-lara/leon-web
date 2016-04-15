@@ -9,6 +9,7 @@ import japgolly.scalajs.react.Callback
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
+import leon.web.client.data.User
 import leon.web.shared.{Project, Provider, GitOperation}
 
 /** Actions that the React app can trigger.
@@ -28,6 +29,7 @@ case class SetCurrentProject(project: Option[Project]) extends Action
 case class SetTreatAsProject(value: Boolean) extends Action
 case class DoGitOperation(op: GitOperation) extends Action
 case class UnlinkAccount(provider: Provider) extends Action
+case class UpdateUser(user: User) extends Action
 case class UpdateState(state: AppState => AppState) extends Action
 
 object Actions {

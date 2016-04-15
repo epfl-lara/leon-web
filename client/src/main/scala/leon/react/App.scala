@@ -24,7 +24,12 @@ import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.syntax.websocket._
 
-import leon.web.shared.GitOperation
+import leon.web.client.react.components.modals._
+import leon.web.client.react.components.panels._
+import leon.web.client.data.User
+
+import leon.web.shared.{GitOperation, Action => LeonAction}
+
 
 /** This class is in charge of the following:
   *
@@ -40,19 +45,11 @@ import leon.web.shared.GitOperation
   */
 class App(private val api: LeonAPI) {
 
-  import leon.web.client.react.components.modals._
-  import leon.web.client.react.components.panels._
-
-  import leon.web.data.User
-  import leon.web.shared.{Action => LeonAction}
-
-  lazy val isLoggedIn = g._leon_isLoggedIn.asInstanceOf[Boolean]
-
-  lazy val user = User.current
+  lazy val initialUser = User.initial
 
   def init(): Unit = {
     // Register the WebSocket handlers.
-    Handlers.register(api.handlers)
+    EventHandlers.register(api.handlers)
 
     val appState =
       LocalStorage("appState")
@@ -69,27 +66,42 @@ class App(private val api: LeonAPI) {
       .foreach(render)
 
     // Apply every state transformation to the application state.
-    Actions.bus.map(processAction).subscribe(appState.updates)
+    Actions.bus
+      .map(processAction)
+      .subscribe(appState.updates)
 
     // If the user is logged-in and was working on a project,
     // restore such project.
-    if (isLoggedIn) {
+    if (initialUser.isDefined) {
       restoreAppState(appState.initial)
     }
 
+    injectEvents()
     bindToolbarButtons()
   }
 
   private
-  def resetAppState(state: AppState): AppState = state.copy(
-    isLoggedIn       = isLoggedIn,
-    showLoginModal   = state.showLoginModal && !isLoggedIn,
-    showAccountModal = isLoggedIn && state.showAccountModal,
-    repository       = if (isLoggedIn) state.repository else None,
-    branch           = if (isLoggedIn) state.branch     else None,
-    file             = if (isLoggedIn) state.file       else None,
-    isLoadingRepo    = false
-  )
+  def injectEvents(): Unit = {
+    Events.userUpdated.foreach { case UserUpdated(rawUser) =>
+      Actions dispatch UpdateUser(User(rawUser))
+    }
+  }
+
+  private
+  def resetAppState(state: AppState): AppState = {
+    val isLoggedIn = initialUser.isDefined
+
+    state.copy(
+      user             = initialUser,
+      isLoggedIn       = isLoggedIn,
+      showLoginModal   = state.showLoginModal && !isLoggedIn,
+      showAccountModal = isLoggedIn && state.showAccountModal,
+      repository       = if (isLoggedIn) state.repository else None,
+      branch           = if (isLoggedIn) state.branch     else None,
+      file             = if (isLoggedIn) state.file       else None,
+      isLoadingRepo    = false
+    )
+  }
 
   private
   def restoreAppState(state: AppState): Unit = {
@@ -298,6 +310,10 @@ class App(private val api: LeonAPI) {
 
       now(state)
 
+    case UpdateUser(user) => now {
+      state.copy(user = Some(user))
+    }
+
     case UnlinkAccount(provider) =>
       val msg = l(
         action = LeonAction.unlinkAccount,
@@ -358,7 +374,7 @@ class App(private val api: LeonAPI) {
     }
 
     val component: ReactElement =
-      if (show) LoginModal(user, onRequestHide)
+      if (show) LoginModal(state.user, onRequestHide)
       else      <.span()
 
     ReactDOM.render(component, el)
@@ -368,14 +384,14 @@ class App(private val api: LeonAPI) {
     val el   = document.getElementById("account-modal")
     val show = state.isLoggedIn &&
                state.showAccountModal &&
-               user.isDefined
+               state.user.isDefined
 
     def onRequestHide: Callback = Callback {
       Actions dispatch ToggleAccountModal(false)
     }
 
     val component: ReactElement =
-      if (show) AccountModal(user.get, onRequestHide)
+      if (show) AccountModal(state.user.get, onRequestHide)
       else      <.span()
 
     ReactDOM.render(component, el)

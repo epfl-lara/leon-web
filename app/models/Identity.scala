@@ -3,6 +3,8 @@
 package leon.web
 package models
 
+import play.api.libs.json._
+
 import securesocial.core._
 
 import leon.web.utils.Hash
@@ -61,12 +63,8 @@ object Identity {
     )
   }
 
-  import play.api.libs.json.JsValue
-
-  def toJson(id: Identity): JsValue = {
-    import play.api.libs.json._
-
-    Json.obj(
+  implicit val identityWrites = new Writes[Identity] {
+    def writes(id: Identity) = Json.obj(
       "userId"    -> id.serviceUserId.value,
       "provider"  -> id.provider.id,
       "firstName" -> id.firstName,

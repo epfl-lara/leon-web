@@ -146,4 +146,5 @@ trait JsonWrites {
     def writes(rpRes: (RangePosition, String)) =
       rpWrites.writes(rpRes._1) + ("result" -> toJson(rpRes._2))
   }
+
 }

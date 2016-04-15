@@ -1,5 +1,6 @@
 
 package leon.web
+package client
 package data
 
 import scala.scalajs.js

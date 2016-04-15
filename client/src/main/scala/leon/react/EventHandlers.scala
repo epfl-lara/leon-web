@@ -8,13 +8,14 @@ import scala.scalajs.js
 import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
+import leon.web.client.data.User
 
 /** Register WebSocket handlers, and push the received messages
   * through the appropriate event bus.
   *
   * @see [[leon.web.client.events.Event]]
   */
-object Handlers {
+object EventHandlers {
 
   /** Register the handlers, by adding them to the specified
     * mutable dictionary.
@@ -28,6 +29,7 @@ object Handlers {
     handlers += ("branch_changed"      -> changeBranchHandler)
     handlers += ("git_progress"        -> gitProgressHandler)
     handlers += ("git_operation_done"  -> gitOperationDoneHandler)
+    handlers += ("user_updated"        -> userUpdatedHandler)
   }
 
   val reposHandler = (data: HRepositories) => {
@@ -53,6 +55,10 @@ object Handlers {
 
   val gitOperationDoneHandler = (data: HGitOperationResult) => {
     Events.gitOperationDone onNext GitOperationDone(data)
+  }
+
+  val userUpdatedHandler = (data: HUserUpdated) => {
+    Events.userUpdated onNext UserUpdated(data.user)
   }
 
 }

@@ -3,6 +3,8 @@
 package leon.web
 package models
 
+import play.api.libs.json._
+
 import leon.web.shared.Provider
 
 import securesocial.core._
@@ -45,19 +47,16 @@ object User {
     User(id.userId, id, Set(id))
   }
 
-  import play.api.libs.json.JsValue
+  implicit val userWrites = new Writes[User] {
+    def writes(user: User) = {
+      val ids = user.identities.toSeq.map(i => i.provider.id -> i).toMap
 
-  def toJson(user: User): JsValue = {
-    import play.api.libs.json._
-
-    Json.obj(
-      "id"         -> user.userId.value,
-      "main"       -> user.main.provider.id,
-      "identities" -> Json.obj(
-        "github"  -> user.github.map(Identity.toJson),
-        "tequila" -> user.tequila.map(Identity.toJson)
+      Json.obj(
+        "id"         -> user.userId.value,
+        "main"       -> user.main.provider.id,
+        "identities" -> ids
       )
-    )
+    }
   }
 
 }
