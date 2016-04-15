@@ -27,11 +27,11 @@ import leon.utils.InterruptManager
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
-import leon.web.stores.PermalinkStore
+import leon.web.stores.{PermalinkStore, IdentityStore}
 import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
-import leon.web.shared.{Action, Module, Project, GitOperation}
+import leon.web.shared.{Action, Module, Project, Provider, GitOperation}
 import leon.web.utils.String._
 
 import java.io.File
@@ -65,7 +65,18 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
   }
 
-  def withGitHubUser(f: User => Unit): Unit = user match {
+  var currentUser = user
+
+  def withUser(f: User => Unit): Unit = currentUser match {
+    case Some(user) =>
+      f(user)
+
+    case None =>
+      notifyError("Cannot perform this operation when user is not logged-in.")
+      logInfo("Cannot perform this operation when user is not logged-in.")
+  }
+
+  def withGitHubUser(f: User => Unit): Unit = currentUser match {
     case Some(user) if user.github.isDefined =>
       f(user)
 
@@ -220,6 +231,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 }
 
                 self ! DoGitOperation(user, project, op)
+              }
+
+              case Action.unlinkAccount => withUser { user =>
+                val provider = Provider((event \ "provider").as[String])
+                self ! UnlinkAccount(user, provider)
               }
 
               case Action.featureSet =>
@@ -566,6 +582,32 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
       }
     }
+
+    case UnlinkAccount(user, provider) =>
+      clientLog(s"Unlinking account '${provider.id}'...")
+
+      user.identity(provider) match {
+        case Some(id) =>
+          import play.api.db._
+
+          implicit val c = DB.getConnection()
+          IdentityStore.delete(id)
+
+          currentUser = Some(user.unlink(id))
+
+          clientLog("=> DONE")
+          event("unlink_account", Map(
+            "success" -> toJson(true)
+          ))
+
+        case None =>
+          clientLog("=> ERROR: No such account found.")
+          event("unlink_account", Map(
+            "success" -> toJson(false),
+            "error"   -> toJson("No such account found.")
+          ))
+      }
+
 
     case UpdateCode(code, user, project) =>
       if (lastCompilationState.project =!= project ||

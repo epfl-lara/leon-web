@@ -2,6 +2,10 @@
 
 @someUser match {
   case Some(user) => {
+    <a id="account-btn" href="#">
+      <i class="fa fa-user"></i>
+      <span>Account</span>
+    </a>
     <a id="logout-btn" href="@securesocial.controllers.routes.LoginPage.logout">
       <i class="fa fa-sign-out"></i>
       <span>Logout @user.main.email.map("(" + _.value + ")").getOrElse("")</span>

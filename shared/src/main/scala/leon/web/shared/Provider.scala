@@ -11,9 +11,11 @@ object Provider {
   case object Tequila extends Provider("tequila")
   case object Unknown extends Provider("unknown")
 
-  val all = Seq(GitHub, Tequila)
+  val all: Set[Provider] =
+    Set(GitHub, Tequila)
 
-  val map = all.map(p => (p.id, p)).toMap
+  val map: Map[String, Provider] =
+    all.map(p => (p.id, p)).toMap
 
   def apply(id: String): Provider =
     map.getOrElse(id, Unknown)

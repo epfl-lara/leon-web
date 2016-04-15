@@ -156,6 +156,11 @@ div.toolbox {
     font-size: 1em;
 }
 
+div.toolbox.right {
+  float: right;
+  margin-right: 15px;
+}
+
 div#title div.toolbox a {
     float: left;
     color: white;

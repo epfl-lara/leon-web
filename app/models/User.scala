@@ -19,6 +19,16 @@ case class User(
   lazy val github  = identity(Provider.GitHub)
   lazy val tequila = identity(Provider.Tequila)
 
+  def unlink(id: Identity): User = {
+    require(id =!= main)
+
+    User(
+      userId,
+      main,
+      identities.filter(_ =!= id)
+    )
+  }
+
 }
 
 object User {

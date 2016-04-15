@@ -1,4 +1,4 @@
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 package leon.web
 package client
@@ -6,12 +6,11 @@ package react
 package components
 package modals
 
-import org.scalajs.dom.ext.LocalStorage
-
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
+import leon.web.data.{User, Identity}
 import leon.web.shared.Provider
 
 /** Inform the user of what is about to happen when they click the 'Login' button.
@@ -19,7 +18,7 @@ import leon.web.shared.Provider
   */
 object LoginModal {
 
-  case class Props(onRequestHide: Callback)
+  case class Props(user: Option[User], onRequestHide: Callback)
   case class State(loggingInWith: Option[Provider] = None)
 
   class Backend($: BackendScope[Props, State]) {
@@ -36,7 +35,7 @@ object LoginModal {
     def providerIcon(provider: Provider) = provider match {
       case Provider.GitHub  => "Login with GitHub"
       case Provider.Tequila => "Login with Tequila"
-      case _                => ""
+      case _                => sys.error("Unknown provider. This should never happen.")
     }
 
     def loginButton(provider: Provider, loggingInWith: Option[Provider]) =
@@ -100,7 +99,8 @@ object LoginModal {
       .renderBackend[Backend]
       .build
 
-  def apply(onRequestHide: Callback) = component(Props(onRequestHide))
+  def apply(user: Option[User], onRequestHide: Callback) =
+    component(Props(user, onRequestHide))
 
 }
 

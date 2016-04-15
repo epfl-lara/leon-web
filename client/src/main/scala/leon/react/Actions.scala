@@ -9,7 +9,7 @@ import japgolly.scalajs.react.Callback
 import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
-import leon.web.shared.{Project, GitOperation}
+import leon.web.shared.{Project, Provider, GitOperation}
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected
@@ -23,9 +23,11 @@ case class SwitchBranch(repo: HRepository, branch: String) extends Action
 case class UpdateEditorCode(code: String, updateEditor: Boolean = true) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
+case class ToggleAccountModal(value: Boolean) extends Action
 case class SetCurrentProject(project: Option[Project]) extends Action
 case class SetTreatAsProject(value: Boolean) extends Action
 case class DoGitOperation(op: GitOperation) extends Action
+case class UnlinkAccount(provider: Provider) extends Action
 case class UpdateState(state: AppState => AppState) extends Action
 
 object Actions {

@@ -43,9 +43,12 @@ class App(private val api: LeonAPI) {
   import leon.web.client.react.components.modals._
   import leon.web.client.react.components.panels._
 
+  import leon.web.data.User
   import leon.web.shared.{Action => LeonAction}
 
   lazy val isLoggedIn = g._leon_isLoggedIn.asInstanceOf[Boolean]
+
+  lazy val user = User.current
 
   def init(): Unit = {
     // Register the WebSocket handlers.
@@ -73,16 +76,19 @@ class App(private val api: LeonAPI) {
     if (isLoggedIn) {
       restoreAppState(appState.initial)
     }
+
+    bindToolbarButtons()
   }
 
   private
   def resetAppState(state: AppState): AppState = state.copy(
-    isLoggedIn     = isLoggedIn,
-    showLoginModal = state.showLoginModal && !isLoggedIn,
-    repository     = if (isLoggedIn) state.repository else None,
-    branch         = if (isLoggedIn) state.branch     else None,
-    file           = if (isLoggedIn) state.file       else None,
-    isLoadingRepo  = false
+    isLoggedIn       = isLoggedIn,
+    showLoginModal   = state.showLoginModal && !isLoggedIn,
+    showAccountModal = isLoggedIn && state.showAccountModal,
+    repository       = if (isLoggedIn) state.repository else None,
+    branch           = if (isLoggedIn) state.branch     else None,
+    file             = if (isLoggedIn) state.file       else None,
+    isLoadingRepo    = false
   )
 
   private
@@ -292,6 +298,17 @@ class App(private val api: LeonAPI) {
 
       now(state)
 
+    case UnlinkAccount(provider) =>
+      val msg = l(
+        action = LeonAction.unlinkAccount,
+        module = "main",
+        provider = provider.id
+      )
+
+      api.leonSocket.send(JSON.stringify(msg))
+
+      now(state)
+
     case ToggleLoadRepoModal(value) =>
       now {
         state.copy(
@@ -305,33 +322,63 @@ class App(private val api: LeonAPI) {
         state.copy(showLoginModal = value)
       }
 
+    case ToggleAccountModal(value) =>
+      now {
+        state.copy(showAccountModal = value)
+      }
   }
 
   private
   def render(state: AppState): Unit = {
     renderLogin(state)
+    renderAccount(state)
     renderLoadRepoPanel(state)
   }
 
   private
+  def bindToolbarButtons(): Unit = {
+    $("#login-btn").click { e: JQueryEventObject =>
+      e.preventDefault()
+      Actions dispatch ToggleLoginModal(true)
+    }
+
+    $("#account-btn").click { e: JQueryEventObject =>
+      e.preventDefault()
+      Actions dispatch ToggleAccountModal(true)
+    }
+  }
+
+  private
   def renderLogin(state: AppState): Unit = {
-    val el             = document.getElementById("login-modal")
-    val showLoginModal = !state.isLoggedIn && state.showLoginModal
+    val el   = document.getElementById("login-modal")
+    val show = !state.isLoggedIn && state.showLoginModal
 
     def onRequestHide: Callback = Callback {
       Actions dispatch ToggleLoginModal(false)
     }
 
-    if (showLoginModal) {
-      ReactDOM.render(LoginModal(onRequestHide), el)
-    } else {
-      ReactDOM.render(<.span(), el)
+    val component: ReactElement =
+      if (show) LoginModal(user, onRequestHide)
+      else      <.span()
+
+    ReactDOM.render(component, el)
+  }
+
+  private def renderAccount(state: AppState): Unit = {
+    val el   = document.getElementById("account-modal")
+    val show = state.isLoggedIn &&
+               state.showAccountModal &&
+               user.isDefined
+
+    def onRequestHide: Callback = Callback {
+      Actions dispatch ToggleAccountModal(false)
     }
 
-    $("#login-btn").click { e: JQueryEventObject =>
-      e.preventDefault()
-      Actions dispatch ToggleLoginModal(true)
-    }
+    val component: ReactElement =
+      if (show) AccountModal(user.get, onRequestHide)
+      else      <.span()
+
+    ReactDOM.render(component, el)
   }
 
   private

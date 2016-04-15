@@ -148,7 +148,7 @@ object LoadRepositoryButton {
         ^.id        := "unload-repo-btn",
         ^.className := "btn btn-default",
         ^.onClick  --> onClick,
-        "x"
+        "×"
       )
 
   }

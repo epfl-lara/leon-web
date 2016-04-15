@@ -8,7 +8,7 @@ import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.web.models.github.Repository
 import leon.synthesis.Synthesizer
-import leon.web.shared.{Project, GitOperation}
+import leon.web.shared.{Project, Provider, GitOperation}
 
 object ConsoleProtocol {
   case object Init
@@ -31,6 +31,8 @@ object ConsoleProtocol {
   case class SwitchBranch(user: User, owner: String, repo: String, branch: String)
   case class RepositoryLoaded(user: User, repo: Repository, currentBranch: String)
   case class DoGitOperation(user: User, project: Project, op: GitOperation)
+
+  case class UnlinkAccount(user: User, provider: Provider)
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)

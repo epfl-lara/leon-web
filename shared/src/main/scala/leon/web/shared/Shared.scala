@@ -23,6 +23,7 @@ object Action {
   val loadFile = "loadFile"
   val switchBranch = "switchBranch"
   val doGitOperation = "doGitOperation"
+  val unlinkAccount = "unlinkAccount"
 }
 
 object VerifStatus { // See leon/verification/VerificationCondition.scala

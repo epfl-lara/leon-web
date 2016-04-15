@@ -96,5 +96,17 @@ object IdentityStore {
     i
   }
 
+  def delete(i: Identity)(implicit c: Connection): Unit = {
+    val query = SQL"""
+      DELETE FROM identities
+      WHERE user_id         = ${i.userId.value}
+        AND provider_id     = ${i.provider.id}
+        AND service_user_id = ${i.serviceUserId.value}
+      LIMIT 1
+    """
+
+    query.execute()
+  }
+
 }
 
