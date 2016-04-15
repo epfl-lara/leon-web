@@ -22,13 +22,12 @@ case class User(
   lazy val tequila = identity(Provider.Tequila)
 
   def unlink(id: Identity): User = {
-    require(id =!= main)
+    require (identities.size >= 2)
 
-    User(
-      userId,
-      main,
-      identities.filter(_ =!= id)
-    )
+    val newIds  = identities - id
+    val newMain = if (main === id) newIds.head else main
+
+    User(userId, newMain, newIds)
   }
 
 }
@@ -39,8 +38,8 @@ object User {
 
   case class UserId(value: String) extends AnyVal
 
-  def apply(userId: UserId, ids: Set[Identity], mainProvider: Provider): User =
-    new User(userId, ids.find(_.provider === mainProvider).get, ids)
+  def apply(userId: UserId, main: Provider, ids: Set[Identity]): User =
+    new User(userId, ids.find(_.provider === main).get, ids)
 
   def fromProfile(p: BasicProfile): User = {
     val id = Identity.fromProfile(p)

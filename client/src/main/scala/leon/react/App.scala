@@ -399,12 +399,14 @@ class App(private val api: LeonAPI) {
 
   private
   def renderLoadRepoPanel(state: AppState): Unit = {
-    val panelEl = document.getElementById("load-repo-panel")
+    val el   = document.getElementById("load-repo-panel")
+    val show = state.user.flatMap(_.github).isDefined
 
-    if (panelEl =!= null) {
-      ReactDOM.render(LoadRepositoryPanel(state), panelEl)
-      $(panelEl).show()
-    }
+    val component: ReactElement =
+      if (show) LoadRepositoryPanel(state)
+      else     <.span()
+
+    ReactDOM.render(component, el)
   }
 
 }

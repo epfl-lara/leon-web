@@ -40,7 +40,7 @@ object Events {
   final val codeUpdated        = PublishSubject[CodeUpdated       ]() // dump "CodeUpdated"
   final val gitProgress        = PublishSubject[GitProgress       ]() // dump "GitProgress"
   final val gitOperationDone   = PublishSubject[GitOperationDone  ]() // dump "GitOperationDone"
-  final val userUpdated        = PublishSubject[UserUpdated       ]()  dump "UserUpdated"
+  final val userUpdated        = PublishSubject[UserUpdated       ]() // dump "UserUpdated"
 
 }
 

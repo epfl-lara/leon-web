@@ -8,7 +8,7 @@ import anorm.SqlParser._
 import java.sql.Connection
 import play.api.Play.current
 
-import leon.web.models.User
+import leon.web.models.{User, Identity}
 import leon.web.shared.Provider
 
 import securesocial.core._
@@ -37,9 +37,9 @@ object UserStore {
       LIMIT 1
       """
 
-    query.as(parser.singleOpt) map { case (id, provider) =>
-      val ids = IdentityStore.findByUserId(id)
-      User(id, ids, provider)
+    query.as(parser.singleOpt) map { case (userId, provider) =>
+      val identities = IdentityStore.findByUserId(userId)
+      User(userId, provider, identities)
     }
   }
 
@@ -54,6 +54,13 @@ object UserStore {
     u.identities.foreach(IdentityStore.save)
 
     findById(u.userId).get
+  }
+
+  def unlinkIdentity(user: User, id: Identity)(implicit c: Connection): User = {
+    if (IdentityStore delete id)
+      save(user unlink id)
+    else
+      user
   }
 
 }

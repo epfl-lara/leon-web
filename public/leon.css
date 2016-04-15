@@ -602,10 +602,6 @@ pre.exploreBlock .header .name span {
 }
 
 /* Load Repository Panel */
-#load-repo-panel {
-  display: none;
-}
-
 #load-repo-btn {
   padding: 4px !important;
 }

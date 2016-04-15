@@ -11,8 +11,13 @@ import leon.web.shared.Provider
 case class User(
   id: String,
   main: Identity,
-  identities: Map[String, Identity]
-)
+  identities: Map[Provider, Identity]
+) {
+
+  lazy val github  = identities get Provider.GitHub
+  lazy val tequila = identities get Provider.Tequila
+
+}
 
 object User {
 
@@ -26,8 +31,11 @@ object User {
     _initial map User.apply
 
   def apply(u: User.Raw): User = {
-    val ids = u.identities.toMap.mapValues(Identity(_))
-    User(u.id, ids(u.main), ids)
+    val ids = u.identities.toMap.map { case (p, i) =>
+      (Provider(p), Identity(i))
+    }
+
+    User(u.id, ids(Provider(u.main)), ids)
   }
 
   @ScalaJSDefined

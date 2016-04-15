@@ -27,7 +27,7 @@ import leon.utils.InterruptManager
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
-import leon.web.stores.{PermalinkStore, IdentityStore}
+import leon.web.stores.{PermalinkStore, UserStore}
 import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
@@ -590,10 +590,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         case Some(id) =>
           import play.api.db._
 
-          val c = DB.getConnection()
-          IdentityStore.delete(id)(c)
-
-          val newUser = user unlink id
+          implicit val c = DB.getConnection()
+          val newUser = UserStore.unlinkIdentity(user, id)
           currentUser = Some(newUser)
 
           clientLog("=> DONE")

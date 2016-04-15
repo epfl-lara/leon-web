@@ -52,9 +52,7 @@
                 <strong>Error:</strong> @msg
               </div>
             }
-            @if(user.flatMap(_.github).isDefined) {
-              <div id="load-repo-panel"></div>
-            }
+            <div id="load-repo-panel"></div>
             <div id="selectcolumn" class="panel">
               <h3 class="std-background"><i class="icon-upload"></i> Load an example</h3>
               <select id="example-loader" class="form-control panel-element-full" name="codeexample">

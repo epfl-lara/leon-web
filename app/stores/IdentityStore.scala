@@ -96,7 +96,7 @@ object IdentityStore {
     i
   }
 
-  def delete(i: Identity)(implicit c: Connection): Unit = {
+  def delete(i: Identity)(implicit c: Connection): Boolean = {
     val query = SQL"""
       DELETE FROM identities
       WHERE user_id         = ${i.userId.value}
@@ -105,7 +105,7 @@ object IdentityStore {
       LIMIT 1
     """
 
-    query.execute()
+    query.executeUpdate() > 0
   }
 
 }

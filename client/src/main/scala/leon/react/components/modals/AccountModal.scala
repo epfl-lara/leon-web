@@ -50,12 +50,12 @@ object AccountModal {
         providerIcon(provider)
       )
 
-    def renderIdentity(id: Identity, isMain: Boolean) =
-      <.tr(^.key := id.provider.id, ^.classSet("active" -> isMain),
+    def renderIdentity(id: Identity, canUnlink: Boolean) =
+      <.tr(^.key := id.provider.id,
         <.td(^.className := "identity-provider", id.provider.id),
         <.td(^.className := "identity-email",    "(" + id.email + ")"),
         <.td(^.className := "identity-unlink text-right",
-          !isMain ?= <.a(
+          canUnlink ?= <.a(
             ^.className := "btn btn-danger btn-xs",
             ^.onClick --> onClickUnlink(id),
             "Unlink"
@@ -76,7 +76,7 @@ object AccountModal {
           <.div(^.className := "account-identities",
             <.h4("You are currently logged-in with the following providers:"),
             <.table(^.className := "table", <.tbody(
-              ids.map(id => renderIdentity(id, id === user.main))
+              ids.map(id => renderIdentity(id, ids.length >= 2))
             ))
           ),
           <.div(^.className := "account-link-another",
