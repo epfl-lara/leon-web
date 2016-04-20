@@ -63,9 +63,33 @@ object AccountModal {
         )
       )
 
+    def renderIdentities(identities: Seq[Identity]) =
+      <.div(^.className := "account-identities",
+        <.h4("You are currently logged-in with the following providers:"),
+        <.table(^.className := "table",
+          <.tbody(
+            identities.map { id =>
+              renderIdentity(id, identities.length >= 2)
+            }
+          )
+        )
+      )
+
+    def renderLinkAnotherAccount(providers: Seq[Provider], identities: Seq[Identity]) =
+      <.div(^.className := "account-link-another",
+        <.h4("Link another account:"),
+        <.div(^.className := "container-fluid text-center",
+          providers map { p =>
+            <.div(^.className := "col-sm-6",
+              linkAccountButton(p, identities.map(_.provider) contains p)
+            )
+          }
+        )
+      )
+
     def render(props: Props, state: State) = {
-      val user = props.user
-      val ids  = user.identities.values.toSeq
+      val identities = props.user.identities.values.toSeq
+      val providers  = Provider.all.toSeq
 
       Modal(onClose)(
         <.div(^.className := "modal-header",
@@ -73,18 +97,8 @@ object AccountModal {
           <.h3("Your account")
         ),
         <.div(^.className := "modal-body",
-          <.div(^.className := "account-identities",
-            <.h4("You are currently logged-in with the following providers:"),
-            <.table(^.className := "table", <.tbody(
-              ids.map(id => renderIdentity(id, ids.length >= 2))
-            ))
-          ),
-          <.div(^.className := "account-link-another",
-            <.h4("Link another account:"),
-            Provider.all.toSeq.map(p =>
-              linkAccountButton(p, ids.map(_.provider) contains p)
-            )
-          )
+          renderIdentities(identities),
+          renderLinkAnotherAccount(providers, identities)
         ),
         <.div(^.className := "modal-footer",
           closeButton()

@@ -813,6 +813,12 @@ ul.repository-list .private .octicon {
   font-style: italic;
 }
 
+
+/* Account modal */
+.account-identities {}
+
+.account-link-another {}
+
 /*
 div.results_table > table {
     width: 100%;
