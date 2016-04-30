@@ -28,8 +28,7 @@ import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 import leon.web.stores.{PermalinkStore, UserStore}
-import leon.web.services.RepositoryService
-import leon.web.services.github._
+import leon.web.services.{RepositoryService, GitHubService}
 import leon.web.models.github.json._
 import leon.web.shared.{Action, Module, Project, Provider, GitOperation}
 import leon.web.utils.String._
