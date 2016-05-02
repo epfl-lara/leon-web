@@ -32,7 +32,7 @@ import org.eclipse.jgit.transport.RemoteRefUpdate
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
   */
-class RepositoryInfos(val path: File, user: User, token: Option[String] = None) {
+class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {

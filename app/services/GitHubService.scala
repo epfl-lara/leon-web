@@ -9,8 +9,7 @@ import play.api.libs.ws._
 import play.api.libs.ws.ning.NingAsyncHttpClientConfigBuilder
 import scala.concurrent.{Future, ExecutionContext}
 
-import leon.web.models.github._
-import leon.web.models.github.json._
+import leon.web.shared._
 
 object GitHubService {
   def apply(token: String): GitHubService =
@@ -19,6 +18,8 @@ object GitHubService {
 
 /** Defines an interface to the GitHub API */
 class GitHubService(token: String) {
+
+  import leon.web.models.StandaloneJsonWrites._
 
   case class Error(private val message: String) extends Throwable(message)
 
@@ -36,12 +37,12 @@ class GitHubService(token: String) {
     *
     * @todo: Follow the pagination to load all repositories
     */
-  def listUserRepositories()(implicit ec: ExecutionContext): Future[Seq[Repository]] = {
+  def listUserRepositories()(implicit ec: ExecutionContext): Future[Seq[GitHubRepository]] = {
     req("/user/repos")
       .withQueryString("affiliation" -> "owner", "per_page" -> "100")
       .get()
-      .map(unwrapSuccess[Seq[Repository]])
-      .flatMap(eitherToFuture[Seq[Repository]])
+      .map(unwrapSuccess[Seq[GitHubRepository]])
+      .flatMap(eitherToFuture[Seq[GitHubRepository]])
   }
 
   /** Retrieve information about a specific repository, that must
@@ -50,12 +51,12 @@ class GitHubService(token: String) {
     * @param owner the owner of the repository (can differ from logged-in user)
     * @param name  the name of the repository
     */
-  def getRepository(owner: String, name: String)(implicit ec: ExecutionContext): Future[Repository] = {
+  def getRepository(repo: Repository)(implicit ec: ExecutionContext): Future[GitHubRepository] = {
     val branchesFuture = getBranches(owner, name)
 
     for {
       res      <- req(s"/repos/$owner/$name").get()
-      repo     <- eitherToFuture[Repository](unwrapSuccess[Repository](res))
+      repo     <- eitherToFuture(unwrapSuccess[GitHubRepository](res))
       branches <- branchesFuture
     }
     yield repo.copy(branches = branches)

@@ -6,18 +6,17 @@ package services
 import java.io.File
 import play.Play
 
-import leon.web.models.{User, RepositoryInfos}
-import leon.web.shared.{GitOperation, Project}
+import leon.web.models.{User, GitWorkingCopy}
 
-object RepositoryService {
+object GitService {
 
   lazy val root = {
     Play.application.configuration.getString("repositories.path")
   }
 
-  def repositoryFor(user: User, owner: String, name: String, token: Option[String] = None): RepositoryInfos = {
+  def getWorkingCopy(user: User, owner: String, name: String, token: Option[String] = None): GitWorkingCopy = {
     val path = new File(s"$root/${user.userId.value}/$owner/$name")
-    new RepositoryInfos(path, user, token)
+    new GitWorkingCopy(path, user, token)
   }
 
 }

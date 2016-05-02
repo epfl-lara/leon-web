@@ -28,9 +28,10 @@ import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 import leon.web.stores.{PermalinkStore, UserStore}
-import leon.web.services.{RepositoryService, GitHubService}
-import leon.web.models.github.json._
+import leon.web.services.{GitService, GitHubService}
+
 import leon.web.shared.{Action, Module, Project, Provider, GitOperation}
+import leon.web.shared.{Repository, RepositoryType}
 import leon.web.utils.String._
 
 import java.io.File
@@ -40,7 +41,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
+class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor with JsonWrites {
   import context.dispatcher
   import ConsoleProtocol._
 
@@ -71,7 +72,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       f(user)
 
     case None =>
-      notifyError("Cannot perform this operation when user is not logged-in.")
+      notifyError("You need to log-in to perform this operation.")
       logInfo("Cannot perform this operation when user is not logged-in.")
   }
 
@@ -80,7 +81,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       f(user)
 
     case None =>
-      notifyError("Cannot perform this operation when user is not logged-in with GitHub.")
+      notifyError("You need to log-in with GitHub to perform this operation.")
       logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
   }
 
@@ -92,9 +93,18 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         f(token)
 
       case None =>
-        notifyError("Cannot perform this operation when user has no OAuth token.")
+        notifyError("You need to log-in again with GitHub to perform this operation.")
         logInfo("Cannot perform this operation when user has no OAuth token.")
     }
+  }
+
+  def withTequilaUser(f: User => Unit): Unit = currentUser match {
+    case Some(user) if user.tequila.isDefined =>
+      f(user)
+
+    case None =>
+      notifyError("You need to log-in with Tequila to perform this operation.")
+      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
   }
 
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
@@ -158,14 +168,15 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Action.doUpdateCode =>
                 self ! UpdateCode((event \ "code").as[String], None, None)
 
-              case Action.doUpdateCodeInProject => withGitHubUser { user =>
-                val owner  = (event \ "owner" ).as[String]
-                val repo   = (event \ "repo"  ).as[String]
-                val branch = (event \ "branch").as[String]
-                val file   = (event \ "file"  ).as[String]
-                val code   = (event \ "code"  ).as[String]
+              case Action.doUpdateCodeInProject => withUser { user =>
+                val repoDesc = (event \ "repoDesc" ) .as[String]
+                val repoType = (event \ "repoType" ) .as[String]
+                val branch   = (event \ "branch"   ) .as[String]
+                val file     = (event \ "file"     ) .as[String]
+                val code     = (event \ "code"     ) .as[String]
 
-                val project = Project(owner, repo, branch, file)
+                val repo    = RepositoryDesc(repoDesc, RepositoryType(repoType))
+                val project = Project(repo, branch, file)
 
                 self ! UpdateCode(code, Some(user), Some(project))
               }
@@ -181,32 +192,40 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               }
 
               case Action.loadRepository => withGitHubUser { user =>
-                val owner = (event \ "owner").as[String]
-                val repo  = (event \ "repo").as[String]
+                val repoDesc = (event \ "repoDesc").as[String]
+                val repoType = RepositoryType((event \ "repoType").as[String])
 
-                self ! LoadRepository(user, owner, repo)
+                val repo = Repository(repoDesc, repoType)
+
+                self ! LoadRepository(user, repo)
               }
 
-              case Action.loadFile => withGitHubUser { user =>
-                val owner = (event \ "owner").as[String]
-                val repo  = (event \ "repo").as[String]
-                val file  = (event \ "file").as[String]
+              case Action.loadFile => withUser { user =>
+                val repoDesc = (event \ "repoDesc").as[String]
+                val repoType = RepositoryType((event \ "repoType").as[String])
+                val file     = (event \ "file").as[String]
 
-                self ! LoadFile(user, owner, repo, file)
+                val repo = Repository(repoDesc, repoType)
+
+                self ! LoadFile(user, repo, file)
               }
 
-              case Action.switchBranch => withGitHubUser { user =>
-                val owner  = (event \ "owner" ).as[String]
-                val repo   = (event \ "repo"  ).as[String]
+              case Action.switchBranch => withUser { user =>
+                val repoDesc = (event \ "repoDesc").as[String]
+                val repoType = RepositoryType((event \ "repoType").as[String])
                 val branch = (event \ "branch").as[String]
 
-                self ! SwitchBranch(user, owner, repo, branch)
+                val repo = Repository(repoDesc, repoType)
+
+                self ! SwitchBranch(user, repo, branch)
               }
 
-              case Action.doGitOperation => withGitHubUser { user =>
+              case Action.doGitOperation => withUser { user =>
+                val repoDesc = (event \ "project" \ "repoDesc").as[String]
+                val repoType = RepositoryType((event \ "repoType").as[String])
+
                 val project = Project(
-                  owner   = (event \ "project" \ "owner" ).as[String],
-                  repo    = (event \ "project" \ "repo"  ).as[String],
+                  repo    = Repository(repoDesc, repoType),
                   branch  = (event \ "project" \ "branch").as[String],
                   file    = (event \ "project" \ "file"  ).as[String]
                 )
@@ -306,21 +325,22 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
       }
 
-    case LoadRepository(user, owner, name) => withGitHubToken(user) { token =>
+    case LoadRepository(user, repoDesc) => withGitHubToken(user) { token =>
       clientLog(s"Fetching repository information...")
 
       val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
+      val result = gh.getRepository(repoDesc)
 
       result onFailure { case err =>
           notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
       }
 
+      // FIXME: Is it really asynchronous/concurrent "enough"?
       result onSuccess { case repo =>
         clientLog(s"=> DONE")
 
         val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
+        val wc = GitService.getWorkingCopy(user, owner, name, Some(token))
 
         val progressActor = Akka.system.actorOf(Props(
           classOf[JGitProgressWorker],
@@ -350,7 +370,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case RepositoryLoaded(user, repo, currentBranch) =>
       val (owner, name) = (repo.owner, repo.name)
-      val wc = RepositoryService.repositoryFor(user, owner, name)
+      val wc = GitService.getWorkingCopy(user, owner, name)
 
       clientLog(s"Listing files in '$owner/$name'...")
 
@@ -370,11 +390,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         ))
       }
 
-    case LoadFile(user, owner, name, file) => withGitHubToken(user) { token =>
+    case LoadFile(user, repoDesc, file) => withGitHubToken(user) { token =>
       clientLog(s"Loading file '$file'...")
 
       val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
+      val result = gh.getRepository(repoDesc)
 
       result onFailure { case err =>
         notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
@@ -382,7 +402,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       result onSuccess { case repo =>
         val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name)
+        val wc = GitService.getWorkingCopy(user, owner, name)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$owner/$name'")
@@ -408,11 +428,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
     }
 
-    case SwitchBranch(user, owner, name, branch) => withGitHubToken(user) { token =>
+    case SwitchBranch(user, repoDesc, branch) => withGitHubToken(user) { token =>
       clientLog(s"Checking out branch '$branch'...")
 
       val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
+      val result = gh.getRepository(repoDesc)
 
       result onFailure { case err =>
         notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
@@ -420,7 +440,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       result onSuccess { case repo =>
         val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name)
+        val wc = GitService.getWorkingCopy(user, owner, name)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$owner/$name'")
@@ -482,7 +502,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
       result onSuccess { case _ =>
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
+        val wc = GitService.getWorkingCopy(user, owner, name, Some(token))
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$owner/$name'")
@@ -617,7 +637,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           case Some(p) =>
             val path = {
-              val wc   = RepositoryService.repositoryFor(user.get, p.owner, p.repo)
+              val wc   = GitService.getWorkingCopy(user.get, p.owner, p.repo)
+
               wc.getFile(p.branch, p.file)
                 .map(_._3)
                 .map(filePath => s"${wc.path.getAbsolutePath()}/$filePath")
@@ -639,8 +660,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             case None =>
               savedFile.getAbsolutePath() :: Nil
 
-            case Some((user, Project(owner, repo, branch, file, _))) =>
-              val wc    = RepositoryService.repositoryFor(user, owner, repo)
+            case Some((user, Project(repo, branch, file, _))) =>
+              val wc = GitService.getWorkingCopy(user, repo)
+
               wc.getFiles(branch)
                 .getOrElse(Seq[String]())
                 .filter(_.extension === "scala")
