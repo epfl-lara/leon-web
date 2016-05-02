@@ -6,23 +6,26 @@ package shared
 trait RepositoryDesc {
   def desc: String
   def ofType: RepositoryType
-}
 
-case class GitHubRepositoryDesc(owner: String, name: String) extends RepositoryDesc {
-  val desc   = s"$owner/$name"
-  val ofType = RepositoryType.GitHub
-}
-
-case class LocalRepositoryDesc(path: String) extends RepositoryDesc {
-  val desc = path
-  val ofType = RepositoryType.Local
+  override def toString = desc
 }
 
 object RepositoryDesc {
+
+  case class GitHub(owner: String, name: String) extends RepositoryDesc {
+    val desc   = s"$owner/$name"
+    val ofType = RepositoryType.GitHub
+  }
+
+  case class Local(path: String) extends RepositoryDesc {
+    val desc   = path
+    val ofType = RepositoryType.Local
+  }
+
   import RepositoryType._
 
-  def fromGitHub(owner: String, repo: String) = GitHubRepositoryDesc(owner, repo)
-  def fromLocal(path: String) = LocalRepositoryDesc(path)
+  def fromGitHub(owner: String, repo: String) = GitHub(owner, repo)
+  def fromLocal(path: String) = Local(path)
 }
 
 sealed abstract class RepositoryType(val id: String)
@@ -63,14 +66,15 @@ case class GitHubRepository(
   defaultBranch : String,
   branches      : Seq[Branch]
 ) extends Repository {
-  val desc = GitHubRepositoryDesc(owner, name)
+  val desc = RepositoryDesc.fromGitHub(owner, name)
 }
 
 case class LocalRepository(
   path          : String,
+  cloneURL      : String,
   defaultBranch : String,
   branches      : Seq[Branch]
 ) extends Repository {
-  val desc = LocalRepositoryDesc(path)
+  val desc = RepositoryDesc.fromLocal(path)
 }
 

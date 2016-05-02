@@ -28,10 +28,9 @@ import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
 import leon.web.stores.{PermalinkStore, UserStore}
-import leon.web.services.{GitService, GitHubService}
+import leon.web.services.{GitService, GitHubService, RepositoryProvider}
 
-import leon.web.shared.{Action, Module, Project, Provider, GitOperation}
-import leon.web.shared.{Repository, RepositoryType}
+import leon.web.shared._
 import leon.web.utils.String._
 
 import java.io.File
@@ -107,6 +106,28 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
   }
 
+  def parseRepositoryDesc(json: JsValue): Option[RepositoryDesc] = {
+    import RepositoryType._
+
+    val ofType = (json \ "type").as[String]
+
+    RepositoryType(ofType) match {
+      case GitHub =>
+        val owner = (json \ "owner").as[String]
+        val name  = (json \ "name").as[String]
+        Some(RepositoryDesc.fromGitHub(owner, name))
+
+      case Local =>
+        val path = (json \ "path").as[String]
+        Some(RepositoryDesc.fromLocal(path))
+
+      case Unknown =>
+        notifyError(s"Invalid repository type: $ofType")
+        logInfo(s"Invalid repository type: $ofType")
+        None
+    }
+  }
+
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
 
   var modules = Map[String, ModuleContext]()
@@ -169,13 +190,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 self ! UpdateCode((event \ "code").as[String], None, None)
 
               case Action.doUpdateCodeInProject => withUser { user =>
-                val repoDesc = (event \ "repoDesc" ) .as[String]
-                val repoType = (event \ "repoType" ) .as[String]
                 val branch   = (event \ "branch"   ) .as[String]
                 val file     = (event \ "file"     ) .as[String]
                 val code     = (event \ "code"     ) .as[String]
 
-                val repo    = RepositoryDesc(repoDesc, RepositoryType(repoType))
+                val repo    = parseRepositoryDesc(event \ "repo").get
                 val project = Project(repo, branch, file)
 
                 self ! UpdateCode(code, Some(user), Some(project))
@@ -187,45 +206,32 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
 
-              case Action.loadRepositories => withGitHubUser { user =>
+              case Action.loadRepositories => withUser { user =>
                 self ! LoadRepositories(user)
               }
 
-              case Action.loadRepository => withGitHubUser { user =>
-                val repoDesc = (event \ "repoDesc").as[String]
-                val repoType = RepositoryType((event \ "repoType").as[String])
-
-                val repo = Repository(repoDesc, repoType)
-
+              case Action.loadRepository => withUser { user =>
+                val repo = parseRepositoryDesc(event \ "repo").get
                 self ! LoadRepository(user, repo)
               }
 
               case Action.loadFile => withUser { user =>
-                val repoDesc = (event \ "repoDesc").as[String]
-                val repoType = RepositoryType((event \ "repoType").as[String])
-                val file     = (event \ "file").as[String]
-
-                val repo = Repository(repoDesc, repoType)
+                val file = (event \ "file").as[String]
+                val repo = parseRepositoryDesc(event \ "repo").get
 
                 self ! LoadFile(user, repo, file)
               }
 
               case Action.switchBranch => withUser { user =>
-                val repoDesc = (event \ "repoDesc").as[String]
-                val repoType = RepositoryType((event \ "repoType").as[String])
                 val branch = (event \ "branch").as[String]
-
-                val repo = Repository(repoDesc, repoType)
+                val repo   = parseRepositoryDesc(event \ "repo").get
 
                 self ! SwitchBranch(user, repo, branch)
               }
 
               case Action.doGitOperation => withUser { user =>
-                val repoDesc = (event \ "project" \ "repoDesc").as[String]
-                val repoType = RepositoryType((event \ "repoType").as[String])
-
                 val project = Project(
-                  repo    = Repository(repoDesc, repoType),
+                  repo    = parseRepositoryDesc(event \ "repo").get,
                   branch  = (event \ "project" \ "branch").as[String],
                   file    = (event \ "project" \ "file"  ).as[String]
                 )
@@ -309,8 +315,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       case LoadRepositories(user) => withGitHubToken(user) { token =>
         clientLog(s"Fetching repositories list...")
 
-        val gh     = GitHubService(token)
-        val result = gh.listUserRepositories()
+        val result = RepositoryProvider.forUser(user)
 
         result onSuccess { case repos =>
           clientLog(s"=> DONE")
@@ -325,22 +330,21 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
       }
 
-    case LoadRepository(user, repoDesc) => withGitHubToken(user) { token =>
+    case LoadRepository(user, repoDesc) =>
       clientLog(s"Fetching repository information...")
 
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(repoDesc)
+      val rs     = RepositoryService(user)
+      val result = rs.fromDesc(repoDesc)
 
       result onFailure { case err =>
-          notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+        notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
       // FIXME: Is it really asynchronous/concurrent "enough"?
       result onSuccess { case repo =>
         clientLog(s"=> DONE")
 
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = GitService.getWorkingCopy(user, owner, name, Some(token))
+        val wc = GitService.getWorkingCopy(user, repo, Some(token))
 
         val progressActor = Akka.system.actorOf(Props(
           classOf[JGitProgressWorker],
@@ -351,12 +355,12 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
         val future = Future {
           if (!wc.exists) {
-            clientLog(s"Cloning repository '$owner/$name'...")
+            clientLog(s"Cloning repository '$repoDesc'...")
             wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
             clientLog(s"=> DONE")
           }
           else {
-            clientLog(s"Pulling repository '$owner/$name'...")
+            clientLog(s"Pulling repository '$repoDesc'...")
             wc.pull(Some(progressMonitor))
             clientLog(s"=> DONE")
           }
@@ -366,7 +370,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
         future pipeTo self
       }
-    }
 
     case RepositoryLoaded(user, repo, currentBranch) =>
       val (owner, name) = (repo.owner, repo.name)

@@ -7,7 +7,7 @@ import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.synthesis.Synthesizer
-import leon.web.shared.{Project, Provider, GitOperation, Repository}
+import leon.web.shared.{Project, Provider, GitOperation, RepositoryDesc}
 
 object ConsoleProtocol {
   case object Init
@@ -25,10 +25,10 @@ object ConsoleProtocol {
   case class AccessPermaLink(link: String)
 
   case class LoadRepositories(user: User)
-  case class LoadRepository(user: User, repo: Repository)
-  case class LoadFile(user: User, repo: Repository, file: String)
-  case class SwitchBranch(user: User, repo: Repository, branch: String)
-  case class RepositoryLoaded(user: User, repo: Repository, currentBranch: String)
+  case class LoadRepository(user: User, repo: RepositoryDesc)
+  case class LoadFile(user: User, repo: RepositoryDesc, file: String)
+  case class SwitchBranch(user: User, repo: RepositoryDesc, branch: String)
+  case class RepositoryLoaded(user: User, repo: RepositoryDesc, currentBranch: String)
   case class DoGitOperation(user: User, project: Project, op: GitOperation)
 
   case class UnlinkAccount(user: User, provider: Provider)

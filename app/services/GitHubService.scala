@@ -51,7 +51,7 @@ class GitHubService(token: String) {
     * @param owner the owner of the repository (can differ from logged-in user)
     * @param name  the name of the repository
     */
-  def getRepository(repo: Repository)(implicit ec: ExecutionContext): Future[GitHubRepository] = {
+  def getRepository(owner: String, name: String)(implicit ec: ExecutionContext): Future[GitHubRepository] = {
     val branchesFuture = getBranches(owner, name)
 
     for {

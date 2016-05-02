@@ -23,6 +23,12 @@ trait RepositoryProvider {
 
 }
 
+object RepositoryProvider {
+
+  def forUser(user: User)(implicit ec: ExecutionContext): Future[Map[Provider, Seq[Repository]]] =
+    Future.successful(Map())
+}
+
 class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
 
   type Repository = GitHubRepository

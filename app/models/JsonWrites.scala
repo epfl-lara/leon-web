@@ -154,6 +154,10 @@ trait StandaloneJsonWrites {
 
   import leon.web.shared._
 
+  implicit val providerWrites: Writes[Provider] = Writes { p =>
+    JsString(p.id)
+  }
+
   implicit val visibilityWrites: Writes[Visibility] = Writes {
     case Public  => JsString("public")
     case Private => JsString("private")
@@ -182,9 +186,8 @@ trait StandaloneJsonWrites {
   }
 
   implicit val repositoryIdReads: Reads[GitHubRepositoryId] = Reads {
-    _.validate[Long].map(RepositoryId(_))
+    _.validate[Long].map(GitHubRepositoryId(_))
   }
-
 
   implicit val githubRepositoryWrites: Writes[GitHubRepository] = (
     ( __ \ "id"            ).write[GitHubRepositoryId] and
@@ -227,6 +230,11 @@ trait StandaloneJsonWrites {
     ( __ \ "branches"        ).readNullable[Seq[Branch]]
                               .map(_.getOrElse(Seq()))
   )(LocalRepository.apply _)
+
+  implicit val repositoryWrites: Writes[Repository] = Writes {
+    case local: LocalRepository   => toJson(local)
+    case github: GitHubRepository => toJson(github)
+  }
 
 }
 
