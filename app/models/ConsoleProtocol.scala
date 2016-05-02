@@ -32,6 +32,7 @@ object ConsoleProtocol {
   case class DoGitOperation(user: User, project: Project, op: GitOperation)
 
   case class UnlinkAccount(user: User, provider: Provider)
+  case class UserUpdated(user: Option[User])
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)

@@ -63,4 +63,5 @@ object Module {
   val repair = "repair"
   val invariant = "invariant"
   val disambiguation = "disambiguation"
+  val repository = "repository"
 }

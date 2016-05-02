@@ -27,8 +27,8 @@ import leon.utils.InterruptManager
 import leon.utils.PreprocessingPhase
 
 import leon.web.workers._
-import leon.web.stores.{PermalinkStore, UserStore}
-import leon.web.services.{GitService, GitHubService, RepositoryProvider}
+import leon.web.stores._
+import leon.web.services._
 
 import leon.web.shared._
 import leon.web.utils.String._
@@ -43,9 +43,6 @@ import org.joda.time.format.DateTimeFormat
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor with JsonWrites {
   import context.dispatcher
   import ConsoleProtocol._
-
-  val githubServiceTimeout =
-    Play.current.configuration.getInt("services.github.timeout").getOrElse(10).seconds
 
   val (enumerator, channel) = Concurrent.broadcast[JsValue]
   var reporter: WSReporter = _
@@ -64,7 +61,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
   }
 
-  var currentUser = user
+  case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
+
+  var modules = Map[String, ModuleContext]()
+  var cancelledWorkers = Set[WorkerActor]()
+  var interruptManager: InterruptManager = _
+
+  object ModuleEntry {
+    def apply(name: String, worker: => BaseActor): (String, ModuleContext) = {
+      name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
+    }
+  }
+
+  private var currentUser: Option[User] = user
 
   def withUser(f: User => Unit): Unit = currentUser match {
     case Some(user) =>
@@ -75,76 +84,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       logInfo("Cannot perform this operation when user is not logged-in.")
   }
 
-  def withGitHubUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) if user.github.isDefined =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in with GitHub to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
-  }
-
-  def withGitHubToken(user: User)(f: String => Unit): Unit = {
-    val token = user.github.flatMap(_.oAuth2Info).map(_.accessToken)
-
-    token match {
-      case Some(token) =>
-        f(token)
-
-      case None =>
-        notifyError("You need to log-in again with GitHub to perform this operation.")
-        logInfo("Cannot perform this operation when user has no OAuth token.")
-    }
-  }
-
-  def withTequilaUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) if user.tequila.isDefined =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in with Tequila to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
-  }
-
-  def parseRepositoryDesc(json: JsValue): Option[RepositoryDesc] = {
-    import RepositoryType._
-
-    val ofType = (json \ "type").as[String]
-
-    RepositoryType(ofType) match {
-      case GitHub =>
-        val owner = (json \ "owner").as[String]
-        val name  = (json \ "name").as[String]
-        Some(RepositoryDesc.fromGitHub(owner, name))
-
-      case Local =>
-        val path = (json \ "path").as[String]
-        Some(RepositoryDesc.fromLocal(path))
-
-      case Unknown =>
-        notifyError(s"Invalid repository type: $ofType")
-        logInfo(s"Invalid repository type: $ofType")
-        None
-    }
-  }
-
-  case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
-
-  var modules = Map[String, ModuleContext]()
-  var cancelledWorkers = Set[WorkerActor]()
-  var interruptManager: InterruptManager = _
-
-  object ModuleEntry {
-    def apply(name: String, worker: =>WorkerActor): (String, ModuleContext) = {
-      name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
-    }
-  }
-  
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
       sender ! InitSuccess(enumerator)
-
 
       interruptManager = new InterruptManager(reporter)
 
@@ -155,6 +98,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       modules += ModuleEntry(Module.execution     , new ExecutionWorker(self, interruptManager))
       modules += ModuleEntry(Module.repair        , new RepairWorker(self, interruptManager))
       modules += ModuleEntry(Module.invariant     , new OrbWorker(self, interruptManager))
+      modules += ModuleEntry(Module.repository    , new RepositoryWorker(self))
 
       logInfo("New client")
 
@@ -194,7 +138,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 val file     = (event \ "file"     ) .as[String]
                 val code     = (event \ "code"     ) .as[String]
 
-                val repo    = parseRepositoryDesc(event \ "repo").get
+                val repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get
                 val project = Project(repo, branch, file)
 
                 self ! UpdateCode(code, Some(user), Some(project))
@@ -211,27 +155,27 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               }
 
               case Action.loadRepository => withUser { user =>
-                val repo = parseRepositoryDesc(event \ "repo").get
+                val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
                 self ! LoadRepository(user, repo)
               }
 
               case Action.loadFile => withUser { user =>
                 val file = (event \ "file").as[String]
-                val repo = parseRepositoryDesc(event \ "repo").get
+                val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
 
                 self ! LoadFile(user, repo, file)
               }
 
               case Action.switchBranch => withUser { user =>
                 val branch = (event \ "branch").as[String]
-                val repo   = parseRepositoryDesc(event \ "repo").get
+                val repo   = RepositoryService.parseRepositoryDesc(event \ "repo").get
 
                 self ! SwitchBranch(user, repo, branch)
               }
 
               case Action.doGitOperation => withUser { user =>
                 val project = Project(
-                  repo    = parseRepositoryDesc(event \ "repo").get,
+                  repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get,
                   branch  = (event \ "project" \ "branch").as[String],
                   file    = (event \ "project" \ "file"  ).as[String]
                 )
@@ -312,299 +256,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           notifyError("Link not found ?!?: "+link)
       }
 
-      case LoadRepositories(user) => withGitHubToken(user) { token =>
-        clientLog(s"Fetching repositories list...")
-
-        val result = RepositoryProvider.forUser(user)
-
-        result onSuccess { case repos =>
-          clientLog(s"=> DONE")
-
-          event("repositories_loaded", Map(
-            "repos" -> toJson(repos)
-          ))
-        }
-
-        result onFailure { case err =>
-          notifyError(s"Failed to load repositories. Reason: '${err.getMessage}'")
-        }
-      }
-
-    case LoadRepository(user, repoDesc) =>
-      clientLog(s"Fetching repository information...")
-
-      val rs     = RepositoryService(user)
-      val result = rs.fromDesc(repoDesc)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
-      }
-
-      // FIXME: Is it really asynchronous/concurrent "enough"?
-      result onSuccess { case repo =>
-        clientLog(s"=> DONE")
-
-        val wc = GitService.getWorkingCopy(user, repo, Some(token))
-
-        val progressActor = Akka.system.actorOf(Props(
-          classOf[JGitProgressWorker],
-          "git_progress", self
-        ))
-
-        val progressMonitor = new JGitProgressMonitor(progressActor)
-
-        val future = Future {
-          if (!wc.exists) {
-            clientLog(s"Cloning repository '$repoDesc'...")
-            wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
-            clientLog(s"=> DONE")
-          }
-          else {
-            clientLog(s"Pulling repository '$repoDesc'...")
-            wc.pull(Some(progressMonitor))
-            clientLog(s"=> DONE")
-          }
-
-          RepositoryLoaded(user, repo, wc.branchName())
-        }
-
-        future pipeTo self
-      }
-
-    case RepositoryLoaded(user, repo, currentBranch) =>
-      val (owner, name) = (repo.owner, repo.name)
-      val wc = GitService.getWorkingCopy(user, owner, name)
-
-      clientLog(s"Listing files in '$owner/$name'...")
-
-      val future = Future {
-        wc.getFiles(currentBranch)
-          .getOrElse(Seq[String]())
-          .filter(_.extension === "scala")
-      }
-
-      future foreach { files =>
-        clientLog(s"=> DONE")
-        event("repository_loaded", Map(
-          "repository"    -> toJson(repo),
-          "files"         -> toJson(files),
-          "branches"      -> toJson(repo.branches),
-          "currentBranch" -> toJson(currentBranch)
-        ))
-      }
-
-    case LoadFile(user, repoDesc, file) => withGitHubToken(user) { token =>
-      clientLog(s"Loading file '$file'...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(repoDesc)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = GitService.getWorkingCopy(user, owner, name)
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          wc.getFile("HEAD", file) match {
-            case None =>
-              notifyError(s"Could not find file '$file' in '$owner/$name'.")
-
-            case Some((_, _, path)) =>
-              val filePath = s"${wc.path}/$path"
-              val content  = Source.fromFile(filePath).mkString
-
-              clientLog(s"=> DONE")
-
-              event("file_loaded", Map(
-                "file"    -> toJson(file),
-                "content" -> toJson(content)
-              ))
-          }
-        }
-      }
-    }
-
-    case SwitchBranch(user, repoDesc, branch) => withGitHubToken(user) { token =>
-      clientLog(s"Checking out branch '$branch'...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(repoDesc)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = GitService.getWorkingCopy(user, owner, name)
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          val future = Future {
-            val switched =
-              if (wc.branchExists(branch))
-                wc.checkout(branch)
-              else
-                wc.checkoutRemote(branch)
-
-            if (switched) {
-              val files = wc.getFiles(branch)
-                            .getOrElse(Seq[String]())
-                            .filter(_.extension === "scala")
-
-              Some(files)
-            }
-            else
-              None
-          }
-
-          future onSuccess {
-            case Some(files) =>
-              clientLog(s"=> DONE")
-              event("branch_changed", Map(
-                "success" -> toJson(true),
-                "branch"  -> toJson(branch),
-                "files"   -> toJson(files)
-              ))
-
-            case None =>
-              val error = s"Failed to checkout branch '$branch', please commit " +
-                          s"or reset your changes and try again."
-
-              clientLog(s"=> ERROR: $error")
-              notifyError(error)
-
-              event("branch_changed", Map(
-                "success" -> toJson(true),
-                "error"   -> toJson(error)
-              ))
-          }
-        }
-      }
-    }
-
-    case DoGitOperation(user, project, op) => withGitHubToken(user) { token =>
-      clientLog(s"Performing Git operation: $op")
-
-      val (owner, name) = (project.owner, project.repo)
-      val gh            = GitHubService(token)
-      val result        = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case _ =>
-        val wc = GitService.getWorkingCopy(user, owner, name, Some(token))
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          op match {
-            case GitOperation.Status =>
-              val status = wc.status()
-              val diff   = wc.diff(Some("HEAD"), None)
-              clientLog(s"=> DONE")
-
-              status match {
-                case Some(status) =>
-                  val statusData = Map(
-                    "added"       -> status.getAdded(),
-                    "changed"     -> status.getChanged(),
-                    "modified"    -> status.getModified(),
-                    "removed"     -> status.getRemoved(),
-                    "conflicting" -> status.getConflicting(),
-                    "missing"     -> status.getMissing(),
-                    "untracked"   -> status.getUntracked()
-                  )
-
-                  val diffData = diff.getOrElse("")
-
-                  event("git_operation_done", Map(
-                    "op"      -> toJson(op.name),
-                    "success" -> toJson(true),
-                    "data"    -> toJson(Map(
-                      "status" -> toJson(statusData.mapValues(_.asScala.toSet)),
-                      "diff"   -> toJson(diffData)
-                    ))
-                  ))
-
-                case None =>
-                  event("git_operation_done", Map(
-                    "op"      -> toJson(op.name),
-                    "success" -> toJson(false)
-                  ))
-              }
-
-            case GitOperation.Push(force) =>
-              val success = wc.push(force)
-
-              clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
-
-            case GitOperation.Pull =>
-              val progressActor = Akka.system.actorOf(Props(
-                classOf[JGitProgressWorker],
-                "git_progress", self
-              ))
-
-              val progressMonitor = new JGitProgressMonitor(progressActor)
-
-              val success = wc.pull(Some(progressMonitor))
-
-              clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
-
-            case GitOperation.Reset =>
-              val success = wc.reset(hard = true)
-
-              clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
-
-            case GitOperation.Commit(message) =>
-              val success = wc.add(project.file) && wc.commit(message)
-
-              clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
-
-            case GitOperation.Log(count) =>
-              val commits = wc.getLastCommits(count)
-
-              clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(commits.nonEmpty),
-                "data"    -> toJson(commits.map(_.toJson))
-              ))
-          }
-        }
-      }
-    }
-
     case UnlinkAccount(user, provider) =>
       clientLog(s"Unlinking account '${provider.id}'...")
 
@@ -622,10 +273,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             "user" -> toJson(newUser)
           ))
 
+          self ! DispatchTo(Module.repository, UserUpdated(currentUser))
+
         case None =>
           clientLog("=> ERROR: No such account found.")
       }
-
 
     case UpdateCode(code, user, project) =>
       if (lastCompilationState.project =!= project ||
@@ -640,7 +292,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           case Some(p) =>
             val path = {
-              val wc   = GitService.getWorkingCopy(user.get, p.owner, p.repo)
+              val wc = GitService.getWorkingCopy(user.get, p.repo)
 
               wc.getFile(p.branch, p.file)
                 .map(_._3)
