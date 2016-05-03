@@ -40,7 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 
-class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor with JsonWrites {
+class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
   import ConsoleProtocol._
 
@@ -64,12 +64,12 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
 
   var modules = Map[String, ModuleContext]()
-  var cancelledWorkers = Set[WorkerActor]()
+  var cancelledWorkers = Set[BaseActor]()
   var interruptManager: InterruptManager = _
 
   object ModuleEntry {
     def apply(name: String, worker: => BaseActor): (String, ModuleContext) = {
-      name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
+      name -> ModuleContext(name, context.actorOf(Props(worker)))
     }
   }
 
@@ -108,7 +108,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       interruptManager.interrupt()
       modules.values.foreach(_.actor ! DoCancel)
 
-    case Cancelled(wa: WorkerActor)  =>
+    case Cancelled(wa)  =>
       cancelledWorkers += wa
 
       logInfo(cancelledWorkers.size+"/"+modules.size+": Worker "+wa.getClass+" notified its cancellation")

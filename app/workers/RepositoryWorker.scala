@@ -2,65 +2,32 @@
 package leon.web
 package workers
 
+import scala.io.Source
+import scala.concurrent.Future
+import scala.collection.JavaConverters._
+
 import akka.actor._
+import akka.pattern._
 
 import play.api._
+import play.api.mvc._
 import play.api.libs.json._
 import play.api.libs.json.Json._
+
+import play.api.libs.concurrent.Execution.Implicits._
 
 import leon.web.services._
 import leon.web.models._
 import leon.web.shared._
+import leon.web.utils.String._
 
-class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
+class RepositoryWorker(session: ActorRef)
+  extends BaseActor with Actor with RepositoryWorkerHelpers {
 
   import ConsoleProtocol._
+  import StandaloneJsonWrites._
 
-  // implicit val workerExecutionContext = akkaSystem.dispatchers.lookup("repository-worker")
-
-  import play.api.libs.concurrent.Execution.Implicits._
-
-  private var currentUser: Option[User] = None
-
-  def withUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in.")
-  }
-
-  def withGitHubUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) if user.github.isDefined =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in with GitHub to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
-  }
-
-  def withGitHubToken(user: User)(f: String => Unit): Unit = {
-    val token = user.github.flatMap(_.oAuth2Info).map(_.accessToken)
-
-    token match {
-      case Some(token) =>
-        f(token)
-
-      case None =>
-        notifyError("You need to log-in again with GitHub to perform this operation.")
-        logInfo("Cannot perform this operation when user has no OAuth token.")
-    }
-  }
-
-  def withTequilaUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) if user.tequila.isDefined =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in with Tequila to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
-  }
+  import context.dispatcher
 
   def receive = {
 
@@ -76,7 +43,7 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
         clientLog(s"=> DONE")
 
         event("repositories_loaded", Map(
-          "repos" -> toJson(repos)
+          "repos" -> toJson(repos map { case (p, v) => (p.id, v) })
         ))
       }
 
@@ -98,9 +65,9 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
       result onSuccess { case repo =>
         clientLog(s"=> DONE")
 
-        val wc = GitService.getWorkingCopy(user, repo, Some(token))
+        val wc = GitService.getWorkingCopy(user, repoDesc)
 
-        val progressActor = Akka.system.actorOf(Props(
+        val progressActor = context.actorOf(Props(
           classOf[JGitProgressWorker],
           "git_progress", self
         ))
@@ -126,10 +93,9 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
       }
 
     case RepositoryLoaded(user, repo, currentBranch) =>
-      val (owner, name) = (repo.owner, repo.name)
-      val wc = GitService.getWorkingCopy(user, owner, name)
+      val wc = GitService.getWorkingCopy(user, repo.desc)
 
-      clientLog(s"Listing files in '$owner/$name'...")
+      clientLog(s"Listing files in '${repo.desc}'...")
 
       val future = Future {
         wc.getFiles(currentBranch)
@@ -147,28 +113,27 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
         ))
       }
 
-    case LoadFile(user, repoDesc, file) => withGitHubToken(user) { token =>
+    case LoadFile(user, repoDesc, file) =>
       clientLog(s"Loading file '$file'...")
 
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(repoDesc)
+      val rs     = RepositoryService(user)
+      val result = rs.fromDesc(repoDesc)
 
       result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+        notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
       result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = GitService.getWorkingCopy(user, owner, name)
+        val wc = GitService.getWorkingCopy(user, repoDesc)
 
         if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+          logInfo(s"Could not find a working copy for repository '$repoDesc'")
+          notifyError(s"Could not find a working copy for repository '$repoDesc', please load it again.")
         }
         else {
           wc.getFile("HEAD", file) match {
             case None =>
-              notifyError(s"Could not find file '$file' in '$owner/$name'.")
+              notifyError(s"Could not find file '$file' in '$repoDesc'.")
 
             case Some((_, _, path)) =>
               val filePath = s"${wc.path}/$path"
@@ -183,25 +148,23 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
           }
         }
       }
-    }
 
-    case SwitchBranch(user, repoDesc, branch) => withGitHubToken(user) { token =>
+    case SwitchBranch(user, repoDesc, branch) =>
       clientLog(s"Checking out branch '$branch'...")
 
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(repoDesc)
+      val rs     = RepositoryService(user)
+      val result = rs.fromDesc(repoDesc)
 
       result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+        notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
       result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = GitService.getWorkingCopy(user, owner, name)
+        val wc = GitService.getWorkingCopy(user, repoDesc)
 
         if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+          logInfo(s"Could not find a working copy for repository '$repoDesc'")
+          notifyError(s"Could not find a working copy for repository '$repoDesc', please load it again.")
         }
         else {
           val future = Future {
@@ -245,25 +208,25 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
           }
         }
       }
-    }
 
-    case DoGitOperation(user, project, op) => withGitHubToken(user) { token =>
+    case DoGitOperation(user, project, op) =>
       clientLog(s"Performing Git operation: $op")
 
-      val (owner, name) = (project.owner, project.repo)
-      val gh            = GitHubService(token)
-      val result        = gh.getRepository(owner, name)
+      val repoDesc = project.repo
+
+      val rs     = RepositoryService(user)
+      val result = rs.fromDesc(repoDesc)
 
       result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
+        notifyError(s"Failed to load repository '${repoDesc}'. Reason: '${err.getMessage}'");
       }
 
       result onSuccess { case _ =>
-        val wc = GitService.getWorkingCopy(user, owner, name, Some(token))
+        val wc = GitService.getWorkingCopy(user, repoDesc)
 
         if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+          logInfo(s"Could not find a working copy for repository '$repoDesc'")
+          notifyError(s"Could not find a working copy for repository '$repoDesc', please load it again.")
         }
         else {
           op match {
@@ -312,7 +275,7 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
               ))
 
             case GitOperation.Pull =>
-              val progressActor = Akka.system.actorOf(Props(
+              val progressActor = context.actorOf(Props(
                 classOf[JGitProgressWorker],
                 "git_progress", self
               ))
@@ -357,7 +320,6 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
           }
         }
       }
-    }
 
     case DoCancel =>
       sender ! Cancelled(this)
@@ -372,3 +334,48 @@ class RepositoryWorker(session: ActorRef) extends BaseActor with JsonWrites {
 
 }
 
+trait RepositoryWorkerHelpers { self: RepositoryWorker =>
+
+  var currentUser: Option[User] = None
+
+  def withUser(f: User => Unit): Unit = currentUser match {
+    case Some(user) =>
+      f(user)
+
+    case None =>
+      notifyError("You need to log-in to perform this operation.")
+      logInfo("Cannot perform this operation when user is not logged-in.")
+  }
+
+  def withGitHubUser(f: User => Unit): Unit = currentUser match {
+    case Some(user) if user.github.isDefined =>
+      f(user)
+
+    case None =>
+      notifyError("You need to log-in with GitHub to perform this operation.")
+      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
+  }
+
+  def withGitHubToken(user: User)(f: String => Unit): Unit = {
+    val token = user.github.flatMap(_.oAuth2Info).map(_.accessToken)
+
+    token match {
+      case Some(token) =>
+        f(token)
+
+      case None =>
+        notifyError("You need to log-in again with GitHub to perform this operation.")
+        logInfo("Cannot perform this operation when user has no OAuth token.")
+    }
+  }
+
+  def withTequilaUser(f: User => Unit): Unit = currentUser match {
+    case Some(user) if user.tequila.isDefined =>
+      f(user)
+
+    case None =>
+      notifyError("You need to log-in with Tequila to perform this operation.")
+      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
+  }
+
+}

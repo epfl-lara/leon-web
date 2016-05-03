@@ -8,7 +8,7 @@ import scala.concurrent.{Future, ExecutionContext}
 import leon.web.models.User
 import leon.web.shared.{RepositoryDesc, Repository, RepositoryType}
 
-class RepositoryService(user: User, github: GitHubService) {
+class RepositoryService(user: User, ghService: Option[GitHubService]) {
 
   import RepositoryDesc._
 
@@ -16,8 +16,11 @@ class RepositoryService(user: User, github: GitHubService) {
     case Local(path) =>
       Future.successful(getLocalRepository(path))
 
+    case GitHub(owner, name) if ghService.isDefined =>
+      ghService.get.getRepository(owner, name)
+
     case GitHub(owner, name) =>
-      github.getRepository(owner, name)
+      Future.failed(new Throwable("Missing GitHub oAuth token."))
   }
 
   def getLocalRepository(path: String): Repository = ???
@@ -25,6 +28,13 @@ class RepositoryService(user: User, github: GitHubService) {
 }
 
 object RepositoryService {
+
+  def apply(user: User) = {
+    val token     = user.github.flatMap(_.oAuth2Info).map(_.accessToken)
+    val ghService = token.map(GitHubService(_))
+
+    new RepositoryService(user, ghService)
+  }
 
   import play.api.libs.json._
 

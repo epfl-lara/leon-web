@@ -49,6 +49,9 @@ case object All     extends Visibility
 case class Branch(name: String, sha: String)
 
 trait Repository {
+  def cloneURL: String
+  def defaultBranch: String
+  def branches: Seq[Branch]
   def desc: RepositoryDesc
 }
 

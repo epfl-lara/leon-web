@@ -15,7 +15,7 @@ import leon.purescala.Definitions._
 import leon.purescala.PrettyPrinter
 import leon.purescala.SelfPrettyPrinter
 
-trait JsonWrites extends StandaloneJsonWrites {
+trait JsonWrites {
   implicit val ctx: LeonContext;
   
   protected def program: Option[Program]
@@ -238,5 +238,5 @@ trait StandaloneJsonWrites {
 
 }
 
-object StandaloneJsonWrites extends JsonWrites
+object StandaloneJsonWrites extends StandaloneJsonWrites
 
