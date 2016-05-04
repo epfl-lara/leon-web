@@ -14,7 +14,7 @@ import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
 import leon.web.client.data.User
-import leon.web.shared.{Project, RepositoryDesc}
+import leon.web.shared.{Project, Provider, RepositoryDesc}
 
 import leon.web.client.utils.picklers._
 
@@ -24,7 +24,7 @@ case class AppState(
   user              : Option[User]             = None,
 
   // Repositories fetched from GitHub API
-  repositories      : Option[Seq[HRepository]] = None,
+  repositories      : Option[Map[Provider, Seq[HRepository]]] = None,
 
   // Currently selected repository
   repository        : Option[HRepository]      = None,

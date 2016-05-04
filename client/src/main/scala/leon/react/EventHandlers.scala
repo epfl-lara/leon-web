@@ -9,6 +9,7 @@ import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.client.HandlersTypes._
 import leon.web.client.data.User
+import leon.web.shared.Provider
 
 /** Register WebSocket handlers, and push the received messages
   * through the appropriate event bus.
@@ -33,11 +34,22 @@ object EventHandlers {
   }
 
   val reposHandler = (data: HRepositories) => {
-    Events.repositoriesLoaded onNext RepositoriesLoaded(data.repos)
+    val repos = data.repos.map { case (p, rs) =>
+      (Provider(p) -> rs.toSeq)
+    }
+
+    Events.repositoriesLoaded onNext RepositoriesLoaded(repos.toMap)
   }
 
   val loadRepoHandler = (data: HRepositoryLoaded) => {
-    Events.repositoryLoaded onNext RepositoryLoaded(data.repository, data.files, data.branches, data.currentBranch)
+    val event = RepositoryLoaded(
+      data.repository,
+      data.files,
+      data.branches,
+      data.currentBranch
+    )
+
+    Events.repositoryLoaded onNext event
   }
 
   val loadFileHandler = (data: HFileLoaded) => {

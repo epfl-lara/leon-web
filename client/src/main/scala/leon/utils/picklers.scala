@@ -11,20 +11,29 @@ import upickle.default._
 
 import leon.web.client.HandlersTypes._
 import leon.web.client.data.{User, Identity}
+import leon.web.shared.Provider
 
 object picklers {
 
   def Bool(x: Boolean): Js.Value =
     if (x) Js.True else Js.False
 
-  implicit val hUserWriter = Writer[User] {
+  implicit val UserWriter = Writer[User] {
     case u =>
       Js.Obj("id" -> Js.Str(u.id))
   }
 
-  implicit val hUserReader = Reader[User] {
+  implicit val UserReader = Reader[User] {
     case Js.Obj(("id", Js.Str(_id))) =>
       User(_id, null, Map.empty)
+  }
+
+  implicit val providerWriter = Writer[Provider] {
+    case p => Js.Str(p.id)
+  }
+
+  implicit val providerReader = Reader[Provider] {
+    case Js.Str(_id) => Provider(_id)
   }
 
   implicit val hRepositoryWriter = Writer[HRepository] {

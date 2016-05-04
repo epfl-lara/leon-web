@@ -105,13 +105,18 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
     case LoadRepositories(user) =>
       clientLog(s"Fetching repositories list...")
 
-      val result = RepositoryProvider.forUser(user)
+      val providers = RepositoryProvider.forUser(user)
+      val result = Future.sequence {
+        providers.map { p =>
+          p.listRepositories().map(p.provider.id -> _)
+        }
+      }
 
       result onSuccess { case repos =>
         clientLog(s"=> DONE")
 
         event("repositories_loaded", Map(
-          "repos" -> toJson(repos map { case (p, v) => (p.id, v) })
+          "repos" -> toJson(repos.toMap)
         ))
       }
 

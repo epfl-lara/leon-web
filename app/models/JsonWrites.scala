@@ -232,8 +232,8 @@ trait StandaloneJsonWrites {
   )(LocalRepository.apply _)
 
   implicit val repositoryWrites: Writes[Repository] = Writes {
-    case local: LocalRepository   => toJson(local)
-    case github: GitHubRepository => toJson(github)
+    case local: LocalRepository   => toJson(local)(localRepositoryWrites)
+    case github: GitHubRepository => toJson(github)(githubRepositoryWrites)
   }
 
 }

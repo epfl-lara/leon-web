@@ -40,7 +40,7 @@ object HandlersTypes {
 
   @ScalaJSDefined
   trait HRepositories extends js.Object {
-    val repos: js.Array[HRepository]
+    val repos: js.Dictionary[js.Array[HRepository]]
   }
 
   @ScalaJSDefined

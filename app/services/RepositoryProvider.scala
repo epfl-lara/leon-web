@@ -12,26 +12,30 @@ import leon.web.shared._
 
 trait RepositoryProvider {
 
-  type Repository
+  type R <: Repository
 
   def provider: Provider
   def ofType: RepositoryType
 
   def isAvailable: Boolean
 
-  def listRepositories()(implicit ec: ExecutionContext): Future[Seq[Repository]]
+  def listRepositories()(implicit ec: ExecutionContext): Future[Seq[R]]
 
 }
 
 object RepositoryProvider {
 
-  def forUser(user: User)(implicit ec: ExecutionContext): Future[Map[Provider, Seq[Repository]]] =
-    Future.successful(Map())
+  def forUser(user: User)(implicit ec: ExecutionContext): Seq[RepositoryProvider] = {
+    val gh  = new GitHubRepositoryProvider(user)
+    val teq = new TequilaRepositoryProvider(user, "")
+
+    Seq(gh, teq).filter(_.isAvailable)
+  }
 }
 
 class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
 
-  type Repository = GitHubRepository
+  type R = GitHubRepository
 
   private def token =
     user.github.flatMap(_.oAuth2Info).map(_.accessToken)
@@ -55,7 +59,7 @@ class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
 
 class LocalRepositoryProvider(rootDir: String) extends RepositoryProvider {
 
-  type Repository = LocalRepository
+  type R = LocalRepository
 
   private lazy val root = new File(rootDir)
 
