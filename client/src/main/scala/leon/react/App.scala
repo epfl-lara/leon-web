@@ -1,4 +1,4 @@
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 package leon.web
 package client
@@ -22,14 +22,11 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 
-import leon.web.client.syntax.websocket._
-
 import leon.web.client.react.components.modals._
 import leon.web.client.react.components.panels._
 import leon.web.client.data.User
 
-import leon.web.shared.{GitOperation, Action => LeonAction}
-
+import leon.web.shared.{GitOperation}
 
 /** This class is in charge of the following:
   *
@@ -140,12 +137,7 @@ class App(private val api: LeonAPI) {
       }
 
     case LoadRepositories() =>
-      val msg = l(
-        action = LeonAction.loadRepositories,
-        module = "main"
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      Backend.repository.loadRepositories()
 
       onEvent(Events.repositoriesLoaded) { e => state =>
         state.copy(repositories = Some(e.repos))
@@ -154,14 +146,7 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadRepository(repo) =>
-      val msg = l(
-        action = LeonAction.loadRepository,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      Backend.repository.loadRepository(repo)
 
       onEvent(Events.repositoryLoaded) { e => state =>
         state.copy(
@@ -184,15 +169,7 @@ class App(private val api: LeonAPI) {
       }
 
     case SwitchBranch(repo, branch) =>
-      val msg = l(
-        action = LeonAction.switchBranch,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name,
-        branch = branch
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      Backend.repository.switchBranch(repo, branch)
 
       onEvent(Events.branchChanged) { e => state =>
         state.copy(
@@ -205,15 +182,7 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadFile(repo, file) =>
-      val msg = l(
-        action = LeonAction.loadFile,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name,
-        file   = file
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      Backend.repository.loadFile(repo, file)
 
       onEvent(Events.fileLoaded) { e => state =>
         state.copy(file = Some((e.fileName, e.content)))
@@ -222,21 +191,15 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case ReloadCurrentFile() =>
-      val msg =
+      val infos =
         for {
-          repo          <- state.repository
-          (fileName, _) <- state.file
+          repo      <- state.repository
+          (file, _) <- state.file
         }
-        yield l(
-          action = LeonAction.loadFile,
-          module = "main",
-          owner  = repo.owner,
-          repo   = repo.name,
-          file   = fileName
-        )
+        yield (repo, file)
 
-      msg foreach { msg =>
-        api.leonSocket.sendBuffered(JSON.stringify(msg))
+      infos foreach { case (repo, file) =>
+        Backend.repository.loadFile(repo, file)
 
         onEvent(Events.fileLoaded) { e => state =>
           Actions dispatch UpdateEditorCode(e.content)
@@ -292,20 +255,7 @@ class App(private val api: LeonAPI) {
             case _                        => l()
           }
 
-          val msg = l(
-            action  = LeonAction.doGitOperation,
-            module  = "main",
-            op      = op.name,
-            data    = data,
-            project = l(
-              owner  = project.owner,
-              repo   = project.repo,
-              branch = project.branch,
-              file   = project.file
-            )
-          )
-
-          api.leonSocket.send(JSON.stringify(msg))
+          Backend.repository.doGitOperation(op.name, data, project)
       }
 
       now(state)
@@ -315,13 +265,7 @@ class App(private val api: LeonAPI) {
     }
 
     case UnlinkAccount(provider) =>
-      val msg = l(
-        action = LeonAction.unlinkAccount,
-        module = "main",
-        provider = provider.id
-      )
-
-      api.leonSocket.send(JSON.stringify(msg))
+      Backend.main.unlinkAccount(provider)
 
       now(state)
 

@@ -14,7 +14,7 @@ import monifu.reactive.subjects._
 
 import leon.web.client.HandlersTypes._
 import leon.web.client.data.User
-import leon.web.shared.Project
+import leon.web.shared.{Project, RepositoryDesc}
 
 import leon.web.client.utils.picklers._
 
@@ -67,8 +67,7 @@ case class AppState(
       (f, c) <- file
     }
     yield Project(
-      owner  = r.owner,
-      repo   = r.name,
+      repo   = RepositoryDesc.fromGitHub(r.owner, r.name),
       branch = b,
       file   = f,
       code   = Some(c)

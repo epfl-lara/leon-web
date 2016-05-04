@@ -1412,9 +1412,8 @@ trait LeonWeb {
 
       updateSaveButton()
       currentProject match {
-        case Some(Project(owner, repo, branch, file, _)) if treatAsProject =>
-          Backend.main.doUpdateCodeInProject(
-            owner  = owner,
+        case Some(Project(repo, branch, file, _)) if treatAsProject =>
+          Backend.repository.doUpdateCodeInProject(
             repo   = repo,
             file   = file,
             branch = branch,
@@ -1423,11 +1422,12 @@ trait LeonWeb {
 
         case _ =>
           Backend.main.doUpdateCode(
-            code   = currentCode
+            code = currentCode
           )
       }
 
       Actions dispatch UpdateEditorCode(currentCode, updateEditor = false)
+
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }
