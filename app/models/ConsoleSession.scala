@@ -68,8 +68,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   var interruptManager: InterruptManager = _
 
   object ModuleEntry {
-    def apply(name: String, worker: => BaseActor): (String, ModuleContext) = {
-      name -> ModuleContext(name, context.actorOf(Props(worker)))
+    def apply(name: String, worker: => BaseActor, isActive: Boolean = false): (String, ModuleContext) = {
+      name -> ModuleContext(name, context.actorOf(Props(worker)), isActive)
     }
   }
 
@@ -98,7 +98,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       modules += ModuleEntry(Module.execution     , new ExecutionWorker(self, interruptManager))
       modules += ModuleEntry(Module.repair        , new RepairWorker(self, interruptManager))
       modules += ModuleEntry(Module.invariant     , new OrbWorker(self, interruptManager))
-      modules += ModuleEntry(Module.repository    , new RepositoryWorker(self))
+      modules += ModuleEntry(Module.repository    , new RepositoryWorker(self, currentUser), true)
 
       logInfo("New client")
 
@@ -133,73 +133,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               case Action.doUpdateCode =>
                 self ! UpdateCode((event \ "code").as[String], None, None)
 
-              case Action.doUpdateCodeInProject => withUser { user =>
-                val branch   = (event \ "branch"   ) .as[String]
-                val file     = (event \ "file"     ) .as[String]
-                val code     = (event \ "code"     ) .as[String]
-
-                val repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get
-                val project = Project(repo, branch, file)
-
-                self ! UpdateCode(code, Some(user), Some(project))
-              }
-
               case Action.storePermaLink =>
                 self ! StorePermaLink((event \ "code").as[String])
 
               case Action.accessPermaLink =>
                 self ! AccessPermaLink((event \ "link").as[String])
-
-              case Action.loadRepositories => withUser { user =>
-                self ! LoadRepositories(user)
-              }
-
-              case Action.loadRepository => withUser { user =>
-                val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
-                self ! LoadRepository(user, repo)
-              }
-
-              case Action.loadFile => withUser { user =>
-                val file = (event \ "file").as[String]
-                val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
-
-                self ! LoadFile(user, repo, file)
-              }
-
-              case Action.switchBranch => withUser { user =>
-                val branch = (event \ "branch").as[String]
-                val repo   = RepositoryService.parseRepositoryDesc(event \ "repo").get
-
-                self ! SwitchBranch(user, repo, branch)
-              }
-
-              case Action.doGitOperation => withUser { user =>
-                val project = Project(
-                  repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get,
-                  branch  = (event \ "project" \ "branch").as[String],
-                  file    = (event \ "project" \ "file"  ).as[String]
-                )
-
-                val op = (event \ "op").as[String] match {
-                  case GitOperation.STATUS => GitOperation.Status
-                  case GitOperation.PULL   => GitOperation.Pull
-                  case GitOperation.RESET  => GitOperation.Reset
-
-                  case GitOperation.LOG    =>
-                    val count = (event \ "data" \ "count").as[Int]
-                    GitOperation.Log(count)
-
-                  case GitOperation.PUSH   =>
-                    val force = (event \ "data" \ "force").as[Boolean]
-                    GitOperation.Push(force)
-
-                  case GitOperation.COMMIT =>
-                    val msg = (event \ "data" \ "msg").as[String]
-                    GitOperation.Commit(msg)
-                }
-
-                self ! DoGitOperation(user, project, op)
-              }
 
               case Action.unlinkAccount => withUser { user =>
                 val provider = Provider((event \ "provider").as[String])

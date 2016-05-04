@@ -10,7 +10,6 @@ import akka.actor._
 import akka.pattern._
 
 import play.api._
-import play.api.mvc._
 import play.api.libs.json._
 import play.api.libs.json.Json._
 
@@ -21,7 +20,7 @@ import leon.web.models._
 import leon.web.shared._
 import leon.web.utils.String._
 
-class RepositoryWorker(session: ActorRef)
+class RepositoryWorker(session: ActorRef, user: Option[User])
   extends BaseActor with Actor with RepositoryWorkerHelpers {
 
   import ConsoleProtocol._
@@ -29,7 +28,76 @@ class RepositoryWorker(session: ActorRef)
 
   import context.dispatcher
 
+  var currentUser: Option[User] = user
+
   def receive = {
+
+    case OnClientEvent(_, event) =>
+
+      (event \ "action").as[String] match {
+
+        case Action.doUpdateCodeInProject => withUser { user =>
+          val branch   = (event \ "branch"   ) .as[String]
+          val file     = (event \ "file"     ) .as[String]
+          val code     = (event \ "code"     ) .as[String]
+
+          val repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get
+          val project = Project(repo, branch, file)
+
+          self ! UpdateCode(code, Some(user), Some(project))
+        }
+
+        case Action.loadRepositories => withUser { user =>
+          self ! LoadRepositories(user)
+        }
+
+        case Action.loadRepository => withUser { user =>
+          val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
+          self ! LoadRepository(user, repo)
+        }
+
+        case Action.loadFile => withUser { user =>
+          val file = (event \ "file").as[String]
+          val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
+
+          self ! LoadFile(user, repo, file)
+        }
+
+        case Action.switchBranch => withUser { user =>
+          val branch = (event \ "branch").as[String]
+          val repo   = RepositoryService.parseRepositoryDesc(event \ "repo").get
+
+          self ! SwitchBranch(user, repo, branch)
+        }
+
+        case Action.doGitOperation => withUser { user =>
+          val project = Project(
+            repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get,
+            branch  = (event \ "project" \ "branch").as[String],
+            file    = (event \ "project" \ "file"  ).as[String]
+          )
+
+          val op = (event \ "op").as[String] match {
+            case GitOperation.STATUS => GitOperation.Status
+            case GitOperation.PULL   => GitOperation.Pull
+            case GitOperation.RESET  => GitOperation.Reset
+
+            case GitOperation.LOG    =>
+              val count = (event \ "data" \ "count").as[Int]
+              GitOperation.Log(count)
+
+            case GitOperation.PUSH   =>
+              val force = (event \ "data" \ "force").as[Boolean]
+              GitOperation.Push(force)
+
+            case GitOperation.COMMIT =>
+              val msg = (event \ "data" \ "msg").as[String]
+              GitOperation.Commit(msg)
+          }
+
+          self ! DoGitOperation(user, project, op)
+        }
+      }
 
     case UserUpdated(user) =>
       currentUser = user
@@ -335,8 +403,6 @@ class RepositoryWorker(session: ActorRef)
 }
 
 trait RepositoryWorkerHelpers { self: RepositoryWorker =>
-
-  var currentUser: Option[User] = None
 
   def withUser(f: User => Unit): Unit = currentUser match {
     case Some(user) =>
