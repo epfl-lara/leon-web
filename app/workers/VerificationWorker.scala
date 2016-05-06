@@ -73,7 +73,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean): Unit = {
     val params    = CodeGenParams.default.copy(maxFunctionInvocations = 5000, checkContracts = false)
-    val evaluator = new CodeGenEvaluator(vctx, cstate.program, params)
+    val evaluator = new CodeGenEvaluator(vctx, cstate.program, params=params)
 
     for ((f, fv) <- verifOverview.toSeq.sortBy(_._1.getPos) if funs(f)) {
       try {
