@@ -23,10 +23,13 @@ version
 
 /cvc4.exe
 /z3.exe
-/libz3.*
+/libz3*.*
 /scalaz3.*
 /bin/
 /.cache-main
+/msvc*.dll
+/vcomp100.dll
+/*.log
 
 .ensime
 .ensime_cache
