@@ -8,7 +8,7 @@ package components
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import leon.web.client.HandlersTypes.HRepository
+import leon.web.shared.HandlerMessages.HRepository
 
 /** List of GitHub repository, matching the GitHub
   * color scheme (eg. yellow background for private repos)

@@ -5,26 +5,20 @@ package client
 package react
 
 import scala.concurrent.Future
-
 import scala.scalajs.js
 import scala.scalajs.js.JSON
 import scala.scalajs.js.Dynamic.{ literal => l, global => g }
-
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.{console, document}
-
 import org.scalajs.jquery
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
-
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
-
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
-
 import leon.web.client.syntax.websocket._
-
 import leon.web.shared.GitOperation
+import java.util.Base64
 
 /** This class is in charge of the following:
   *
@@ -53,7 +47,7 @@ class App(private val api: LeonAPI) {
 
     val appState =
       LocalStorage("appState")
-        .map(AppState.fromJSON)
+        .map(s => AppState.fromBytes(Base64.getDecoder().decode(s)))
         .map(resetAppState)
         .map(GlobalAppState(_))
         .getOrElse(GlobalAppState())

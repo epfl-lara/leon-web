@@ -6,17 +6,13 @@ package react
 
 import scala.concurrent.Future
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import japgolly.scalajs.react._
-
 import monifu.reactive._
 import monifu.reactive.subjects._
-
-import leon.web.client.HandlersTypes._
-import leon.web.shared.Project
-
-import upickle.default._
-import leon.web.client.utils.picklers._
+import leon.web.shared.HandlerMessages._
+import boopickle.Default._
+//import leon.web.client.utils.picklers._
+import java.nio.ByteBuffer
 
 case class AppState(
   // Repositories fetched from GitHub API
@@ -78,15 +74,15 @@ case class AppState(
       treatAsProject = false
     )
 
-  def toJSON: String = {
-    write(this)
+  def toBytes: ByteBuffer = {
+    Pickle.intoBytes(this)
   }
 
 }
 
 object AppState {
-  def fromJSON(json: String): AppState =
-    read[AppState](json)
+  def fromBytes(bytes: ByteBuffer): AppState =
+    Unpickle[AppState].fromBytes(bytes)
 }
 
 /** This objects holds the whole React application state,

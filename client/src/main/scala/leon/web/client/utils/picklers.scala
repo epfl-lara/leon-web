@@ -6,13 +6,12 @@ package utils
 
 import scala.scalajs.js
 
-import upickle.Js
-import upickle.default._
+//import boopickle.Js
+import boopickle.Default._
 
-import leon.web.client.HandlersTypes._
-
+import leon.web.shared.HandlerMessages._
+/*
 object picklers {
-
   def Bool(x: Boolean): Js.Value =
     if (x) Js.True else Js.False
 
@@ -64,5 +63,5 @@ object picklers {
     }
   }
 
-}
+}*/
 

@@ -6,7 +6,7 @@ package react
 
 import monifu.reactive.subjects._
 
-import leon.web.client.HandlersTypes._
+import leon.web.shared.HandlerMessages._
 
 /** Events triggered in reaction to the [[leon.web.client.react.Action]]s.
   * These events can be listened to, and are meant to trigger state

@@ -8,7 +8,7 @@ import japgolly.scalajs.react.Callback
 
 import monifu.reactive.subjects._
 
-import leon.web.client.HandlersTypes._
+import leon.web.shared.HandlerMessages._
 import leon.web.shared.{Project, GitOperation}
 
 /** Actions that the React app can trigger.

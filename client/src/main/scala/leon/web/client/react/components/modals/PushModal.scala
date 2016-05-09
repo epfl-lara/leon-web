@@ -14,7 +14,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
-import leon.web.client.HandlersTypes.{HGitOperationResult, HCommit}
+import leon.web.shared.HandlerMessages.{HGitOperationResult, HCommit}
 
 import leon.web.shared.GitOperation
 

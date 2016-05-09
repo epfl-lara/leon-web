@@ -16,7 +16,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
-import leon.web.client.HandlersTypes.HRepository
+import leon.web.shared.HandlerMessages.HRepository
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -57,18 +57,18 @@ object LoadRepositoryModal {
           .getOrElse(Callback.empty)
       }
 
-    def urlToRepo(url: GitHubURL): HRepository = new HRepository {
-      val id            = 0L
-      val name          = url.repo
-      val fullName      = url.repopath
-      val owner         = url.user
-      val visibility    = ""
-      val fork          = false
-      val size          = 0L
-      val cloneURL      = s"https://github.com/${url.repopath}.git"
-      val defaultBranch = "master"
-      val branches      = new js.Array[String]
-    }
+    def urlToRepo(url: GitHubURL): HRepository = HRepository(
+      id            = 0L,
+      name          = url.repo,
+      fullName      = url.repopath,
+      owner         = url.user,
+      visibility    = "",
+      fork          = false,
+      size          = 0L,
+      cloneURL      = s"https://github.com/${url.repopath}.git",
+      defaultBranch = "master",
+      branches      = Array[String]()
+    )
 
     def repoToURL(repo: HRepository): String =
       s"https://github.com/${repo.fullName}.git"
