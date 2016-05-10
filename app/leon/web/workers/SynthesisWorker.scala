@@ -479,7 +479,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
         } catch {
           case t: Throwable =>
-            event(HSynthesisRulesToApply(fname= fname, cid = cid, rulesApps = Array[String]()))
+            event(HSynthesisRulesToApply(fname= fname, cid = cid, rulesApps = Array[HRulesApps]()))
             notifyError("Woops, I crashed: "+t.getMessage())
             t.printStackTrace()
             logInfo("Synthesis RulesList crashed", t)

@@ -38,22 +38,25 @@ object Handlers extends js.Object {
         Main.editor.gotoLine(data.line);
 
       case data: HUpdateOverview =>
-        if (data.module == "main") {
-          overview.functions = js.Dictionary.empty[OverviewFunction];
-    
-          for ((i, fdata) <- data.overview) {
-            val fdata = data.overview(i)
-            val fname = fdata.name
-            overview.functions(fname) = fdata
-          }
-        } else {
-          overview.Data(data.module) = data.overview
+        //if (data.module == "main") {
+        overview.functions = js.Dictionary.empty[OverviewFunction];
+  
+        for ((i, fdata) <- data.overview) {
+          val fdata = data.overview(i)
+          val fname = fdata.name
+          overview.functions(fname) = fdata
         }
+      /*} else {
+        overview.Data(data.module) = data.overview
+      }*/
     
         drawOverView()
+      case data: HUpdateTerminationOverview =>
+        overview.Data.termination = data.overview
 
-      case data: HInvariants =>
-        overview.Data.invariants = data.overview
+        drawOverView()
+      case data: HUpdateInvariantsOverview =>
+        overview.Data.invariant = data.overview
 
         drawOverView()
       case data: SynthesisOverview =>

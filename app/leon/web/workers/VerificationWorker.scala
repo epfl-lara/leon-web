@@ -4,7 +4,6 @@ package workers
 import akka.actor._
 import play.api.libs.json._
 import play.api.libs.json.Json._
-
 import models._
 import leon.utils._
 import leon.verification._
@@ -14,8 +13,10 @@ import leon.purescala.ExprOps._
 import leon.purescala.Expressions._
 import leon.purescala.Types._
 import shared.Action
-
 import scala.concurrent.duration._
+import leon.evaluators.EvaluationResults
+import leon.purescala.Common.Identifier
+import leon.purescala.SelfPrettyPrinter
 
 trait VerificationNotifier extends WorkerActor with JsonWrites {
   import ConsoleProtocol._
@@ -23,7 +24,55 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
   
   var counterExamplesExprs: List[Map[String, Expr]] = Nil
+  import shared.messages.{VC => HVC, _}
+  
+  def writes(ex: Map[Identifier, Expr]): Map[String, DualOutput] =
+    ex.toSeq.map(t => (t._1.asString, t._2)).sortBy(_._1).map {
+      case (id, expr) =>
+        val rawoutput = expr.asString
+        val exprAsString = program.map(p => SelfPrettyPrinter.print(expr, rawoutput)(ctx, p)).getOrElse(rawoutput)
+        updateExprCache(rawoutput, expr)
+        id -> DualOutput(rawoutput, exprAsString)
+    }.toMap
+  
+  def writes(er: EvaluationResults.Result[Expr]): ResultOutput = er match {
+    case EvaluationResults.Successful(ex) =>
+      val rawoutput = ex.asString
+      val exAsString = program.map(p => SelfPrettyPrinter.print(ex, ex.asString)(ctx, p)).getOrElse(rawoutput)
+      updateExprCache(rawoutput, ex)
+      ResultOutput("success", output = Some(DualOutput(rawoutput, exAsString)))
 
+    case EvaluationResults.RuntimeError(msg)  => ResultOutput("error", error = Some(msg))
+    case EvaluationResults.EvaluatorError(msg) => ResultOutput("error", error = Some(msg))
+  }
+  
+  def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])): HVC = {
+    val (vc, res, cexExec) = vr
+
+    val timeSec = res.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
+
+    val base = HVC(
+      kind   = vc.kind.toString,
+      fun    = vc.fd.id.name,
+      status = res.status.name,
+      time   = timeSec
+    )
+
+    res.status match {
+      case VCStatus.Invalid(cex) =>
+        
+        cexExec match {
+          case Some(er) =>
+            base.copy(counterExample = Some(writes(cex.toMap[Identifier, Expr])),
+                      execution      = Some(writes(er)))
+          case _ =>
+            base.copy(counterExample = Some(writes(cex.toMap[Identifier, Expr])))
+        }
+      case _ =>
+        base
+    }
+  }
+  
   def notifyVerifOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
       // All functions that depend on an invalid function
@@ -47,13 +96,15 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
       sender ! DispatchTo(shared.Module.execution, NewCounterExamples(cstate, allCEs))
     }
 
-    val fvcs = Json.obj(
+    val fvcs = 
       verifOverview.toSeq.sortBy(_._1.getPos).map{ case (fd, fv) =>
-        fd.id.name -> (fv: JsValueWrapper)
-      } : _*
-    )
+        fd.id.name -> VerificationDetails(
+           status = fv.status,
+           time = fv.totalTime,
+           vcs = fv.vcData.toArray.map(writes)
+        ) }.toMap
 
-    event("update_overview", Map("module" -> toJson("verification"), "overview" -> fvcs))
+    event(HUpdateVerificationOverview(overview = fvcs))
   }
 }
 
@@ -199,11 +250,9 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
       sender ! Cancelled(this)
 
     case OnClientEvent(cstate, event) =>
-      (event \ "action").as[String] match {
-        case Action.prettyPrintCounterExample =>
-          val output = (event \ "output").as[String]
-          val rawoutput = (event \ "rawoutput").as[String]
-          val fname = (event \ "fname").as[String]
+      import shared.messages._
+      event match {
+        case PrettyPrintCounterExample(output, rawoutput, fname) =>
           val exprOpt = getExprFromCache(rawoutput)
           val fd = cstate.program.definedFunctions.find(_.id.name == fname)
           exprOpt match {
@@ -212,9 +261,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
             case None =>
               notifyError("Could not find original expression of "+rawoutput)
           }
-          
-        case action =>
-          notifyError("Received unknown action: "+action)
+        case _ => notifyError("Received unknown event: "+event)
       }
 
     case _ =>

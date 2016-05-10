@@ -29,9 +29,24 @@ case class HCommit(
 case class HMoveCursor(line: Double, column: Double = 0) extends Message
 
 case class HUpdateOverview(
-  module: String,
-  overview: HandlerMessages.DataOverView
+  overview: Map[String, OverviewFunction]
 ) extends Message
+
+case class HUpdateTerminationOverview(
+  overview: Map[String, TerminationDetails]
+) extends Message
+
+case class HUpdateVerificationOverview(
+  overview: Map[String, VerificationDetails]
+) extends Message
+
+
+case class HUpdateInvariantsOverview(
+  overview: Map[String, InvariantDetails],
+  kind: String,
+  code: String
+) extends Message
+
 
 case class SP(index: Int, line: Int, column: Int, description: String, problem: String)
 
@@ -129,18 +144,19 @@ case class HRepairResult(
 
 case class ResultOutput(
   result: String,
-  output: DualOutput
+  output: Option[DualOutput] = None,
+  error: Option[String] = None
 )
 
-case class DualOutput(rawoutput: String, prettyoutput: String, var modifying: Option[String])
+case class DualOutput(rawoutput: String, prettyoutput: String, var modifying: Option[String] = None)
 
 case class VC(
   status: String,
   fun: String,
   kind: String,
   time: String,
-  counterExample: Option[Map[String, DualOutput]],
-  execution: Option[ResultOutput]
+  counterExample: Option[Map[String, DualOutput]] = None,
+  execution: Option[ResultOutput] = None
 ) extends Status
 
 case class HReplaceCode(newCode: String) extends Message
@@ -158,14 +174,15 @@ trait Status{ def status: String }
 
 case class VerificationDetails(
   status: String,
-  vcs: Array[VC]
+  vcs: Array[VC],
+  time: Double
 ) extends Message with Status
 
 case class TerminationDetails(
   status: String,
-  call: String,
-  calls: Array[String],
-  reason: Option[String]
+  call: String = "",
+  calls: Array[String] = Array(),
+  reason: Option[String] = None
 ) extends Status 
 
 case class InvariantDetails(
@@ -176,14 +193,6 @@ case class InvariantDetails(
   newCode: String,
   time: Double
 )
-
-case class HInvariants(
-  module: String,
-  overview: Map[String, InvariantDetails],
-  kind: String,
-  code: String
-) extends Message
-
 case class OverviewFunction(
   name: String,
   displayName: String,

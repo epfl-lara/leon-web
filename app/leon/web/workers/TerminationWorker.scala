@@ -13,33 +13,34 @@ import leon.web.shared.{TerminationStatus => Status}
 class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
-  def tgToJson(fd: FunDef, tgo: Option[TerminationGuarantee]): JsValue = tgo match {
+  import shared.messages.{DoCancel => _, _ }
+  def tgToJson(fd: FunDef, tgo: Option[TerminationGuarantee]): TerminationDetails = tgo match {
     case Some(tg) => tg match {
-      case Terminates(reason) => toJson(Map(
-        "status" -> toJson(Status.terminates),
-        "reason" -> toJson(reason)
-      ))
-      case LoopsGivenInputs(reason, args) => toJson(Map(
-        "status" -> toJson(Status.loopsfor),
-        "call" -> toJson(args.mkString(fd.id+"(", ",", ")"))
-      ))
-      case CallsNonTerminating(funs) => toJson(Map(
-        "status" -> toJson(Status.callsnonterminating),
-        "calls" -> toJson(funs.map(_.id.name))
-      ))
-      case _ => toJson(Map(
-        "status" -> toJson(Status.noguarantee)
-      ))
+      case Terminates(reason) => TerminationDetails(
+        status = Status.terminates,
+        reason = reason
+      )
+      case LoopsGivenInputs(reason, args) => TerminationDetails(
+        status = Status.loopsfor,
+        call = args.mkString(fd.id+"(", ",", ")")
+      )
+      case CallsNonTerminating(funs) => TerminationDetails(
+        status = Status.callsnonterminating,
+        calls = funs.map(_.id.name)
+      )
+      case _ => TerminationDetails(
+        status = Status.noguarantee)
+      )
     }
-    case None => toJson(Map(
-      "status" -> toJson(Status.wip)
-    ))
+    case None => TerminationDetails(
+      status = Status.wip
+    )
   }
 
   def notifyTerminOverview(cstate: CompilationState, data: Map[FunDef, Option[TerminationGuarantee]]): Unit = {
     if (cstate.isCompiled) {
       val facts = for ((fd, tg) <- data) yield (fd.id.name -> tgToJson(fd, tg))
-      event("update_overview", Map("module" -> toJson("termination"), "overview" -> toJson(facts.toMap)))
+      event(HUpdateTerminationOverview(overview = facts.toMap))
     }
   }
 
