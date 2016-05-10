@@ -33,7 +33,7 @@ class JGitProgressWorker(eventName: String, session: ActorRef) extends BaseActor
     case _ =>
   }
 
-  def pushMessage(v: JsValue): Unit = session ! NotifyClient(v)
+  def pushMessage(v: Array[Byte]): Unit = session ! NotifyClientBin(v)
 
 }
 

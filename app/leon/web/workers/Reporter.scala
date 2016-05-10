@@ -20,7 +20,7 @@ class WorkerReporter(session: ActorRef) extends Reporter(Set()) {
       case DEBUG(_) => "Debug: "
     }
 
-    session ! NotifyClient(HLog(message = (prefix + msg.msg.toString)))
+    session ! NotifyClient(shared.messages.HLog(message = (prefix + msg.msg.toString)))
     println((prefix + msg.msg.toString))
   }
 }

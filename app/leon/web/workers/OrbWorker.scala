@@ -212,7 +212,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         Constants.invariantMainCode ->
           funInvariantStatusToOverviewFunction(FunInvariantStatus(None, None, None, Some(code), None)))).toMap
 
-    event(HUpdateInvariantsOverview(module = Module.invariant, overview = fics, kind = "", code = ""))
+    event(HUpdateInvariantsOverview(overview = fics, kind = "", code = ""))
   }
 
   /**

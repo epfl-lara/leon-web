@@ -6,8 +6,7 @@ package react
 
 import scala.concurrent.Future
 import scala.scalajs.js
-import scala.scalajs.js.JSON
-import scala.scalajs.js.Dynamic.{ literal => l, global => g }
+import js.Dynamic.{ literal => l, global => g }
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.{console, document}
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
@@ -15,7 +14,6 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
-import leon.web.client.syntax.websocket._
 import leon.web.shared.messages._
 import java.nio.ByteBuffer
 
@@ -133,7 +131,7 @@ class App(private val api: LeonAPI) {
 
       onEvent(Events.repositoryLoaded) { e => state =>
         state.copy(
-          repository        = Some(e.repo),
+          repository        = Some(e.repository),
           files             = e.files,
           file              = None,
           branches          = e.branches,
@@ -156,8 +154,8 @@ class App(private val api: LeonAPI) {
 
       onEvent(Events.branchChanged) { e => state =>
         state.copy(
-          branch = Some(e.branch),
-          files  = e.files,
+          branch = e.branch,
+          files  = e.files match { case Some(f) => f case None => Array[String]() },
           file   = None
         )
       }
@@ -168,7 +166,7 @@ class App(private val api: LeonAPI) {
       api.sendBuffered(shared.messages.LoadFile(owner = repo.owner, repo = repo.name, file = file))
 
       onEvent(Events.fileLoaded) { e => state =>
-        state.copy(file = Some((e.fileName, e.content)))
+        state.copy(file = Some((e.file, e.content)))
       }
 
       now(state)
@@ -190,7 +188,7 @@ class App(private val api: LeonAPI) {
 
         onEvent(Events.fileLoaded) { e => state =>
           Actions dispatch UpdateEditorCode(e.content)
-          state.copy(file = Some((e.fileName, e.content)))
+          state.copy(file = Some((e.file, e.content)))
         }
       }
 

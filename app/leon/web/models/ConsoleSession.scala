@@ -124,6 +124,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         interruptManager.recoverInterrupt()
       }
 
+    case NotifyClientBin(binData) =>
+      pushMessage(binData)
     case NotifyClient(event) =>
       import boopickle.Default._
       import shared.messages._
@@ -158,6 +160,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                     modules(f).isActive = false
                   }
                 }
+              case _ => notifyError("Could not recognize message of module main:" + message)
             }
           case "git" =>
             message match {
@@ -608,10 +611,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
         val annotations = {
           compReporter.errors.map{ case (l,e) =>
-            CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationError)
+            shared.CodeAnnotation(l, 0, e.mkString("\n"), shared.CodeAnnotationError)
           }.toSeq ++
           compReporter.warnings.map{ case (l,e) =>
-            CodeAnnotation(l, 0, e.mkString("\n"), CodeAnnotationWarning)
+            shared.CodeAnnotation(l, 0, e.mkString("\n"), shared.CodeAnnotationWarning)
           }.toSeq
         }.filter(_.line >= 0)
 
@@ -637,7 +640,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         fd.id.name -> OverviewFunction(fd.id.name, decodeName(fd.id.name), fd.getPos.line, fd.getPos.col)
       }).toMap
 
-      event(HUpdateOverview("main", facts))
+      event(HUpdateOverview(facts))
     }
 
   }
@@ -663,8 +666,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       file
   }
 
-  def notifyAnnotations(annotations: Seq[CodeAnnotation]): Unit = {
-    event(HEditor(annotations = annotations))
+  def notifyAnnotations(annotations: Seq[shared.CodeAnnotation]): Unit = {
+    event(HEditor(annotations = Some(annotations.toArray)))
   }
 
 }

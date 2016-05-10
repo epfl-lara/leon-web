@@ -462,9 +462,9 @@ object Handlers extends js.Object {
 
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
-      var path = Array[Int]()
+      var path = List[Int]()
       if (new EqOps(b.attr("path")) =!= "") {
-        path = b.attr("path").split("-").map((e: String) => e.toInt)
+        path = b.attr("path").split("-").map((e: String) => e.toInt).toList
       }
       path
     }

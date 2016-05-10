@@ -50,6 +50,7 @@ object ConsoleProtocol {
   case class OnUpdateCode(cstate: CompilationState)
   case class OnClientEvent(cstate: CompilationState, event: shared.messages.MessageToServer)
   case class NotifyClient(event: shared.messages.Message)
+  case class NotifyClientBin(event: Array[Byte])
   case object Enable
   case object Disable
 

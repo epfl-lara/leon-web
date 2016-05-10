@@ -8,25 +8,25 @@ package components
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import leon.web.shared.messages.HRepository
+import leon.web.shared.github.Repository
 
 /** List of GitHub repository, matching the GitHub
   * color scheme (eg. yellow background for private repos)
   * and features pretty octicons. */
 object RepositoryList {
 
-  type OnSelectCallback = HRepository => Callback
+  type OnSelectCallback = Repository => Callback
 
   case class Props(
-    repos: Seq[HRepository],
-    selected: Option[HRepository],
+    repos: Seq[Repository],
+    selected: Option[Repository],
     onSelect: OnSelectCallback,
     disabled: Boolean
   )
 
   class Backend($: BackendScope[Props, Unit]) {
 
-    def onSelectRepo(repo: HRepository)(e: ReactMouseEvent): Callback =
+    def onSelectRepo(repo: Repository)(e: ReactMouseEvent): Callback =
       e.preventDefaultCB >>
       $.props.flatMap(_.onSelect(repo))
 
@@ -39,7 +39,7 @@ object RepositoryList {
         for (repo <- props.repos) yield
           <.li(
             ^.classSet1(
-              repo.visibility,
+              repo.visibility.name,
               "selected" -> props.selected.exists(_.fullName === repo.fullName)
             ),
             <.a(^.onClick ==> onSelectRepo(repo) _,
@@ -59,8 +59,8 @@ object RepositoryList {
       .renderBackend[Backend]
       .build
 
-  def apply(repos: Seq[HRepository],
-            selected: Option[HRepository],
+  def apply(repos: Seq[Repository],
+            selected: Option[Repository],
             onSelect: OnSelectCallback,
             disabled: Boolean) =
     component(Props(repos, selected, onSelect, disabled))

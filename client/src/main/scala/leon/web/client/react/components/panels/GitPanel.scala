@@ -8,7 +8,7 @@ package panels
 
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals._
-import leon.web.shared.messages._
+import leon.web.shared.messages.{DoGitOperation => _, _}
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._

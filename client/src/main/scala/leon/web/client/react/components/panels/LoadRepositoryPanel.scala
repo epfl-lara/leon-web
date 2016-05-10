@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals.LoadRepositoryModal
-import leon.web.shared.messages.{HRepository, HBranch}
+import leon.web.shared.github.{Repository, Branch}
 
 /** Panel displayed in the sidebar on the right, wich lets
   * users pick a repository and load a specific file from that
@@ -36,10 +36,10 @@ object LoadRepositoryPanel {
     def onClickUnload: Callback =
       Actions dispatchCB SetCurrentProject(None)
 
-    def onLoadRepo(repo: HRepository): Callback =
+    def onLoadRepo(repo: Repository): Callback =
       Actions dispatchCB LoadRepository(repo)
 
-    def onChooseBranch(repo: HRepository)(branch: String): Callback =
+    def onChooseBranch(repo: Repository)(branch: String): Callback =
       Actions dispatchCB SwitchBranch(repo, branch)
 
     def onChooseFile(file: String): Callback = $.props.flatMap { props =>
@@ -82,7 +82,7 @@ object LoadRepositoryPanel {
       )
     }
 
-    def renderBranches(repo: HRepository, branches: Seq[HBranch], selected: Option[String]) =
+    def renderBranches(repo: Repository, branches: Seq[Branch], selected: Option[String]) =
       <.span(^.id := "load-repo-branch",
         "Branch:",
         BranchSelector(
@@ -110,7 +110,7 @@ object LoadRepositoryPanel {
 
 object LoadRepositoryButton {
 
-  case class Props(repo: Option[HRepository], onClickSelect: Callback, onClickUnload: Callback)
+  case class Props(repo: Option[Repository], onClickSelect: Callback, onClickUnload: Callback)
   case class State(isHover: Boolean = false)
 
   class Backend($: BackendScope[Props, State]) {
@@ -137,7 +137,7 @@ object LoadRepositoryButton {
         props.repo.isDefined ?= renderUnloadButton(props.onClickUnload)
       )
 
-    def renderContent(repo: Option[HRepository], isHover: Boolean) = repo match {
+    def renderContent(repo: Option[Repository], isHover: Boolean) = repo match {
       case Some(repo) if !isHover => octicon("mark-github", repo.fullName)
       case Some(_)                => octicon("mark-github", "Select another repository")
       case None                   => octicon("mark-github", "Select a GitHub repository")
@@ -159,7 +159,7 @@ object LoadRepositoryButton {
       .renderBackend[Backend]
       .build
 
-  def apply(repo: Option[HRepository], onClickSelect: Callback, onClickUnload: Callback) =
+  def apply(repo: Option[Repository], onClickSelect: Callback, onClickUnload: Callback) =
     component(Props(repo, onClickSelect, onClickUnload))
 
 }

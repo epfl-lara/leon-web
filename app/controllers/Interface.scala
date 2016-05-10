@@ -94,6 +94,7 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
         val iteratee = Done[Array[Byte],Unit]((),Input.EOF)
 
         import boopickle.Default._
+        import shared.messages.Picklers._
         // Send an error and close the socket
         val enumerator =  Enumerator[Array[Byte]](Pickle.intoBytes[Message](HLog(error)).array()).andThen(Enumerator.enumInput(Input.EOF))
 

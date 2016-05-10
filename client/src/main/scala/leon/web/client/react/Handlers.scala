@@ -4,8 +4,6 @@ package leon.web
 package client
 package react
 
-import scala.scalajs.js
-
 import leon.web.shared.messages._
 
 /** Register WebSocket handlers, and push the received messages

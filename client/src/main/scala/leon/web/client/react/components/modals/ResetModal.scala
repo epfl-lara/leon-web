@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 
-import leon.web.shared.messages._
+import leon.web.shared.messages.{DoGitOperation => _, _ }
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -32,9 +32,9 @@ object ResetModal {
 
     def listenForReset: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op === GitOperation.RESET)
+        .filter(_.op.name === GitOperation.RESET)
         .take(1)
-        .map(_.result)
+        .map(_.data)
         .doWork { _ => onResetDone.runNow() }
         .subscribe()
     }

@@ -7,7 +7,6 @@ package react
 import monifu.reactive.subjects._
 
 import shared.messages._
-import shared.github._
 
 
 /** Exposes those events as [[monifu.reactive.subjects.Subject]]. */

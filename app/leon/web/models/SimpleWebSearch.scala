@@ -27,10 +27,10 @@ class SimpleWebSearch(cs: BaseActor,
       super.doExpand(n, sctx)
       val (closed, total) = g.getStats()
   
-      cs.event("synthesis_result", Map(
-        "result" -> toJson("progress"),
-        "closed" -> toJson(closed),
-        "total" -> toJson(total)
+      cs.event(shared.messages.HSynthesisResult(
+        result = "progress",
+        closed = closed,
+        total = total
       ))
     }
   }

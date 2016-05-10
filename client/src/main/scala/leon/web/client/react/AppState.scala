@@ -7,20 +7,20 @@ package react
 import scala.concurrent.Future
 import monifu.reactive._
 import monifu.reactive.subjects._
-import leon.web.shared.messages._
+import shared.github._
 import boopickle.Default._
 import java.nio.ByteBuffer
 import leon.web.shared.Project
 
 case class AppState(
   // Repositories fetched from GitHub API
-  repositories      : Option[Seq[HRepository]] = None,
+  repositories      : Option[Seq[Repository]] = None,
 
   // Currently selected repository
-  repository        : Option[HRepository]      = None,
+  repository        : Option[Repository]      = None,
 
   // Available branches for selected repository
-  branches          : Seq[HBranch]             = Seq(),
+  branches          : Seq[Branch]             = Seq(),
 
   // Currently selected branch
   branch            : Option[String]           = None,

@@ -6,16 +6,13 @@ package react
 package components
 package modals
 
-import scala.scalajs.js
-
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.shared.messages.{HGitOperationResult, HCommit}
 
-import leon.web.shared.messages._
+import leon.web.shared.messages.{DoGitOperation => _, _}
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -29,7 +26,7 @@ object PushModal {
     pushing: Boolean = false,
     failed: Boolean = false,
     forcePush: Boolean = false,
-    commits: Option[Seq[HCommit]] = None
+    commits: Option[Seq[Commit]] = None
   )
 
   class Backend($: BackendScope[Props, State]) {
@@ -46,23 +43,25 @@ object PushModal {
 
     def listenForLog: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op === GitOperation.LOG)
+        .filter(_.op.name === GitOperation.LOG)
         .take(1)
-        .map(_.result)
+        .map(_.data)
         .doWork { res => onLogUpdate(res).runNow() }
         .subscribe()
     }
 
-    def onLogUpdate(res: HGitOperationResult): Callback = {
-      val commits = res.data.asInstanceOf[js.Array[HCommit]]
-      $.modState(_.copy(commits = Some(commits.toSeq)))
+    def onLogUpdate(res: GitOperationResult): Callback = {
+      res match {
+        case GitCommits(commits) => 
+          $.modState(_.copy(commits = Some(commits.toSeq)))
+        case _ => Callback { () }
+      }
     }
 
     def listenForPush: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op === GitOperation.PUSH)
+        .filter(_.op.name === GitOperation.PUSH)
         .take(1)
-        .map(_.result)
         .doWork { res => onPushDone(res.success).runNow() }
         .subscribe()
     }
@@ -120,7 +119,7 @@ object PushModal {
       )
     }
 
-    def renderCommit(c: HCommit) =
+    def renderCommit(c: Commit) =
       <.span(^.className := "commit",
         <.span(^.className := "hash", c.hash.substring(0, 8)),
         " - ",

@@ -19,15 +19,14 @@ import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventO
 import JQueryExtended._
 import Bool._
 import Implicits._
-import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import leon.web.shared.{Module => ModuleName, Constants}
-import leon.web.shared.{Project}
-import leon.web.shared.equal.EqSyntax
-import leon.web.client.react.{App => ReactApp}
-import leon.web.client.react.Actions
-import leon.web.client.utils.BufferedWebSocket
-import leon.web.shared.messages._
-import boopickle.Default._
+import shared.{VerifStatus, TerminationStatus, InvariantStatus}
+import shared.{Module => ModuleName, Constants}
+import shared.{Project}
+import shared.equal.EqSyntax
+import client.react.{App => ReactApp}
+import client.react.Actions
+import client.utils.BufferedWebSocket
+import shared.messages.{Event => _, _}
 import scala.scalajs.js.typedarray.ArrayBuffer
 
 @ScalaJSDefined
@@ -97,7 +96,10 @@ object Main extends LeonWeb with LeonAPI  {
 }
 
 trait LeonWeb extends EqSyntax {
-
+  import boopickle.Default._
+  import shared.messages.PicklersToServer._
+  import syntax.websocket._
+  
   def window = g
   val editor = MainDelayed.editor
   val aceRange = ace.require("ace/range").Range;
@@ -109,9 +111,7 @@ trait LeonWeb extends EqSyntax {
   @JSExport("leonSocket") var leonSocket: WebSocket = null
   
   private def _send(msg: Array[Byte]): Unit = leonSocket.send(msg.asInstanceOf[ArrayBuffer])
-  import boopickle.Default._
-  import shared.messages.PicklersToServer._
-  import syntax.websocket._
+
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg).array())
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
   def registerMessageHandler(handler: Message => Boolean): Unit =
@@ -646,23 +646,9 @@ trait LeonWeb extends EqSyntax {
       var verification = Map[String, VerificationDetails]()
       var termination = Map[String, TerminationDetails]()
       var invariant = Map[String, InvariantDetails]()
-/*
-      def update[A](s: String, v: A) = {
-        Data.asInstanceOf[js.Dictionary[A]](s) = v
-      }
-
-      @JSName("apply")
-      def apply[A](s: String): js.Dictionary[A] = {
-        Data.asInstanceOf[js.Dictionary[js.Any]].get(s) match {
-          case Some(dict) => dict.asInstanceOf[js.Dictionary[A]]
-          case _          => throw new Exception(s"$s data not defined")
-        }
-      }*/
     }
   }
   
-  import leon.web.shared.messages._
-
   var synthesisOverview: SynthesisOverview = SynthesisOverview(None)
 
   def drawSynthesisOverview(): Unit = {
@@ -774,7 +760,7 @@ trait LeonWeb extends EqSyntax {
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          val data = overview.Data[Status](m)
+          val data = overview.Data.asInstanceOf[js.Dictionary[Map[String, Status]]](m)
           data.get(fname) match {
             case Some(status) =>
               html += mod.html(fname, status)
@@ -919,9 +905,9 @@ trait LeonWeb extends EqSyntax {
         if (vc.execution.isDefined && vc.execution.get.result == "success" && Features.execution.active) {
           html += "  <p>It produced the following output:</p>";
           html += "  <table class=\"input\">";
-          html += "  "+ "<tr><td>" + "<div class='output'  contentEditable='true' tabindex=0>" + vc.execution.get.output.prettyoutput + "</div>" + "</td></tr>"
+          html += "  "+ "<tr><td>" + "<div class='output'  contentEditable='true' tabindex=0>" + vc.execution.get.output.get.prettyoutput + "</div>" + "</td></tr>"
           html += "  </table>"
-          outputs.push(vc.execution.get.output)
+          vc.execution.get.output.foreach(o => outputs.push(o))
         }
 
         html += "    </div>"
@@ -1163,8 +1149,8 @@ trait LeonWeb extends EqSyntax {
         var html = """<tr class="warning counter-example"><td><div>"""
         html += "<p>The function calls the following non-terminating function(s):</p>";
         html += "<table class=\"input\">";
-        for (i <- 0 until fdata.calls.length) {
-          html += "<tr><td>" + fdata.calls(i) + "</td></tr>";
+        for (call <- fdata.calls) {
+          html += "<tr><td>" + call + "</td></tr>";
         }
         html += "</table>"
         html += "</div></td></tr>"
@@ -1419,7 +1405,7 @@ trait LeonWeb extends EqSyntax {
           )
       }
 
-      Actions dispatch UpdateEditorCode(currentCode, updateEditor = false)
+      Actions dispatch react.UpdateEditorCode(currentCode, updateEditor = false)
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }
@@ -1811,5 +1797,5 @@ trait LeonWeb extends EqSyntax {
   snowStorm.stop();
   */
 
-}))
+}
 

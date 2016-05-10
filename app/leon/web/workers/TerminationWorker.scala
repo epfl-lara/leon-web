@@ -18,7 +18,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
     case Some(tg) => tg match {
       case Terminates(reason) => TerminationDetails(
         status = Status.terminates,
-        reason = reason
+        reason = Some(reason)
       )
       case LoopsGivenInputs(reason, args) => TerminationDetails(
         status = Status.loopsfor,
@@ -29,7 +29,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
         calls = funs.map(_.id.name)
       )
       case _ => TerminationDetails(
-        status = Status.noguarantee)
+        status = Status.noguarantee
       )
     }
     case None => TerminationDetails(

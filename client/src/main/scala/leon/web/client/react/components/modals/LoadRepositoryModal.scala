@@ -14,7 +14,8 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
-import leon.web.shared.messages.HRepository
+import leon.web.shared.messages._
+import shared.github._
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -24,13 +25,13 @@ import monifu.concurrent.Implicits.globalScheduler
 object LoadRepositoryModal {
 
   case class Props(
-    onSelect: HRepository => Callback,
+    onSelect: Repository => Callback,
     cloning: Boolean = false,
-    repos: Option[Seq[HRepository]] = None
+    repos: Option[Seq[Repository]] = None
   )
 
   case class State(
-    selectedRepo  : Option[HRepository] = None,
+    selectedRepo  : Option[Repository] = None,
     url           : Option[String]      = None,
     cloneProgress : Option[GitProgress] = None
   )
@@ -55,20 +56,20 @@ object LoadRepositoryModal {
           .getOrElse(Callback.empty)
       }
 
-    def urlToRepo(url: GitHubURL): HRepository = HRepository(
-      id            = 0L,
+    def urlToRepo(url: GitHubURL): Repository = Repository(
+      id            = RepositoryId(0L),
       name          = url.repo,
       fullName      = url.repopath,
       owner         = url.user,
-      visibility    = "",
+      visibility    = Visibility(""),
       fork          = false,
       size          = 0L,
       cloneURL      = s"https://github.com/${url.repopath}.git",
       defaultBranch = "master",
-      branches      = Array[String]()
+      branches      = Array[Branch]()
     )
 
-    def repoToURL(repo: HRepository): String =
+    def repoToURL(repo: Repository): String =
       s"https://github.com/${repo.fullName}.git"
 
     def onChangeURL(e: ReactEventI): Callback = {
@@ -85,7 +86,7 @@ object LoadRepositoryModal {
       }
     }.void
 
-    def onSelectRepo(repo: HRepository): Callback = {
+    def onSelectRepo(repo: Repository): Callback = {
       $.modState(_.copy(
         selectedRepo  = Some(repo),
         url           = Some(repoToURL(repo)),
@@ -128,7 +129,7 @@ object LoadRepositoryModal {
         renderFooter(props, state)
       )
 
-    def renderURLForm(repo: Option[HRepository], url: Option[String]) = {
+    def renderURLForm(repo: Option[Repository], url: Option[String]) = {
       <.div(^.className := "modal-section",
         <.h5(
           """Enter the URL of a GitHub repository:"""
@@ -143,7 +144,7 @@ object LoadRepositoryModal {
       )
     }
 
-    def renderRepositoriesList(repos: Option[Seq[HRepository]], selected: Option[HRepository], cloning: Boolean) =
+    def renderRepositoriesList(repos: Option[Seq[Repository]], selected: Option[Repository], cloning: Boolean) =
       <.div(^.className := "modal-section",
         <.h5(
           """Or pick a repository to load from the list below:"""
@@ -172,7 +173,7 @@ object LoadRepositoryModal {
 
     def renderCloneProgress(cp: GitProgress) =
       <.span(^.className := "clone-progress",
-        s"${cp.task}",
+        s"${cp.taskName}",
         cp.percentage.map(p => <.span(s" ($p%)")).getOrElse(EmptyTag)
       )
   }
@@ -184,9 +185,9 @@ object LoadRepositoryModal {
       .build
 
   def apply(
-    onSelect: HRepository => Callback,
+    onSelect: Repository => Callback,
     loading: Boolean = false,
-    repos: Option[Seq[HRepository]] = None
+    repos: Option[Seq[Repository]] = None
   ) = component(Props(onSelect, loading, repos))
 
 }

@@ -14,7 +14,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 
-import leon.web.shared.messages._
+import leon.web.shared.messages.{DoGitOperation => _, _}
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -47,8 +47,8 @@ object PullModal {
 
     def subscribeToPullDone: Callback = Callback {
       Events.gitOperationDone
-        .map(_.result)
-        .filter(_.op === GitOperation.PULL)
+        //.map(_.result)
+        .filter(_.op.name === GitOperation.PULL)
         .take(1)
         .doWork { _ => onPullDone.runNow() }
         .subscribe()
@@ -91,7 +91,7 @@ object PullModal {
       case None     => <.div("Incorporate changes from the remote repository into the current branch.")
       case Some(pp) => <.div(^.className := "git-pull-view",
         <.span(^.className := "pull-progress",
-          s"${pp.task}",
+          s"${pp.taskName}",
           pp.percentage.map(p => <.span(s" ($p%)")).getOrElse(EmptyTag)
         )
       )

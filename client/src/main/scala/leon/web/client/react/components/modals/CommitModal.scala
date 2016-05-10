@@ -6,16 +6,13 @@ package react
 package components
 package modals
 
-import scala.scalajs.js
-
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.shared.messages.HGitOperationResult
 
-import leon.web.shared.messages._
+import leon.web.shared.messages.{DoGitOperation => _, _}
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -50,28 +47,29 @@ object CommitModal {
 
     def listenForStatus: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op === GitOperation.STATUS)
+        .filter(_.op.name === GitOperation.STATUS)
         .take(1)
-        .map(_.result)
+        .map(_.data)
         .doWork { res => onStatusUpdate(res).runNow() }
         .subscribe()
     }
 
-    def onStatusUpdate(res: HGitOperationResult): Callback = {
-      val data      = res.data.asInstanceOf[js.Dictionary[js.Any]]
-      val status    = data("status").asInstanceOf[js.Dictionary[js.Array[String]]]
-      val diff      = data("diff").asInstanceOf[String]
-      val changes   = status.mapValues(_.toArray.toSet).toMap
-      val changeset = Changeset(changes, diff)
-
-      $.modState(_.copy(changeset = Some(changeset)))
+    def onStatusUpdate(res: GitOperationResult): Callback = {
+      res match {
+        case GitStatusDiff(status, diff) =>
+           val changes   = status.mapValues(_.toArray.toSet).toMap
+          val changeset = Changeset(changes, diff)
+    
+          $.modState(_.copy(changeset = Some(changeset)))
+        case _ => Callback { () }
+      }
     }
 
     def listenForCommit: Callback = Callback {
       Events.gitOperationDone
-        .filter(_.result.op === GitOperation.COMMIT)
+        .filter(_.op.name === GitOperation.COMMIT)
         .take(1)
-        .map(_.result)
+        .map(_.data)
         .doWork { _ => onCommitDone.runNow() }
         .subscribe()
     }

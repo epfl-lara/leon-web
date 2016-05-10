@@ -15,7 +15,7 @@ case class HPermalink(
   link: String
 ) extends Message
 
-case class HCommit(
+case class Commit(
   hash: String,
   shortHash: String,
   shortMessage: String,
@@ -181,7 +181,7 @@ case class VerificationDetails(
 case class TerminationDetails(
   status: String,
   call: String = "",
-  calls: Array[String] = Array(),
+  calls: Set[String] = Set(),
   reason: Option[String] = None
 ) extends Status 
 
@@ -244,16 +244,6 @@ case object GitOperationResultNone extends GitOperationResult
 case class GitCommits(
   commits: Seq[Commit]
 ) extends GitOperationResult
-case class Commit(
-  hash: String,
-  shortHash: String,
-  shortMessage: String,
-  fullMessage: String,
-  commitTimeStr: String,
-  author: String,
-  committer: String,
-  desc: String
-)
 
 case class GitOperationDone(
   op: GitOperation,
@@ -269,8 +259,23 @@ object HandlerMessages {
   
 object Picklers {
   import boopickle.Default._
+  import boopickle.PicklerHelper
+  
+  implicit object RepositoryIdPickler extends PicklerHelper {
+    implicit def EitherPickler: P[RepositoryId] = new P[RepositoryId] {
+      override def pickle(obj: RepositoryId)(implicit state: PickleState): Unit = {
+        state.enc.writeLong(obj.value)
+      }
+      override def unpickle(implicit state: UnpickleState): RepositoryId = {
+        RepositoryId(state.dec.readLong)
+      }
+    }
+  }
+  
   implicit val annotationPickler = generatePickler[CodeAnnotation]
+  implicit val repoPickler = generatePickler[Repository]
   implicit val gopPickler = generatePickler[GitOperationDone]
   implicit val vcPickler = generatePickler[VC]
+  implicit val verifPickler = generatePickler[VerificationDetails]
   implicit val msgPickler = generatePickler[Message]
 }

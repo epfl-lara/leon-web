@@ -2,22 +2,15 @@ package leon.web
 package client
 
 import scala.scalajs.js
-import scala.scalajs.js.JSON
-import scala.scalajs.js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
+import js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
 import leon.web.shared.{Module => ModuleName, Action}
-import scala.language.dynamics
 import shared.messages._
-import shared.messages.PicklersToServer._
-import java.nio.ByteBuffer
-import java.nio.Buffer
-import scala.scalajs.js.typedarray.ArrayBuffer
 
 /**
  * @author Mikael
  */
 object Backend {
   val activateSessionAnalytics = true
-  import boopickle.Default._
   
   object Server {
     def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
@@ -68,7 +61,7 @@ object Backend {
     def doApplyRule(fname: String, cid: Int, rid: Int) =
       Server ! DoApplyRule( fname = fname, cid = cid, rid = rid) andThenAnalytics Action.doApplyRule
     def explore(fname: String, cid: Int,
-        path: Array[Int] = Array[Int](),
+        path: List[Int] = List[Int](),
         exploreAction: String = "init",
         ws: Int = 0,
         select: Int = 0) =
