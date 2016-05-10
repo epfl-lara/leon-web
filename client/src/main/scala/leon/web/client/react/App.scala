@@ -44,7 +44,15 @@ class App(private val api: LeonAPI) {
 
     val appState =
       LocalStorage("appState")
-        .map((s: String) => AppState.fromBytes(ByteBuffer.wrap(s.getBytes)))
+        .map((s: String) =>
+          try {
+            AppState.fromBytes(ByteBuffer.wrap(s.getBytes))
+          } catch {
+            case e: Throwable =>
+              println("Impossible to recover app state. Recreating a new one")
+              AppState()
+          }
+        )
         .map(resetAppState _)
         .map(GlobalAppState(_))
         .getOrElse(GlobalAppState())

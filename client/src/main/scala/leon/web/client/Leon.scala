@@ -27,7 +27,9 @@ import client.react.{App => ReactApp}
 import client.react.Actions
 import client.utils.BufferedWebSocket
 import shared.messages.{Event => _, _}
-import scala.scalajs.js.typedarray.ArrayBuffer
+import scala.scalajs.js.typedarray._
+import java.nio.ByteBuffer
+import org.scalajs.dom.raw.FileReader
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -110,9 +112,9 @@ trait LeonWeb extends EqSyntax {
 
   @JSExport("leonSocket") var leonSocket: WebSocket = null
   
-  private def _send(msg: Array[Byte]): Unit = leonSocket.send(msg.asInstanceOf[ArrayBuffer])
+  private def _send(msg: ByteBuffer): Unit = leonSocket.send(new TypedArrayBufferOps(msg).arrayBuffer())
 
-  def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg).array())
+  def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
   def registerMessageHandler(handler: Message => Boolean): Unit =
     Handlers.registerMessageHandler(handler)
@@ -676,17 +678,10 @@ trait LeonWeb extends EqSyntax {
 
     val data = synthesisOverview
 
-    val fnames = new js.Array[String]
-    if (data.functions.isDefined) {
-      val ff = data.functions.get
-      for (f <- js.Object.keys(ff.asInstanceOf[js.Object])) {
-        fnames.push(f)
-      }
-    }
-    fnames.sort()
+    val fnamesOpt: Option[Array[String]] = data.functions.map(ff => ff.unzip._1.toArray)
+    val fnames = fnamesOpt.getOrElse[Array[String]](Array[String]()).sorted
 
-    for (fi <- 0 until fnames.length) {
-      val f = fnames(fi);
+    for (f <- fnames) {
       overview.functions.get(f) match {
         case Some(function) =>
           if (data.functions.get(f).length == 1) {
@@ -1183,8 +1178,14 @@ trait LeonWeb extends EqSyntax {
 
   def receiveEvent(event: MessageEvent): Unit = {
     import leon.web.shared.messages.Picklers._
-    val data = Unpickle[Message].fromBytes(event.data.asInstanceOf[java.nio.ByteBuffer])
-    Handlers(data)
+    import scala.scalajs.js.typedarray._
+    val fileReader = new FileReader();
+    fileReader.onload = (e: org.scalajs.dom.raw.UIEvent) => {
+        val arrayBuffer = fileReader.result.asInstanceOf[ArrayBuffer];
+        val data = Unpickle[Message].fromBytes(TypedArrayBuffer.wrap(arrayBuffer))
+        Handlers(data)
+    }
+    fileReader.readAsArrayBuffer(event.data.asInstanceOf[org.scalajs.dom.raw.Blob]);
   }
 
   var connected = false
@@ -1362,9 +1363,8 @@ trait LeonWeb extends EqSyntax {
       case None    => showExamples()
       case Some(_) => hideExamples()
     }
-
     currentProject = project
-      project.flatMap(_.code).foreach(setEditorCode(_))
+    project.flatMap(_.code).foreach(setEditorCode(_))
 
     recompile(force = true)
   }

@@ -10,7 +10,7 @@ import shared.messages._
 import scala.collection.mutable.Queue
 import boopickle.Default._
 import shared.messages.PicklersToServer._
-import scala.scalajs.js.typedarray.ArrayBuffer
+import scala.scalajs.js.typedarray._
 
 class BufferedWebSocket(val webSocket: WebSocket) extends AnyVal {
 
@@ -21,7 +21,7 @@ class BufferedWebSocket(val webSocket: WebSocket) extends AnyVal {
     BufferedWebSocket.queue
 
   def convert(msg: MessageToServer): ArrayBuffer = {
-    Pickle.intoBytes(msg).array().asInstanceOf[ArrayBuffer]
+    new TypedArrayBufferOps(Pickle.intoBytes(msg)).arrayBuffer()
   }
     
   def sendBuffered(message: MessageToServer): Unit =

@@ -179,6 +179,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             case DoGitOperation(op, project) => withUser { user =>
               self ! UDoGitOperation(user, project, op)
             }
+            case _ => notifyError("Could not recognize message of module git:" + message)
           }
           case m if modules contains m =>
             if (modules(m).isActive) {

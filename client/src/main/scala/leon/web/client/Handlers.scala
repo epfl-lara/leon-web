@@ -29,6 +29,7 @@ object Handlers extends js.Object {
   
   @JSName("apply")
   def apply(data: Message): Unit = {
+    println("Processing " + data)
     data match {
       case data: HPermalink => 
         $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
@@ -38,7 +39,6 @@ object Handlers extends js.Object {
         Main.editor.gotoLine(data.line);
 
       case data: HUpdateOverview =>
-        //if (data.module == "main") {
         overview.functions = js.Dictionary.empty[OverviewFunction];
   
         for ((i, fdata) <- data.overview) {
@@ -46,9 +46,9 @@ object Handlers extends js.Object {
           val fname = fdata.name
           overview.functions(fname) = fdata
         }
-      /*} else {
-        overview.Data(data.module) = data.overview
-      }*/
+
+      case data: HUpdateVerificationOverview =>
+        overview.Data.verification = data.overview
     
         drawOverView()
       case data: HUpdateTerminationOverview =>
@@ -62,6 +62,7 @@ object Handlers extends js.Object {
       case data: SynthesisOverview =>
         if (synthesisOverview.toString != data.toString) {
           synthesisOverview = data;
+          println("Displaying new synthesis overview")
           drawSynthesisOverview();
           
           Main.onSynthesisTabDisplay match {

@@ -260,18 +260,7 @@ object HandlerMessages {
 object Picklers {
   import boopickle.Default._
   import boopickle.PicklerHelper
-  
-  implicit object RepositoryIdPickler extends PicklerHelper {
-    implicit def EitherPickler: P[RepositoryId] = new P[RepositoryId] {
-      override def pickle(obj: RepositoryId)(implicit state: PickleState): Unit = {
-        state.enc.writeLong(obj.value)
-      }
-      override def unpickle(implicit state: UnpickleState): RepositoryId = {
-        RepositoryId(state.dec.readLong)
-      }
-    }
-  }
-  
+
   implicit val annotationPickler = generatePickler[CodeAnnotation]
   implicit val repoPickler = generatePickler[Repository]
   implicit val gopPickler = generatePickler[GitOperationDone]
