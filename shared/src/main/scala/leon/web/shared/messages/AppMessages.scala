@@ -20,7 +20,7 @@ case object DoCancel extends MessageToServer with MainModule
 sealed trait SynthesisModule { val module = "synthesis" }
 case class GetRulesToApply(fname: String, cid: Int) extends MessageToServer with SynthesisModule
 case class DoApplyRule(fname: String, cid: Int, rid: Int) extends MessageToServer with SynthesisModule
-case class DoExplore(fname: String, cid: Int, path: Array[Int], exploreAction: String, ws: Int, select: Int) extends MessageToServer with SynthesisModule
+case class DoExplore(fname: String, cid: Int, path: List[Int], exploreAction: String, ws: Int, select: Int) extends MessageToServer with SynthesisModule
 case class DoSearch(fname: String, cid: Int) extends MessageToServer with SynthesisModule
 
 // repair

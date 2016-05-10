@@ -94,7 +94,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                         cstate.code.getOrElse("")
                     }
 
-                    event(RepairResult(
+                    event(HRepairResult(
                       result = "success",
                       success = "Repair Found!",
                       solCode = ScalaPrinter(expr),
@@ -102,7 +102,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                         line = fd.getPos.line,
                         column = (fd.getPos.col-1)
                       )),
-                      "allCode" = allCode
+                      allCode = allCode
                     ))
                   }
                 } finally {
@@ -111,10 +111,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
             }
           }
         case None =>
-          event("repair_result", Map(
-            "result" -> toJson("error"),
-            "error" -> toJson("Failed to find function")
-          ))
+          event(HRepairResult(result = "error", error = "Failed to find function"))
       }
     } catch {
       case t: Throwable =>

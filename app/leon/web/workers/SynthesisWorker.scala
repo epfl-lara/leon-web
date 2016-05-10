@@ -29,24 +29,24 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
   )).copy(interruptManager = interruptManager, reporter = reporter)
   
   var searchesState = Map[String, Seq[WebSynthesizer]]()
-
+  import shared.messages.{ DoCancel => _, _ }
   def notifySynthesisOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
       val facts = for ((fname, sps) <- searchesState) yield {
         val problems = for ((synth, i) <- sps.zipWithIndex) yield {
           val ci = synth.ci
-          Map(
-            "description" -> toJson("Problem #"+(i+1)),
-            "problem" -> toJson(ci.problem.asString),
-            "line" -> toJson(ci.source.getPos.line),
-            "column" -> toJson(ci.source.getPos.col),
-            "index" -> toJson(i)
+          SP(
+            description = "Problem #"+(i+1),
+            problem = ci.problem.asString,
+            line = ci.source.getPos.line,
+            column = ci.source.getPos.col,
+            index = i
           )
         }
-        fname -> toJson(problems)
+        fname -> problems.toArray
       }
 
-      event("update_synthesis_overview", Map("functions" -> toJson(facts)))
+      event(SynthesisOverview(functions = Some(facts.toMap)))
     }
   }
 
@@ -80,41 +80,19 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
       sender ! Cancelled(this)
 
     case OnClientEvent(cstate, event) =>
-      (event \ "action").as[String] match {
-        case Action.getRulesToApply =>
-          val fname = (event \ "fname").as[String]
-          val cid   = (event \ "cid").as[Int]
-
-          getRulesToApply(cstate, fname, cid)
-
-        case Action.doApplyRule =>
-          val fname = (event \ "fname").as[String]
-          val chooseId = (event \ "cid").as[Int]
-          val ruleId = (event \ "rid").as[Int]
-
-          doApplyRule(cstate, fname, chooseId, ruleId)
-
-        case Action.doSearch =>
-          val fname = (event \ "fname").as[String]
-          val chooseId = (event \ "cid").as[Int]
-          
+      event match {
+        case GetRulesToApply(fname, cid) => getRulesToApply(cstate, fname, cid)
+        case DoApplyRule(fname, chooseId, ruleId) => doApplyRule(cstate, fname, chooseId, ruleId)
+        case DoSearch(fname, chooseId) => 
           ctx.reporter.info("State of the program at the beginning of synthesis " + cstate.program)
-
           doSearch(cstate, fname, chooseId)
-
-        case Action.doExplore =>
-          val fname = (event \ "fname").as[String]
-          val chooseId = (event \ "cid").as[Int]
-          val path = (event \ "path").as[List[Int]]
-          val ws = (event \ "ws").as[Int]
-
-          val action = (event \ "exploreAction").as[String] match {
+        case DoExplore(fname, chooseId, path, exploreAction, ws, select) =>
+          val action = exploreAction match {
             case "select-alternative" =>
-              val s = (event \ "select").as[Int]
-              if (s < 0) {
+              if (select < 0) {
                 ExploreAsChoose
               } else {
-                ExploreSelect(s)
+                ExploreSelect(select)
               }
             case "next-solution" =>
               ExploreNextSolution
@@ -123,7 +101,6 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             case "init" =>
               ExploreNoop
           }
-
           doExplore(cstate, fname, chooseId, path, ws, action)
       }
 
@@ -140,9 +117,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             new ExamplesAdder(ctx, program).addToFunDef(nfd, Seq((in, StringLiteral(out))))
           }(cstate, ctx)
           
-          event("replace_code", Map(
-            "newCode" -> toJson(allCode)
-          ))
+          event(HReplaceCode(allCode))
         case None =>
           // Here we create a new pretty printing function
           fdUsingIt.orElse(program.definedFunctions.lastOption) match {
@@ -156,9 +131,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               new ExamplesAdder(ctx, program).addToFunDef(newFd, Seq((in, StringLiteral(out))))
               
               val allCode = leon.web.utils.FileInterfaceWeb.allCodeWhereFunDefAdded(fdToInsertAfter)(newFd)(cstate, ctx)
-              event("replace_code", Map(
-                "newCode" -> toJson(allCode)
-              ))
+              event(HReplaceCode(allCode))
             case None =>
               notifyError("Could not find a place where to add a toString function")
           }
@@ -333,14 +306,14 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
               val allSol  = solutionOf(search.g.root)
               val (_, allCode) = solutionCode(cstate, synth, allSol.getOrElse(Solution.failed(synth.problem)))
-
-              event("synthesis_exploration", Map(
-                "from"  -> toJson(path),
-                "fname" -> toJson(fname),
-                "cid"   -> toJson(cid),
-                "html"  -> toJson(solutionsTree(n, path.reverse, ws)),
-                "allCode" -> toJson(allCode)
-              ))
+              
+              event(HSynthesisExploration(
+                html = solutionsTree(n, path.reverse, ws),
+                fname = fname,
+                cid = cid,
+                from = path,
+                allCode = allCode,
+                cursor = None))
 
             case None =>
               notifyError("Woot!?!")
@@ -364,11 +337,11 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val search = synth.getSearch()
           val path = List(rid)
 
-          event("synthesis_result", Map(
-            "result" -> toJson("init"),
-            "fname" -> toJson(fname),
-            "cid" -> toJson(cid),
-            "problem" -> toJson(ScalaPrinter(synth.ci.source))
+          event(HSynthesisResult(
+              result = "init",
+              cid = cid,
+              fname = fname,
+              problem = ScalaPrinter(synth.ci.source)
           ))
 
           val osol = search.traversePath(path) match {
@@ -396,11 +369,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
         } catch {
           case t: Throwable =>
-            event("synthesis_result", Map(
-              "result" -> toJson("failure"),
-              "closed" -> toJson(1),
-              "total" -> toJson(1)
-            ))
+            event(HSynthesisResult(result = "failure", closed = 1, total = 1))
 
             notifyError("Internal error :(")
             logInfo("Synthesis Rule Application crashed", t)
@@ -456,26 +425,23 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
         val (solCode, allCode) = solutionCode(cstate, synth, sol)
 
-        event("synthesis_result", Map(
-          "result" -> toJson("success"),
-          "solCode" -> toJson(ScalaPrinter(solCode)),
-          "cursor" -> toJson(Map(
-            "line"   -> fd.getPos.line,
-            "column" -> (fd.getPos.col-1)
-          )),
-          "allCode" -> toJson(allCode),
-          "closed" -> toJson(1),
-          "total" -> toJson(1)
+        event(HSynthesisResult(
+          result = "success",
+          solCode = ScalaPrinter(solCode),
+          cursor = Some(HMoveCursor(fd.getPos.line, fd.getPos.col-1)),
+          allCode = allCode,
+          closed = 1,
+          total = 1
         ))
         logInfo("Application successful!")
         
         sender ! DispatchTo(shared.Module.disambiguation, NewSolutions(cstate, synth, ssol))
 
       case None =>
-        event("synthesis_result", Map(
-          "result" -> toJson("failure"),
-          "closed" -> toJson(1),
-          "total" -> toJson(1)
+        event(HSynthesisResult(
+          result = "failure",
+          closed = 1,
+          total = 1
         ))
 
         logInfo("Application failed!")
@@ -506,20 +472,14 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               "open"
             }
 
-            toJson(Map("id" -> toJson(i),
-                       "name" -> toJson(t.ri.asString),
-                       "status" -> toJson(status)))
+            HRulesApps(id = i, name = t.ri.asString, status = status)
           }
 
-          event("synthesis_rulesToApply", Map("fname"     -> toJson(fname),
-                                              "cid"       -> toJson(cid),
-                                              "rulesApps" -> toJson(rulesApps)))
+          event(HSynthesisRulesToApply(fname = fname, cid = cid, rulesApps = rulesApps.toArray))
 
         } catch {
           case t: Throwable =>
-            event("synthesis_rulesToApply", Map("fname"     -> toJson(fname),
-                                                "cid"       -> toJson(cid),
-                                                "rulesApps" -> toJson(Seq[String]())))
+            event(HSynthesisRulesToApply(fname= fname, cid = cid, rulesApps = Array[String]()))
             notifyError("Woops, I crashed: "+t.getMessage())
             t.printStackTrace()
             logInfo("Synthesis RulesList crashed", t)
@@ -535,11 +495,11 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
         try {
           val ci = synth.ci
 
-          event("synthesis_result", Map(
-            "result" -> toJson("init"),
-            "fname" -> toJson(fname),
-            "cid" -> toJson(cid),
-            "problem" -> toJson(ScalaPrinter(ci.source))
+          event(HSynthesisResult(
+            result = "init",
+            fname = fname,
+            cid = cid,
+            problem = ScalaPrinter(ci.source)
           ))
 
          val search = synth.search
@@ -550,20 +510,20 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
          if(interruptManager.isInterrupted) {
           val (closed, total) = search.g.getStats()
 
-          event("synthesis_result", Map(
-            "result" -> toJson("failure"),
-            "closed" -> toJson(closed),
-            "total" -> toJson(total)
+          event(HSynthesisResult(
+            result = "failure",
+            closed = closed,
+            total = total
           ))
 
           // We refresh all synthesis state because an abort messes up with the search
           self ! OnUpdateCode(cstate)
         } else if(solutions.isEmpty) {
           val (closed, total) = search.g.getStats()
-          event("synthesis_result", Map(
-            "result" -> toJson("failure"),
-            "closed" -> toJson(closed),
-            "total" -> toJson(total)
+          event(HSynthesisResult(
+            result = "failure",
+            closed = closed,
+            total = total
           ))
           notifyError("Search failed.")
           logInfo("Synthesis search failed!")
@@ -571,16 +531,16 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           val sol = solutions.head
           val (newSol, succeeded) = if (!sol.isTrusted) {
             // Validate solution
-            event("synthesis_proof", Map("status" -> toJson("init")))
+            event(HSynthesisProof("init"))
             synth.validateSolution(search, sol, 2.seconds) match {
               case (sol, Some(true)) =>
-                event("synthesis_proof", Map("status" -> toJson("success")))
+                event(HSynthesisProof("success"))
                 (sol, true)
               case (sol, Some(false)) =>
-                event("synthesis_proof", Map("status" -> toJson("failure")))
+                event(HSynthesisProof("failure"))
                 (sol, false)
               case (sol, None) =>
-                event("synthesis_proof", Map("status" -> toJson("unknown")))
+                event(HSynthesisProof("unknown"))
                 (sol, false)
             }
           } else {
@@ -603,17 +563,14 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
           val (closed, total) = search.g.getStats()
 
-          event("synthesis_result", Map(
-            "result" -> toJson("success"),
-            "proven" -> toJson(succeeded),
-            "solCode" -> toJson(ScalaPrinter(solCode)),
-            "allCode" -> toJson(allCode),
-            "cursor" -> toJson(Map(
-              "line"   -> oldFd.getPos.line,
-              "column" -> (oldFd.getPos.col-1)
-            )),
-            "closed" -> toJson(closed),
-            "total" -> toJson(total)
+          event(HSynthesisResult(
+            result = "success",
+            proven = succeeded,
+            solCode = ScalaPrinter(solCode),
+            allCode = allCode,
+            cursor = Some(HMoveCursor(line = oldFd.getPos.line, column = oldFd.getPos.col-1 )),
+            closed = closed,
+            total = total
           ))
           
           sender ! DispatchTo(shared.Module.disambiguation, NewSolutions(cstate, synth, solutions))

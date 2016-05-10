@@ -26,14 +26,14 @@ case class HCommit(
   desc: String
 )
 
-case class HMoveCursor(line: Double) extends Message
+case class HMoveCursor(line: Double, column: Double = 0) extends Message
 
 case class HUpdateOverview(
   module: String,
   overview: HandlerMessages.DataOverView
 ) extends Message
 
-case class SP(index: Int, line: Int, description: String)
+case class SP(index: Int, line: Int, column: Int, description: String, problem: String)
 
 case class SynthesisOverview(functions: Option[Map[String, Array[SP]]]) extends Message
 
@@ -63,15 +63,20 @@ case class HLog(
 
 case class HSynthesisResult(
   result: String,
-  cid: Int,
-  fname: String,
-  problem: String,
-  closed: Double,
-  total: Double,
-  solCode: String,
-  allCode: String,
-  cursor: Option[HMoveCursor]
+  cid: Int = 0,
+  fname: String = "",
+  problem: String = "",
+  closed: Double = 0.0,
+  total: Double = 0.0,
+  solCode: String = "",
+  allCode: String = "",
+  cursor: Option[HMoveCursor] = None,
+  proven: Boolean = false
 ) extends Message
+
+case class HSynthesisProof(
+  status: String
+) extends Message with Status
 
 case class HDisambiguationDisplay(
   var display: String,
@@ -94,7 +99,7 @@ case class HSynthesisExploration(
   html: String,
   fname: String,
   cid: Int,
-  from: Array[String],
+  from: List[Int],
   allCode: String,
   cursor: Option[HMoveCursor]
 ) extends Message
