@@ -2,6 +2,11 @@ package leon.web
 package shared
 
 object HandlerMessages {
+  
+  import boopickle.Default._
+  
+  implicit val vcPickler = generatePickler[VC]
+  
   sealed trait Message
 
   case class HRepository(
@@ -183,7 +188,7 @@ object HandlerMessages {
     output: DualOutput
   )
   
-  case class DualOutput(rawoutput: String, prettyoutput: String, modifying: Option[String])
+  case class DualOutput(rawoutput: String, prettyoutput: String, var modifying: Option[String])
   
   case class VC(
     status: String,
@@ -193,6 +198,8 @@ object HandlerMessages {
     counterExample: Option[Map[String, DualOutput]],
     execution: Option[ResultOutput]
   ) extends Status
+  
+  type VCS = Array[VC]
   
   case class HReplaceCode(newCode: String) extends Message
   
