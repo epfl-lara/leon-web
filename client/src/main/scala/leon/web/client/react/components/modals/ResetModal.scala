@@ -6,14 +6,11 @@ package react
 package components
 package modals
 
-import scala.scalajs.js
-
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.client.utils.GitHubURL
 
 import leon.web.shared.GitOperation
 

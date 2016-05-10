@@ -3,11 +3,10 @@ package client
 
 import org.scalajs.dom
 import dom.html.Element
-import dom.document
 import scala.scalajs.js
 import js.annotation._
 import org.scalajs.jquery
-import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
+import jquery.{ jQuery => $, JQuery, JQueryEventObject }
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
@@ -15,11 +14,9 @@ import leon.web.shared.equal
 
 
 @ScalaJSDefined
-object Handlers extends js.Object with equal.EqSyntax {
+object Handlers extends js.Object {
   import Main._
   import JQueryExtended._
-  import js.JSON
-  import leon.web.shared.Action;
   import dom.console
   def window = g
   def alert = g.alert
@@ -27,6 +24,9 @@ object Handlers extends js.Object with equal.EqSyntax {
 
   import Implicits._
   
+  import equal.EqOps
+  
+  @JSName("apply")
   def apply(data: Message): Unit = {
     data match {
       case data: HPermalink => 
@@ -436,7 +436,7 @@ object Handlers extends js.Object with equal.EqSyntax {
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
       var path = js.Array[Int]()
-      if (b.attr("path") =!= "") {
+      if (new EqOps(b.attr("path")) =!= "") {
         path = b.attr("path").split("-").toJSArray.map((e: String) => e.toInt)
       }
       path

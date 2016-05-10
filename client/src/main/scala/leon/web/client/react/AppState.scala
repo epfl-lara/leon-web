@@ -5,14 +5,12 @@ package client
 package react
 
 import scala.concurrent.Future
-import scala.concurrent.ExecutionContext.Implicits.global
-import japgolly.scalajs.react._
 import monifu.reactive._
 import monifu.reactive.subjects._
 import leon.web.shared.HandlerMessages._
 import boopickle.Default._
-//import leon.web.client.utils.picklers._
 import java.nio.ByteBuffer
+import leon.web.shared.Project
 
 case class AppState(
   // Repositories fetched from GitHub API

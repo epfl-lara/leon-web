@@ -1,9 +1,8 @@
 package leon.web.client
 import scala.scalajs.js
 import scala.scalajs.js.JSON
-import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import leon.web.shared.{Module => ModuleName, Constants, Action}
+import scala.scalajs.js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
+import leon.web.shared.{Module => ModuleName, Action}
 import scala.language.dynamics
 
 /**

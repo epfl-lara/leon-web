@@ -11,9 +11,7 @@ import org.scalajs.dom.html.Element
 import org.scalajs.dom.WebSocket
 import org.scalajs.dom.{Event, MessageEvent, CloseEvent, ErrorEvent}
 import org.scalajs.dom.ext.LocalStorage
-import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import scala.collection.mutable.ListBuffer
-import scala.collection.mutable.{ HashMap => MMap }
+import scala.scalajs.js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
 import japgolly.scalajs.react._
 import com.scalawarrior.scalajs.ace._
 import org.scalajs.jquery
@@ -22,7 +20,7 @@ import JQueryExtended._
 import Bool._
 import Implicits._
 import leon.web.shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import leon.web.shared.{Module => ModuleName, Constants, Action}
+import leon.web.shared.{Module => ModuleName, Constants}
 import leon.web.shared.{Project}
 import leon.web.shared.equal.EqSyntax
 import leon.web.client.react.{App => ReactApp}

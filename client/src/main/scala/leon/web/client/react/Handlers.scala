@@ -5,7 +5,6 @@ package client
 package react
 
 import scala.scalajs.js
-import monifu.concurrent.Implicits.globalScheduler
 
 import leon.web.shared.HandlerMessages._
 

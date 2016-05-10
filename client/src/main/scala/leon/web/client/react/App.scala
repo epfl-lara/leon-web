@@ -10,7 +10,6 @@ import scala.scalajs.js.JSON
 import scala.scalajs.js.Dynamic.{ literal => l, global => g }
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.{console, document}
-import org.scalajs.jquery
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -18,7 +17,7 @@ import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 import leon.web.client.syntax.websocket._
 import leon.web.shared.GitOperation
-import java.util.Base64
+import java.nio.ByteBuffer
 
 /** This class is in charge of the following:
   *
@@ -47,8 +46,8 @@ class App(private val api: LeonAPI) {
 
     val appState =
       LocalStorage("appState")
-        .map(s => AppState.fromBytes(Base64.getDecoder().decode(s)))
-        .map(resetAppState)
+        .map((s: String) => AppState.fromBytes(ByteBuffer.wrap(s.getBytes)))
+        .map(resetAppState _)
         .map(GlobalAppState(_))
         .getOrElse(GlobalAppState())
 
@@ -91,7 +90,7 @@ class App(private val api: LeonAPI) {
     api.setCurrentProject(state.currentProject)
 
     js.timers.setTimeout(0) {
-      LocalStorage.update("appState", state.toJSON)
+      LocalStorage.update("appState", new String(state.toBytes.array()))
     }
   }
 

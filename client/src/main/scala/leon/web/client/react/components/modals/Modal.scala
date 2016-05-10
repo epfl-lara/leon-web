@@ -8,8 +8,7 @@ package modals
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
-import scala.scalajs.js
-import org.scalajs.dom.raw.{HTMLDivElement, Element}
+import org.scalajs.dom.raw.{HTMLDivElement}
 import org.scalajs.jquery
 import jquery.jQuery
 import JQueryExtended._

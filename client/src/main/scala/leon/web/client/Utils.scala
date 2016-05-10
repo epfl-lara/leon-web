@@ -1,12 +1,12 @@
 package leon.web
 package client
 
-import scala.scalajs.js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
+import scala.scalajs.js.Dynamic.{ global => g }
 import org.scalajs.jquery.{JQueryStatic, JQueryEventObject, JQuery}
 import scala.scalajs.js
 import js.annotation._
 import org.scalajs.dom
-import org.scalajs.dom.{alert, console, document}
+import org.scalajs.dom.{console, document}
 import org.scalajs.dom.Element
 import org.scalajs.dom.raw.Selection
 import org.scalajs.dom.raw.HTMLDocument
@@ -118,7 +118,6 @@ trait ObjectWithBracketAccess extends js.Object {
 }
 
 object SelectionHandler {
-  import Implicits._
   import dom.raw.Node
   
   private def getAbsCursorPosition(fromElem: Node, anchorNode: js.UndefOr[Node], acc: Int): Int = {

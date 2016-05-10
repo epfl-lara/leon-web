@@ -170,7 +170,7 @@ object HandlerMessages {
     fname: String,
     cid: Int,
     rulesApps: Array[HRulesApps]
-  )
+  ) extends Message
 
   case class HRepairResult(
     result: String,
