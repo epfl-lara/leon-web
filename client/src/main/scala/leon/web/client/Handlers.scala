@@ -11,6 +11,7 @@ import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
 import leon.web.shared.equal
+import scala.collection.mutable.ListBuffer
 
 
 @ScalaJSDefined
@@ -20,7 +21,7 @@ object Handlers extends js.Object {
   import dom.console
   def window = g
   def alert = g.alert
-  import shared.HandlerMessages._
+  import leon.web.shared.messages._
 
   import Implicits._
   
@@ -128,9 +129,26 @@ object Handlers extends js.Object {
       case data: HCompilation => compilation(data)
       case data: HRepairResult => repair_result(data)
       case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
+      
+      case RegisteredHandlers() => // OK
       case _ =>
         console.log("Unknown event type: " + data)
     }
+  }
+
+  object RegisteredHandlers {
+    var handlers = ListBuffer[Message => Boolean]()
+    def unapply(data: Message): Boolean = {
+      var done = false
+      for(h <- handlers if !done) {
+        done = h(data)
+      }
+      done
+    }
+  }
+  
+  def registerMessageHandler(handler: Message => Boolean) = {
+    RegisteredHandlers.handlers += handler
   }
 
   def updateExplorationFacts(newResults: Array[NewResult]): Unit = {

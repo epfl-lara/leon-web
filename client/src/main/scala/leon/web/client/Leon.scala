@@ -24,10 +24,11 @@ import leon.web.shared.{Module => ModuleName, Constants}
 import leon.web.shared.{Project}
 import leon.web.shared.equal.EqSyntax
 import leon.web.client.react.{App => ReactApp}
-import leon.web.client.react.{Actions, UpdateEditorCode}
+import leon.web.client.react.Actions
 import leon.web.client.utils.BufferedWebSocket
-import leon.web.shared.HandlerMessages
+import leon.web.shared.messages._
 import boopickle.Default._
+import scala.scalajs.js.typedarray.ArrayBuffer
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -63,12 +64,14 @@ object MainDelayed extends js.JSApp {
 }
 
 trait LeonAPI {
-  def leonSocket: WebSocket
   def setEditorCode(code: String): Unit
   def setCurrentProject(project: Option[Project]): Unit
   def getCurrentProject(): Option[Project]
   def setTreatAsProject(value: Boolean): Unit
-  def handlers: js.Dictionary[Any]
+  def sendMessage(m: MessageToServer): Unit
+  def sendBuffered(m: MessageToServer): Unit
+  /** The handler returns true if it could successfully handle the message. */
+  def registerMessageHandler(m: Message => Boolean): Unit
 }
 
 @JSExport("Main")
@@ -104,7 +107,15 @@ trait LeonWeb extends EqSyntax {
   @JSExport val WS = !js.isUndefined(g.MozWebSocket) ? g.MozWebSocket | g.WebSocket
 
   @JSExport("leonSocket") var leonSocket: WebSocket = null
-
+  
+  private def _send(msg: Array[Byte]): Unit = leonSocket.send(msg.asInstanceOf[ArrayBuffer])
+  import boopickle.Default._
+  import shared.messages.PicklersToServer._
+  import syntax.websocket._
+  def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg).array())
+  def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
+  def registerMessageHandler(handler: Message => Boolean): Unit =
+    Handlers.registerMessageHandler(handler)
   val headerHeight = $("#title").height() + 20
 
   var lastRange: Range = null;
@@ -509,7 +520,7 @@ trait LeonWeb extends EqSyntax {
 
   abstract class Module(name: String, list: ModulesMap) { self =>
     val column: String
-    def html(name: String, d: HandlerMessages.Status): HandlerMessages.Html
+    def html(name: String, d: Status): HandlerMessages.Html
     def missing(name: String): HandlerMessages.Html
     def handlers(): Unit
     list += name -> self
@@ -522,7 +533,7 @@ trait LeonWeb extends EqSyntax {
 
       val verification = new Module(ModuleName.verification, list) {
         val column = "Verif."
-        def html(name: String, d: HandlerMessages.Status): HandlerMessages.Html = {
+        def html(name: String, d: Status): HandlerMessages.Html = {
           val vstatus = d.status match {
             case VerifStatus.crashed =>
               """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
@@ -554,14 +565,14 @@ trait LeonWeb extends EqSyntax {
                 displayVerificationDetails(d.status, d.vcs)
               case None =>
                 openVerifyDialog()
-                displayVerificationDetails("unknown", Array[HandlerMessages.VC]())
+                displayVerificationDetails("unknown", Array[VC]())
             }
           }): js.ThisFunction)
         }
       }
       val termination = new Module(ModuleName.termination, list) {
         val column = "Term."
-        def html(name: String, d: HandlerMessages.Status): HandlerMessages.Html = {
+        def html(name: String, d: Status): HandlerMessages.Html = {
           val tstatus = d.status match {
             case TerminationStatus.wip =>
               """<i class="fa fa-refresh fa-spin" title="Checking termination..."></i>""";
@@ -597,7 +608,7 @@ trait LeonWeb extends EqSyntax {
       }
       val invariant = new Module(ModuleName.invariant, list) {
         val column = "Inv."
-        def html(name: String, d: HandlerMessages.Status): HandlerMessages.Html = {
+        def html(name: String, d: Status): HandlerMessages.Html = {
           val istatus = d.status match {
             case InvariantStatus.crashed =>
               """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
@@ -622,19 +633,19 @@ trait LeonWeb extends EqSyntax {
                 displayInvariantDetails(d.status, d, overview.Data.invariant)
               case None =>
                 openInvariantDialog()
-                displayInvariantDetails("unknown", l().asInstanceOf[HandlerMessages.InvariantDetails], overview.Data.invariant)
+                displayInvariantDetails("unknown", l().asInstanceOf[InvariantDetails], overview.Data.invariant)
             }
           }): js.ThisFunction)
         }
       }
     }
 
-    var functions = js.Dictionary.empty[HandlerMessages.OverviewFunction]
+    var functions = js.Dictionary.empty[OverviewFunction]
     @ScalaJSDefined
     object Data extends js.Object {
-      var verification = js.Dictionary[HandlerMessages.VerificationDetails]()
-      var termination = js.Dictionary[HandlerMessages.TerminationDetails]()
-      var invariant = js.Dictionary[HandlerMessages.InvariantDetails]()
+      var verification = js.Dictionary[VerificationDetails]()
+      var termination = js.Dictionary[TerminationDetails]()
+      var invariant = js.Dictionary[InvariantDetails]()
 
       def update[A](s: String, v: A) = {
         Data.asInstanceOf[js.Dictionary[A]](s) = v
@@ -650,7 +661,7 @@ trait LeonWeb extends EqSyntax {
     }
   }
   
-  import shared.HandlerMessages._
+  import leon.web.shared.messages._
 
   var synthesisOverview: SynthesisOverview = SynthesisOverview(None)
 
@@ -763,7 +774,7 @@ trait LeonWeb extends EqSyntax {
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
         if (features(m).active) {
-          val data = overview.Data[HandlerMessages.Status](m)
+          val data = overview.Data[Status](m)
           data.get(fname) match {
             case Some(status) =>
               html += mod.html(fname, status)
@@ -896,7 +907,7 @@ trait LeonWeb extends EqSyntax {
         html += "<div>"
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
-        val outputs = js.Array[HandlerMessages.DualOutput]()
+        val outputs = js.Array[DualOutput]()
         var suggestEdit = false
         for((fname, value) <- vc.counterExample.get) { 
           suggestEdit = suggestEdit || (value.prettyoutput == value.rawoutput && value.rawoutput.indexOf(",") >= 0)
@@ -1016,8 +1027,8 @@ trait LeonWeb extends EqSyntax {
   }
   
   def displayInvariantDetails(status: String,
-      invariant: HandlerMessages.InvariantDetails,
-      all_invariants: js.Dictionary[HandlerMessages.InvariantDetails]): Unit = {
+      invariant: InvariantDetails,
+      all_invariants: js.Dictionary[InvariantDetails]): Unit = {
     
     val pb = $("#invariantProgress")
     val pbb = pb.children(".progress-bar")
@@ -1098,12 +1109,12 @@ trait LeonWeb extends EqSyntax {
     $("#invariantDialog .cancelButton").show()
     
     $("#invariantDialog .importButton").unbind("click").click(() => {
-      Handlers.replace_code(HandlerMessages.HReplaceCode(newCode = invariant.newCode))
+      Handlers.replace_code(HReplaceCode(newCode = invariant.newCode))
     })
     val code = all_invariants.get(Constants.invariantMainCode) match {
       case Some(result) =>
         $("#invariantDialog .importAllButton").unbind("click").click(() => {
-          Handlers.replace_code(HandlerMessages.HReplaceCode(newCode = result.newCode))
+          Handlers.replace_code(HReplaceCode(newCode = result.newCode))
         })
         $("#invariantDialog .importAllButton").show()
       case _ =>
@@ -1115,7 +1126,7 @@ trait LeonWeb extends EqSyntax {
 
   def displayTerminationDetails(
     status: String,
-    fdata: HandlerMessages.TerminationDetails): Unit = {
+    fdata: TerminationDetails): Unit = {
     val pb = $("#terminationProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -1185,7 +1196,7 @@ trait LeonWeb extends EqSyntax {
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
 
   def receiveEvent(event: MessageEvent): Unit = {
-    import shared.HandlerMessages._
+    import leon.web.shared.messages.Picklers._
     val data = Unpickle[Message].fromBytes(event.data.asInstanceOf[java.nio.ByteBuffer])
     Handlers(data)
   }
@@ -1449,7 +1460,7 @@ trait LeonWeb extends EqSyntax {
       $.ajax(l(
         url = "/ajax/getExample/" + group + "/" + id.get,
         dataType = "json",
-        success = (data: HandlerMessages.StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
+        success = (data: StatusCode, textStatus: String, jqXHR: JQueryXHR) => {
           if (data.status == "success") {
             setEditorCode(data.code)
             $("#example-loader").get(0).selectedIndex = 0;
@@ -1800,5 +1811,5 @@ trait LeonWeb extends EqSyntax {
   snowStorm.stop();
   */
 
-}
+}))
 

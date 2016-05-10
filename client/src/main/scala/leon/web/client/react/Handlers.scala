@@ -6,53 +6,26 @@ package react
 
 import scala.scalajs.js
 
-import leon.web.shared.HandlerMessages._
+import leon.web.shared.messages._
 
 /** Register WebSocket handlers, and push the received messages
   * through the appropriate event bus.
   *
   * @see [[leon.web.client.events.Event]]
   */
-object Handlers {
-
-  /** Register the handlers, by adding them to the specified
-    * mutable dictionary.
-    *
-    * @see [[leon.web.client.Main.handlers]]
-    */
-  def register(handlers: js.Dictionary[Any]): Unit = {
-    handlers += ("repositories_loaded" -> reposHandler)
-    handlers += ("repository_loaded"   -> loadRepoHandler)
-    handlers += ("file_loaded"         -> loadFileHandler)
-    handlers += ("branch_changed"      -> changeBranchHandler)
-    handlers += ("git_progress"        -> gitProgressHandler)
-    handlers += ("git_operation_done"  -> gitOperationDoneHandler)
+object Handlers extends (Message => Boolean) {
+  def apply(m: Message): Boolean = m match {
+    case data: RepositoriesLoaded => Events.repositoriesLoaded onNext data ; true
+    case data: RepositoryLoaded => Events.repositoryLoaded onNext data ; true
+    case data: FileLoaded => Events.fileLoaded onNext data ; true
+    case data: BranchChanged =>
+      if (data.success) {
+        Events.branchChanged onNext data
+      }
+      true
+    case data: GitProgress => Events.gitProgress onNext data ; true
+    case data: GitOperationDone => Events.gitOperationDone onNext data ; true
+    case _ => false
   }
-
-  val reposHandler = (data: HRepositories) => {
-    Events.repositoriesLoaded onNext RepositoriesLoaded(data.repos)
-  }
-
-  val loadRepoHandler = (data: HRepositoryLoaded) => {
-    Events.repositoryLoaded onNext RepositoryLoaded(data.repository, data.files, data.branches, data.currentBranch)
-  }
-
-  val loadFileHandler = (data: HFileLoaded) => {
-    Events.fileLoaded onNext FileLoaded(data.file, data.content)
-  }
-
-  val changeBranchHandler = (data: HBranchChanged) => {
-    if (data.success)
-      Events.branchChanged onNext BranchChanged(data.branch.get, data.files.get)
-  }
-
-  val gitProgressHandler = (data: HGitProgress) => {
-    Events.gitProgress onNext GitProgress(data.taskName, data.percentage)
-  }
-
-  val gitOperationDoneHandler = (data: HGitOperationResult) => {
-    Events.gitOperationDone onNext GitOperationDone(data)
-  }
-
 }
 

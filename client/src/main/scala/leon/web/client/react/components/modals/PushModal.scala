@@ -13,9 +13,9 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.shared.HandlerMessages.{HGitOperationResult, HCommit}
+import leon.web.shared.messages.{HGitOperationResult, HCommit}
 
-import leon.web.shared.GitOperation
+import leon.web.shared.messages._
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -38,11 +38,11 @@ object PushModal {
       Actions dispatchCB DoGitOperation(op)
 
     def push: Callback = $.state.flatMap { state =>
-      listenForPush >> doGitOperation(GitOperation.Push(state.forcePush))
+      listenForPush >> doGitOperation(GitPush(state.forcePush))
     }
 
     def onMount: Callback =
-      listenForLog >> doGitOperation(GitOperation.Log(COMMITS_COUNT))
+      listenForLog >> doGitOperation(GitLog(COMMITS_COUNT))
 
     def listenForLog: Callback = Callback {
       Events.gitOperationDone

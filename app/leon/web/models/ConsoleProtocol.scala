@@ -6,31 +6,29 @@ import play.api.libs.json._
 import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
-import leon.web.models.github.Repository
+import leon.web.shared.github.Repository
 import leon.synthesis.Synthesizer
-import leon.web.shared.{Project, GitOperation}
+import leon.web.shared.{Project}
+import leon.web.shared.messages._
+import java.nio.ByteBuffer
 
 object ConsoleProtocol {
   case object Init
-  case class InitSuccess(enum: Enumerator[JsValue])
+  case class InitSuccess(enum: Enumerator[Array[Byte]])
   case class InitFailure(error: String)
 
-  case class ProcessClientEvent(event: JsValue)
+  case class ProcessClientEvent(event: Array[Byte])
 
   case class UpdateCode(code: String, user: Option[User], project: Option[Project])
 
   case class Cancelled(wa: WorkerActor)
   case object DoCancel
-
-  case class StorePermaLink(code: String)
-  case class AccessPermaLink(link: String)
-
-  case class LoadRepositories(user: User)
-  case class LoadRepository(user: User, owner: String, repo: String)
-  case class LoadFile(user: User, owner: String, repo: String, file: String)
-  case class SwitchBranch(user: User, owner: String, repo: String, branch: String)
-  case class RepositoryLoaded(user: User, repo: Repository, currentBranch: String)
-  case class DoGitOperation(user: User, project: Project, op: GitOperation)
+  case class ULoadRepositories(user: User)
+  case class ULoadRepository(user: User, owner: String, repo: String)
+  case class ULoadFile(user: User, owner: String, repo: String, file: String)
+  case class USwitchBranch(user: User, owner: String, repo: String, branch: String)
+  case class UDoGitOperation(user: User, project: Project, op: GitOperation)
+  case class URepositoryLoaded(user: User, repo: Repository, currentBranch: String)
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)
@@ -50,8 +48,8 @@ object ConsoleProtocol {
 
   // Communication between session and modules
   case class OnUpdateCode(cstate: CompilationState)
-  case class OnClientEvent(cstate: CompilationState, event: JsValue)
-  case class NotifyClient(event: JsValue)
+  case class OnClientEvent(cstate: CompilationState, event: shared.messages.MessageToServer)
+  case class NotifyClient(event: shared.messages.Message)
   case object Enable
   case object Disable
 

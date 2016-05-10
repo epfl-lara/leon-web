@@ -5,7 +5,7 @@ import play.api.libs.iteratee._
 import play.api.libs.json._
 import play.api.libs.json.Json.toJson
 
-class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReporter(channel) {
+class CompilingWSReporter(channel: Concurrent.Channel[Array[Byte]]) extends WSReporter(channel) {
   var errors   = Map[Int, Seq[String]]();
   var warnings = Map[Int, Seq[String]]();
   var infos    = Map[Int, Seq[String]]();
@@ -27,9 +27,10 @@ class CompilingWSReporter(channel: Concurrent.Channel[JsValue]) extends WSReport
   }
 
   override def onCompilerProgress(current: Int, total: Int): Unit = {
-    channel.push(toJson(Map("kind" -> toJson("compilation_progress"),
-                            "current" -> toJson(current),
-                            "total" -> toJson(total))))
+    import boopickle.Default._
+    import shared.messages.{Message => HMessage, HCompilationProgress}
+    import shared.messages.Picklers._
+    channel.push(Pickle.intoBytes[HMessage](HCompilationProgress(current, total)).array())
   }
 
   override def account(msg: Message): Message = {

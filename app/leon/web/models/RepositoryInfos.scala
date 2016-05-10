@@ -376,4 +376,15 @@ case class Commit(revc: RevCommit) {
       "desc" -> desc
     ))
   }
+  
+  def toCommit: shared.messages.Commit = shared.messages.Commit(
+      hash,
+      shortHash,
+      shortMessage,
+      fullMessage,
+      commitTimeStr,
+      author,
+      committer,
+      desc
+  )
 }

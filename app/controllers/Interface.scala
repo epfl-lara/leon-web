@@ -1,27 +1,26 @@
 package leon.web
 package controllers
 
-import play.api.mvc._
-import play.api.libs.iteratee._
+import scala.concurrent.Await
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.Future
+import scala.concurrent.TimeoutException
+
+import akka.actor._
+import akka.pattern.ask
+import akka.util.Timeout
+import models.ConsoleProtocol._
+import models.FileExamples
+import models.LeonWebConfig
+import models.User
 import play.api.libs.concurrent._
+import play.api.libs.iteratee._
 import play.api.libs.json._
 import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
-
+import play.api.mvc._
 import securesocial.core._
-
-import models.FileExamples
-import models.ConsoleProtocol._
-import models.LeonWebConfig
-import models.User
-
-import akka.actor._
-import scala.concurrent.duration._
-import scala.concurrent.{Future, Await, TimeoutException}
-import scala.concurrent.ExecutionContext.Implicits.global
-
-import akka.util.Timeout
-import akka.pattern.ask
+import shared.messages.{Message, HLog}
 
 class Interface(override implicit val env: RuntimeEnvironment[User]) extends SecureSocial[User] {
 
@@ -60,21 +59,27 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
     }
   }
 
-  def openConsole() = WebSocket.tryAccept[JsValue] { implicit request =>
+  def openConsole() = WebSocket.tryAccept[Array[Byte]] { implicit request =>
     import play.api.Play.current
 
     val userFuture = SecureSocial.currentUser.recover {
        case t: TimeoutException => None
      }
-
+    import scala.concurrent.duration._
     val user    = Await.result(userFuture, 1.seconds)
     val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress, user)))
-    implicit val timeout = Timeout(1.seconds)
+    implicit val timeout: Timeout = Timeout(1.seconds)
+    
+    /*val out = Enumerator[Array[Byte]]()
+    
+    val in = Iteratee.foreach[Array[Byte]](content => {
+  	   session ! ProcessClientEvent(content)
+    }).map{ _ => session ! Quit }*/
 
     (session ? Init).map {
       case InitSuccess(enumerator) =>
         // Create an Iteratee to consume the feed
-        val iteratee = Iteratee.foreach[JsValue] { event =>
+        val iteratee = Iteratee.foreach[Array[Byte]] { event =>
           session ! ProcessClientEvent(event)
         }.map { _ =>
           session ! Quit
@@ -86,12 +91,11 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
         // Connection error
 
         // A finished Iteratee sending EOF
-        val iteratee = Done[JsValue,Unit]((),Input.EOF)
+        val iteratee = Done[Array[Byte],Unit]((),Input.EOF)
 
+        import boopickle.Default._
         // Send an error and close the socket
-        val enumerator =  Enumerator[JsValue](toJson(
-          Map("kind" -> "error", "message" -> error)
-        )).andThen(Enumerator.enumInput(Input.EOF))
+        val enumerator =  Enumerator[Array[Byte]](Pickle.intoBytes[Message](HLog(error)).array()).andThen(Enumerator.enumInput(Input.EOF))
 
         Right((iteratee,enumerator))
     }

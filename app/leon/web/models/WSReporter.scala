@@ -7,7 +7,7 @@ import play.api.libs.json.Json.toJson
 
 import leon.Reporter
 
-class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter(Set()) {
+class WSReporter(channel: Concurrent.Channel[Array[Byte]]) extends Reporter(Set()) {
   def emit(msg: Message) = {
     val prefix = msg.severity match {
       case INFO => ""
@@ -17,6 +17,9 @@ class WSReporter(channel: Concurrent.Channel[JsValue]) extends Reporter(Set()) {
       case DEBUG(_) => "Debug: "
     }
 
-    channel.push(toJson(Map("kind" -> "log", "message" -> (prefix + msg.msg.toString))))
+    import boopickle.Default._
+    import shared.messages.{Message => HMessage, HLog}
+    import shared.messages.Picklers._
+    channel.push(Pickle.intoBytes[HMessage](HLog(prefix + msg.msg.toString)).array())
   }
 }

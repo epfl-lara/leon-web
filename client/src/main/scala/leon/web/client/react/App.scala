@@ -16,7 +16,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 import leon.web.client.syntax.websocket._
-import leon.web.shared.GitOperation
+import leon.web.shared.messages._
 import java.nio.ByteBuffer
 
 /** This class is in charge of the following:
@@ -42,7 +42,7 @@ class App(private val api: LeonAPI) {
 
   def init(): Unit = {
     // Register the WebSocket handlers.
-    Handlers.register(api.handlers)
+    api.registerMessageHandler(Handlers)
 
     val appState =
       LocalStorage("appState")
@@ -120,7 +120,7 @@ class App(private val api: LeonAPI) {
         module = "main"
       )
 
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      api.sendBuffered(shared.messages.LoadRepositories)
 
       onEvent(Events.repositoriesLoaded) { e => state =>
         state.copy(repositories = Some(e.repos))
@@ -129,14 +129,7 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadRepository(repo) =>
-      val msg = l(
-        action = LeonAction.loadRepository,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      api.sendBuffered(shared.messages.LoadRepository(owner = repo.owner, repo = repo.name))
 
       onEvent(Events.repositoryLoaded) { e => state =>
         state.copy(
@@ -159,15 +152,7 @@ class App(private val api: LeonAPI) {
       }
 
     case SwitchBranch(repo, branch) =>
-      val msg = l(
-        action = LeonAction.switchBranch,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name,
-        branch = branch
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      api.sendBuffered(shared.messages.SwitchBranch(owner = repo.owner, repo = repo.name, branch = branch))
 
       onEvent(Events.branchChanged) { e => state =>
         state.copy(
@@ -180,15 +165,7 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadFile(repo, file) =>
-      val msg = l(
-        action = LeonAction.loadFile,
-        module = "main",
-        owner  = repo.owner,
-        repo   = repo.name,
-        file   = file
-      )
-
-      api.leonSocket.sendBuffered(JSON.stringify(msg))
+      api.sendBuffered(shared.messages.LoadFile(owner = repo.owner, repo = repo.name, file = file))
 
       onEvent(Events.fileLoaded) { e => state =>
         state.copy(file = Some((e.fileName, e.content)))
@@ -202,16 +179,14 @@ class App(private val api: LeonAPI) {
           repo          <- state.repository
           (fileName, _) <- state.file
         }
-        yield l(
-          action = LeonAction.loadFile,
-          module = "main",
-          owner  = repo.owner,
+        yield shared.messages.LoadFile(
+          owner = repo.owner,
           repo   = repo.name,
           file   = fileName
         )
 
       msg foreach { msg =>
-        api.leonSocket.sendBuffered(JSON.stringify(msg))
+        api.sendBuffered(msg)
 
         onEvent(Events.fileLoaded) { e => state =>
           Actions dispatch UpdateEditorCode(e.content)
@@ -260,27 +235,12 @@ class App(private val api: LeonAPI) {
           console.error("No project is currently set, cannot perform Git operation")
 
         case Some(project) =>
-          val data = op match {
-            case GitOperation.Commit(msg) => l(msg = msg)
-            case GitOperation.Push(force) => l(force = force)
-            case GitOperation.Log(count)  => l(count = count)
-            case _                        => l()
-          }
-
-          val msg = l(
-            action  = LeonAction.doGitOperation,
-            module  = "main",
-            op      = op.name,
-            data    = data,
-            project = l(
-              owner  = project.owner,
-              repo   = project.repo,
-              branch = project.branch,
-              file   = project.file
-            )
+          val msg = shared.messages.DoGitOperation(
+            op      = op,
+            project = project
           )
 
-          api.leonSocket.send(JSON.stringify(msg))
+          api.sendMessage(msg)
       }
 
       now(state)

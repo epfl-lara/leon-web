@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals.LoadRepositoryModal
-import leon.web.shared.HandlerMessages.{HRepository, HBranch}
+import leon.web.shared.messages.{HRepository, HBranch}
 
 /** Panel displayed in the sidebar on the right, wich lets
   * users pick a repository and load a specific file from that

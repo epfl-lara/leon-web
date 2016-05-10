@@ -13,9 +13,9 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.shared.HandlerMessages.HGitOperationResult
+import leon.web.shared.messages.HGitOperationResult
 
-import leon.web.shared.GitOperation
+import leon.web.shared.messages._
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -40,10 +40,10 @@ object CommitModal {
       Actions dispatchCB DoGitOperation(op)
 
     def fetchStatus: Callback =
-      doGitOperation(GitOperation.Status)
+      doGitOperation(GitStatus)
 
     def commit(message: String): Callback =
-      listenForCommit >> doGitOperation(GitOperation.Commit(message))
+      listenForCommit >> doGitOperation(GitCommit(message))
 
     def onMount: Callback =
       listenForStatus >> fetchStatus

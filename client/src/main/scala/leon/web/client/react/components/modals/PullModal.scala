@@ -14,7 +14,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 
-import leon.web.shared.GitOperation
+import leon.web.shared.messages._
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -34,7 +34,7 @@ object PullModal {
     def pull: Callback =
       subscribeToPullUpdate >>
       subscribeToPullDone >>
-      doGitOperation(GitOperation.Pull)
+      doGitOperation(GitPull)
 
     def subscribeToPullUpdate: Callback = Callback {
       Events.gitProgress

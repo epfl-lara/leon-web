@@ -5,33 +5,38 @@ package client
 package utils
 
 import scala.annotation.tailrec
-
 import org.scalajs.dom.WebSocket
-
+import shared.messages._
 import scala.collection.mutable.Queue
+import boopickle.Default._
+import shared.messages.PicklersToServer._
+import scala.scalajs.js.typedarray.ArrayBuffer
 
 class BufferedWebSocket(val webSocket: WebSocket) extends AnyVal {
 
   def isOpen: Boolean =
     webSocket.readyState === WebSocket.OPEN
 
-  def queue: Queue[String] =
+  def queue: Queue[ArrayBuffer] =
     BufferedWebSocket.queue
 
-  def sendBuffered(message: String): Unit =
+  def convert(msg: MessageToServer): ArrayBuffer = {
+    Pickle.intoBytes(msg).array().asInstanceOf[ArrayBuffer]
+  }
+    
+  def sendBuffered(message: MessageToServer): Unit =
     if (isOpen) {
       BufferedWebSocket.sendAll(webSocket)
-      webSocket.send(message)
+      webSocket.send(convert(message))
     }
     else {
-      queue.enqueue(message)
+      queue.enqueue(convert(message))
     }
-
 }
 
 object BufferedWebSocket {
 
-  val queue = Queue[String]()
+  val queue = Queue[ArrayBuffer]()
 
   @tailrec
   final def sendAll(webSocket: WebSocket): Unit =

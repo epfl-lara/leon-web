@@ -9,37 +9,31 @@ import scala.concurrent.Future
 import scala.util.Try
 import scala.io.Source
 import scala.collection.JavaConverters._
-
 import play.api._
 import play.api.libs.json._
 import play.api.libs.iteratee._
 import play.api.libs.concurrent._
 import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
-
 import akka.pattern._
-
 import play.api.Play.current
-
 import leon.frontends.scalac._
 import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
 import leon.utils.PreprocessingPhase
-
 import leon.web.workers._
 import leon.web.stores.PermalinkStore
 import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
-import leon.web.shared.{Action, Module, Project, GitOperation}
+import leon.web.shared.{Action, Module, Project}
 import leon.web.utils.String._
-
 import java.io.File
 import java.io.PrintWriter
 import java.util.concurrent.atomic.AtomicBoolean
-
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
+import java.nio.ByteBuffer
 
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
@@ -48,10 +42,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   val githubServiceTimeout =
     Play.current.configuration.getInt("services.github.timeout").getOrElse(10).seconds
 
-  val (enumerator, channel) = Concurrent.broadcast[JsValue]
+  val (enumerator, channel) = Concurrent.broadcast[Array[Byte]]
   var reporter: WSReporter = _
 
-  def pushMessage(v: JsValue) = channel.push(v)
+  def pushMessage(v: Array[Byte]) = channel.push(v)
 
   var lastCompilationState: CompilationState = CompilationState.unknown
 
@@ -95,6 +89,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
   }
   
+  import shared.messages.{DoCancel => MDoCancel, _}
+  
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
@@ -129,99 +125,32 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
     case NotifyClient(event) =>
-      pushMessage(event)
+      import boopickle.Default._
+      import shared.messages._
+      import shared.messages.Picklers._ 
+      pushMessage(Pickle.intoBytes[Message](event).array())
 
     case ProcessClientEvent(event) =>
+      import boopickle.Default._
+      import shared.messages._
+      import shared.messages.PicklersToServer._
+      
+      val message = Unpickle[MessageToServer].fromBytes(ByteBuffer.wrap(event))
+      
       try {
-        logInfo("[<] "+(event \ "action").as[String] + " for " + (event \ "module").as[String])
-
-        (event \ "module").as[String] match {
+        logInfo("[<] " + message.getClass.getName)
+        message.module match {
           case "main" =>
-            (event \ "action").as[String] match {
-              case Action.doCancel =>
-                self ! DoCancel
-
-              case Action.doUpdateCode =>
-                self ! UpdateCode((event \ "code").as[String], None, None)
-
-              case Action.doUpdateCodeInProject => withUser { user =>
-                val owner  = (event \ "owner" ).as[String]
-                val repo   = (event \ "repo"  ).as[String]
-                val branch = (event \ "branch").as[String]
-                val file   = (event \ "file"  ).as[String]
-                val code   = (event \ "code"  ).as[String]
-
+            message match {
+              case MDoCancel => self ! DoCancel
+              case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
+              case DoUpdateCodeInProject(owner, repo, file, branch, code) => withUser { user =>
                 val project = Project(owner, repo, branch, file)
-
-                self ! UpdateCode(code, Some(user), Some(project))
+                self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project))
               }
-
-              case Action.storePermaLink =>
-                self ! StorePermaLink((event \ "code").as[String])
-
-              case Action.accessPermaLink =>
-                self ! AccessPermaLink((event \ "link").as[String])
-
-              case Action.loadRepositories => withUser { user =>
-                self ! LoadRepositories(user)
-              }
-
-              case Action.loadRepository => withUser { user =>
-                val owner = (event \ "owner").as[String]
-                val repo  = (event \ "repo").as[String]
-
-                self ! LoadRepository(user, owner, repo)
-              }
-
-              case Action.loadFile => withUser { user =>
-                val owner = (event \ "owner").as[String]
-                val repo  = (event \ "repo").as[String]
-                val file  = (event \ "file").as[String]
-
-                self ! LoadFile(user, owner, repo, file)
-              }
-
-              case Action.switchBranch => withUser { user =>
-                val owner  = (event \ "owner" ).as[String]
-                val repo   = (event \ "repo"  ).as[String]
-                val branch = (event \ "branch").as[String]
-
-                self ! SwitchBranch(user, owner, repo, branch)
-              }
-
-              case Action.doGitOperation => withUser { user =>
-                val project = Project(
-                  owner   = (event \ "project" \ "owner" ).as[String],
-                  repo    = (event \ "project" \ "repo"  ).as[String],
-                  branch  = (event \ "project" \ "branch").as[String],
-                  file    = (event \ "project" \ "file"  ).as[String]
-                )
-
-                val op = (event \ "op").as[String] match {
-                  case GitOperation.STATUS => GitOperation.Status
-                  case GitOperation.PULL   => GitOperation.Pull
-                  case GitOperation.RESET  => GitOperation.Reset
-
-                  case GitOperation.LOG    =>
-                    val count = (event \ "data" \ "count").as[Int]
-                    GitOperation.Log(count)
-
-                  case GitOperation.PUSH   =>
-                    val force = (event \ "data" \ "force").as[Boolean]
-                    GitOperation.Push(force)
-
-                  case GitOperation.COMMIT =>
-                    val msg = (event \ "data" \ "msg").as[String]
-                    GitOperation.Commit(msg)
-                }
-
-                self ! DoGitOperation(user, project, op)
-              }
-
-              case Action.featureSet =>
-                val f      = (event \ "feature").as[String]
-                val active = (event \ "active").as[Boolean]
-
+              case StorePermaLink(code) => self ! message
+              case AccessPermaLink(link) => self ! message
+              case FeatureSet(f, active) => 
                 if (modules contains f) {
                   if (active) {
                     modules(f).isActive = true
@@ -230,15 +159,30 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   }
                 }
             }
-
+          case "git" =>
+            message match {
+            case LoadRepositories => withUser { user =>
+              self ! ULoadRepositories(user)
+            }
+            case LoadRepository(owner, repo) => withUser { user =>
+              self ! ULoadRepository(user, owner, repo)
+            }
+            case LoadFile(owner, repo, file) => withUser { user =>
+              self ! ULoadFile(user, owner, repo, file)
+            }
+            case SwitchBranch(owner, repo, branch) => withUser { user =>
+              self ! USwitchBranch(user, owner, repo, branch)
+            }
+            case DoGitOperation(op, project) => withUser { user =>
+              self ! UDoGitOperation(user, project, op)
+            }
+          }
           case m if modules contains m =>
             if (modules(m).isActive) {
-              modules(m).actor ! OnClientEvent(lastCompilationState, event)
+              modules(m).actor ! ConsoleProtocol.OnClientEvent(lastCompilationState, message)
             }
-
           case m =>
             notifyError("Module "+m+" not available.")
-
         }
       } catch {
         case t: Throwable =>
@@ -254,21 +198,21 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case StorePermaLink(code) =>
       PermalinkStore.store(Code(code)) match {
-        case Some(Permalink(link, _)) =>
-          event("permalink", Map("link" -> toJson(link.value)))
+        case Some(Permalink(Link(link), _)) =>
+          event(HPermalink(link))
         case _ =>
           notifyError("Could not create permalink")
       }
 
     case AccessPermaLink(link) =>
       PermalinkStore.get(Link(link)) match {
-        case Some(Permalink(_, code)) =>
-          event("replace_code", Map("newCode" -> toJson(code.value)))
+        case Some(Permalink(_, Code(value))) =>
+          event(HReplaceCode(newCode=value))
         case None =>
           notifyError("Link not found ?!?: "+link)
       }
 
-      case LoadRepositories(user) => withToken(user) { token =>
+      case ULoadRepositories(user) => withToken(user) { token =>
         clientLog(s"Fetching repositories list...")
 
         val gh     = GitHubService(token)
@@ -276,10 +220,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
         result onSuccess { case repos =>
           clientLog(s"=> DONE")
-
-          event("repositories_loaded", Map(
-            "repos" -> toJson(repos)
-          ))
+          event(RepositoriesLoaded(repos.toArray))
         }
 
         result onFailure { case err =>
@@ -287,7 +228,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
       }
 
-    case LoadRepository(user, owner, name) => withToken(user) { token =>
+    case ULoadRepository(user, owner, name) => withToken(user) { token =>
       clientLog(s"Fetching repository information...")
 
       val gh     = GitHubService(token)
@@ -322,14 +263,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             clientLog(s"=> DONE")
           }
 
-          RepositoryLoaded(user, repo, wc.branchName())
+          URepositoryLoaded(user, repo, wc.branchName())
         }
 
         future pipeTo self
       }
     }
 
-    case RepositoryLoaded(user, repo, currentBranch) =>
+    case URepositoryLoaded(user, repo, currentBranch) =>
       val (owner, name) = (repo.owner, repo.name)
       val wc = RepositoryService.repositoryFor(user, owner, name)
 
@@ -343,15 +284,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       future foreach { files =>
         clientLog(s"=> DONE")
-        event("repository_loaded", Map(
-          "repository"    -> toJson(repo),
-          "files"         -> toJson(files),
-          "branches"      -> toJson(repo.branches),
-          "currentBranch" -> toJson(currentBranch)
-        ))
+        event(RepositoryLoaded(
+            repository = repo,
+            files = files.toArray,
+            branches = repo.branches.toArray,
+            currentBranch = currentBranch))
       }
 
-    case LoadFile(user, owner, name, file) => withToken(user) { token =>
+    case ULoadFile(user, owner, name, file) => withToken(user) { token =>
       clientLog(s"Loading file '$file'...")
 
       val gh     = GitHubService(token)
@@ -380,16 +320,13 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
               clientLog(s"=> DONE")
 
-              event("file_loaded", Map(
-                "file"    -> toJson(file),
-                "content" -> toJson(content)
-              ))
+              event(FileLoaded(file = file, content = content))
           }
         }
       }
     }
 
-    case SwitchBranch(user, owner, name, branch) => withToken(user) { token =>
+    case USwitchBranch(user, owner, name, branch) => withToken(user) { token =>
       clientLog(s"Checking out branch '$branch'...")
 
       val gh     = GitHubService(token)
@@ -429,10 +366,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           future onSuccess {
             case Some(files) =>
               clientLog(s"=> DONE")
-              event("branch_changed", Map(
-                "success" -> toJson(true),
-                "branch"  -> toJson(branch),
-                "files"   -> toJson(files)
+              event(BranchChanged(
+                  success = true,
+                  branch = Some(branch),
+                  files = Some(files.toArray),
+                  error = None
               ))
 
             case None =>
@@ -442,16 +380,17 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               clientLog(s"=> ERROR: $error")
               notifyError(error)
 
-              event("branch_changed", Map(
-                "success" -> toJson(true),
-                "error"   -> toJson(error)
-              ))
+              event(BranchChanged(
+                  success = true,
+                  error = Some(error),
+                  branch = None,
+                  files = None))
           }
         }
       }
     }
 
-    case DoGitOperation(user, project, op) => withToken(user) { token =>
+    case UDoGitOperation(user, project, op) => withToken(user) { token =>
       clientLog(s"Performing Git operation: $op")
 
       val (owner, name) = (project.owner, project.repo)
@@ -471,51 +410,39 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         }
         else {
           op match {
-            case GitOperation.Status =>
+            case GitStatus =>
               val status = wc.status()
               val diff   = wc.diff(Some("HEAD"), None)
               clientLog(s"=> DONE")
 
               status match {
                 case Some(status) =>
-                  val statusData = Map(
-                    "added"       -> status.getAdded(),
-                    "changed"     -> status.getChanged(),
-                    "modified"    -> status.getModified(),
-                    "removed"     -> status.getRemoved(),
-                    "conflicting" -> status.getConflicting(),
-                    "missing"     -> status.getMissing(),
-                    "untracked"   -> status.getUntracked()
+                  import scala.collection.JavaConverters._
+                  val statusData: Map[String, Set[String]] = Map(
+                    "added"       -> status.getAdded().asScala.toSet,
+                    "changed"     -> status.getChanged().asScala.toSet,
+                    "modified"    -> status.getModified().asScala.toSet,
+                    "removed"     -> status.getRemoved().asScala.toSet,
+                    "conflicting" -> status.getConflicting().asScala.toSet,
+                    "missing"     -> status.getMissing().asScala.toSet,
+                    "untracked"   -> status.getUntracked().asScala.toSet
                   )
 
                   val diffData = diff.getOrElse("")
 
-                  event("git_operation_done", Map(
-                    "op"      -> toJson(op.name),
-                    "success" -> toJson(true),
-                    "data"    -> toJson(Map(
-                      "status" -> toJson(statusData.mapValues(_.asScala.toSet)),
-                      "diff"   -> toJson(diffData)
-                    ))
-                  ))
+                  event(GitOperationDone(op, true, GitStatusDiff(statusData, diffData)))
 
                 case None =>
-                  event("git_operation_done", Map(
-                    "op"      -> toJson(op.name),
-                    "success" -> toJson(false)
-                  ))
+                  event(GitOperationDone(op, false, GitOperationResultNone))
               }
 
-            case GitOperation.Push(force) =>
+            case GitPush(force) =>
               val success = wc.push(force)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Pull =>
+            case GitPull =>
               val progressActor = Akka.system.actorOf(Props(
                 classOf[JGitProgressWorker],
                 "git_progress", self
@@ -526,38 +453,25 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               val success = wc.pull(Some(progressMonitor))
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Reset =>
+            case GitReset =>
               val success = wc.reset(hard = true)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Commit(message) =>
+            case GitCommit(message) =>
               val success = wc.add(project.file) && wc.commit(message)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Log(count) =>
+            case GitLog(count) =>
               val commits = wc.getLastCommits(count)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(commits.nonEmpty),
-                "data"    -> toJson(commits.map(_.toJson))
-              ))
+              event(GitOperationDone(op, commits.nonEmpty, GitCommits(commits.map(_.toCommit).toSeq)))
           }
         }
       }
@@ -647,7 +561,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             lastCompilationState = cstate
 
-            event("compilation", Map("status" -> toJson("success")))
+            event(HCompilation("success"))
 
             clientLog("Compilation successful!")
 
@@ -685,7 +599,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             }
 
             clientLog("Compilation failed!")
-            event("compilation", Map("status" -> toJson("failure")))
+            event(HCompilation("failure"))
 
             lastCompilationState = CompilationState.failure(
               code, project, Some(savedFile.getName())
@@ -705,7 +619,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
       else {
         val cstate = lastCompilationState
-        event("compilation", Map("status" -> toJson(cstate.compResult)))
+        event(HCompilation(cstate.compResult))
       }
 
     case Quit =>
@@ -719,16 +633,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       scala.reflect.NameTransformer.decode(name).replaceAll("\\$", ".")
     }
     if (cstate.isCompiled) {
-      val facts = for (fd <- cstate.functions) yield {
-        toJson(Map(
-          "name"        -> toJson(fd.id.name),
-          "displayName" -> toJson(decodeName(fd.id.name)),
-          "line"        -> toJson(fd.getPos.line),
-          "column"      -> toJson(fd.getPos.col)
-        ))
-      }
+      val facts: Map[String, OverviewFunction] = (for (fd <- cstate.functions) yield {
+        fd.id.name -> OverviewFunction(fd.id.name, decodeName(fd.id.name), fd.getPos.line, fd.getPos.col)
+      }).toMap
 
-      event("update_overview", Map("module" -> toJson("main"), "overview" -> toJson(facts)))
+      event(HUpdateOverview("main", facts))
     }
 
   }
@@ -755,7 +664,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   }
 
   def notifyAnnotations(annotations: Seq[CodeAnnotation]): Unit = {
-    event("editor", Map("annotations" -> toJson(annotations.map(_.toJson))))
+    event(HEditor(annotations = annotations))
   }
 
 }

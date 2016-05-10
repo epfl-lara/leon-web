@@ -5,9 +5,9 @@ package services
 
 import java.io.File
 import play.Play
-
 import leon.web.models.{User, RepositoryInfos}
-import leon.web.shared.{GitOperation, Project}
+import leon.web.shared.{Project}
+import leon.web.shared.messages.git.GitOperation
 
 object RepositoryService {
 

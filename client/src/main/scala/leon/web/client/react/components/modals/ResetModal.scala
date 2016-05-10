@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 
-import leon.web.shared.GitOperation
+import leon.web.shared.messages._
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -28,7 +28,7 @@ object ResetModal {
       Actions dispatchCB DoGitOperation(op)
 
     def reset: Callback =
-      listenForReset >> doGitOperation(GitOperation.Reset)
+      listenForReset >> doGitOperation(GitReset)
 
     def listenForReset: Callback = Callback {
       Events.gitOperationDone

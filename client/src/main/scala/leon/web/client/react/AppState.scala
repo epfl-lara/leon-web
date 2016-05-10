@@ -7,7 +7,7 @@ package react
 import scala.concurrent.Future
 import monifu.reactive._
 import monifu.reactive.subjects._
-import leon.web.shared.HandlerMessages._
+import leon.web.shared.messages._
 import boopickle.Default._
 import java.nio.ByteBuffer
 import leon.web.shared.Project
@@ -72,6 +72,7 @@ case class AppState(
       treatAsProject = false
     )
 
+  import AppState._
   def toBytes: ByteBuffer = {
     Pickle.intoBytes(this)
   }
@@ -79,6 +80,8 @@ case class AppState(
 }
 
 object AppState {
+  implicit val appStatePickler = generatePickler[AppState]
+
   def fromBytes(bytes: ByteBuffer): AppState =
     Unpickle[AppState].fromBytes(bytes)
 }

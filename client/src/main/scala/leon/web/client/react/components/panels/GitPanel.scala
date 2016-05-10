@@ -8,7 +8,7 @@ package panels
 
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals._
-import leon.web.shared.GitOperation
+import leon.web.shared.messages._
 
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
@@ -37,7 +37,7 @@ object GitPanel {
       Actions dispatchCB DoGitOperation(op)
 
     def fetchStatus: Callback =
-      doGitOperation(GitOperation.Status)
+      doGitOperation(GitStatus)
 
     def displayModal(op: String) =
       op match {

@@ -5,15 +5,17 @@ import akka.actor._
 import play.api._
 import play.api.libs.json._
 import play.api.libs.json.Json._
+import leon.web.shared.messages._
+import leon.web.shared.messages.Picklers._
+import java.nio.ByteBuffer
+import boopickle.Default._
 
 trait BaseActor extends Actor {
 
-  def pushMessage(v: JsValue): Unit
+  def pushMessage(v: Array[Byte]): Unit
 
   def notifySuccess(msg: String): Unit = {
-    event("notification", Map(
-      "content" -> toJson(msg),
-      "type"    -> toJson("success")))
+    event(HNotification(msg, "success"))
   }
 
   def logInfo(msg: String): Unit = {
@@ -27,19 +29,16 @@ trait BaseActor extends Actor {
 
   def clientLog(msg: String): Unit = {
     logInfo("[>] L: "+msg)
-    pushMessage(toJson(Map("kind" -> "log", "level" -> "log", "message" -> msg)))
+    event(HLog(msg))
   }
 
-  def event(kind: String, data: Map[String, JsValue]): Unit = {
-    logInfo("[>] "+kind)
-    pushMessage(toJson(Map("kind" -> toJson(kind)) ++ data))
+  def event(msg: Message): Unit = {
+    pushMessage(Pickle.intoBytes(msg).array())
   }
 
 
   def notifyError(msg: String): Unit = {
-    event("notification", Map(
-      "content" -> toJson(msg),
-      "type"    -> toJson("error")))
+    event(HNotification(msg, "error"))
   }
 
 }

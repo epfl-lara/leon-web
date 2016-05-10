@@ -14,7 +14,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
-import leon.web.shared.HandlerMessages.HRepository
+import leon.web.shared.messages.HRepository
 
 import monifu.concurrent.Implicits.globalScheduler
 

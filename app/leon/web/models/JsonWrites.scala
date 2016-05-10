@@ -26,7 +26,7 @@ trait JsonWrites {
   def clearExprCache() = exprCache = Map()
   protected var exprCache = Map[String, Expr]()
   
-  implicit val doWrites = new Writes[DualOutput] {
+  /*implicit val doWrites = new Writes[DualOutput] {
     def writes(d: DualOutput) = {
       Json.obj(
           "rawoutput" -> d.rawoutput,
@@ -145,5 +145,5 @@ trait JsonWrites {
   implicit val rpResWrites = new Writes[(RangePosition, String)] {
     def writes(rpRes: (RangePosition, String)) =
       rpWrites.writes(rpRes._1) + ("result" -> toJson(rpRes._2))
-  }
+  }*/
 }
