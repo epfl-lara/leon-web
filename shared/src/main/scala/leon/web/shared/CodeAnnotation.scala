@@ -1,10 +1,10 @@
 package leon.web.shared
 
-case class CodeAnnotation(line: Int, col: Int, message: String, tpe: CodeAnnotationType)
+case class CodeAnnotation(line: Int, col: Int, message: String, var tpe: CodeAnnotationType)
 
-abstract class CodeAnnotationType(kind: String)
+sealed trait CodeAnnotationType { def kind: String }
 
-case object CodeAnnotationError        extends CodeAnnotationType("error")
-case object CodeAnnotationWarning      extends CodeAnnotationType("warning")
-case object CodeAnnotationSynthesis    extends CodeAnnotationType("synthesis")
-case object CodeAnnotationVerification extends CodeAnnotationType("verification")
+case object CodeAnnotationError        extends CodeAnnotationType { val kind = "error" }
+case object CodeAnnotationWarning      extends CodeAnnotationType { val kind = "warning" }
+case object CodeAnnotationSynthesis    extends CodeAnnotationType { val kind = "synthesis" }
+case object CodeAnnotationVerification extends CodeAnnotationType { val kind = "verification" }

@@ -16,46 +16,33 @@ import leon.web.shared.Action
 
 class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
-
+  
   def receive = {
     case DoCancel =>
       sender ! Cancelled(this)
 
     case OnClientEvent(cstate, event) =>
-      (event \ "action").as[String] match {
-        case Action.doRepair =>
-          val fname = (event \ "fname").as[String]
-
+      event match {
+        case shared.messages.DoRepair(fname) =>
           doRepair(cstate, fname)
-
-        case action =>
-          notifyError("Received unknown action: "+action)
+        case _ => notifyError("Received unknown event: "+event)
       }
-
     case _ =>
   }
 
   def doRepair(cstate: CompilationState, fname: String): Unit = {
     try {
       val program = cstate.program
-
+      import shared.messages._
       def progress(name: String): Unit = {
-        event("repair_result", Map(
-          "result" -> toJson("progress"),
-          "progress" -> toJson(name)
-        ))
+        event(HRepairResult(result = "progress", progress = name))
       }
 
       def error(err: String): Unit = {
-        event("repair_result", Map(
-          "result" -> toJson("error"),
-          "error" -> toJson(err)
-        ))
+        event(HRepairResult(result = "error", progress = err))
       }
 
-      event("repair_result", Map(
-        "result" -> toJson("init")
-      ))
+      event(HRepairResult(result = "init"))
 
       progress("Initializing ...")
       val timeoutMs = Some(30000l)
@@ -107,15 +94,15 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                         cstate.code.getOrElse("")
                     }
 
-                    event("repair_result", Map(
-                      "result" -> toJson("success"),
-                      "success" -> toJson("Repair Found!"),
-                      "solCode" -> toJson(ScalaPrinter(expr)),
-                      "cursor" -> toJson(Map(
-                        "line"   -> fd.getPos.line,
-                        "column" -> (fd.getPos.col-1)
+                    event(RepairResult(
+                      result = "success",
+                      success = "Repair Found!",
+                      solCode = ScalaPrinter(expr),
+                      cursor = Some(HMoveCursor(
+                        line = fd.getPos.line,
+                        column = (fd.getPos.col-1)
                       )),
-                      "allCode" -> toJson(allCode)
+                      "allCode" = allCode
                     ))
                   }
                 } finally {

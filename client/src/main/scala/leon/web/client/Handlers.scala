@@ -51,6 +51,11 @@ object Handlers extends js.Object {
         }
     
         drawOverView()
+
+      case data: HInvariants =>
+        overview.Data.invariants = data.overview
+
+        drawOverView()
       case data: SynthesisOverview =>
         if (synthesisOverview.toString != data.toString) {
           synthesisOverview = data;
@@ -85,28 +90,29 @@ object Handlers extends js.Object {
           $("#annotations").html("");
     
           for (a <- annotations) {
-            if (a.`type` == "verification") {
+            if (a.tpe == "verification") {
               context = "verification";
-            } else if (a.`type` == "synthesis") {
+            } else if (a.tpe == "synthesis") {
               context = "synthesis";
             }
-    
-            if (a.`type` != "info" && a.`type` != "error" && a.`type` != "warning") {
-              session.addGutterDecoration(a.row, "leon_gutter_" + a.`type`)
-              a.`type` = "info";
+            var tpe = a.tpe.kind
+            
+            if (tpe != "info" && tpe != "error" && tpe != "warning") {
+              session.addGutterDecoration(a.line, "leon_gutter_" + tpe)
+              tpe = "info";
             }
     
-            if (a.`type` == "error") {
-              val line = a.row + 1
-              $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
-            } else if (a.`type` == "warning") {
-              val line = a.row + 1
-              $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.text + "</code></li>")
+            if (tpe == "error") {
+              val line = a.line + 1
+              $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
+            } else if (tpe == "warning") {
+              val line = a.line + 1
+              $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
             }
           }
     
           addClickToLine("#annotations");
-          session.setAnnotations(annotations.map(a => l(row = a.row, column = a.column, text = a.text, `type` = a.`type`).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
+          session.setAnnotations(annotations.map(a => l(row = a.line, column = a.col, text = a.message, `type` = a.tpe.kind).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
           resizeEditor();
         }
         
@@ -119,8 +125,8 @@ object Handlers extends js.Object {
         txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
 
       case data: HSynthesisResult => synthesis_result(data)
-      case DisambiguationStarted() =>  disambiguation_started()
-      case DisambiguationNoresult() => disambiguation_noresult()
+      case DisambiguationStarted =>  disambiguation_started()
+      case DisambiguationNoresult => disambiguation_noresult()
       case data: HDisambiguationResult => disambiguation_result(data)
       case data: HSynthesisExploration => synthesis_exploration(data)
       case data: VerificationDetails => verification_result(data)
@@ -453,9 +459,9 @@ object Handlers extends js.Object {
 
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
-      var path = js.Array[Int]()
+      var path = Array[Int]()
       if (new EqOps(b.attr("path")) =!= "") {
-        path = b.attr("path").split("-").toJSArray.map((e: String) => e.toInt)
+        path = b.attr("path").split("-").map((e: String) => e.toInt)
       }
       path
     }

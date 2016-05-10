@@ -3,11 +3,11 @@ package workers
 
 import akka.actor._
 import play.api.libs.json.Json._
-
 import models._
 import leon.utils._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions.{TypedFunDef, Program}
+import leon.web.shared.messages.{HUpdateExplorationFacts, NewResult}
 
 class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites {
   import ConsoleProtocol._
@@ -71,7 +71,7 @@ class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               }
             }
 
-            event("update_exploration_facts", Map("newFacts" -> toJson(facts.flatten)))
+            event(HUpdateExplorationFacts(facts.flatten.map(p => NewResult(p._1.lineFrom, p._1.colFrom, p._1.lineTo, p._1.colTo, p._2)).toArray))
 
           case _ =>
         }

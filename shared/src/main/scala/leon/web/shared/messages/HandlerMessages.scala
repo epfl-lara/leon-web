@@ -1,5 +1,6 @@
 package leon.web
-package shared.messages
+package shared
+package messages
 import shared.github._
 
 sealed trait Message
@@ -77,16 +78,16 @@ case class HDisambiguationDisplay(
   allCode: String
 )
 
-case class DisambiguationStarted() extends Message
+case object DisambiguationStarted extends Message
 
-case class DisambiguationNoresult() extends Message
+case object DisambiguationNoresult extends Message
 
 case class HDisambiguationResult(
   input: String,
   fname: String,
   confirm_solution: HDisambiguationDisplay,
   custom_alternative: HDisambiguationDisplay,
-  alternatives: Array[HDisambiguationDisplay]
+  alternatives: List[HDisambiguationDisplay]
 ) extends Message
 
 case class HSynthesisExploration(
@@ -111,14 +112,14 @@ case class HSynthesisRulesToApply(
 ) extends Message
 
 case class HRepairResult(
-  result: String,
-  progress: String,
-  error: String,
-  focused: String,
-  success: String,
-  solCode: String,
-  allCode: String,
-  cursor: Option[HMoveCursor]
+  result: String = "",
+  progress: String = "",
+  error: String = "",
+  focused: String = "",
+  success: String = "",
+  solCode: String = "",
+  allCode: String = "",
+  cursor: Option[HMoveCursor] = None
 ) extends Message
 
 case class ResultOutput(
@@ -172,11 +173,11 @@ case class InvariantDetails(
 )
 
 case class HInvariants(
-  invariants: Array[InvariantDetails],
-  kind: String,
   module: String,
+  overview: Map[String, InvariantDetails],
+  kind: String,
   code: String
-)
+) extends Message
 
 case class OverviewFunction(
   name: String,
@@ -184,7 +185,6 @@ case class OverviewFunction(
   line: Int,
   column: Int
 )
-
 
 case class RepositoriesLoaded (
   repos: Array[Repository]
@@ -219,7 +219,7 @@ case class GitProgress(
   taskName: String,
   status: String,
   percentage: Option[String]
-) extends Status 
+) extends Message with Event with Status 
 
 sealed trait GitOperationResult
 case class GitStatusDiff(

@@ -189,19 +189,30 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
   def hasTemplates(program: Program): Boolean = {
     userLevelFunctions(program).exists(_.hasTemplate)
   }
+  
+  import shared.messages._
 
+  def funInvariantStatusToOverviewFunction(fi: FunInvariantStatus): InvariantDetails = {
+    InvariantDetails(
+      status = fi.status,
+      fun    = fi.fd.map(InstUtil.userFunctionName(_)).getOrElse(""),
+      oldInvariant = fi.template.getOrElse(""),
+      newInvariant = fi.invString.getOrElse(""),
+      newCode = fi.newCode.getOrElse(""),
+      time = fi.time.getOrElse(0.0)   
+    )
+  }
+  
   def notifyInvariantOverview(cstate: CompilationState): Unit = {
-    val fics = Json.obj((
-      (invariantOverview.toSeq.filter(_._2.fd.nonEmpty).sortBy(_._2.fd.map(_.getPos).get).map {
+    val fics = 
+      ((invariantOverview.toSeq.filter(_._2.fd.nonEmpty).sortBy(_._2.fd.map(_.getPos).get).map {
         case (fd, fi) =>
-          fd -> (fi: JsValueWrapper)
+          fd -> funInvariantStatusToOverviewFunction(fi)
       }) ++ allCode.map((code: String) =>
         Constants.invariantMainCode ->
-          (FunInvariantStatus(None, None, None, Some(code), None): JsValueWrapper))): _*)
+          funInvariantStatusToOverviewFunction(FunInvariantStatus(None, None, None, Some(code), None)))).toMap
 
-    event("update_overview",
-      Map("module" -> toJson(Module.invariant),
-        "overview" -> fics))
+    event(HInvariants(module = Module.invariant, overview = fics, kind = "", code = ""))
   }
 
   /**

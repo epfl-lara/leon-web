@@ -643,10 +643,10 @@ trait LeonWeb extends EqSyntax {
     var functions = js.Dictionary.empty[OverviewFunction]
     @ScalaJSDefined
     object Data extends js.Object {
-      var verification = js.Dictionary[VerificationDetails]()
-      var termination = js.Dictionary[TerminationDetails]()
-      var invariant = js.Dictionary[InvariantDetails]()
-
+      var verification = Map[String, VerificationDetails]()
+      var termination = Map[String, TerminationDetails]()
+      var invariant = Map[String, InvariantDetails]()
+/*
       def update[A](s: String, v: A) = {
         Data.asInstanceOf[js.Dictionary[A]](s) = v
       }
@@ -657,7 +657,7 @@ trait LeonWeb extends EqSyntax {
           case Some(dict) => dict.asInstanceOf[js.Dictionary[A]]
           case _          => throw new Exception(s"$s data not defined")
         }
-      }
+      }*/
     }
   }
   
@@ -1028,7 +1028,7 @@ trait LeonWeb extends EqSyntax {
   
   def displayInvariantDetails(status: String,
       invariant: InvariantDetails,
-      all_invariants: js.Dictionary[InvariantDetails]): Unit = {
+      all_invariants: Map[String, InvariantDetails]): Unit = {
     
     val pb = $("#invariantProgress")
     val pbb = pb.children(".progress-bar")

@@ -41,23 +41,24 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
     })(cstate, synth.context)
   }
   
-  def convertQuestionToJson(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr]): Map[String, JsValue] = {
+  import shared.messages.{DoCancel => _, _}
+  def convertQuestion(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr]): HDisambiguationResult = {
     val (in, mapping) = ExamplesAdder.replaceGenericValuesByVariable(tupleWrap(question.inputs))
     
     @inline def instantiate(x: Expr) = ExprOps.replace(mapping, x)
     
-    Map("input" -> toJson(in.asString),
-        "fname" -> toJson(fd.id.name),
-        "confirm_solution" -> toJson(
-            Map("display" -> instantiate(question.current_output).asString(synth.program)(synth.context), 
-                "allCode" -> convertExampleToFullCode(cstate, synth, in, instantiate(question.current_output)))),
-        "custom_alternative" -> toJson(
-            Map("display" -> shared.Constants.disambiguationPlaceHolder, 
-                "allCode" -> convertExampleToFullCode(cstate, synth, in, StringLiteral(shared.Constants.disambiguationPlaceHolder)))),
-        "alternatives" -> toJson(
-            question.other_outputs.map(output =>
-              Map("display" -> instantiate(output).asString(synth.program)(synth.context), 
-                  "allCode" -> convertExampleToFullCode(cstate, synth, in, instantiate(output))))))
+    HDisambiguationResult(input = in.asString,
+        fname = fd.id.name,
+        confirm_solution = HDisambiguationDisplay(
+                instantiate(question.current_output).asString(synth.program)(synth.context), 
+                convertExampleToFullCode(cstate, synth, in, instantiate(question.current_output))),
+        custom_alternative = HDisambiguationDisplay(
+                shared.Constants.disambiguationPlaceHolder, 
+                convertExampleToFullCode(cstate, synth, in, StringLiteral(shared.Constants.disambiguationPlaceHolder))),
+       alternatives =
+            question.other_outputs.map(output => HDisambiguationDisplay(
+                instantiate(output).asString(synth.program)(synth.context), 
+                convertExampleToFullCode(cstate, synth, in, instantiate(output)))))
   }
   
   def isGround(s: String): Boolean = {
@@ -104,7 +105,8 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
 
     case NewSolutions(cstate, synth, ssol) =>
       logInfo("Receiving new solutions ! disambiguating ...")
-      event("disambiguation_started", Map())
+      import shared.messages._
+      event(DisambiguationStarted)
       val ci = synth.ci
       val SourceInfo(fd, src, pb) = ci
       
@@ -116,9 +118,9 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       
       if(questions.nonEmpty) {
         logInfo("Sending back results")
-        event("disambiguation_result", convertQuestionToJson(cstate, synth, fd, questions.head))
+        event(convertQuestion(cstate, synth, fd, questions.head))
       } else {
-        event("disambiguation_noresult", Map())
+        event(DisambiguationNoresult)
       }
       logInfo("Finished disambiguating")
       

@@ -59,7 +59,7 @@ object Backend {
            branch = branch,
            code   = code) andThenAnalytics (Action.doUpdateCodeInProject, s"$owner: $repo:$branch/$file")
     def cancel() =
-      Server ! DoCancel() andThenAnalytics  (Action.doCancel, s"main")
+      Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
   }
   
   object synthesis extends Module(ModuleName.synthesis) {
@@ -87,7 +87,7 @@ object Backend {
     def doRepair(fname: String) =
       Server ! DoRepair(fname = fname) andThenAnalytics (Action.doRepair, fname)
     def cancel() =
-      Server ! DoCancel() andThenAnalytics  (Action.doCancel, s"repair")
+      Server ! DoCancel andThenAnalytics  (Action.doCancel, s"repair")
   }
   
   object verification extends Module(ModuleName.verification) {

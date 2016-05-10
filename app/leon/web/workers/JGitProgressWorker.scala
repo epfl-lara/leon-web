@@ -6,8 +6,8 @@ package workers
 import akka.actor._
 import play.api.libs.json._
 import play.api.libs.json.Json._
-
 import leon.web.models.{BaseActor, ConsoleProtocol}
+import leon.web.shared.messages.GitProgress
 
 /** This worker sends back to the client progress updates for JGit
   * operations, and is meant to be used together with a
@@ -25,17 +25,10 @@ class JGitProgressWorker(eventName: String, session: ActorRef) extends BaseActor
 
   def receive = {
     case OnJGitProgressUpdate(taskName, _, _, percentage) =>
-      event(eventName, Map(
-        "taskName"   -> toJson(taskName),
-        "status"     -> toJson("update"),
-        "percentage" -> toJson(percentage.map(_.toString).getOrElse("?"))
-      ))
+      event(GitProgress(taskName, "update", percentage.map(_.toString).orElse(Some("?"))))
 
     case OnJGitProgressEnd(taskName, _, _, _) =>
-      event(eventName, Map(
-        "taskName"   -> toJson(taskName),
-        "status"     -> toJson("end")
-      ))
+      event(GitProgress(taskName, "end", None))
 
     case _ =>
   }
