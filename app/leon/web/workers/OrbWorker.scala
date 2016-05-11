@@ -13,10 +13,8 @@ import leon.purescala.Definitions.ValDef
 import leon.transformations.InstUtil
 import leon.transformations.InstrumentationPhase
 import shared.Module
-import models.JsonWrites
+import models.StringToExprCached
 import models.InvariantPosition
-import play.api.libs.json._
-import play.api.libs.json.Json._
 import leon.invariant.structure.FunctionUtils._
 import purescala.Expressions._
 import purescala.Common._
@@ -45,7 +43,7 @@ import verification._
 /**
  * @author Mikael
  */
-class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites with VerificationNotifier {
+class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with StringToExprCached with VerificationNotifier {
   import ConsoleProtocol._
 
   private var invariantOverview = Map[String, FunInvariantStatus]()

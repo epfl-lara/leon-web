@@ -2,7 +2,6 @@ package leon.web
 package workers
 
 import akka.actor._
-import play.api.libs.json._
 
 import models._
 

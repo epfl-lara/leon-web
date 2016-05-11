@@ -16,7 +16,6 @@ import leon.synthesis.disambiguation.ExamplesAdder
 import leon.utils._
 import leon.web.shared.Action
 import models._
-import play.api.libs.json.Json._
 import leon.purescala.TypeOps
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {

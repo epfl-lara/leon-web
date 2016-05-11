@@ -4,8 +4,6 @@ package leon.web
 package workers
 
 import akka.actor._
-import play.api.libs.json._
-import play.api.libs.json.Json._
 import leon.web.models.{BaseActor, ConsoleProtocol}
 import leon.web.shared.messages.GitProgress
 

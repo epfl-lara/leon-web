@@ -4,7 +4,6 @@ package models
 import leon._
 import leon.synthesis._
 import leon.synthesis.graph._
-import play.api.libs.json.Json._
 import leon.synthesis.strategies.CostBasedStrategy
 import leon.synthesis.strategies.BoundedStrategy
 

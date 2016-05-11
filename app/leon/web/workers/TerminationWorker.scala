@@ -6,15 +6,13 @@ import leon.purescala.Definitions._
 import leon.termination._
 import leon.utils._
 import models._
-import play.api.libs.json._
-import play.api.libs.json.Json._
 import leon.web.shared.{TerminationStatus => Status}
 
 class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
   import shared.messages.{DoCancel => _, _ }
-  def tgToJson(fd: FunDef, tgo: Option[TerminationGuarantee]): TerminationDetails = tgo match {
+  def tgToTerminationDetails(fd: FunDef, tgo: Option[TerminationGuarantee]): TerminationDetails = tgo match {
     case Some(tg) => tg match {
       case Terminates(reason) => TerminationDetails(
         status = Status.terminates,
@@ -39,7 +37,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
 
   def notifyTerminOverview(cstate: CompilationState, data: Map[FunDef, Option[TerminationGuarantee]]): Unit = {
     if (cstate.isCompiled) {
-      val facts = for ((fd, tg) <- data) yield (fd.id.name -> tgToJson(fd, tg))
+      val facts = for ((fd, tg) <- data) yield (fd.id.name -> tgToTerminationDetails(fd, tg))
       event(HUpdateTerminationOverview(overview = facts.toMap))
     }
   }

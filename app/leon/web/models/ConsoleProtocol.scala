@@ -2,7 +2,6 @@ package leon.web
 package models
 
 import workers.WorkerActor
-import play.api.libs.json._
 import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._

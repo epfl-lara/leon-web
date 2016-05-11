@@ -362,20 +362,6 @@ case class Commit(revc: RevCommit) {
   def author        = revc.getAuthorIdent().getName
   def committer     = revc.getCommitterIdent().getName
   def desc          = shortHash+" - "+shortMessage
-
-
-  def toJson: JsValue = {
-    Json.toJson(Map(
-      "hash" -> hash,
-      "shortHash" -> shortHash,
-      "shortMessage" -> shortMessage,
-      "fullMessage" -> fullMessage,
-      "commitTime" -> commitTimeStr,
-      "author" -> author,
-      "committer" -> committer,
-      "desc" -> desc
-    ))
-  }
   
   def toCommit: shared.messages.Commit = shared.messages.Commit(
       hash,

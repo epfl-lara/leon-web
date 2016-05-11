@@ -62,7 +62,6 @@ object Handlers extends js.Object {
       case data: SynthesisOverview =>
         if (synthesisOverview.toString != data.toString) {
           synthesisOverview = data;
-          println("Displaying new synthesis overview")
           drawSynthesisOverview();
           
           Main.onSynthesisTabDisplay match {

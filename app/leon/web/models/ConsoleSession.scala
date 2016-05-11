@@ -10,11 +10,8 @@ import scala.util.Try
 import scala.io.Source
 import scala.collection.JavaConverters._
 import play.api._
-import play.api.libs.json._
 import play.api.libs.iteratee._
 import play.api.libs.concurrent._
-import play.api.libs.json.Json._
-import play.api.libs.json.Writes._
 import akka.pattern._
 import play.api.Play.current
 import leon.frontends.scalac._

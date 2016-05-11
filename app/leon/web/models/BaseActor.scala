@@ -3,8 +3,6 @@ package models
 
 import akka.actor._
 import play.api._
-import play.api.libs.json._
-import play.api.libs.json.Json._
 import leon.web.shared.messages._
 import leon.web.shared.messages.Picklers._
 import java.nio.ByteBuffer

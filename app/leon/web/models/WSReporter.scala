@@ -2,8 +2,6 @@ package leon.web
 package models
 
 import play.api.libs.iteratee._
-import play.api.libs.json._
-import play.api.libs.json.Json.toJson
 
 import leon.Reporter
 

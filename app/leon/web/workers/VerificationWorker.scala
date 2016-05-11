@@ -2,8 +2,6 @@ package leon.web
 package workers
 
 import akka.actor._
-import play.api.libs.json._
-import play.api.libs.json.Json._
 import models._
 import leon.utils._
 import leon.verification._
@@ -18,7 +16,7 @@ import leon.evaluators.EvaluationResults
 import leon.purescala.Common.Identifier
 import leon.purescala.SelfPrettyPrinter
 
-trait VerificationNotifier extends WorkerActor with JsonWrites {
+trait VerificationNotifier extends WorkerActor with StringToExprCached {
   import ConsoleProtocol._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
@@ -108,7 +106,7 @@ trait VerificationNotifier extends WorkerActor with JsonWrites {
   }
 }
 
-class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with JsonWrites with VerificationNotifier {
+class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with StringToExprCached with VerificationNotifier {
   import ConsoleProtocol._
   import leon.evaluators._
   import leon.codegen._

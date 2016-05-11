@@ -3,7 +3,6 @@ package web
 package workers
 
 import akka.actor._
-import play.api.libs.json.Json._
 import scala.concurrent.duration._
 import models._
 import leon.LeonContext
@@ -23,8 +22,6 @@ import leon.purescala.DefOps
 import leon.purescala.ExprOps
 import leon.synthesis.disambiguation._
 import leon.purescala.Definitions.Program
-import play.api.libs.json._
-import play.api.libs.json.Json._
 import leon.grammars.{ValueGrammar, ExpressionGrammar}
 
 class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
