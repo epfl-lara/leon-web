@@ -26,9 +26,9 @@ class CompilingWSReporter(channel: Concurrent.Channel[Array[Byte]]) extends WSRe
 
   override def onCompilerProgress(current: Int, total: Int): Unit = {
     import boopickle.Default._
-    import shared.messages.{Message => HMessage, HCompilationProgress}
-    import shared.messages.Picklers._
-    channel.push(Pickle.intoBytes[HMessage](HCompilationProgress(current, total)).array())
+    import shared.messages.{MessageFromServer, HCompilationProgress}
+    import shared.messages.MessageFromServer._
+    channel.push(Pickle.intoBytes[MessageFromServer](HCompilationProgress(current, total)).array())
   }
 
   override def account(msg: Message): Message = {

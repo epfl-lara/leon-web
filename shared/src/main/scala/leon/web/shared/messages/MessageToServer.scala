@@ -2,6 +2,8 @@ package leon.web
 package shared
 package messages
 
+import git._
+
 sealed trait MessageToServer {
   def module: String
 }
@@ -32,34 +34,9 @@ sealed trait VerificationModule { val module = "verification" }
 case class PrettyPrintCounterExample(output: String, rawoutput: String, fname: String) extends MessageToServer with VerificationModule
 
 // git
-sealed trait GitModule { self: MessageToServer =>
+sealed trait GitModule {
   val module = "git"
 }
-sealed trait GitOperation extends GitModule { self: MessageToServer =>
-  def name: String
-}
-
-case object GitStatus extends MessageToServer with GitOperation {
-  val name = GitOperation.STATUS
-}
-case object GitPull  extends MessageToServer with GitOperation {
-  val name = GitOperation.PULL
-}
-case object GitReset  extends MessageToServer with GitOperation {
-  val name = GitOperation.RESET
-}
-
-case class GitCommit(message: String) extends MessageToServer with GitOperation {
-  val name = GitOperation.COMMIT
-}
-case class GitPush(force: Boolean)    extends MessageToServer with GitOperation {
-  val name = GitOperation.PUSH
-}
-case class GitLog(number: Int)        extends MessageToServer with GitOperation {
-  val name = GitOperation.LOG
-}
-
-// Github actions
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected
@@ -70,18 +47,7 @@ case class SwitchBranch(owner: String, repo: String, branch: String) extends Mes
 case class LoadFile(owner: String, repo: String, file: String) extends MessageToServer with GitModule
 case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with GitModule
 
-object GitOperation {
-  val STATUS = "status"
-  val COMMIT = "commit"
-  val PUSH   = "push"
-  val PULL   = "pull"
-  val RESET  = "reset"
-  val LOG    = "log"
-}
-
-
-
-object PicklersToServer {
+object MessageToServer {
   import boopickle.Default._
   implicit val msgPickler = generatePickler[MessageToServer] 
 }

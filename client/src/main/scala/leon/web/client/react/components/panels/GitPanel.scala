@@ -8,8 +8,7 @@ package panels
 
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals._
-import leon.web.shared.messages.{DoGitOperation => _, _}
-
+import leon.web.shared.git._
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
@@ -87,7 +86,7 @@ object GitPanel {
     ReactComponentB[Unit]("GitPanel")
       .initialState(State())
       .renderBackend[Backend]
-      .buildU
+      .build
 
   def apply() = component()
 

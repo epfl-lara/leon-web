@@ -1,9 +1,10 @@
 package leon.web
 package shared
 package messages
-import shared.github._
+import github._
+import git._
 
-sealed trait Message
+sealed trait MessageFromServer
 
 /** Events triggered in reaction to the [[leon.web.client.react.Action]]s.
   * These events can be listened to, and are meant to trigger state
@@ -11,9 +12,9 @@ sealed trait Message
   */
 sealed trait Event
 
-case class HPermalink(
+case class GotPermalink(
   link: String
-) extends Message
+) extends MessageFromServer
 
 case class Commit(
   hash: String,
@@ -26,33 +27,33 @@ case class Commit(
   desc: String
 )
 
-case class HMoveCursor(line: Double, column: Double = 0) extends Message
+case class HMoveCursor(line: Double, column: Double = 0) extends MessageFromServer
 
 case class HUpdateOverview(
   overview: Map[String, OverviewFunction]
-) extends Message
+) extends MessageFromServer
 
 case class HUpdateTerminationOverview(
   overview: Map[String, TerminationDetails]
-) extends Message
+) extends MessageFromServer
 
 case class HUpdateVerificationOverview(
   overview: Map[String, VerificationDetails]
-) extends Message
+) extends MessageFromServer
 
 
 case class HUpdateInvariantsOverview(
   overview: Map[String, InvariantDetails],
   kind: String,
   code: String
-) extends Message
+) extends MessageFromServer
 
 
 case class SP(index: Int, line: Int, column: Int, description: String, problem: String)
 
-case class SynthesisOverview(functions: Option[Map[String, Array[SP]]]) extends Message
+case class SynthesisOverview(functions: Option[Map[String, Array[SP]]]) extends MessageFromServer
 
-case class HUpdateExplorationFacts(newFacts: Array[NewResult]) extends Message
+case class HUpdateExplorationFacts(newFacts: Array[NewResult]) extends MessageFromServer
 
 case class NewResult(
   fromRow: Int,
@@ -64,16 +65,16 @@ case class NewResult(
 
 case class HEditor(
   annotations: Option[Array[CodeAnnotation]]
-) extends Message
+) extends MessageFromServer
 
 case class HNotification(
   content: String,
   `type`: String
-) extends Message
+) extends MessageFromServer
 
 case class HLog(
   message: String
-) extends Message
+) extends MessageFromServer
 
 
 case class HSynthesisResult(
@@ -87,20 +88,20 @@ case class HSynthesisResult(
   allCode: String = "",
   cursor: Option[HMoveCursor] = None,
   proven: Boolean = false
-) extends Message
+) extends MessageFromServer
 
 case class HSynthesisProof(
   status: String
-) extends Message with Status
+) extends MessageFromServer with Status
 
 case class HDisambiguationDisplay(
   var display: String,
   allCode: String
 )
 
-case object DisambiguationStarted extends Message
+case object DisambiguationStarted extends MessageFromServer
 
-case object DisambiguationNoresult extends Message
+case object DisambiguationNoresult extends MessageFromServer
 
 case class HDisambiguationResult(
   input: String,
@@ -108,7 +109,7 @@ case class HDisambiguationResult(
   confirm_solution: HDisambiguationDisplay,
   custom_alternative: HDisambiguationDisplay,
   alternatives: List[HDisambiguationDisplay]
-) extends Message
+) extends MessageFromServer
 
 case class HSynthesisExploration(
   html: String,
@@ -117,7 +118,7 @@ case class HSynthesisExploration(
   from: List[Int],
   allCode: String,
   cursor: Option[HMoveCursor]
-) extends Message
+) extends MessageFromServer
 
 case class HRulesApps(
   status: String,
@@ -129,7 +130,7 @@ case class HSynthesisRulesToApply(
   fname: String,
   cid: Int,
   rulesApps: Array[HRulesApps]
-) extends Message
+) extends MessageFromServer
 
 case class HRepairResult(
   result: String = "",
@@ -140,7 +141,7 @@ case class HRepairResult(
   solCode: String = "",
   allCode: String = "",
   cursor: Option[HMoveCursor] = None
-) extends Message
+) extends MessageFromServer
 
 case class ResultOutput(
   result: String,
@@ -159,11 +160,11 @@ case class VC(
   execution: Option[ResultOutput] = None
 ) extends Status
 
-case class HReplaceCode(newCode: String) extends Message
+case class HReplaceCode(newCode: String) extends MessageFromServer
 
-case class HCompilationProgress(total: Float, current: Float) extends Message
+case class HCompilationProgress(total: Float, current: Float) extends MessageFromServer
 
-case class HCompilation(status: String) extends Message with Status
+case class HCompilation(status: String) extends MessageFromServer with Status
 
 case class StatusCode(
   status: String,
@@ -176,7 +177,7 @@ case class VerificationDetails(
   status: String,
   vcs: Array[VC],
   time: Double
-) extends Message with Status
+) extends MessageFromServer with Status
 
 case class TerminationDetails(
   status: String,
@@ -202,38 +203,38 @@ case class OverviewFunction(
 
 case class RepositoriesLoaded (
   repos: Array[Repository]
-) extends Message with Event
+) extends MessageFromServer with Event
 
 case class RepositoryLoaded(
   repository: Repository,
   files: Array[String],
   branches: Array[Branch],
   currentBranch: String
-) extends Message with Event
+) extends MessageFromServer with Event
 
 case class FileLoaded(
   file: String,
   content: String
-) extends Message with Event
+) extends MessageFromServer with Event
 
 case class BranchChanged(
   success: Boolean,
   branch: Option[String],
   files: Option[Array[String]],
   error: Option[String]
-) extends Message with Event
+) extends MessageFromServer with Event
 //case class FileLoaded(fileName: String, content: String) extends Event
 
 
 //case class BranchChanged(branch: String, files: Seq[String]) extends Message with Event
-case class CodeUpdated(code: String) extends Message with Event
+case class CodeUpdated(code: String) extends MessageFromServer with Event
 //case class GitProgress(task: String, percentage: Option[String]) extends Message with Event
 
 case class GitProgress(
   taskName: String,
   status: String,
   percentage: Option[String]
-) extends Message with Event with Status 
+) extends MessageFromServer with Event with Status 
 
 sealed trait GitOperationResult
 case class GitStatusDiff(
@@ -249,7 +250,7 @@ case class GitOperationDone(
   op: GitOperation,
   success: Boolean,
   data: GitOperationResult = GitOperationResultNone
-) extends Message with Event
+) extends MessageFromServer with Event
   
 object HandlerMessages {
   type VCS = Array[VC]
@@ -257,14 +258,16 @@ object HandlerMessages {
   type DataOverView = Map[String, OverviewFunction]
 }
   
-object Picklers {
+object MessageFromServer {
   import boopickle.Default._
   import boopickle.PicklerHelper
-
+  
+  implicit val goPickler = generatePickler[GitOperation]
+  
   implicit val annotationPickler = generatePickler[CodeAnnotation]
   implicit val repoPickler = generatePickler[Repository]
   implicit val gopPickler = generatePickler[GitOperationDone]
   implicit val vcPickler = generatePickler[VC]
   implicit val verifPickler = generatePickler[VerificationDetails]
-  implicit val msgPickler = generatePickler[Message]
+  implicit val msgPickler = generatePickler[MessageFromServer]
 }

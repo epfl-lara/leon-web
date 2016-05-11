@@ -9,6 +9,7 @@ import monifu.reactive.subjects._
 import leon.web.shared.messages._
 import leon.web.shared.github._
 import leon.web.shared._
+import leon.web.shared.git._
 
 trait Action
 

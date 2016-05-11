@@ -9,6 +9,7 @@ import leon.web.shared.github.Repository
 import leon.synthesis.Synthesizer
 import leon.web.shared.{Project}
 import leon.web.shared.messages._
+import shared.git.GitOperation
 import java.nio.ByteBuffer
 
 object ConsoleProtocol {
@@ -48,7 +49,7 @@ object ConsoleProtocol {
   // Communication between session and modules
   case class OnUpdateCode(cstate: CompilationState)
   case class OnClientEvent(cstate: CompilationState, event: shared.messages.MessageToServer)
-  case class NotifyClient(event: shared.messages.Message)
+  case class NotifyClient(event: shared.messages.MessageFromServer)
   case class NotifyClientBin(event: Array[Byte])
   case object Enable
   case object Disable

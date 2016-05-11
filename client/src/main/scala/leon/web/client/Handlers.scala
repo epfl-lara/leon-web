@@ -28,10 +28,10 @@ object Handlers extends js.Object {
   import equal.EqOps
   
   @JSName("apply")
-  def apply(data: Message): Unit = {
+  def apply(data: MessageFromServer): Unit = {
     println("Processing " + data)
     data match {
-      case data: HPermalink => 
+      case data: GotPermalink => 
         $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
         $("#permalink-value").show()
       case data: HMoveCursor =>
@@ -146,8 +146,8 @@ object Handlers extends js.Object {
   }
 
   object RegisteredHandlers {
-    var handlers = ListBuffer[Message => Boolean]()
-    def unapply(data: Message): Boolean = {
+    var handlers = ListBuffer[MessageFromServer => Boolean]()
+    def unapply(data: MessageFromServer): Boolean = {
       var done = false
       for(h <- handlers if !done) {
         done = h(data)
@@ -156,7 +156,7 @@ object Handlers extends js.Object {
     }
   }
   
-  def registerMessageHandler(handler: Message => Boolean) = {
+  def registerMessageHandler(handler: MessageFromServer => Boolean) = {
     RegisteredHandlers.handlers += handler
   }
 

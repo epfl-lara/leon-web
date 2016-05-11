@@ -20,7 +20,7 @@ import play.api.libs.json.Json._
 import play.api.libs.json.Writes._
 import play.api.mvc._
 import securesocial.core._
-import shared.messages.{Message, HLog}
+import shared.messages.{MessageFromServer, HLog}
 
 class Interface(override implicit val env: RuntimeEnvironment[User]) extends SecureSocial[User] {
 
@@ -94,9 +94,9 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
         val iteratee = Done[Array[Byte],Unit]((),Input.EOF)
 
         import boopickle.Default._
-        import shared.messages.Picklers._
+        import shared.messages.MessageFromServer._
         // Send an error and close the socket
-        val enumerator =  Enumerator[Array[Byte]](Pickle.intoBytes[Message](HLog(error)).array()).andThen(Enumerator.enumInput(Input.EOF))
+        val enumerator =  Enumerator[Array[Byte]](Pickle.intoBytes[MessageFromServer](HLog(error)).array()).andThen(Enumerator.enumInput(Input.EOF))
 
         Right((iteratee,enumerator))
     }

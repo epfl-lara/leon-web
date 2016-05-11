@@ -16,8 +16,8 @@ class WSReporter(channel: Concurrent.Channel[Array[Byte]]) extends Reporter(Set(
     }
 
     import boopickle.Default._
-    import shared.messages.{Message => HMessage, HLog}
-    import shared.messages.Picklers._
-    channel.push(Pickle.intoBytes[HMessage](HLog(prefix + msg.msg.toString)).array())
+    import shared.messages.{MessageFromServer, HLog}
+    import shared.messages.MessageFromServer._
+    channel.push(Pickle.intoBytes[MessageFromServer](HLog(prefix + msg.msg.toString)).array())
   }
 }

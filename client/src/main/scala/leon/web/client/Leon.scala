@@ -72,7 +72,7 @@ trait LeonAPI {
   def sendMessage(m: MessageToServer): Unit
   def sendBuffered(m: MessageToServer): Unit
   /** The handler returns true if it could successfully handle the message. */
-  def registerMessageHandler(m: Message => Boolean): Unit
+  def registerMessageHandler(m: MessageFromServer => Boolean): Unit
 }
 
 @JSExport("Main")
@@ -99,7 +99,7 @@ object Main extends LeonWeb with LeonAPI  {
 
 trait LeonWeb extends EqSyntax {
   import boopickle.Default._
-  import shared.messages.PicklersToServer._
+  import shared.messages.MessageToServer._
   import syntax.websocket._
   
   def window = g
@@ -116,7 +116,7 @@ trait LeonWeb extends EqSyntax {
 
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
-  def registerMessageHandler(handler: Message => Boolean): Unit =
+  def registerMessageHandler(handler: MessageFromServer => Boolean): Unit =
     Handlers.registerMessageHandler(handler)
   val headerHeight = $("#title").height() + 20
 
@@ -1177,12 +1177,12 @@ trait LeonWeb extends EqSyntax {
   @ScalaJSDefined trait Kind extends js.Object { val kind: String }
 
   def receiveEvent(event: MessageEvent): Unit = {
-    import leon.web.shared.messages.Picklers._
+    import leon.web.shared.messages.MessageFromServer._
     import scala.scalajs.js.typedarray._
     val fileReader = new FileReader();
     fileReader.onload = (e: org.scalajs.dom.raw.UIEvent) => {
         val arrayBuffer = fileReader.result.asInstanceOf[ArrayBuffer];
-        val data = Unpickle[Message].fromBytes(TypedArrayBuffer.wrap(arrayBuffer))
+        val data = Unpickle[MessageFromServer].fromBytes(TypedArrayBuffer.wrap(arrayBuffer))
         Handlers(data)
     }
     fileReader.readAsArrayBuffer(event.data.asInstanceOf[org.scalajs.dom.raw.Blob]);

@@ -126,13 +126,13 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case NotifyClient(event) =>
       import boopickle.Default._
       import shared.messages._
-      import shared.messages.Picklers._ 
-      pushMessage(Pickle.intoBytes[Message](event).array())
+      import shared.messages.MessageFromServer._ 
+      pushMessage(Pickle.intoBytes[MessageFromServer](event).array())
 
     case ProcessClientEvent(event) =>
       import boopickle.Default._
       import shared.messages._
-      import shared.messages.PicklersToServer._
+      import shared.messages.MessageToServer._
       
       val message = Unpickle[MessageToServer].fromBytes(ByteBuffer.wrap(event))
       
@@ -200,7 +200,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case StorePermaLink(code) =>
       PermalinkStore.store(Code(code)) match {
         case Some(Permalink(Link(link), _)) =>
-          event(HPermalink(link))
+          event(GotPermalink(link))
         case _ =>
           notifyError("Could not create permalink")
       }
@@ -401,6 +401,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       result onFailure { case err =>
         notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
       }
+      
+      import shared.git._
 
       result onSuccess { case _ =>
         val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))

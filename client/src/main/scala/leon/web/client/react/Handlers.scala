@@ -11,8 +11,8 @@ import leon.web.shared.messages._
   *
   * @see [[leon.web.client.events.Event]]
   */
-object Handlers extends (Message => Boolean) {
-  def apply(m: Message): Boolean = m match {
+object Handlers extends (MessageFromServer => Boolean) {
+  def apply(m: MessageFromServer): Boolean = m match {
     case data: RepositoriesLoaded => Events.repositoriesLoaded onNext data ; true
     case data: RepositoryLoaded => Events.repositoryLoaded onNext data ; true
     case data: FileLoaded => Events.fileLoaded onNext data ; true

@@ -9,7 +9,7 @@ import org.scalajs.dom.WebSocket
 import shared.messages._
 import scala.collection.mutable.Queue
 import boopickle.Default._
-import shared.messages.PicklersToServer._
+import shared.messages.MessageToServer._
 import scala.scalajs.js.typedarray._
 
 class BufferedWebSocket(val webSocket: WebSocket) extends AnyVal {

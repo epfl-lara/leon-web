@@ -4,7 +4,7 @@ package models
 import akka.actor._
 import play.api._
 import leon.web.shared.messages._
-import leon.web.shared.messages.Picklers._
+import leon.web.shared.messages.MessageFromServer._
 import java.nio.ByteBuffer
 import boopickle.Default._
 
@@ -30,7 +30,7 @@ trait BaseActor extends Actor {
     event(HLog(msg))
   }
 
-  def event(msg: Message): Unit = {
+  def event(msg: MessageFromServer): Unit = {
     pushMessage(Pickle.intoBytes(msg).array())
   }
 

@@ -15,7 +15,7 @@ import leon.web.client.react._
 import leon.web.client.react.attrs._
 
 import leon.web.shared.messages.{DoGitOperation => _, _}
-
+import leon.web.shared.git._
 import monifu.concurrent.Implicits.globalScheduler
 
 object PullModal {

@@ -101,6 +101,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               ExploreNoop
           }
           doExplore(cstate, fname, chooseId, path, ws, action)
+        case e =>
+          notifyError("Unexpected client event "+e)
       }
 
     case CreateUpdatePrettyPrinter(cstate, fdUsingIt, in, out) =>
