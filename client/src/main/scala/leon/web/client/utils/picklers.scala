@@ -1,0 +1,86 @@
+/* Copyright 2009-2015 EPFL, Lausanne */
+
+package leon.web
+package client
+package utils
+
+import upickle._
+import upickle.default
+import shared.github._
+import upickle.default._
+
+import leon.web.client.data.{User, Identity}
+import leon.web.shared.Provider
+
+object picklers {
+
+  def Bool(x: Boolean): Js.Value =
+    if (x) Js.True else Js.False
+
+  implicit val UserWriter = Writer[User] {
+    case u =>
+      Js.Obj("id" -> Js.Str(u.id))
+  }
+
+  implicit val UserReader = Reader[User] {
+    case Js.Obj(("id", Js.Str(_id))) =>
+      User(_id, null, Map.empty)
+  }
+
+  implicit val providerWriter = Writer[Provider] {
+    case p => Js.Str(p.id)
+  }
+
+  implicit val providerReader = Reader[Provider] {
+    case Js.Str(_id) => Provider(_id)
+  }
+
+  implicit val repositoryWriter = Writer[Repository] {
+    case r => Js.Obj(
+      "name"          -> Js.Str(r.name),
+      "owner"         -> Js.Str(r.owner),
+      "fullName"      -> Js.Str(r.fullName),
+      "defaultBranch" -> Js.Str(r.defaultBranch)
+    )
+  }
+
+  implicit val hRepositoryReader = Reader[Repository] {
+    case Js.Obj(
+        ("name",          Js.Str(_name)),
+        ("owner",         Js.Str(_owner)),
+        ("fullName",      Js.Str(_fullName)),
+        ("defaultBranch", Js.Str(_defaultBranch))
+      ) =>
+        Repository(
+          id            = RepositoryId(0L),
+          name          = _name,
+          owner         = _owner,
+          fullName      = _fullName,
+          branches      = Array[Branch](),
+          cloneURL      = "",
+          defaultBranch = _defaultBranch,
+          fork          = false,
+          size          = 0L,
+          visibility    = Public
+        )
+        }
+
+  implicit val hBranchWriter = Writer[Branch] {
+    case b => Js.Obj(
+      "name" -> Js.Str(b.name),
+      "sha"  -> Js.Str(b.sha)
+    )
+  }
+
+  implicit val hBranchReader = Reader[Branch] {
+    case Js.Obj(
+        ("name", Js.Str(_name)),
+        ("sha",  Js.Str(_sha))
+      ) => Branch(
+      name = _name,
+      sha  = _sha
+    )
+    }
+
+}
+
