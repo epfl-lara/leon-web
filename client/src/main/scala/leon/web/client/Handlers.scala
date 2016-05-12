@@ -29,7 +29,7 @@ object Handlers extends js.Object {
   
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
-    println("Processing " + data)
+    //println("Processing " + data)
     data match {
       case data: GotPermalink => 
         $("#permalink-value input").value(window._leon_url + "#link/" + data.link)

@@ -46,7 +46,7 @@ class App(private val api: LeonAPI) {
       LocalStorage("appState")
         .map((s: String) =>
           try {
-            AppState.fromBytes(ByteBuffer.wrap(s.getBytes))
+            AppState.fromJSON(s)
           } catch {
             case e: Throwable =>
               println("Impossible to recover app state. Recreating a new one")
@@ -96,7 +96,7 @@ class App(private val api: LeonAPI) {
     api.setCurrentProject(state.currentProject)
 
     js.timers.setTimeout(0) {
-      LocalStorage.update("appState", new String(state.toBytes.array()))
+      LocalStorage.update("appState", state.toJSON)
     }
   }
 

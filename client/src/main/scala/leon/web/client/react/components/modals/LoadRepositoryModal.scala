@@ -15,7 +15,7 @@ import leon.web.client.react._
 import leon.web.client.react.attrs._
 import leon.web.client.utils.GitHubURL
 import leon.web.shared.messages._
-import shared.github._
+import shared.github.{Repository, RepositoryId, Visibility, Branch}
 
 import monifu.concurrent.Implicits.globalScheduler
 

@@ -186,7 +186,6 @@ trait LeonWeb extends EqSyntax {
   object Feature {
     def apply(active: Boolean, displayName: String, module: Option[shared.module.Module], name: String): Feature = {
       val res = new Feature(active, displayName, module.map(m => Left(m)).getOrElse(Right(name)))
-      Features.asInstanceOf[js.Dictionary[Feature]] += res.name -> res
       module.foreach{m => stringToModule += res.name -> m; moduleToFeature += m -> res }
       stringToFeature += res.name -> res
       res
@@ -199,16 +198,17 @@ trait LeonWeb extends EqSyntax {
     var stringToFeature = Map[String, Feature]()
   }
 
-  @ScalaJSDefined object Features extends js.Object {
+  object Features {
     import shared.module._
-    val verification = Feature(active= true, displayName= "Verification", Verification)
-    val synthesis    = Feature(active= true, displayName= "Synthesis", Synthesis)
-    val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Disambiguation)
-    val termination  = Feature(active= false, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Termination)
+    def toJsObject = js.Dictionary[Feature](Feature.stringToFeature.toSeq : _*)
+    val verification = Feature(active= true, displayName= "Verification", module= Verification)
+    val synthesis    = Feature(active= true, displayName= "Synthesis", module= Synthesis)
+    val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Disambiguation)
+    val termination  = Feature(active= false, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Termination)
     val presentation = Feature(active= false, displayName= "Presentation Mode", name= "presentation")
-    val execution    = Feature(active= true, displayName= "Execution", Execution)
-    val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Repair)
-    val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Invariant)
+    val execution    = Feature(active= true, displayName= "Execution", module= Execution)
+    val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Repair)
+    val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
   }
 
   def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {
@@ -529,7 +529,7 @@ trait LeonWeb extends EqSyntax {
       case None =>
     }
 
-    LocalStorage.update("leonFeatures", JSON.stringify(Features));
+    LocalStorage.update("leonFeatures", JSON.stringify(Features.toJsObject));
 
     recompile()
 

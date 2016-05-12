@@ -87,7 +87,8 @@ lazy val client = (project in file("client")).settings(
     "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1",
     "com.github.japgolly.scalajs-react" %%% "extra" % "0.11.1",
     "org.monifu" %%% "monifu" % "1.0-RC4",
-    "com.scalawarrior" %%% "scalajs-ace" % "0.0.2"
+    "com.scalawarrior" %%% "scalajs-ace" % "0.0.2",
+    "com.lihaoyi" %%% "upickle" % "0.3.6"
   ),
   resolvers += "amateras-repo" at "http://amateras.sourceforge.jp/mvn/",
   scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),

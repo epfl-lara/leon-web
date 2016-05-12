@@ -8,9 +8,10 @@ import scala.concurrent.Future
 import monifu.reactive._
 import monifu.reactive.subjects._
 import shared.github._
-import boopickle.Default._
-import java.nio.ByteBuffer
 import leon.web.shared.Project
+
+import upickle.default._
+import leon.web.client.utils.picklers._
 
 case class AppState(
   // Repositories fetched from GitHub API
@@ -72,18 +73,15 @@ case class AppState(
       treatAsProject = false
     )
 
-  import AppState._
-  def toBytes: ByteBuffer = {
-    Pickle.intoBytes(this)
+  def toJSON: String = {
+    write(this)
   }
 
 }
 
 object AppState {
-  implicit val appStatePickler = generatePickler[AppState]
-
-  def fromBytes(bytes: ByteBuffer): AppState =
-    Unpickle[AppState].fromBytes(bytes)
+  def fromJSON(json: String): AppState =
+    read[AppState](json)
 }
 
 /** This objects holds the whole React application state,
