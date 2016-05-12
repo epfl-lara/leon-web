@@ -1464,6 +1464,12 @@ trait LeonWeb extends EqSyntax {
     }
     recompile();
   }
+  
+  @ScalaJSDefined
+  trait StatusCode extends js.Any {
+    val status: String
+    val code: String
+  }
 
   def loadExample(group: String, id: js.UndefOr[String]): Unit = {
     if (id.isDefined) {

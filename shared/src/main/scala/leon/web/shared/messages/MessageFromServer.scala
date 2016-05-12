@@ -166,12 +166,7 @@ case class HCompilationProgress(total: Float, current: Float) extends MessageFro
 
 case class HCompilation(status: String) extends MessageFromServer with Status
 
-case class StatusCode(
-  status: String,
-  code: String
-) extends Status 
-
-trait Status{ def status: String }
+sealed trait Status { def status: String }
 
 case class VerificationDetails(
   status: String,
