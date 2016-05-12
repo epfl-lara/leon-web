@@ -23,7 +23,8 @@ import leon.web.stores.PermalinkStore
 import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
-import leon.web.shared.{Action, Module, Project}
+import leon.web.shared.{Action, Project}
+import leon.web.shared.module.Module
 import leon.web.utils.String._
 import java.io.File
 import java.io.PrintWriter
@@ -73,15 +74,17 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       notifyError("Cannot perform this operation when user has no OAuth token.")
       logInfo("Cannot perform this operation when user has no OAuth token.")
   }
+  
+  import shared.module
 
-  case class ModuleContext(name: String, actor: ActorRef, var isActive: Boolean = false)
+  case class ModuleContext(name: module.Module, actor: ActorRef, var isActive: Boolean = false)
 
-  var modules = Map[String, ModuleContext]()
+  var modules = Map[module.Module, ModuleContext]()
   var cancelledWorkers = Set[WorkerActor]()
   var interruptManager: InterruptManager = _
 
   object ModuleEntry {
-    def apply(name: String, worker: =>WorkerActor): (String, ModuleContext) = {
+    def apply(name: module.Module, worker: =>WorkerActor): (module.Module, ModuleContext) = {
       name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
     }
   }
@@ -95,14 +98,15 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
 
       interruptManager = new InterruptManager(reporter)
-
-      modules += ModuleEntry(Module.verification  , new VerificationWorker(self, interruptManager))
-      modules += ModuleEntry(Module.termination   , new TerminationWorker(self, interruptManager))
-      modules += ModuleEntry(Module.synthesis     , new SynthesisWorker(self, interruptManager))
-      modules += ModuleEntry(Module.disambiguation, new DisambiguationWorker(self, interruptManager))
-      modules += ModuleEntry(Module.execution     , new ExecutionWorker(self, interruptManager))
-      modules += ModuleEntry(Module.repair        , new RepairWorker(self, interruptManager))
-      modules += ModuleEntry(Module.invariant     , new OrbWorker(self, interruptManager))
+      import shared.module
+      
+      modules += ModuleEntry(module.Verification  , new VerificationWorker(self, interruptManager))
+      modules += ModuleEntry(module.Termination   , new TerminationWorker(self, interruptManager))
+      modules += ModuleEntry(module.Synthesis     , new SynthesisWorker(self, interruptManager))
+      modules += ModuleEntry(module.Disambiguation, new DisambiguationWorker(self, interruptManager))
+      modules += ModuleEntry(module.Execution     , new ExecutionWorker(self, interruptManager))
+      modules += ModuleEntry(module.Repair        , new RepairWorker(self, interruptManager))
+      modules += ModuleEntry(module.Invariant     , new OrbWorker(self, interruptManager))
 
       logInfo("New client")
 
@@ -138,10 +142,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       
       try {
         logInfo("[<] " + message.getClass.getName)
-        message.module match {
-          case "main" =>
-            message match {
-              case MDoCancel => self ! DoCancel
+        message match {
+          case message: MainModule => message match {
+            case MDoCancel => self ! DoCancel
               case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
               case DoUpdateCodeInProject(owner, repo, file, branch, code) => withUser { user =>
                 val project = Project(owner, repo, branch, file)
@@ -157,10 +160,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                     modules(f).isActive = false
                   }
                 }
-              case _ => notifyError("Could not recognize message of module main:" + message)
-            }
-          case "git" =>
-            message match {
+          }
+          case message: GitModule => message match {
             case LoadRepositories => withUser { user =>
               self ! ULoadRepositories(user)
             }
@@ -176,21 +177,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             case DoGitOperation(op, project) => withUser { user =>
               self ! UDoGitOperation(user, project, op)
             }
-            case _ => notifyError("Could not recognize message of module git:" + message)
           }
-          case m if modules contains m =>
+          case message if modules contains message.module =>
+            val m = message.module
             if (modules(m).isActive) {
               modules(m).actor ! ConsoleProtocol.OnClientEvent(lastCompilationState, message)
             }
-          case m =>
-            notifyError("Module "+m+" not available.")
+          case m => notifyError("Module "+m+" not available.")
         }
       } catch {
-        case t: Throwable =>
-          notifyError("Could not process event: "+t.getMessage)
+        case t: Throwable => notifyError("Could not process event: "+t.getMessage)
       }
 
-    case DispatchTo(m: String, msg: Any) =>
+    case DispatchTo(m, msg: Any) =>
       modules.get(m) match {
         case Some(m) if m.isActive =>
           m.actor ! msg
@@ -571,8 +570,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             notifyMainOverview(cstate)
 
             lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                ( m.isActive && m.name === Module.invariant) ||
-                (!m.isActive && m.name =!= Module.invariant))
+                ( m.isActive && m.name === shared.module.Invariant) ||
+                (!m.isActive && m.name =!= shared.module.Invariant))
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>
@@ -591,9 +590,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               }
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
-              modules(Module.invariant).actor ! OnUpdateCode(cstate)
+              modules(module.Invariant).actor ! OnUpdateCode(cstate)
             } else {
-              modules.values.filter(e => e.isActive && e.name =!= Module.invariant).foreach (_.actor ! OnUpdateCode(cstate))
+              modules.values.filter(e => e.isActive && e.name =!= module.Invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
 
           case None =>

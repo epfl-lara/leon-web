@@ -3,7 +3,8 @@ package client
 
 import scala.scalajs.js
 import js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
-import leon.web.shared.{Module => ModuleName, Action}
+import leon.web.shared._
+import leon.web.shared.module.{Module => ModuleName}
 import shared.messages._
 
 /**
@@ -18,12 +19,12 @@ object Backend {
   }
 
   /** A module interaction to send message and report analytics */
-  abstract class Module(val moduleName: String) {
+  abstract class Module(val module: ModuleName) {
     def event(action: String, label: String) = {
       if(activateSessionAnalytics && !js.isUndefined(g.ga)) {
         g.ga("send",
           l(hitType= "event",
-            eventCategory= moduleName,
+            eventCategory= module.name,
             eventAction= action,
             eventLabel= label))
       }
@@ -35,13 +36,13 @@ object Backend {
     }
   }
   
-  object main extends Module(ModuleName.main) {
+  object main extends Module(module.Main) {
     def storePermaLink(code: String) =
       Server ! StorePermaLink(code)
     def accessPermaLink(link: String) = 
       Server ! AccessPermaLink(link)
-    def setFeatureActive(feature: String, active: Boolean) =
-      Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature + "=" + active)
+    def setFeatureActive(feature: shared.module.Module, active: Boolean) =
+      Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
     def doUpdateCode(code: String) =
       Server ! DoUpdateCode(code = code) andThenAnalytics Action.doUpdateCode
     def doUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String) =
@@ -55,7 +56,7 @@ object Backend {
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
   }
   
-  object synthesis extends Module(ModuleName.synthesis) {
+  object synthesis extends Module(module.Synthesis) {
     def getRulesToApply(fname: String, cid: Int) = 
       Server ! GetRulesToApply(fname = fname, cid = cid) andThenAnalytics Action.getRulesToApply
     def doApplyRule(fname: String, cid: Int, rid: Int) =
@@ -76,14 +77,14 @@ object Backend {
       Server ! DoSearch(fname = fname, cid = cid) andThenAnalytics (Action.doSearch, fname)
   }
   
-  object repair extends Module(ModuleName.repair) {
+  object repair extends Module(module.Repair) {
     def doRepair(fname: String) =
       Server ! DoRepair(fname = fname) andThenAnalytics (Action.doRepair, fname)
     def cancel() =
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"repair")
   }
   
-  object verification extends Module(ModuleName.verification) {
+  object verification extends Module(module.Verification) {
     def prettyPrintCounterExample(output: String, rawoutput: String, fname: String) =
       Server ! PrettyPrintCounterExample(
           output = output, rawoutput = rawoutput,

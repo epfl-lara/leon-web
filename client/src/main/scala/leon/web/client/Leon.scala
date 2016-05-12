@@ -19,8 +19,8 @@ import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventO
 import JQueryExtended._
 import Bool._
 import Implicits._
-import shared.{VerifStatus, TerminationStatus, InvariantStatus}
-import shared.{Module => ModuleName, Constants}
+import shared.{VerifStatus, TerminationStatus, InvariantStatus, Constants}
+import shared.module.{Module => ModuleDescription, _}
 import shared.{Project}
 import shared.equal.EqSyntax
 import client.react.{App => ReactApp}
@@ -39,11 +39,12 @@ object ExplorationFact {
 }
 
 @ScalaJSDefined
-class Feature(_a: Boolean, _n: String) extends js.Object {
+class Feature(_a: Boolean, _n: String, _m: Either[shared.module.Module, String]) extends js.Object {
   var active: Boolean = _a
-  val name: String = _n
+  val name: String = _m.fold((m: shared.module.Module) => m.name, (i : String) => i )
+  val displayName: String = _n
+  val module: Option[shared.module.Module] = _m.fold(a => Some(a), _ => None)
 }
-object Feature { def apply(active: Boolean, name: String) = new Feature(active, name) }
 
 @JSExport
 object MainDelayed extends js.JSApp {
@@ -180,19 +181,35 @@ trait LeonWeb extends EqSyntax {
       (end.row - start.row) * 80 + end.column - start.column;
     }
   }
+  
+  // Each feature is stored in the Feature dictionary
+  object Feature {
+    def apply(active: Boolean, displayName: String, module: Option[shared.module.Module], name: String): Feature = {
+      val res = new Feature(active, displayName, module.map(m => Left(m)).getOrElse(Right(name)))
+      Features.asInstanceOf[js.Dictionary[Feature]] += res.name -> res
+      module.foreach{m => stringToModule += res.name -> m; moduleToFeature += m -> res }
+      stringToFeature += res.name -> res
+      res
+    }
+    def apply(active: Boolean, displayName: String, module: shared.module.Module): Feature = apply(active, displayName, Some(module), "")
+    def apply(active: Boolean, displayName: String, name: String): Feature = apply(active, displayName, None, name)
+    
+    var stringToModule = Map[String, shared.module.Module]()
+    var moduleToFeature = Map[shared.module.Module, Feature]()
+    var stringToFeature = Map[String, Feature]()
+  }
 
   @ScalaJSDefined object Features extends js.Object {
-    val verification=   Feature(active= true, name= "Verification")
-    val synthesis=      Feature(active= true, name= "Synthesis")
-    val disambiguation= Feature(active= true, name="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
-    val termination=    Feature(active= false, name= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
-    val presentation=   Feature(active= false, name= "Presentation Mode")
-    val execution=      Feature(active= true, name= "Execution")
-    val repair=         Feature(active= true, name= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
-    val invariant=      Feature(active= true, name="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>")
- }
-
-  def features = Features.asInstanceOf[js.Dictionary[Feature]]
+    import shared.module._
+    val verification = Feature(active= true, displayName= "Verification", Verification)
+    val synthesis    = Feature(active= true, displayName= "Synthesis", Synthesis)
+    val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Disambiguation)
+    val termination  = Feature(active= false, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Termination)
+    val presentation = Feature(active= false, displayName= "Presentation Mode", name= "presentation")
+    val execution    = Feature(active= true, displayName= "Execution", Execution)
+    val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Repair)
+    val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", Invariant)
+  }
 
   def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {
     if (Features.execution.active && explorationFacts.length > 0) {
@@ -488,7 +505,7 @@ trait LeonWeb extends EqSyntax {
 
   localFeatures foreach { locFeatures =>
     for ((f, locFeature) <- locFeatures) {
-      features.get(f) match {
+      Feature.stringToFeature.get(f) match {
         case Some(feature) =>
           feature.active = locFeature.active
         case None =>
@@ -497,17 +514,22 @@ trait LeonWeb extends EqSyntax {
   }
 
   val fts = $("#params-panel ul")
-  for ((f, feature) <- features) {
+  for ((f, feature) <- Feature.stringToFeature) {
     fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
   }
 
   $(".feature").click(((self: Element) => {
     val f = $(self).attr("ref")
-    features(f).active = !features(f).active
+    val feature = Feature.stringToFeature(f)
+    feature.active = !feature.active
 
-    Backend.main.setFeatureActive(f, features(f).active)
+    feature.module match {
+      case Some(module) =>
+        Backend.main.setFeatureActive(module, feature.active)
+      case None =>
+    }
 
-    LocalStorage.update("leonFeatures", JSON.stringify(features));
+    LocalStorage.update("leonFeatures", JSON.stringify(Features));
 
     recompile()
 
@@ -520,12 +542,12 @@ trait LeonWeb extends EqSyntax {
 
   type ModulesMap = scala.collection.mutable.Map[String, Module]
 
-  abstract class Module(name: String, list: ModulesMap) { self =>
+  abstract class Module(val module: ModuleDescription, list: ModulesMap) { self =>
     val column: String
     def html(name: String, d: Status): HandlerMessages.Html
     def missing(name: String): HandlerMessages.Html
     def handlers(): Unit
-    list += name -> self
+    list += module.name -> self
   }
 
   object overview {
@@ -533,7 +555,7 @@ trait LeonWeb extends EqSyntax {
     object modules {
       val list = scala.collection.mutable.Map[String, Module]() // Defined before all modules.
 
-      val verification = new Module(ModuleName.verification, list) {
+      val verification = new Module(shared.module.Verification, list) {
         val column = "Verif."
         def html(name: String, d: Status): HandlerMessages.Html = {
           val vstatus = d.status match {
@@ -572,7 +594,7 @@ trait LeonWeb extends EqSyntax {
           }): js.ThisFunction)
         }
       }
-      val termination = new Module(ModuleName.termination, list) {
+      val termination = new Module(Termination, list) {
         val column = "Term."
         def html(name: String, d: Status): HandlerMessages.Html = {
           val tstatus = d.status match {
@@ -608,7 +630,7 @@ trait LeonWeb extends EqSyntax {
           }): js.ThisFunction);
         }
       }
-      val invariant = new Module(ModuleName.invariant, list) {
+      val invariant = new Module(Invariant, list) {
         val column = "Inv."
         def html(name: String, d: Status): HandlerMessages.Html = {
           val istatus = d.status match {
@@ -742,7 +764,7 @@ trait LeonWeb extends EqSyntax {
     html += "<tr>"
     html += "<th>Function</th>"
     for ((name, module) <- overview.modules.list) {
-      if (features(name).active) {
+      if (Feature.stringToFeature(name).active) {
         html += "<th>" + module.column + "</th>"
       }
     }
@@ -754,7 +776,7 @@ trait LeonWeb extends EqSyntax {
       html += "<tr>"
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
-        if (features(m).active) {
+        if (Feature.moduleToFeature(mod.module).active) {
           val data = overview.Data.asInstanceOf[js.Dictionary[Map[String, Status]]](m)
           data.get(fname) match {
             case Some(status) =>
@@ -1213,9 +1235,9 @@ trait LeonWeb extends EqSyntax {
 
     setConnected()
 
-    for ((featureName, feature) <- features) {
+    for ((module, feature) <- Feature.moduleToFeature) {
       try {
-        Backend.main.setFeatureActive(featureName, feature.active)
+        Backend.main.setFeatureActive(module, feature.active)
       } catch {
         case _: Exception => js.timers.setTimeout(500) {
           openEvent(event)

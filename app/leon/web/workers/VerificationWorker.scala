@@ -91,7 +91,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached {
         }.headOption
       }.toMap
 
-      sender ! DispatchTo(shared.Module.execution, NewCounterExamples(cstate, allCEs))
+      sender ! DispatchTo(shared.module.Execution, NewCounterExamples(cstate, allCEs))
     }
 
     val fvcs = 
@@ -255,7 +255,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
           val fd = cstate.program.definedFunctions.find(_.id.name == fname)
           exprOpt match {
             case Some(expr) =>
-              sender ! DispatchTo(shared.Module.synthesis, CreateUpdatePrettyPrinter(cstate, fd, expr, output))
+              sender ! DispatchTo(shared.module.Synthesis, CreateUpdatePrettyPrinter(cstate, fd, expr, output))
             case None =>
               notifyError("Could not find original expression of "+rawoutput)
           }

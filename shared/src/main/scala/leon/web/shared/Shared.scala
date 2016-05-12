@@ -52,14 +52,3 @@ object InvariantStatus {
   val timeout = "timeout"
   val unknown = "unknown"
 }
-
-object Module {
-  val main = "main"
-  val verification = "verification"
-  val termination = "termination"
-  val synthesis = "synthesis"
-  val execution = "execution"
-  val repair = "repair"
-  val invariant = "invariant"
-  val disambiguation = "disambiguation"
-}
