@@ -10,15 +10,15 @@ import leon.web.shared.{RepositoryDesc, Repository, RepositoryType}
 class RepositoryService(user: User, ghService: Option[GitHubService]) {
 
   import RepositoryDesc._
-
+  import shared._
   def fromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = desc match {
-    case Local(path) =>
+    case LocalRepository(path) =>
       Future.successful(getLocalRepository(path))
 
-    case GitHub(owner, name) if ghService.isDefined =>
+    case GitHubRepository(owner, name) if ghService.isDefined =>
       ghService.get.getRepository(owner, name)
 
-    case GitHub(owner, name) =>
+    case GitHubRepository(owner, name) =>
       Future.failed(new Throwable("Missing GitHub oAuth token."))
   }
 
@@ -33,28 +33,6 @@ object RepositoryService {
     val ghService = token.map(GitHubService(_))
 
     new RepositoryService(user, ghService)
-  }
-
-  import play.api.libs.json._
-
-  def parseRepositoryDesc(json: JsValue): Option[RepositoryDesc] = {
-    import RepositoryType._
-
-    val ofType = (json \ "type").as[String]
-
-    RepositoryType(ofType) match {
-      case GitHub =>
-        val owner = (json \ "owner").as[String]
-        val name  = (json \ "name").as[String]
-        Some(RepositoryDesc.fromGitHub(owner, name))
-
-      case Local =>
-        val path = (json \ "path").as[String]
-        Some(RepositoryDesc.fromLocal(path))
-
-      case Unknown =>
-        None
-    }
   }
 
 }

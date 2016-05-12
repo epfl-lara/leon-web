@@ -5,12 +5,10 @@ package client
 package utils
 
 import upickle._
-import upickle.default
-import shared.github._
 import upickle.default._
 
-import leon.web.client.data.{User, Identity}
-import leon.web.shared.Provider
+import leon.web.shared.{User, Identity}
+import leon.web.shared._
 
 object picklers {
 
@@ -19,12 +17,12 @@ object picklers {
 
   implicit val UserWriter = Writer[User] {
     case u =>
-      Js.Obj("id" -> Js.Str(u.id))
+      Js.Obj("id" -> Js.Str(u.userId.value))
   }
 
   implicit val UserReader = Reader[User] {
     case Js.Obj(("id", Js.Str(_id))) =>
-      User(_id, null, Map.empty)
+      User(UserId(_id), null, Set.empty)
   }
 
   implicit val providerWriter = Writer[Provider] {

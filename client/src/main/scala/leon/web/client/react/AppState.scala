@@ -7,8 +7,8 @@ package react
 import scala.concurrent.Future
 import monifu.reactive._
 import monifu.reactive.subjects._
-import shared.github._
-import leon.web.client.data.User
+import shared._
+import leon.web.shared.User
 import leon.web.shared.{Project, Provider, RepositoryDesc}
 
 import leon.web.client.utils.picklers._

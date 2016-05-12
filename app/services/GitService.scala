@@ -7,7 +7,7 @@ import java.io.File
 import play.Play
 
 import leon.web.models.{User, GitWorkingCopy}
-import leon.web.shared.{Repository, RepositoryDesc}
+import leon.web.shared.{Repository, RepositoryDesc, _}
 
 object GitService {
 
@@ -18,11 +18,11 @@ object GitService {
   }
 
   def getWorkingCopy(user: User, repoDesc: RepositoryDesc, token: Option[String] = None): GitWorkingCopy = repoDesc match {
-    case Local(name) =>
+    case LocalRepositoryDesc(name) =>
       val path = new File(s"$root/${user.userId.value}/local/$name")
       new GitWorkingCopy(path, user)
 
-    case GitHub(owner, name) =>
+    case GitHubRepositoryDesc(owner, name) =>
       val path = new File(s"$root/${user.userId.value}/$owner/$name")
       new GitWorkingCopy(path, user, token)
   }

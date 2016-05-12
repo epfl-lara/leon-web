@@ -249,7 +249,7 @@ class App(private val api: LeonAPI) {
     case DoGitOperation(op) =>
       api.getCurrentProject() match {
         case None =>
-          console.error("No project is currently set, cannot perform Git operation")
+          throw new Exception("No project is currently set, cannot perform Git operation")
 
         case Some(project) =>
           val msg = shared.messages.DoGitOperation(
@@ -259,6 +259,7 @@ class App(private val api: LeonAPI) {
 
           api.sendMessage(msg)
           now(state)
+      }
 
     case UpdateUser(user) => now {
       state.copy(user = Some(user))

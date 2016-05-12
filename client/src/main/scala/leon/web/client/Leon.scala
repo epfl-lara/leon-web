@@ -119,6 +119,8 @@ trait LeonWeb extends EqSyntax {
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
     
   object Server {// Mimick actor-like properties
+    def sendBuffered(msg: MessageToServer): Unit = Main.sendBuffered(msg)
+    
     def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
     // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
     def !(msg: MessageToServer): Unit = Main.sendMessage(msg)

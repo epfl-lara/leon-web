@@ -7,11 +7,10 @@ import anorm._
 import anorm.SqlParser._
 import java.sql.Connection
 import play.api.Play.current
-
-import leon.web.models.{User, Identity}
+import leon.web.models._
 import leon.web.shared.Provider
-
 import securesocial.core._
+import shared._
 
 /** Provides methods to retrieve and store a [[leon.web.models.User]]
   * to/from the database.
@@ -20,7 +19,7 @@ import securesocial.core._
   */
 object UserStore {
 
-  import User._
+  import UserManager._
 
   def parser = {
     for {

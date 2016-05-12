@@ -4,9 +4,7 @@ package leon.web
 package models
 
 import play.api.libs.json._
-
-import leon.web.shared.Provider
-
+import leon.web.shared.{User => SharedUser, Identity => SharedIdentity, _}
 import securesocial.core._
 
 case class User(
@@ -16,7 +14,7 @@ case class User(
 ) {
 
   def identity(provider: Provider): Option[Identity] =
-    identities.find(_.provider == provider)
+    identities.find(_.i.provider == provider)
 
   lazy val github  = identity(Provider.GitHub)
   lazy val tequila = identity(Provider.Tequila)
@@ -33,13 +31,8 @@ case class User(
 }
 
 object User {
-
-  type Email = Identity.Email
-
-  case class UserId(value: String) extends AnyVal
-
   def apply(userId: UserId, main: Provider, ids: Set[Identity]): User =
-    new User(userId, ids.find(_.provider === main).get, ids)
+    User(userId, ids.find(_.i.provider === main).get, ids)
 
   def fromProfile(p: BasicProfile): User = {
     val id = Identity.fromProfile(p)

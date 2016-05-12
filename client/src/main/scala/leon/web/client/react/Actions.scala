@@ -7,7 +7,6 @@ package react
 import japgolly.scalajs.react.Callback
 import monifu.reactive.subjects._
 import leon.web.shared.messages._
-import leon.web.shared.github._
 import leon.web.shared._
 import leon.web.shared.git._
 

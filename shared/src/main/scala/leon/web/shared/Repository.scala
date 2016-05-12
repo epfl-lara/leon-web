@@ -1,61 +1,76 @@
 /* Copyright 2009-2015 EPFL, Lausanne */
 
-package leon.web
-package shared
+package leon.web.shared
 
-trait RepositoryDesc {
+sealed trait RepositoryDesc {
   def desc: String
   def ofType: RepositoryType
 
   override def toString = desc
 }
 
+case class GitHubRepositoryDesc(owner: String, name: String) extends RepositoryDesc {
+  val desc   = s"$owner/$name"
+  val ofType = GitHubRepositoryType
+}
+
+case class LocalRepositoryDesc(path: String) extends RepositoryDesc {
+  val desc   = path
+  val ofType = LocalRepositoryType
+}
+
 object RepositoryDesc {
-
-  case class GitHub(owner: String, name: String) extends RepositoryDesc {
-    val desc   = s"$owner/$name"
-    val ofType = RepositoryType.GitHub
-  }
-
-  case class Local(path: String) extends RepositoryDesc {
-    val desc   = path
-    val ofType = RepositoryType.Local
-  }
 
   import RepositoryType._
 
-  def fromGitHub(owner: String, repo: String) = GitHub(owner, repo)
-  def fromLocal(path: String) = Local(path)
+  def fromGitHub(owner: String, repo: String) = GitHubRepositoryDesc(owner, repo)
+  def fromLocal(path: String) = LocalRepositoryDesc(path)
 }
 
 sealed abstract class RepositoryType(val id: String)
+
+case object LocalRepositoryType   extends RepositoryType("local")
+case object GitHubRepositoryType  extends RepositoryType("github")
+case object UnknownRepositoryType extends RepositoryType("unknown")
+
 object RepositoryType {
-  case object Local   extends RepositoryType("local")
-  case object GitHub  extends RepositoryType("github")
-  case object Unknown extends RepositoryType("unknown")
 
   def apply(id: String): RepositoryType = id match {
-    case "local"  => Local
-    case "github" => GitHub
-    case _        => Unknown
+    case "local"  => LocalRepositoryType
+    case "github" => GitHubRepositoryType
+    case _        => UnknownRepositoryType
   }
 }
 
-sealed trait Visibility
-case object Public  extends Visibility
-case object Private extends Visibility
-case object All     extends Visibility
+sealed trait Visibility { def name: String }
+case object Public  extends Visibility { val name = "public" }
+case object Private extends Visibility { val name = "private" }
+case object All     extends Visibility { val name = "all" }
+
+object Visibility {
+  def apply(name: String) = name match {
+    case Public.name => Public
+    case Private.name => Private
+    case _ => All
+  }
+  def unapply(v: Visibility) = Some(v.name)
+}
+
+sealed trait Affiliation
+case object Owner              extends Affiliation
+case object Collaborator       extends Affiliation
+case object OrganizationMember extends Affiliation
 
 case class Branch(name: String, sha: String)
 
-trait Repository {
+sealed trait Repository {
   def cloneURL: String
   def defaultBranch: String
   def branches: Seq[Branch]
   def desc: RepositoryDesc
 }
 
-case class GitHubRepositoryId(value: Long) extends AnyVal
+case class GitHubRepositoryId(value: Long)// extends AnyVal
 
 case class GitHubRepository(
   id            : GitHubRepositoryId,
@@ -80,4 +95,6 @@ case class LocalRepository(
 ) extends Repository {
   val desc = RepositoryDesc.fromLocal(path)
 }
+
+case class RepositoryId(value: Long)// extends AnyVal
 

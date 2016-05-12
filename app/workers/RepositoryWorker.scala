@@ -5,20 +5,18 @@ package workers
 import scala.io.Source
 import scala.concurrent.Future
 import scala.collection.JavaConverters._
-
 import akka.actor._
 import akka.pattern._
-
 import play.api._
 import play.api.libs.json._
 import play.api.libs.json.Json._
-
 import play.api.libs.concurrent.Execution.Implicits._
-
 import leon.web.services._
 import leon.web.models._
-import leon.web.shared._
+import leon.web.shared.{User => SharedUser, Identity => SharedIdentity, _ }
 import leon.web.utils.String._
+import leon.web.models.StandaloneJsonWrites
+import shared.git._
 
 class RepositoryWorker(session: ActorRef, user: Option[User])
   extends BaseActor with Actor with RepositoryWorkerHelpers {
@@ -30,101 +28,58 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
   var currentUser: Option[User] = user
 
+  import shared.messages.{DoCancel => _, _}
+  
   def receive = {
 
     case OnClientEvent(_, event) =>
 
-      (event \ "action").as[String] match {
-
-        case Action.doUpdateCodeInProject => withUser { user =>
-          val branch   = (event \ "branch"   ) .as[String]
-          val file     = (event \ "file"     ) .as[String]
-          val code     = (event \ "code"     ) .as[String]
-
-          val repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get
+      event match {
+        case DoUpdateCodeInProject(repo, file, branch, code) => withUser { user =>
           val project = Project(repo, branch, file)
-
-          self ! UpdateCode(code, Some(user), Some(project))
+          self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project))
         }
-
-        case Action.loadRepositories => withUser { user =>
-          self ! LoadRepositories(user)
+        case LoadRepositories => withUser { user =>
+          self ! ULoadRepositories(user)
         }
-
-        case Action.loadRepository => withUser { user =>
-          val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
-          self ! LoadRepository(user, repo)
+        case LoadRepository(repo) => withUser { user =>
+          self ! ULoadRepository(user, repo)
         }
-
-        case Action.loadFile => withUser { user =>
-          val file = (event \ "file").as[String]
-          val repo = RepositoryService.parseRepositoryDesc(event \ "repo").get
-
-          self ! LoadFile(user, repo, file)
+        case LoadFile(repo, file) => withUser { user =>
+          self ! ULoadFile(user, repo, file)
         }
-
-        case Action.switchBranch => withUser { user =>
-          val branch = (event \ "branch").as[String]
-          val repo   = RepositoryService.parseRepositoryDesc(event \ "repo").get
-
-          self ! SwitchBranch(user, repo, branch)
+        case SwitchBranch(repo, branch) => withUser { user =>
+          self ! USwitchBranch(user, repo, branch)
         }
-
-        case Action.doGitOperation => withUser { user =>
-          val project = Project(
-            repo    = RepositoryService.parseRepositoryDesc(event \ "repo").get,
-            branch  = (event \ "project" \ "branch").as[String],
-            file    = (event \ "project" \ "file"  ).as[String]
-          )
-
-          val op = (event \ "op").as[String] match {
-            case GitOperation.STATUS => GitOperation.Status
-            case GitOperation.PULL   => GitOperation.Pull
-            case GitOperation.RESET  => GitOperation.Reset
-
-            case GitOperation.LOG    =>
-              val count = (event \ "data" \ "count").as[Int]
-              GitOperation.Log(count)
-
-            case GitOperation.PUSH   =>
-              val force = (event \ "data" \ "force").as[Boolean]
-              GitOperation.Push(force)
-
-            case GitOperation.COMMIT =>
-              val msg = (event \ "data" \ "msg").as[String]
-              GitOperation.Commit(msg)
-          }
-
-          self ! DoGitOperation(user, project, op)
+        case DoGitOperation(op, project) => withUser { user =>
+          self ! UDoGitOperation(user, project, op)
         }
       }
 
-    case UserUpdated(user) =>
+    case UUserUpdated(user) =>
       currentUser = user
 
-    case LoadRepositories(user) =>
+    case ULoadRepositories(user) =>
       clientLog(s"Fetching repositories list...")
 
       val providers = RepositoryProvider.forUser(user)
       val result = Future.sequence {
         providers.map { p =>
-          p.listRepositories().map(p.provider.id -> _)
+          p.listRepositories().map(p.provider -> _)
         }
       }
 
       result onSuccess { case repos =>
         clientLog(s"=> DONE")
 
-        event("repositories_loaded", Map(
-          "repos" -> toJson(repos.toMap)
-        ))
+        event(RepositoriesLoaded(repos.toMap))
       }
 
       result onFailure { case err =>
         notifyError(s"Failed to load repositories. Reason: '${err.getMessage}'")
       }
 
-    case LoadRepository(user, repoDesc) =>
+    case ULoadRepository(user, repoDesc) =>
       clientLog(s"Fetching repository information...")
 
       val rs     = RepositoryService(user)
@@ -159,13 +114,13 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
             clientLog(s"=> DONE")
           }
 
-          RepositoryLoaded(user, repo, wc.branchName())
+          URepositoryLoaded(user, repo, wc.branchName())
         }
 
         future pipeTo self
       }
 
-    case RepositoryLoaded(user, repo, currentBranch) =>
+    case URepositoryLoaded(user, repo, currentBranch) =>
       val wc = GitService.getWorkingCopy(user, repo.desc)
 
       clientLog(s"Listing files in '${repo.desc}'...")
@@ -178,15 +133,15 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
       future foreach { files =>
         clientLog(s"=> DONE")
-        event("repository_loaded", Map(
-          "repository"    -> toJson(repo),
-          "files"         -> toJson(files),
-          "branches"      -> toJson(repo.branches),
-          "currentBranch" -> toJson(currentBranch)
-        ))
+        event(RepositoryLoaded(
+          repo   = repo.desc,
+          files         = files.toArray,
+          branches      = repo.branches.toArray,
+          currentBranch = currentBranch)
+        )
       }
 
-    case LoadFile(user, repoDesc, file) =>
+    case ULoadFile(user, repoDesc, file) =>
       clientLog(s"Loading file '$file'...")
 
       val rs     = RepositoryService(user)
@@ -214,15 +169,12 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
               clientLog(s"=> DONE")
 
-              event("file_loaded", Map(
-                "file"    -> toJson(file),
-                "content" -> toJson(content)
-              ))
+              event(FileLoaded(file, content))
           }
         }
       }
 
-    case SwitchBranch(user, repoDesc, branch) =>
+    case USwitchBranch(user, repoDesc, branch) =>
       clientLog(s"Checking out branch '$branch'...")
 
       val rs     = RepositoryService(user)
@@ -261,10 +213,10 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
           future onSuccess {
             case Some(files) =>
               clientLog(s"=> DONE")
-              event("branch_changed", Map(
-                "success" -> toJson(true),
-                "branch"  -> toJson(branch),
-                "files"   -> toJson(files)
+              event(BranchChanged(
+                success = true,
+                branch  = Some(branch),
+                files   = Some(files.toArray)
               ))
 
             case None =>
@@ -274,81 +226,70 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
               clientLog(s"=> ERROR: $error")
               notifyError(error)
 
-              event("branch_changed", Map(
-                "success" -> toJson(true),
-                "error"   -> toJson(error)
+              event(BranchChanged(
+                success = true,
+                error   = Some(error)
               ))
           }
         }
       }
 
-    case DoGitOperation(user, project, op) =>
+    case UDoGitOperation(user, project, op) => withToken(user) { token =>
       clientLog(s"Performing Git operation: $op")
 
-      val repoDesc = project.repo
-
-      val rs     = RepositoryService(user)
-      val result = rs.fromDesc(repoDesc)
+      val (owner, name) = (project.owner, project.repo)
+      val gh            = GitHubService(token)
+      val result        = gh.getRepository(owner, name)
 
       result onFailure { case err =>
-        notifyError(s"Failed to load repository '${repoDesc}'. Reason: '${err.getMessage}'");
+        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
       }
+      
+      import shared.git._
 
       result onSuccess { case _ =>
-        val wc = GitService.getWorkingCopy(user, repoDesc)
+        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
 
         if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$repoDesc'")
-          notifyError(s"Could not find a working copy for repository '$repoDesc', please load it again.")
+          logInfo(s"Could not find a working copy for repository '$owner/$name'")
+          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
         }
         else {
           op match {
-            case GitOperation.Status =>
+            case GitStatus =>
               val status = wc.status()
               val diff   = wc.diff(Some("HEAD"), None)
               clientLog(s"=> DONE")
 
               status match {
                 case Some(status) =>
-                  val statusData = Map(
-                    "added"       -> status.getAdded(),
-                    "changed"     -> status.getChanged(),
-                    "modified"    -> status.getModified(),
-                    "removed"     -> status.getRemoved(),
-                    "conflicting" -> status.getConflicting(),
-                    "missing"     -> status.getMissing(),
-                    "untracked"   -> status.getUntracked()
+                  import scala.collection.JavaConverters._
+                  val statusData: Map[String, Set[String]] = Map(
+                    "added"       -> status.getAdded().asScala.toSet,
+                    "changed"     -> status.getChanged().asScala.toSet,
+                    "modified"    -> status.getModified().asScala.toSet,
+                    "removed"     -> status.getRemoved().asScala.toSet,
+                    "conflicting" -> status.getConflicting().asScala.toSet,
+                    "missing"     -> status.getMissing().asScala.toSet,
+                    "untracked"   -> status.getUntracked().asScala.toSet
                   )
 
                   val diffData = diff.getOrElse("")
 
-                  event("git_operation_done", Map(
-                    "op"      -> toJson(op.name),
-                    "success" -> toJson(true),
-                    "data"    -> toJson(Map(
-                      "status" -> toJson(statusData.mapValues(_.asScala.toSet)),
-                      "diff"   -> toJson(diffData)
-                    ))
-                  ))
+                  event(GitOperationDone(op, true, GitStatusDiff(statusData, diffData)))
 
                 case None =>
-                  event("git_operation_done", Map(
-                    "op"      -> toJson(op.name),
-                    "success" -> toJson(false)
-                  ))
+                  event(GitOperationDone(op, false, GitOperationResultNone))
               }
 
-            case GitOperation.Push(force) =>
+            case GitPush(force) =>
               val success = wc.push(force)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Pull =>
-              val progressActor = context.actorOf(Props(
+            case GitPull =>
+              val progressActor = Akka.system.actorOf(Props(
                 classOf[JGitProgressWorker],
                 "git_progress", self
               ))
@@ -358,41 +299,29 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
               val success = wc.pull(Some(progressMonitor))
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Reset =>
+            case GitReset =>
               val success = wc.reset(hard = true)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Commit(message) =>
+            case GitCommit(message) =>
               val success = wc.add(project.file) && wc.commit(message)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(success)
-              ))
+              event(GitOperationDone(op, success, GitOperationResultNone))
 
-            case GitOperation.Log(count) =>
+            case GitLog(count) =>
               val commits = wc.getLastCommits(count)
 
               clientLog(s"=> DONE")
-              event("git_operation_done", Map(
-                "op"      -> toJson(op.name),
-                "success" -> toJson(commits.nonEmpty),
-                "data"    -> toJson(commits.map(_.toJson))
-              ))
+              event(GitOperationDone(op, commits.nonEmpty, GitCommits(commits.map(_.toCommit).toSeq)))
           }
         }
       }
+    }
 
     case DoCancel =>
       sender ! Cancelled(this)

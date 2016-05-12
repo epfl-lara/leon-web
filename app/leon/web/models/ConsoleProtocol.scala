@@ -9,7 +9,8 @@ import leon.web.shared.github.Repository
 import leon.synthesis.Synthesizer
 import leon.web.shared.{Project}
 import leon.web.shared.messages._
-import shared.git.{GitOperation, Provider, Repository, RepositoryDesc}
+import shared.git.GitOperation
+import shared.{Provider, Repository, RepositoryDesc}
 import java.nio.ByteBuffer
 
 object ConsoleProtocol {
@@ -24,17 +25,13 @@ object ConsoleProtocol {
   case class Cancelled(wa: BaseActor)
   case object DoCancel
   case class ULoadRepositories(user: User)
-  case class ULoadRepository(user: User, owner: String, repo: String)
-  case class ULoadFile(user: User, owner: String, repo: String, file: String)
-  case class USwitchBranch(user: User, owner: String, repo: String, branch: String)
+  case class ULoadRepository(user: User, repo: RepositoryDesc)
+  case class ULoadFile(user: User, repo: RepositoryDesc, file: String)
+  case class USwitchBranch(user: User, repo: RepositoryDesc, branch: String)
   case class UDoGitOperation(user: User, project: Project, op: GitOperation)
   case class URepositoryLoaded(user: User, repo: Repository, currentBranch: String)
-
-  case class LoadRepository(user: User, repo: RepositoryDesc)
-  case class LoadFile(user: User, repo: RepositoryDesc, file: String)
-  case class SwitchBranch(user: User, repo: RepositoryDesc, branch: String)
-  case class UnlinkAccount(user: User, provider: Provider)
-  case class UserUpdated(user: Option[User])
+  case class UUnlinkAccount(user: User, provider: Provider)
+  case class UUserUpdated(user: Option[User])
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)

@@ -44,7 +44,7 @@ class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
     Provider.GitHub
 
   override def ofType: RepositoryType =
-    RepositoryType.GitHub
+    RepositoryType.GitHubRepositoryType
 
   override def isAvailable =
     token.isDefined
@@ -67,7 +67,7 @@ class LocalRepositoryProvider(rootDir: String) extends RepositoryProvider {
     Provider.Unknown
 
   override def ofType: RepositoryType =
-    RepositoryType.Local
+    RepositoryType.LocalRepositoryType
 
   override def isAvailable =
     root.exists && root.isDirectory && root.canRead

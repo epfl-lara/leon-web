@@ -64,7 +64,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   var interruptManager: InterruptManager = _
 
   object ModuleEntry {
-    def apply(name: module.Module, worker: =>WorkerActor, isActive: Boolean = false): (module.Module, ModuleContext) = {
+    def apply(name: module.Module, worker: =>BaseActor, isActive: Boolean = false): (module.Module, ModuleContext) = {
       name -> ModuleContext(name, context.actorOf(Props(worker)), isActive)
     }
   }
@@ -97,8 +97,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       modules += ModuleEntry(module.Execution     , new ExecutionWorker(self, interruptManager))
       modules += ModuleEntry(module.Repair        , new RepairWorker(self, interruptManager))
       modules += ModuleEntry(module.Invariant     , new OrbWorker(self, interruptManager))
-
-      modules += ModuleEntry(Module.repository    , new RepositoryWorker(self, currentUser), true)
+      modules += ModuleEntry(module.RepositoryHandler , new RepositoryWorker(self, currentUser), true)
 
       logInfo("New client")
 
@@ -138,10 +137,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           case message: MainModule => message match {
             case MDoCancel => self ! DoCancel
               case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
-              /*case DoUpdateCodeInProject(owner, repo, file, branch, code) => withUser { user =>
-                val project = Project(owner, repo, branch, file)
-                self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project))
-              }*/
               case StorePermaLink(code) => self ! message
               case AccessPermaLink(link) => self ! message
               case FeatureSet(f, active) => 
@@ -151,10 +146,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   } else {
                     modules(f).isActive = false
                   }
+                }
               case UnlinkAccount(provider) => withUser { user =>
                 self ! UUnlinkAccount(user, provider)
               }
-                }
           }
           /*case message: GitModule => message match {
             case LoadRepositories => withUser { user =>
@@ -220,9 +215,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           clientLog("=> DONE")
 
-          event(UserUpdated(user = newUser)
+          event(UserUpdated(user = newUser))
 
-          self ! DispatchTo(Module.repository, UserUpdated(currentUser))
+          self ! DispatchTo(shared.modules.RepositoryHandler, UUserUpdated(currentUser))
+          
         case None =>
           clientLog("=> ERROR: No such account found.")
       }
@@ -399,95 +395,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   error = Some(error),
                   branch = None,
                   files = None))
-          }
-        }
-      }
-    }
-
-    case UDoGitOperation(user, project, op) => withToken(user) { token =>
-      clientLog(s"Performing Git operation: $op")
-
-      val (owner, name) = (project.owner, project.repo)
-      val gh            = GitHubService(token)
-      val result        = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-      
-      import shared.git._
-
-      result onSuccess { case _ =>
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          op match {
-            case GitStatus =>
-              val status = wc.status()
-              val diff   = wc.diff(Some("HEAD"), None)
-              clientLog(s"=> DONE")
-
-              status match {
-                case Some(status) =>
-                  import scala.collection.JavaConverters._
-                  val statusData: Map[String, Set[String]] = Map(
-                    "added"       -> status.getAdded().asScala.toSet,
-                    "changed"     -> status.getChanged().asScala.toSet,
-                    "modified"    -> status.getModified().asScala.toSet,
-                    "removed"     -> status.getRemoved().asScala.toSet,
-                    "conflicting" -> status.getConflicting().asScala.toSet,
-                    "missing"     -> status.getMissing().asScala.toSet,
-                    "untracked"   -> status.getUntracked().asScala.toSet
-                  )
-
-                  val diffData = diff.getOrElse("")
-
-                  event(GitOperationDone(op, true, GitStatusDiff(statusData, diffData)))
-
-                case None =>
-                  event(GitOperationDone(op, false, GitOperationResultNone))
-              }
-
-            case GitPush(force) =>
-              val success = wc.push(force)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitPull =>
-              val progressActor = Akka.system.actorOf(Props(
-                classOf[JGitProgressWorker],
-                "git_progress", self
-              ))
-
-              val progressMonitor = new JGitProgressMonitor(progressActor)
-
-              val success = wc.pull(Some(progressMonitor))
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitReset =>
-              val success = wc.reset(hard = true)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitCommit(message) =>
-              val success = wc.add(project.file) && wc.commit(message)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitLog(count) =>
-              val commits = wc.getLastCommits(count)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, commits.nonEmpty, GitCommits(commits.map(_.toCommit).toSeq)))
           }
         }
       }

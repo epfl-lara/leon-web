@@ -1,7 +1,6 @@
 package leon.web
 package shared
 package messages
-import github._
 import git._
 
 sealed trait MessageFromServer
@@ -28,7 +27,7 @@ case class Commit(
 )
 
 
-case class HUserUpdated(user: User.Raw) extends MessageFromServer
+case class UserUpdated(user: User) extends MessageFromServer
 
 case class HMoveCursor(line: Double, column: Double = 0) extends MessageFromServer
 
@@ -200,13 +199,13 @@ case class OverviewFunction(
 )
 
 case class RepositoryLoaded(
-  repo: Repository,
+  repo: RepositoryDesc,
   files: Array[String],
-  branches: Array[HBranch],
+  branches: Array[Branch],
   currentBranch: String
 ) extends MessageFromServer with Event
 
-case class RepositoriesLoaded(repos: Map[Provider, Seq[Repository]]) extends Event
+case class RepositoriesLoaded(repos: Map[Provider, Seq[Repository]]) extends MessageFromServer with Event
 
 case class FileLoaded(
   file: String,
@@ -215,9 +214,9 @@ case class FileLoaded(
 
 case class BranchChanged(
   success: Boolean,
-  branch: Option[String],
-  files: Option[Array[String]],
-  error: Option[String]
+  branch: Option[String]  = None,
+  files: Option[Array[String]] = None,
+  error: Option[String] = None
 ) extends MessageFromServer with Event
 //case class FileLoaded(fileName: String, content: String) extends Event
 

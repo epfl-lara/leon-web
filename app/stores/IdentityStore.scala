@@ -7,11 +7,10 @@ import anorm._
 import anorm.SqlParser._
 import java.sql.Connection
 import play.api.Play.current
-
-import leon.web.models.{Identity, User}
+import leon.web.models.Identity
 import leon.web.shared.Provider
-
 import securesocial.core._
+import shared.{Identity => SharedIdentity, _}
 
 /**
   * Provides methods to retrieve and store an [[leon.web.models.Identity]]
@@ -34,18 +33,18 @@ object IdentityStore {
       authMethod    <- str("auth_method")
       accessToken   <- str("access_token").?
     }
-    yield Identity(
-      User.UserId(userId),
+    yield Identity(SharedIdentity(
+      UserId(userId),
       Provider(providerId),
       ServiceUserId(serviceUserId),
       firstName, lastName, fullName,
-      email.map(Email), avatarUrl,
+      email.map(Email), avatarUrl),
       AuthenticationMethod(authMethod),
       accessToken.map(OAuth2Info(_, None, None, None))
     )
   }
 
-  def findByUserId(id: User.UserId)(implicit c: Connection): Set[Identity] = {
+  def findByUserId(id: UserId)(implicit c: Connection): Set[Identity] = {
     val query = SQL"""
       SELECT * FROM identities
       WHERE user_id = ${id.value}
@@ -84,9 +83,9 @@ object IdentityStore {
       auth_method, access_token
     )
     VALUES (
-      ${i.userId.value}, ${i.provider.id}, ${i.serviceUserId.value},
-      ${i.firstName}, ${i.lastName}, ${i.fullName},
-      ${i.email.map(_.value)}, ${i.avatarUrl},
+      ${i.i.userId.value}, ${i.i.provider.id}, ${i.i.serviceUserId.value},
+      ${i.i.firstName}, ${i.i.lastName}, ${i.i.fullName},
+      ${i.i.email.map(_.value)}, ${i.i.avatarUrl},
       ${i.authMethod.method}, ${i.oAuth2Info.map(_.accessToken)}
     )
     """
@@ -99,9 +98,9 @@ object IdentityStore {
   def delete(i: Identity)(implicit c: Connection): Boolean = {
     val query = SQL"""
       DELETE FROM identities
-      WHERE user_id         = ${i.userId.value}
-        AND provider_id     = ${i.provider.id}
-        AND service_user_id = ${i.serviceUserId.value}
+      WHERE user_id         = ${i.i.userId.value}
+        AND provider_id     = ${i.i.provider.id}
+        AND service_user_id = ${i.i.serviceUserId.value}
       LIMIT 1
     """
 

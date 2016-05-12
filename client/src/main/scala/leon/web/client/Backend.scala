@@ -6,6 +6,11 @@ import js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
 import leon.web.shared._
 import leon.web.shared.module.{Module => ModuleName}
 import shared.messages._
+import shared.git._
+
+//import leon.web.client.ops.websocket._
+import leon.web.client.ops.tojs._
+
 
 /**
  * @author Mikael
@@ -33,24 +38,74 @@ object Backend {
   }
   
   object main extends Module(module.Main) {
+    def doUpdateCode(code: String) =
+      Server ! DoUpdateCode(code = code) andThenAnalytics Action.doUpdateCode
     def storePermaLink(code: String) =
       Server ! StorePermaLink(code)
     def accessPermaLink(link: String) = 
       Server ! AccessPermaLink(link)
     def setFeatureActive(feature: shared.module.Module, active: Boolean) =
       Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
-    def doUpdateCode(code: String) =
-      Server ! DoUpdateCode(code = code) andThenAnalytics Action.doUpdateCode
-    def doUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String) =
-      Server ! DoUpdateCodeInProject(
-           owner  = owner,
-           repo   = repo,
-           file   = file,
-           branch = branch,
-           code   = code) andThenAnalytics (Action.doUpdateCodeInProject, s"$owner: $repo:$branch/$file")
+
     def cancel() =
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
+    def unlinkAccount(provider: Provider) =
+      Server ! UnlinkAccount(provider = provider) andThenAnalytics (Action.unlinkAccount, provider.id)
+
   }
+  
+  
+  object repository extends Module(module.RepositoryHandler) {
+
+    def doUpdateCodeInProject(repo: RepositoryDesc, file: String, branch: String, code: String): Unit =
+      Server sendBuffered DoUpdateCodeInProject(
+        repo   = repo,
+        file   = file,
+        branch = branch,
+        code   = code
+      ) andThenAnalytics (Action.doUpdateCodeInProject, s"$repo:$branch:$file")
+
+    def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Unit = {
+      doUpdateCodeInProject(repo.desc, file, branch, code)
+    }
+
+    def loadRepositories(): Unit =
+      Server sendBuffered LoadRepositories andThenAnalytics Action.loadRepositories
+
+    def loadRepository(repo: RepositoryDesc): Unit =
+      Server sendBuffered LoadRepository(repo) andThenAnalytics (Action.loadRepositories, s"$repo")
+
+    def loadRepository(repo: Repository): Unit = {
+      loadRepository(repo.desc)
+    }
+
+    def switchBranch(repo: RepositoryDesc, branch: String): Unit =
+      Server sendBuffered SwitchBranch(
+        repo   = repo,
+        branch = branch
+      ) andThenAnalytics (Action.switchBranch, s"$repo:$branch")
+
+    def switchBranch(repo: Repository, branch: String): Unit = {
+      switchBranch(repo.desc, branch)
+    }
+
+    def loadFile(repo: RepositoryDesc, file: String): Unit =
+      Server sendBuffered LoadFile(
+        repo   = repo,
+        file   = file
+      ) andThenAnalytics (Action.loadFile, s"$repo:$file")
+
+    def loadFile(repo: Repository, file: String): Unit = {
+      loadFile(repo.desc, file)
+    }
+
+    def doGitOperation(op: GitOperation, project: Project): Unit =
+      Server sendBuffered DoGitOperation(
+        op      = op,
+        project = project
+      ) andThenAnalytics (Action.doGitOperation, s"$project:$op")
+  }
+
   
   object synthesis extends Module(module.Synthesis) {
     def getRulesToApply(fname: String, cid: Int) = 

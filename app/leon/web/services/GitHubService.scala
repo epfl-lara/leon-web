@@ -8,7 +8,6 @@ import play.api.libs.json._
 import play.api.libs.ws._
 import play.api.libs.ws.ning.NingAsyncHttpClientConfigBuilder
 import scala.concurrent.{Future, ExecutionContext}
-import shared.github._
 
 import leon.web.shared._
 
