@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals.LoadRepositoryModal
-import leon.web.shared.github.{Repository, Branch}
+import leon.web.shared.{Repository, Branch}
 
 /** Panel displayed in the sidebar on the right, wich lets
   * users pick a repository and load a specific file from that

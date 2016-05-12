@@ -18,7 +18,8 @@ import leon.web.shared.messages._
 
 import leon.web.client.react.components.modals._
 import leon.web.client.react.components.panels._
-import leon.web.client.data.User
+import leon.web.client.shared.User
+
 /** This class is in charge of the following:
   *
   * $ - Register WebSocket handlers in order to process messages
@@ -147,11 +148,11 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadRepository(repo) =>
-      api.sendBuffered(shared.messages.LoadRepository(owner = repo.owner, repo = repo.name))
+      api.sendBuffered(shared.messages.LoadRepository(repo.desc))
 
       onEvent(Events.repositoryLoaded) { e => state =>
         state.copy(
-          repository        = Some(e.repository),
+          repository        = Some(e.repo),
           files             = e.files,
           file              = None,
           branches          = e.branches,
@@ -170,7 +171,7 @@ class App(private val api: LeonAPI) {
       }
 
     case SwitchBranch(repo, branch) =>
-      api.sendBuffered(shared.messages.SwitchBranch(owner = repo.owner, repo = repo.name, branch = branch))
+      api.sendBuffered(shared.messages.SwitchBranch(repo.desc, branch))
 
       onEvent(Events.branchChanged) { e => state =>
         state.copy(
@@ -183,7 +184,7 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadFile(repo, file) =>
-      api.sendBuffered(shared.messages.LoadFile(owner = repo.owner, repo = repo.name, file = file))
+      api.sendBuffered(shared.messages.LoadFile(repo = repo.desc, file = file))
 
       onEvent(Events.fileLoaded) { e => state =>
         state.copy(file = Some((e.file, e.content)))
@@ -198,11 +199,11 @@ class App(private val api: LeonAPI) {
           (file, _) <- state.file
         }
         yield shared.messages.LoadFile(
-          repo   = repo,
-          file   = fileName
+          repo   = repo.desc,
+          file   = file
         )
 
-      msg foreach { msg =>
+      infos foreach { msg =>
         api.sendBuffered(msg)
 
         onEvent(Events.fileLoaded) { e => state =>

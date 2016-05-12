@@ -12,6 +12,7 @@ import leon.web.shared.User
 import leon.web.shared.{Project, Provider, RepositoryDesc}
 
 import leon.web.client.utils.picklers._
+import upickle.default._
 
 case class AppState(
 
@@ -62,7 +63,7 @@ case class AppState(
       (f, c) <- file
     }
     yield Project(
-      repo   = RepositoryDesc.fromGitHub(r.owner, r.name),
+      repo   = r.desc,
       branch = b,
       file   = f,
       code   = Some(c)

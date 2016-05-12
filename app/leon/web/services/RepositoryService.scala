@@ -5,20 +5,20 @@ package services
 
 import scala.concurrent.{Future, ExecutionContext}
 import leon.web.models.User
-import leon.web.shared.{RepositoryDesc, Repository, RepositoryType}
+import leon.web.shared.{RepositoryDesc, Repository, RepositoryType, _}
 
 class RepositoryService(user: User, ghService: Option[GitHubService]) {
 
   import RepositoryDesc._
   import shared._
   def fromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = desc match {
-    case LocalRepository(path) =>
+    case LocalRepositoryDesc(path) =>
       Future.successful(getLocalRepository(path))
 
-    case GitHubRepository(owner, name) if ghService.isDefined =>
+    case GitHubRepositoryDesc(owner, name) if ghService.isDefined =>
       ghService.get.getRepository(owner, name)
 
-    case GitHubRepository(owner, name) =>
+    case GitHubRepositoryDesc(owner, name) =>
       Future.failed(new Throwable("Missing GitHub oAuth token."))
   }
 

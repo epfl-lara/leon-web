@@ -22,7 +22,7 @@ object picklers {
 
   implicit val UserReader = Reader[User] {
     case Js.Obj(("id", Js.Str(_id))) =>
-      User(UserId(_id), null, Set.empty)
+      User(UserId(_id), None, Set.empty[Identity])
   }
 
   implicit val providerWriter = Writer[Provider] {
@@ -32,12 +32,16 @@ object picklers {
   implicit val providerReader = Reader[Provider] {
     case Js.Str(_id) => Provider(_id)
   }
-
+/*
   implicit val repositoryWriter = Writer[Repository] {
     case r => Js.Obj(
-      "name"          -> Js.Str(r.name),
-      "owner"         -> Js.Str(r.owner),
-      "fullName"      -> Js.Str(r.fullName),
+          def cloneURL: String
+  def defaultBranch: String
+  def branches: Seq[Branch]
+  def desc: RepositoryDesc
+      "name"          -> Js.Str(r.desc.name),
+      "owner"         -> Js.Str(r.desc.owner),
+      "cloneURL"      -> Js.Str(r.cloneURL),
       "defaultBranch" -> Js.Str(r.defaultBranch)
     )
   }
@@ -62,7 +66,7 @@ object picklers {
           visibility    = Public
         )
         }
-
+*/
   implicit val hBranchWriter = Writer[Branch] {
     case b => Js.Obj(
       "name" -> Js.Str(b.name),

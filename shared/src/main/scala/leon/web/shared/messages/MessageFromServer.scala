@@ -199,7 +199,7 @@ case class OverviewFunction(
 )
 
 case class RepositoryLoaded(
-  repo: RepositoryDesc,
+  repo: Repository,
   files: Array[String],
   branches: Array[Branch],
   currentBranch: String

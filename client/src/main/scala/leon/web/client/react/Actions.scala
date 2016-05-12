@@ -25,10 +25,8 @@ case class ToggleLoginModal(value: Boolean) extends Action
 case class ToggleAccountModal(value: Boolean) extends Action
 case class SetCurrentProject(project: Option[Project]) extends Action
 case class SetTreatAsProject(value: Boolean) extends Action
-case class DoGitOperation(op: GitOperation) extends Action
 case class UnlinkAccount(provider: Provider) extends Action
 case class UpdateUser(user: User) extends Action
-case class UpdateState(state: AppState => AppState) extends Action
 
 object Actions {
 

@@ -8,7 +8,7 @@ import leon.web.shared.{User => SharedUser, Identity => SharedIdentity, _}
 import securesocial.core._
 
 case class User(
-  userId: User.UserId,
+  userId: UserId,
   main: Identity,
   identities: Set[Identity]
 ) {

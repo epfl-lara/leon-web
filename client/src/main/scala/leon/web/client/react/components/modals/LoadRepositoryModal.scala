@@ -13,9 +13,8 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.client.utils.GitHubURL
 import leon.web.shared.messages._
-import shared.github.{Repository, RepositoryId, Visibility, Branch}
+import shared.Repository
 import leon.web.shared.Provider
 
 import monifu.concurrent.Implicits.globalScheduler
@@ -60,7 +59,7 @@ object LoadRepositoryModal {
     def onSelectProvider(provider: Provider): Callback =
       $.modState(_.copy(selectedProvider = Some(provider)))
 
-    def onSelectRepo(repo: HRepository): Callback =
+    def onSelectRepo(repo: Repository): Callback =
       $.modState(_.copy(
         selectedRepo  = Some(repo),
         cloneProgress = None
@@ -124,8 +123,8 @@ object LoadRepositoryModal {
       )
 
     def renderRepositories(
-      repos: Seq[HRepository],
-      selectedRepo: Option[HRepository],
+      repos: Seq[Repository],
+      selectedRepo: Option[Repository],
       cloning: Boolean
     ) =
       <.div(^.className := "modal-section",

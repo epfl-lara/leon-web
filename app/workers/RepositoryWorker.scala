@@ -234,94 +234,99 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
         }
       }
 
-    case UDoGitOperation(user, project, op) => withToken(user) { token =>
+    case UDoGitOperation(user, project, op) => withGitHubToken(user) { token =>
       clientLog(s"Performing Git operation: $op")
-
-      val (owner, name) = (project.owner, project.repo)
-      val gh            = GitHubService(token)
-      val result        = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-      
-      import shared.git._
-
-      result onSuccess { case _ =>
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          op match {
-            case GitStatus =>
-              val status = wc.status()
-              val diff   = wc.diff(Some("HEAD"), None)
-              clientLog(s"=> DONE")
-
-              status match {
-                case Some(status) =>
-                  import scala.collection.JavaConverters._
-                  val statusData: Map[String, Set[String]] = Map(
-                    "added"       -> status.getAdded().asScala.toSet,
-                    "changed"     -> status.getChanged().asScala.toSet,
-                    "modified"    -> status.getModified().asScala.toSet,
-                    "removed"     -> status.getRemoved().asScala.toSet,
-                    "conflicting" -> status.getConflicting().asScala.toSet,
-                    "missing"     -> status.getMissing().asScala.toSet,
-                    "untracked"   -> status.getUntracked().asScala.toSet
-                  )
-
-                  val diffData = diff.getOrElse("")
-
-                  event(GitOperationDone(op, true, GitStatusDiff(statusData, diffData)))
-
-                case None =>
-                  event(GitOperationDone(op, false, GitOperationResultNone))
-              }
-
-            case GitPush(force) =>
-              val success = wc.push(force)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitPull =>
-              val progressActor = Akka.system.actorOf(Props(
-                classOf[JGitProgressWorker],
-                "git_progress", self
-              ))
-
-              val progressMonitor = new JGitProgressMonitor(progressActor)
-
-              val success = wc.pull(Some(progressMonitor))
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitReset =>
-              val success = wc.reset(hard = true)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitCommit(message) =>
-              val success = wc.add(project.file) && wc.commit(message)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitLog(count) =>
-              val commits = wc.getLastCommits(count)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, commits.nonEmpty, GitCommits(commits.map(_.toCommit).toSeq)))
+      project match {
+        case project: GitHubRepository =>
+              
+          val (owner, name) = (project.owner, project.name)
+          val gh            = GitHubService(token)
+          val result        = gh.getRepository(owner, name)
+    
+          result onFailure { case err =>
+            notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
           }
-        }
+          
+          import shared.git._
+    
+          result onSuccess { case _ =>
+            val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
+    
+            if (!wc.exists) {
+              logInfo(s"Could not find a working copy for repository '$owner/$name'")
+              notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
+            }
+            else {
+              op match {
+                case GitStatus =>
+                  val status = wc.status()
+                  val diff   = wc.diff(Some("HEAD"), None)
+                  clientLog(s"=> DONE")
+    
+                  status match {
+                    case Some(status) =>
+                      import scala.collection.JavaConverters._
+                      val statusData: Map[String, Set[String]] = Map(
+                        "added"       -> status.getAdded().asScala.toSet,
+                        "changed"     -> status.getChanged().asScala.toSet,
+                        "modified"    -> status.getModified().asScala.toSet,
+                        "removed"     -> status.getRemoved().asScala.toSet,
+                        "conflicting" -> status.getConflicting().asScala.toSet,
+                        "missing"     -> status.getMissing().asScala.toSet,
+                        "untracked"   -> status.getUntracked().asScala.toSet
+                      )
+    
+                      val diffData = diff.getOrElse("")
+    
+                      event(GitOperationDone(op, true, GitStatusDiff(statusData, diffData)))
+    
+                    case None =>
+                      event(GitOperationDone(op, false, GitOperationResultNone))
+                  }
+    
+                case GitPush(force) =>
+                  val success = wc.push(force)
+    
+                  clientLog(s"=> DONE")
+                  event(GitOperationDone(op, success, GitOperationResultNone))
+    
+                case GitPull =>
+                  val progressActor = Akka.system.actorOf(Props(
+                    classOf[JGitProgressWorker],
+                    "git_progress", self
+                  ))
+    
+                  val progressMonitor = new JGitProgressMonitor(progressActor)
+    
+                  val success = wc.pull(Some(progressMonitor))
+    
+                  clientLog(s"=> DONE")
+                  event(GitOperationDone(op, success, GitOperationResultNone))
+    
+                case GitReset =>
+                  val success = wc.reset(hard = true)
+    
+                  clientLog(s"=> DONE")
+                  event(GitOperationDone(op, success, GitOperationResultNone))
+    
+                case GitCommit(message) =>
+                  val success = wc.add(project.file) && wc.commit(message)
+    
+                  clientLog(s"=> DONE")
+                  event(GitOperationDone(op, success, GitOperationResultNone))
+    
+                case GitLog(count) =>
+                  val commits = wc.getLastCommits(count)
+    
+                  clientLog(s"=> DONE")
+                  event(GitOperationDone(op, commits.nonEmpty, GitCommits(commits.map(_.toCommit).toSeq)))
+              }
+            }
+          }
+
+        case project: LocalRepository =>
+          
       }
-    }
 
     case DoCancel =>
       sender ! Cancelled(this)
@@ -331,8 +336,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
   }
 
-  def pushMessage(v: JsValue): Unit =
-    session ! NotifyClient(v)
+  def pushMessage(v: Array[Byte]) = session ! NotifyClientBin(v)
 
 }
 

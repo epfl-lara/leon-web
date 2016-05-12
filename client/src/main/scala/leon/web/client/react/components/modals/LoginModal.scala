@@ -10,7 +10,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
-import leon.web.client.data.{User, Identity}
+import leon.web.shared.{User}
 import leon.web.shared.Provider
 
 /** Inform the user of what is about to happen when they click the 'Login' button.

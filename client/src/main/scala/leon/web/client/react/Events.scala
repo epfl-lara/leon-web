@@ -7,9 +7,6 @@ package react
 import monifu.reactive.subjects._
 
 import shared.messages._
-import leon.web.client.data.User
-import leon.web.shared.Provider
-
 
 /** Exposes those events as [[monifu.reactive.subjects.Subject]]. */
 object Events {

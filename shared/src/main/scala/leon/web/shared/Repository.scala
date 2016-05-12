@@ -68,6 +68,9 @@ sealed trait Repository {
   def defaultBranch: String
   def branches: Seq[Branch]
   def desc: RepositoryDesc
+  def visibility: Visibility
+  def fullName: String
+  def fork: Boolean
 }
 
 case class GitHubRepositoryId(value: Long)// extends AnyVal
@@ -94,6 +97,9 @@ case class LocalRepository(
   branches      : Seq[Branch]
 ) extends Repository {
   val desc = RepositoryDesc.fromLocal(path)
+  val visibility = Private
+  val fullName   = path
+  val fork = false
 }
 
 case class RepositoryId(value: Long)// extends AnyVal
