@@ -9,10 +9,11 @@ sealed trait MessageToServer {
   def module: Module
 }
 
+sealed trait MessageToServerExpecting[ReturnType <: MessageFromServer] extends MessageToServer
 /// main
 
 sealed trait MainModule { val module = Main }
-case class StorePermaLink(code: String) extends MessageToServer with MainModule
+case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPermalink] with MainModule
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
 case class FeatureSet(feature: module.Module, active: Boolean) extends MessageToServer with MainModule
 case class DoUpdateCode(code: String) extends MessageToServer with MainModule

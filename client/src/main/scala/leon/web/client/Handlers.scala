@@ -27,8 +27,17 @@ object Handlers extends js.Object {
   
   import equal.EqOps
   
+  val callbacks = ListBuffer[PartialFunction[U forSome {type U <: MessageFromServer }, Unit]]()
+  
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
+    callbacks.find(c => c.isDefinedAt(data)) match {
+      case Some(callback) =>
+        callbacks -= callback
+        callback(data)
+        return
+      case None =>
+    }
     //println("Processing " + data)
     data match {
       case data: GotPermalink => 

@@ -12,11 +12,7 @@ import shared.messages._
  */
 object Backend {
   val activateSessionAnalytics = true
-  
-  object Server {
-    def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
-    def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
-  }
+  import Main.Server
 
   /** A module interaction to send message and report analytics */
   abstract class Module(val module: ModuleName) {

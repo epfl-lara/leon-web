@@ -15,7 +15,6 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 import leon.web.shared.messages._
-import java.nio.ByteBuffer
 
 /** This class is in charge of the following:
   *

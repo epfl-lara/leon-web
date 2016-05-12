@@ -117,6 +117,18 @@ trait LeonWeb extends EqSyntax {
 
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
+    
+  object Server {// Mimick actor-like properties
+    def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
+    // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
+    def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
+    
+    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T forSome { type T <: MessageFromServer }, Unit]): Unit = {
+      Handlers.callbacks += callback
+      Main.sendMessage(msg)
+    }
+  }
+  
   def registerMessageHandler(handler: MessageFromServer => Boolean): Unit =
     Handlers.registerMessageHandler(handler)
   val headerHeight = $("#title").height() + 20
@@ -429,10 +441,12 @@ trait LeonWeb extends EqSyntax {
 
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
     if (!$(self).hasClass("disabled")) {
-      Backend.main.storePermaLink(editor.getValue())
-    }
-    event.preventDefault()
-  }): js.ThisFunction);
+      Server ! (StorePermaLink(editor.getValue()), { case data: GotPermalink => //GotPermalink //HMoveCursor
+        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
+        $("#permalink-value").show()
+      })
+      event.preventDefault()
+  }}): js.ThisFunction);
 
   $("#button-permalink-close").click((event: JQueryEventObject) => {
     $("#permalink-value").hide()
