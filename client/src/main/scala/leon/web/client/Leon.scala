@@ -66,7 +66,7 @@ object MainDelayed extends js.JSApp {
 }
 
 trait LeonAPI {
-  def setEditorCode(code: String): Unit
+  def setEditorCode(code: String, resetEditor: Boolean = true): Unit
   def setCurrentProject(project: Option[Project]): Unit
   def getCurrentProject(): Option[Project]
   def setTreatAsProject(value: Boolean): Unit
@@ -1386,8 +1386,8 @@ trait LeonWeb extends EqSyntax {
       case Some(_) => hideExamples()
     }
     currentProject = project
-    project.flatMap(_.code).foreach(setEditorCode(_))
-
+      project.flatMap(_.code).foreach(setEditorCode(_, project.map(_.file) != currentProject.map(_.file)))
+  
     recompile(force = true)
   }
   }
@@ -1455,11 +1455,13 @@ trait LeonWeb extends EqSyntax {
     loadExample(group, id)
   }
 
-  def setEditorCode(code: String): Unit = {
+  def setEditorCode(code: String, resetEditor: Boolean = true): Unit = {
     storeCurrent(editorSession.getValue())
+    if(resetEditor) {
     editor.setValue(code);
     editor.selection.clearSelection();
     editor.gotoLine(0);
+    }
     recompile();
   }
 
