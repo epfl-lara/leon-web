@@ -1,5 +1,5 @@
 package leon.web
-package shared.module
+package shared
 
 sealed trait Module { def name: String }
 case object Main extends Module { val name= "main" }

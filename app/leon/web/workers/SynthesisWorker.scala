@@ -436,7 +436,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
         ))
         logInfo("Application successful!")
         
-        sender ! DispatchTo(shared.module.Disambiguation, NewSolutions(cstate, synth, ssol))
+        sender ! DispatchTo(shared.Disambiguation, NewSolutions(cstate, synth, ssol))
 
       case None =>
         event(HSynthesisResult(
@@ -574,7 +574,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             total = total
           ))
           
-          sender ! DispatchTo(shared.module.Disambiguation, NewSolutions(cstate, synth, solutions))
+          sender ! DispatchTo(shared.Disambiguation, NewSolutions(cstate, synth, solutions))
 
           logInfo("Synthesis search succeeded!")
         }

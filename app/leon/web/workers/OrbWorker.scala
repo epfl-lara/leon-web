@@ -12,7 +12,7 @@ import leon.invariant.util._
 import leon.purescala.Definitions.ValDef
 import leon.transformations.InstUtil
 import leon.transformations.InstrumentationPhase
-import shared.module.Module
+import shared.Module
 import models.StringToExprCached
 import models.InvariantPosition
 import leon.invariant.structure.FunctionUtils._

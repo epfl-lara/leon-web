@@ -20,7 +20,7 @@ import JQueryExtended._
 import Bool._
 import Implicits._
 import shared.{VerifStatus, TerminationStatus, InvariantStatus, Constants}
-import shared.module.{Module => ModuleDescription, _}
+import shared.{Module => ModuleDescription, Main => MainModule, _}
 import shared.{Project}
 import shared.equal.EqSyntax
 import client.react.{App => ReactApp}
@@ -39,11 +39,11 @@ object ExplorationFact {
 }
 
 @ScalaJSDefined
-class Feature(_a: Boolean, _n: String, _m: Either[shared.module.Module, String]) extends js.Object {
+class Feature(_a: Boolean, _n: String, _m: Either[shared.Module, String]) extends js.Object {
   var active: Boolean = _a
-  val name: String = _m.fold((m: shared.module.Module) => m.name, (i : String) => i )
+  val name: String = _m.fold((m: shared.Module) => m.name, (i : String) => i )
   val displayName: String = _n
-  val module: Option[shared.module.Module] = _m.fold(a => Some(a), _ => None)
+  val module: Option[shared.Module] = _m.fold(a => Some(a), _ => None)
 }
 
 @JSExport
@@ -196,22 +196,22 @@ trait LeonWeb extends EqSyntax {
   
   // Each feature is stored in the Feature dictionary
   object Feature {
-    def apply(active: Boolean, displayName: String, module: Option[shared.module.Module], name: String): Feature = {
+    def apply(active: Boolean, displayName: String, module: Option[shared.Module], name: String): Feature = {
       val res = new Feature(active, displayName, module.map(m => Left(m)).getOrElse(Right(name)))
       module.foreach{m => stringToModule += res.name -> m; moduleToFeature += m -> res }
       stringToFeature += res.name -> res
       res
     }
-    def apply(active: Boolean, displayName: String, module: shared.module.Module): Feature = apply(active, displayName, Some(module), "")
+    def apply(active: Boolean, displayName: String, module: shared.Module): Feature = apply(active, displayName, Some(module), "")
     def apply(active: Boolean, displayName: String, name: String): Feature = apply(active, displayName, None, name)
     
-    var stringToModule = Map[String, shared.module.Module]()
-    var moduleToFeature = Map[shared.module.Module, Feature]()
+    var stringToModule = Map[String, shared.Module]()
+    var moduleToFeature = Map[shared.Module, Feature]()
     var stringToFeature = Map[String, Feature]()
   }
 
   object Features {
-    import shared.module._
+    import shared._
     def toJsObject = js.Dictionary[Feature](Feature.stringToFeature.toSeq : _*)
     val verification = Feature(active= true, displayName= "Verification", module= Verification)
     val synthesis    = Feature(active= true, displayName= "Synthesis", module= Synthesis)
@@ -569,7 +569,7 @@ trait LeonWeb extends EqSyntax {
     object modules {
       val list = scala.collection.mutable.Map[String, Module]() // Defined before all modules.
 
-      val verification = new Module(shared.module.Verification, list) {
+      val verification = new Module(shared.Verification, list) {
         val column = "Verif."
         def html(name: String, d: Status): HandlerMessages.Html = {
           val vstatus = d.status match {

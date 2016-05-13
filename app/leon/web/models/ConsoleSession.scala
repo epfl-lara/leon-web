@@ -24,7 +24,7 @@ import leon.web.services.RepositoryService
 import leon.web.services.github._
 import leon.web.models.github.json._
 import leon.web.shared.{Action, Project}
-import leon.web.shared.module.Module
+import leon.web.shared.Module
 import leon.web.utils.String._
 import java.io.File
 import java.io.PrintWriter
@@ -74,22 +74,21 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       notifyError("Cannot perform this operation when user has no OAuth token.")
       logInfo("Cannot perform this operation when user has no OAuth token.")
   }
-  
-  import shared.module
 
-  case class ModuleContext(name: module.Module, actor: ActorRef, var isActive: Boolean = false)
+  case class ModuleContext(name: Module, actor: ActorRef, var isActive: Boolean = false)
 
-  var modules = Map[module.Module, ModuleContext]()
+  var modules = Map[Module, ModuleContext]()
   var cancelledWorkers = Set[WorkerActor]()
   var interruptManager: InterruptManager = _
 
   object ModuleEntry {
-    def apply(name: module.Module, worker: =>WorkerActor): (module.Module, ModuleContext) = {
+    def apply(name: Module, worker: =>WorkerActor): (Module, ModuleContext) = {
       name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
     }
   }
   
   import shared.messages.{DoCancel => MDoCancel, _}
+  import shared._
   
   def receive = {
     case Init =>
@@ -98,15 +97,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
 
       interruptManager = new InterruptManager(reporter)
-      import shared.module
       
-      modules += ModuleEntry(module.Verification  , new VerificationWorker(self, interruptManager))
-      modules += ModuleEntry(module.Termination   , new TerminationWorker(self, interruptManager))
-      modules += ModuleEntry(module.Synthesis     , new SynthesisWorker(self, interruptManager))
-      modules += ModuleEntry(module.Disambiguation, new DisambiguationWorker(self, interruptManager))
-      modules += ModuleEntry(module.Execution     , new ExecutionWorker(self, interruptManager))
-      modules += ModuleEntry(module.Repair        , new RepairWorker(self, interruptManager))
-      modules += ModuleEntry(module.Invariant     , new OrbWorker(self, interruptManager))
+      modules += ModuleEntry(Verification  , new VerificationWorker(self, interruptManager))
+      modules += ModuleEntry(Termination   , new TerminationWorker(self, interruptManager))
+      modules += ModuleEntry(Synthesis     , new SynthesisWorker(self, interruptManager))
+      modules += ModuleEntry(Disambiguation, new DisambiguationWorker(self, interruptManager))
+      modules += ModuleEntry(Execution     , new ExecutionWorker(self, interruptManager))
+      modules += ModuleEntry(Repair        , new RepairWorker(self, interruptManager))
+      modules += ModuleEntry(Invariant     , new OrbWorker(self, interruptManager))
 
       logInfo("New client")
 
@@ -570,8 +568,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             notifyMainOverview(cstate)
 
             lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                ( m.isActive && m.name === shared.module.Invariant) ||
-                (!m.isActive && m.name =!= shared.module.Invariant))
+                ( m.isActive && m.name === shared.Invariant) ||
+                (!m.isActive && m.name =!= shared.Invariant))
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>
@@ -590,9 +588,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               }
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
-              modules(module.Invariant).actor ! OnUpdateCode(cstate)
+              modules(Invariant).actor ! OnUpdateCode(cstate)
             } else {
-              modules.values.filter(e => e.isActive && e.name =!= module.Invariant).foreach (_.actor ! OnUpdateCode(cstate))
+              modules.values.filter(e => e.isActive && e.name =!= Invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
 
           case None =>

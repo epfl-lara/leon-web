@@ -3,8 +3,7 @@ package client
 
 import scala.scalajs.js
 import js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
-import leon.web.shared._
-import leon.web.shared.module.{Module => ModuleName}
+import leon.web.shared.{Module => ModuleName, Main => MainModule, _}
 import shared.messages._
 
 /**
@@ -32,12 +31,12 @@ object Backend {
     }
   }
   
-  object main extends Module(module.Main) {
+  object main extends Module(MainModule) {
     def storePermaLink(code: String) =
       Server ! StorePermaLink(code)
     def accessPermaLink(link: String) = 
       Server ! AccessPermaLink(link)
-    def setFeatureActive(feature: shared.module.Module, active: Boolean) =
+    def setFeatureActive(feature: shared.Module, active: Boolean) =
       Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
     def doUpdateCode(code: String) =
       Server ! DoUpdateCode(code = code) andThenAnalytics Action.doUpdateCode
@@ -52,7 +51,7 @@ object Backend {
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
   }
   
-  object synthesis extends Module(module.Synthesis) {
+  object synthesis extends Module(Synthesis) {
     def getRulesToApply(fname: String, cid: Int) = 
       Server ! GetRulesToApply(fname = fname, cid = cid) andThenAnalytics Action.getRulesToApply
     def doApplyRule(fname: String, cid: Int, rid: Int) =
@@ -73,14 +72,14 @@ object Backend {
       Server ! DoSearch(fname = fname, cid = cid) andThenAnalytics (Action.doSearch, fname)
   }
   
-  object repair extends Module(module.Repair) {
+  object repair extends Module(Repair) {
     def doRepair(fname: String) =
       Server ! DoRepair(fname = fname) andThenAnalytics (Action.doRepair, fname)
     def cancel() =
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"repair")
   }
   
-  object verification extends Module(module.Verification) {
+  object verification extends Module(Verification) {
     def prettyPrintCounterExample(output: String, rawoutput: String, fname: String) =
       Server ! PrettyPrintCounterExample(
           output = output, rawoutput = rawoutput,
