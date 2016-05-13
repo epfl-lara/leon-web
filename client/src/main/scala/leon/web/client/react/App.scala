@@ -6,19 +6,18 @@ package react
 
 import scala.concurrent.Future
 import scala.scalajs.js
-import js.Dynamic.{ literal => l, global => g }
+//import js.Dynamic.{ literal => l, global => g }
 import org.scalajs.dom.ext.LocalStorage
-import org.scalajs.dom.{console, document}
+import org.scalajs.dom.{/*console, */document}
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 import leon.web.shared.messages._
-
 import leon.web.client.react.components.modals._
 import leon.web.client.react.components.panels._
-import leon.web.client.shared.User
+import leon.web.client.data.UserManager
 
 /** This class is in charge of the following:
   *
@@ -34,7 +33,7 @@ import leon.web.client.shared.User
   */
 class App(private val api: LeonAPI) {
 
-  lazy val initialUser = User.initial
+  lazy val initialUser = UserManager.initial
 
   def init(): Unit = {
     // Register the WebSocket handlers.
@@ -79,8 +78,8 @@ class App(private val api: LeonAPI) {
 
   private
   def injectEvents(): Unit = {
-    Events.userUpdated.foreach { case UserUpdated(rawUser) =>
-      Actions dispatch UpdateUser(User(rawUser))
+    Events.userUpdated.foreach { case UserUpdated(user) =>
+      Actions dispatch UpdateUser(user)
     }
   }
 

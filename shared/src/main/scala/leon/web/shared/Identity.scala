@@ -5,9 +5,8 @@ case class ServiceUserId(value: String)
 case class Email(value: String)
 
 case class Identity(
-  userId:    UserId,
+  serviceUserId:    ServiceUserId,
   provider:  Provider,
-  serviceUserId: ServiceUserId,
   firstName: Option[String],
   lastName:  Option[String],
   fullName:  Option[String],

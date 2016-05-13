@@ -41,10 +41,10 @@ class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
     user.github.flatMap(_.oAuth2Info).map(_.accessToken)
 
   override def provider: Provider =
-    Provider.GitHub
+    GitHubProvider
 
   override def ofType: RepositoryType =
-    RepositoryType.GitHubRepositoryType
+    GitHubRepositoryType
 
   override def isAvailable =
     token.isDefined
@@ -64,10 +64,10 @@ class LocalRepositoryProvider(rootDir: String) extends RepositoryProvider {
   private lazy val root = new File(rootDir)
 
   override def provider: Provider =
-    Provider.Unknown
+    UnknownProvider
 
   override def ofType: RepositoryType =
-    RepositoryType.LocalRepositoryType
+    LocalRepositoryType
 
   override def isAvailable =
     root.exists && root.isDirectory && root.canRead
@@ -83,7 +83,7 @@ class LocalRepositoryProvider(rootDir: String) extends RepositoryProvider {
 class TequilaRepositoryProvider(user: User, rootDir: String) extends LocalRepositoryProvider(rootDir) {
 
   override def provider: Provider =
-    Provider.Tequila
+    TequilaProvider
 
   override def isAvailable =
     user.tequila.isDefined && super.isAvailable

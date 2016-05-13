@@ -9,8 +9,8 @@ case class User (
   identities: Set[Identity]
 ) {
 
-  lazy val github  = identity(Provider.GitHub)
-  lazy val tequila = identity(Provider.Tequila)
+  lazy val github  = identity(GitHubProvider)
+  lazy val tequila = identity(TequilaProvider)
   
   def identity(provider: Provider): Option[Identity] =
     identities.find(_.provider == provider)

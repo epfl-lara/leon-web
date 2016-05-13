@@ -5,7 +5,6 @@ import workers.WorkerActor
 import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
-import leon.web.shared.github.Repository
 import leon.synthesis.Synthesizer
 import leon.web.shared.{Project}
 import leon.web.shared.messages._
@@ -28,7 +27,7 @@ object ConsoleProtocol {
   case class ULoadRepository(user: User, repo: RepositoryDesc)
   case class ULoadFile(user: User, repo: RepositoryDesc, file: String)
   case class USwitchBranch(user: User, repo: RepositoryDesc, branch: String)
-  case class UDoGitOperation(user: User, project: Repository, op: GitOperation)
+  case class UDoGitOperation(user: User, project: Project, op: GitOperation)
   case class URepositoryLoaded(user: User, repo: Repository, currentBranch: String)
   case class UUnlinkAccount(user: User, provider: Provider)
   case class UUserUpdated(user: Option[User])

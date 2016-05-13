@@ -101,7 +101,6 @@ object Main extends LeonWeb with LeonAPI {
 trait LeonWeb extends EqSyntax {
   import boopickle.Default._
   import shared.messages.MessageToServer._
-  import syntax.websocket._
   
   def window = g
   val editor = MainDelayed.editor
@@ -116,7 +115,7 @@ trait LeonWeb extends EqSyntax {
   private def _send(msg: ByteBuffer): Unit = leonSocket.send(new TypedArrayBufferOps(msg).arrayBuffer())
 
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
-  def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
+  def sendBuffered(msg: MessageToServer): Unit = new BufferedWebSocket(leonSocket).sendBuffered(msg)
     
   object Server {// Mimick actor-like properties
     def sendBuffered(msg: MessageToServer): Unit = Main.sendBuffered(msg)

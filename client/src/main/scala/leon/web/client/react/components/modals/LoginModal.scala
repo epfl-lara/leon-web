@@ -10,8 +10,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
-import leon.web.shared.{User}
-import leon.web.shared.Provider
+import leon.web.shared._
 
 /** Inform the user of what is about to happen when they click the 'Login' button.
   * Redirect the user to `/login` once they do.
@@ -33,8 +32,8 @@ object LoginModal {
       )
 
     def providerIcon(provider: Provider) = provider match {
-      case Provider.GitHub  => "Login with GitHub"
-      case Provider.Tequila => "Login with Tequila"
+      case GitHubProvider  => "Login with GitHub"
+      case TequilaProvider => "Login with Tequila"
       case _                => sys.error("Unknown provider. This should never happen.")
     }
 
@@ -79,10 +78,10 @@ object LoginModal {
           <.div(^.className := "auth-buttons container-fluid",
             <.div(^.className := "row",
               <.div(^.className := "col-md-6 center",
-                loginButton(Provider.GitHub, state.loggingInWith)
+                loginButton(GitHubProvider, state.loggingInWith)
               ),
               <.div(^.className := "col-md-6 center",
-                loginButton(Provider.Tequila, state.loggingInWith)
+                loginButton(TequilaProvider, state.loggingInWith)
               )
             )
           )

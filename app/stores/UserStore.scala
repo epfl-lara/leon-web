@@ -10,7 +10,7 @@ import play.api.Play.current
 import leon.web.models._
 import leon.web.shared.Provider
 import securesocial.core._
-import shared._
+import shared.{User => SharedUser, Identity => SharedIdentity, _}
 
 /** Provides methods to retrieve and store a [[leon.web.models.User]]
   * to/from the database.
@@ -19,7 +19,7 @@ import shared._
   */
 object UserStore {
 
-  import UserManager._
+  import User._
 
   def parser = {
     for {
@@ -45,7 +45,7 @@ object UserStore {
   def save(u: User)(implicit c: Connection): User = {
     val query = SQL"""
       MERGE INTO users (user_id, main_provider_id)
-      VALUES (${u.userId.value}, ${u.main.provider.id})
+      VALUES (${u.userId.value}, ${u.main.i.provider.id})
     """
 
     query.executeInsert()

@@ -33,14 +33,15 @@ object IdentityStore {
       authMethod    <- str("auth_method")
       accessToken   <- str("access_token").?
     }
-    yield Identity(SharedIdentity(
-      UserId(userId),
-      Provider(providerId),
-      ServiceUserId(serviceUserId),
-      firstName, lastName, fullName,
-      email.map(Email), avatarUrl),
-      AuthenticationMethod(authMethod),
-      accessToken.map(OAuth2Info(_, None, None, None))
+    yield Identity(
+      i= SharedIdentity(
+        ServiceUserId(serviceUserId),
+        Provider(providerId),
+        firstName, lastName, fullName,
+        email.map(Email), avatarUrl),
+      userId=     UserId(userId),
+      authMethod= AuthenticationMethod(authMethod),
+      oAuth2Info= accessToken.map(OAuth2Info(_, None, None, None))
     )
   }
 
@@ -83,7 +84,7 @@ object IdentityStore {
       auth_method, access_token
     )
     VALUES (
-      ${i.i.userId.value}, ${i.i.provider.id}, ${i.i.serviceUserId.value},
+      ${i.userId.value}, ${i.i.provider.id}, ${i.i.serviceUserId.value},
       ${i.i.firstName}, ${i.i.lastName}, ${i.i.fullName},
       ${i.i.email.map(_.value)}, ${i.i.avatarUrl},
       ${i.authMethod.method}, ${i.oAuth2Info.map(_.accessToken)}
@@ -98,7 +99,7 @@ object IdentityStore {
   def delete(i: Identity)(implicit c: Connection): Boolean = {
     val query = SQL"""
       DELETE FROM identities
-      WHERE user_id         = ${i.i.userId.value}
+      WHERE user_id         = ${i.userId.value}
         AND provider_id     = ${i.i.provider.id}
         AND service_user_id = ${i.i.serviceUserId.value}
       LIMIT 1

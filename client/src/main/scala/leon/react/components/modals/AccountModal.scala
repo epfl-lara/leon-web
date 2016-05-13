@@ -10,8 +10,7 @@ import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react.attrs._
-import leon.web.client.data.{User, Identity}
-import leon.web.shared.Provider
+import leon.web.shared._
 
 object AccountModal {
 
@@ -36,8 +35,8 @@ object AccountModal {
       Actions dispatchCB UnlinkAccount(identity.provider)
 
     def providerIcon(provider: Provider) = provider match {
-      case Provider.GitHub  => "Link with GitHub"
-      case Provider.Tequila => "Link with Tequila"
+      case GitHubProvider  => "Link with GitHub"
+      case TequilaProvider => "Link with Tequila"
       case _                => sys.error("Unknown provider. This should never happen.")
     }
 
@@ -88,7 +87,7 @@ object AccountModal {
       )
 
     def render(props: Props, state: State) = {
-      val identities = props.user.identities.values.toSeq
+      val identities = props.user.identities.toSeq
       val providers  = Provider.all.toSeq
 
       Modal(onClose)(

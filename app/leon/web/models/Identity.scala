@@ -9,15 +9,16 @@ import leon.web.utils.Hash
 import leon.web.shared.{Identity => SharedIdentity, _}
 import play.api.libs.json.Json.toJsFieldJsValueWrapper
 
-case class Identity(i: SharedIdentity, 
+case class Identity(i: SharedIdentity,
+  userId: UserId,
   authMethod: AuthenticationMethod,
   oAuth2Info: Option[OAuth2Info]) {
 }
 
-object Identityr {
+object Identity {
   def toProfile(i: Identity): BasicProfile = {
     BasicProfile(
-      i.i.fullId, i.i.userId.value,
+      i.i.fullId, i.i.serviceUserId.value,
       i.i.firstName, i.i.lastName, i.i.fullName,
       i.i.email.map(_.value), i.i.avatarUrl,
       i.authMethod, None, i.oAuth2Info, None
@@ -31,24 +32,24 @@ object Identityr {
     }
 
     Identity(SharedIdentity(
-      userId, Provider(p.providerId), ServiceUserId(p.userId),
+      ServiceUserId(p.userId), Provider(p.providerId), 
       p.firstName, p.lastName, p.fullName,
       p.email.map(Email), p.avatarUrl),
+      userId, 
       p.authMethod, p.oAuth2Info
     )
-  }/*
+  }
 
   implicit val identityWrites = new Writes[Identity] {
     def writes(id: Identity) = Json.obj(
-      "userId"    -> id.serviceUserId.value,
-      "provider"  -> id.provider.id,
-      "firstName" -> id.firstName,
-      "lastName"  -> id.lastName,
-      "fullName"  -> id.fullName,
-      "email"     -> id.email.map(_.value),
-      "avatarUrl" -> id.avatarUrl
+      "serviceUserId"    -> id.i.serviceUserId.value,
+      "provider"  -> id.i.provider.id,
+      "firstName" -> id.i.firstName,
+      "lastName"  -> id.i.lastName,
+      "fullName"  -> id.i.fullName,
+      "email"     -> id.i.email.map(_.value),
+      "avatarUrl" -> id.i.avatarUrl
     )
-  }*/
-
+  }
 }
 

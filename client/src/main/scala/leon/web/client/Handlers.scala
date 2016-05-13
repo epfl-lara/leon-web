@@ -12,7 +12,6 @@ import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
 import leon.web.shared.equal
 import scala.collection.mutable.ListBuffer
-import leon.web.client.data.User
 
 
 @ScalaJSDefined

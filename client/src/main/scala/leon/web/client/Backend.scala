@@ -9,8 +9,6 @@ import shared.messages._
 import shared.git._
 
 //import leon.web.client.ops.websocket._
-import leon.web.client.ops.tojs._
-
 
 /**
  * @author Mikael
@@ -57,17 +55,13 @@ object Backend {
   
   object repository extends Module(module.RepositoryHandler) {
 
-    def doUpdateCodeInProject(repo: RepositoryDesc, file: String, branch: String, code: String): Unit =
+    def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Unit =
       Server sendBuffered DoUpdateCodeInProject(
         repo   = repo,
         file   = file,
         branch = branch,
         code   = code
       ) andThenAnalytics (Action.doUpdateCodeInProject, s"$repo:$branch:$file")
-
-    def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Unit = {
-      doUpdateCodeInProject(repo.desc, file, branch, code)
-    }
 
     def loadRepositories(): Unit =
       Server sendBuffered LoadRepositories andThenAnalytics Action.loadRepositories

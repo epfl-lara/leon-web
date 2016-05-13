@@ -1,24 +1,25 @@
 package leon.web
 package shared
 
-sealed abstract class Provider(val id: String) {
-  def isUnknown: Boolean = this == Provider.Unknown
+sealed abstract class Provider {
+  def id: String
+  def isUnknown: Boolean = this == UnknownProvider
 }
+
+case object GitHubProvider  extends Provider { val id = "github" }
+case object TequilaProvider extends Provider { val id = "tequila" }
+case object UnknownProvider extends Provider { val id = "unknown" }
 
 object Provider {
 
-  case object GitHub  extends Provider("github")
-  case object Tequila extends Provider("tequila")
-  case object Unknown extends Provider("unknown")
-
   val all: Set[Provider] =
-    Set(GitHub, Tequila)
+    Set(GitHubProvider, TequilaProvider)
 
   val map: Map[String, Provider] =
     all.map(p => (p.id, p)).toMap
 
   def apply(id: String): Provider =
-    map.getOrElse(id, Unknown)
+    map.getOrElse(id, UnknownProvider)
 
 }
 

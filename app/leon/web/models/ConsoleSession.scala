@@ -21,10 +21,8 @@ import leon.utils.PreprocessingPhase
 import leon.web.workers._
 import leon.web.stores._
 import leon.web.services._
-
-import leon.web.models.github.json._
 import leon.web.shared.{Action, Project}
-import leon.web.shared.module.Module
+import leon.web.shared.module._
 import leon.web.utils.String._
 import java.io.File
 import java.io.PrintWriter
@@ -32,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import java.nio.ByteBuffer
+import leon.web.shared.{Provider, GitHubProvider}
 
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
@@ -136,38 +135,21 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         message match {
           case message: MainModule => message match {
             case MDoCancel => self ! DoCancel
-              case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
-              case StorePermaLink(code) => self ! message
-              case AccessPermaLink(link) => self ! message
-              case FeatureSet(f, active) => 
-                if (modules contains f) {
-                  if (active) {
-                    modules(f).isActive = true
-                  } else {
-                    modules(f).isActive = false
-                  }
+            case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
+            case StorePermaLink(code) => self ! message
+            case AccessPermaLink(link) => self ! message
+            case FeatureSet(f, active) => 
+              if (modules contains f) {
+                if (active) {
+                  modules(f).isActive = true
+                } else {
+                  modules(f).isActive = false
                 }
-              case UnlinkAccount(provider) => withUser { user =>
-                self ! UUnlinkAccount(user, provider)
               }
+            case UnlinkAccount(provider) => withUser { user =>
+              self ! UUnlinkAccount(user, provider)
+            }
           }
-          /*case message: GitModule => message match {
-            case LoadRepositories => withUser { user =>
-              self ! ULoadRepositories(user)
-            }
-            case LoadRepository(owner, repo) => withUser { user =>
-              self ! ULoadRepository(user, owner, repo)
-            }
-            case LoadFile(owner, repo, file) => withUser { user =>
-              self ! ULoadFile(user, owner, repo, file)
-            }
-            case SwitchBranch(owner, repo, branch) => withUser { user =>
-              self ! USwitchBranch(user, owner, repo, branch)
-            }
-            case DoGitOperation(op, project) => withUser { user =>
-              self ! UDoGitOperation(user, project, op)
-            }
-          }*/
           case message if modules contains message.module =>
             val m = message.module
             if (modules(m).isActive) {
@@ -215,191 +197,14 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           clientLog("=> DONE")
 
-          event(UserUpdated(user = newUser))
+          event(UserUpdated(user = newUser.toShared))
 
-          self ! DispatchTo(shared.modules.RepositoryHandler, UUserUpdated(currentUser))
+          self ! DispatchTo(RepositoryHandler, UUserUpdated(currentUser))
           
         case None =>
           clientLog("=> ERROR: No such account found.")
       }
-      case ULoadRepositories(user) => withToken(user) { token =>
-        clientLog(s"Fetching repositories list...")
-
-        val gh     = GitHubService(token)
-        val result = gh.listUserRepositories()
-
-        result onSuccess { case repos =>
-          clientLog(s"=> DONE")
-          event(RepositoriesLoaded(repos.toArray))
-        }
-
-        result onFailure { case err =>
-          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '${err.getMessage}'")
-        }
-      }
-
-    case ULoadRepository(user, owner, name) => withToken(user) { token =>
-      clientLog(s"Fetching repository information...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-          notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        clientLog(s"=> DONE")
-
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
-
-        val progressActor = Akka.system.actorOf(Props(
-          classOf[JGitProgressWorker],
-          "git_progress", self
-        ))
-
-        val progressMonitor = new JGitProgressMonitor(progressActor)
-
-        val future = Future {
-          if (!wc.exists) {
-            clientLog(s"Cloning repository '$owner/$name'...")
-            wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
-            clientLog(s"=> DONE")
-          }
-          else {
-            clientLog(s"Pulling repository '$owner/$name'...")
-            wc.pull(Some(progressMonitor))
-            clientLog(s"=> DONE")
-          }
-
-          URepositoryLoaded(user, repo, wc.branchName())
-        }
-
-        future pipeTo self
-      }
-    }
-
-    case URepositoryLoaded(user, repo, currentBranch) =>
-      val (owner, name) = (repo.owner, repo.name)
-      val wc = RepositoryService.repositoryFor(user, owner, name)
-
-      clientLog(s"Listing files in '$owner/$name'...")
-
-      val future = Future {
-        wc.getFiles(currentBranch)
-          .getOrElse(Seq[String]())
-          .filter(_.extension === "scala")
-      }
-
-      future foreach { files =>
-        clientLog(s"=> DONE")
-        event(RepositoryLoaded(
-            repository = repo,
-            files = files.toArray,
-            branches = repo.branches.toArray,
-            currentBranch = currentBranch))
-      }
-
-    case ULoadFile(user, owner, name, file) => withToken(user) { token =>
-      clientLog(s"Loading file '$file'...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name)
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          wc.getFile("HEAD", file) match {
-        case None =>
-              notifyError(s"Could not find file '$file' in '$owner/$name'.")
-
-            case Some((_, _, path)) =>
-              val filePath = s"${wc.path}/$path"
-              val content  = Source.fromFile(filePath).mkString
-
-              clientLog(s"=> DONE")
-
-              event(FileLoaded(file = file, content = content))
-          }
-        }
-      }
-    }
-
-    case USwitchBranch(user, owner, name, branch) => withToken(user) { token =>
-      clientLog(s"Checking out branch '$branch'...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name)
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          val future = Future {
-            val switched =
-              if (wc.branchExists(branch))
-                wc.checkout(branch)
-              else
-                wc.checkoutRemote(branch)
-
-            if (switched) {
-              val files = wc.getFiles(branch)
-                            .getOrElse(Seq[String]())
-                            .filter(_.extension === "scala")
-
-              Some(files)
-            }
-            else
-              None
-          }
-
-          future onSuccess {
-            case Some(files) =>
-              clientLog(s"=> DONE")
-              event(BranchChanged(
-                  success = true,
-                  branch = Some(branch),
-                  files = Some(files.toArray),
-                  error = None
-              ))
-
-            case None =>
-              val error = s"Failed to checkout branch '$branch', please commit " +
-                          s"or reset your changes and try again."
-
-              clientLog(s"=> ERROR: $error")
-              notifyError(error)
-
-              event(BranchChanged(
-                  success = true,
-                  error = Some(error),
-                  branch = None,
-                  files = None))
-          }
-        }
-      }
-    }
-
+        
     case UpdateCode(code, user, project) =>
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
@@ -413,7 +218,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           case Some(p) =>
             val path = {
-              val wc = GitService.getWorkingCopy(user.get, p.repo)
+              val wc = GitService.getWorkingCopy(user.get, p.repo.desc)
 
               wc.getFile(p.branch, p.file)
                 .map(_._3)
@@ -437,7 +242,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               savedFile.getAbsolutePath() :: Nil
 
             case Some((user, Project(repo, branch, file, _))) =>
-              val wc = GitService.getWorkingCopy(user, repo)
+              val wc = GitService.getWorkingCopy(user, repo.desc)
 
               wc.getFiles(branch)
                 .getOrElse(Seq[String]())
@@ -493,8 +298,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             notifyMainOverview(cstate)
 
             lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                ( m.isActive && m.name === shared.module.Invariant) ||
-                (!m.isActive && m.name =!= shared.module.Invariant))
+                ( m.isActive && m.name === Invariant) ||
+                (!m.isActive && m.name =!= Invariant))
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>

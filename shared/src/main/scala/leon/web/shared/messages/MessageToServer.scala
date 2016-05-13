@@ -17,7 +17,6 @@ case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPerm
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
 case class FeatureSet(feature: module.Module, active: Boolean) extends MessageToServer with MainModule
 case class DoUpdateCode(code: String) extends MessageToServer with MainModule
-case class DoUpdateCodeInProject(repo: RepositoryDesc, file: String, branch: String, code: String) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
 case class UnlinkAccount(provider: Provider) extends MessageToServer with MainModule
 
@@ -37,18 +36,19 @@ sealed trait VerificationModule { val module = Verification }
 case class PrettyPrintCounterExample(output: String, rawoutput: String, fname: String) extends MessageToServer with VerificationModule
 
 // git
-sealed trait GitModule {
+sealed trait RepositoryModule {
   val module = Git
 }
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected
  *  in the global [[leon.web.client.react.AppState]]. */
-case class LoadRepository(repo: RepositoryDesc) extends MessageToServer with GitModule
-case object LoadRepositories extends MessageToServer with GitModule
-case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToServer with GitModule
-case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with GitModule
-case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with GitModule
+case class LoadRepository(repo: RepositoryDesc) extends MessageToServer with RepositoryModule
+case object LoadRepositories extends MessageToServer with RepositoryModule
+case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToServer with RepositoryModule
+case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with RepositoryModule
+case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with RepositoryModule
+case class DoUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String) extends MessageToServer with RepositoryModule
 
 object MessageToServer {
   import boopickle.Default._

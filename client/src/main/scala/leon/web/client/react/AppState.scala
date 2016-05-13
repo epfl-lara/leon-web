@@ -63,7 +63,7 @@ case class AppState(
       (f, c) <- file
     }
     yield Project(
-      repo   = r.desc,
+      repo   = r,
       branch = b,
       file   = f,
       code   = Some(c)

@@ -12,7 +12,7 @@ import securesocial.core.services.{ UserService, SaveMode }
 import securesocial.core.providers.MailToken
 import leon.web.models.{User}
 import leon.web.models.Identity
-import leon.web.shared.Provider
+import leon.web.shared._
 import leon.web.stores.{UserStore, IdentityStore}
 import leon.web.utils.Debug
 import scala.concurrent.Future

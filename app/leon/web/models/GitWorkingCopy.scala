@@ -28,6 +28,8 @@ import org.eclipse.jgit.api.ListBranchCommand.ListMode
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.eclipse.jgit.transport.RemoteRefUpdate
 
+import leon.web.shared.messages.{Commit => SharedCommit }
+
 /** Provides a type-safe wrapper around a subset of the JGit API.
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
@@ -364,16 +366,16 @@ case class Commit(revc: RevCommit) {
   def desc          = shortHash+" - "+shortMessage
 
 
-  def toJson: JsValue = {
-    Json.toJson(Map(
-      "hash" -> hash,
-      "shortHash" -> shortHash,
-      "shortMessage" -> shortMessage,
-      "fullMessage" -> fullMessage,
-      "commitTime" -> commitTimeStr,
-      "author" -> author,
-      "committer" -> committer,
-      "desc" -> desc
-    ))
+  def toSharedCommit = {
+    SharedCommit(
+      hash = hash,
+      shortHash = shortHash,
+      shortMessage = shortMessage,
+      fullMessage = fullMessage,
+      commitTime = commitTimeStr,
+      author = author,
+      committer = committer,
+      desc = desc
+    )
   }
 }
