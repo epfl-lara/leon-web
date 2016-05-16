@@ -793,6 +793,18 @@ ul.repository-list .private .octicon {
   font-style: italic;
 }
 
+.fa {
+	line-height: initial !important
+}
+.ace_gutter-cell.fa {
+	display: block;
+	padding-left: initial;
+	font-family: monospace;
+}
+.ace_gutter-cell.fa:before {
+	font-family: fontAwesome;
+}
+
 /*
 div.results_table > table {
     width: 100%;

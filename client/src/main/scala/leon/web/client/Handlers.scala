@@ -60,6 +60,7 @@ object Handlers extends js.Object {
         overview.Data.verification = data.overview
     
         drawOverView()
+        drawVerificationOverviewInGutter()
       case data: HUpdateTerminationOverview =>
         overview.Data.termination = data.overview
 
@@ -124,7 +125,7 @@ object Handlers extends js.Object {
           }
     
           addClickToLine("#annotations");
-          session.setAnnotations(annotations.map(a => l(row = a.line, column = a.col, text = a.message, `type` = a.tpe.kind).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
+          session.setAnnotations(annotations.map(a => l(row = a.line-1, column = a.col-1, text = a.message, `type` = a.tpe.kind).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
           resizeEditor();
         }
         
@@ -174,7 +175,7 @@ object Handlers extends js.Object {
       val n = newResults(i);
 
       explorationFacts.push(ExplorationFact(
-        range = jsnew(aceRange)(n.fromRow, n.fromColumn, n.toRow, n.toColumn).asInstanceOf[Range],
+        range = jsnew(aceRange)(n.fromRow-1, n.fromColumn-1, n.toRow-1, n.toColumn-1).asInstanceOf[Range],
         res = n.result
       ));
     }

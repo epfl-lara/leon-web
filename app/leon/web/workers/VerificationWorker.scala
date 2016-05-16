@@ -43,16 +43,39 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached {
     case EvaluationResults.RuntimeError(msg)  => ResultOutput("error", error = Some(msg))
     case EvaluationResults.EvaluatorError(msg) => ResultOutput("error", error = Some(msg))
   }
+    
+  def getMinMaxRowOf(e: Positioned): (Int, Int) = {
+    e.getPos match {
+      case r:RangePosition => (r.lineFrom, r.lineTo)
+      case p => (p.line, p.line)
+    }
+  }
+  def getMinMaxRow[T](e: T)(extractor: PartialFunction[T, Positioned]): (Int, Int) = {
+    if(extractor.isDefinedAt(e)) {
+      getMinMaxRowOf(extractor(e))
+    } else {
+      (0, -1)
+    }
+  }
   
   def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])): HVC = {
     val (vc, res, cexExec) = vr
 
     val timeSec = res.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
 
+    val (lineFrom, lineTo) = getMinMaxRowOf(vc)/*.kind match {
+      case VCKinds.Postcondition => getMinMaxRow(vc.fd.postcondition){ case Some(c) => c }
+      case VCKinds.Precondition => getMinMaxRow(vc.fd.precondition){ case Some(c) => c }
+      case VCKinds.Assert => getMinMaxRowOf(vc)
+      case _ => (-1, 0)
+    }*/
+    
     val base = HVC(
       kind   = vc.kind.toString,
       fun    = vc.fd.id.name,
       status = res.status.name,
+      lineFrom = lineFrom,
+      lineTo = lineTo,
       time   = timeSec
     )
 

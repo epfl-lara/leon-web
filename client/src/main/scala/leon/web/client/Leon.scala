@@ -46,6 +46,12 @@ class Feature(_a: Boolean, _n: String, _m: Either[shared.Module, String]) extend
   val module: Option[shared.Module] = _m.fold(a => Some(a), _ => None)
 }
 
+object FeaturesMappings {
+  var stringToModule = Map[String, shared.Module]()
+  var moduleToFeature = Map[shared.Module, Feature]()
+  var stringToFeature = Map[String, Feature]()
+}
+
 @JSExport
 object MainDelayed extends js.JSApp {
   @JSExport
@@ -198,21 +204,21 @@ trait LeonWeb extends EqSyntax {
   object Feature {
     def apply(active: Boolean, displayName: String, module: Option[shared.Module], name: String): Feature = {
       val res = new Feature(active, displayName, module.map(m => Left(m)).getOrElse(Right(name)))
-      module.foreach{m => stringToModule += res.name -> m; moduleToFeature += m -> res }
-      stringToFeature += res.name -> res
+      module.foreach{m => FeaturesMappings.stringToModule += res.name -> m; FeaturesMappings.moduleToFeature += m -> res }
+      FeaturesMappings.stringToFeature += res.name -> res
       res
     }
     def apply(active: Boolean, displayName: String, module: shared.Module): Feature = apply(active, displayName, Some(module), "")
     def apply(active: Boolean, displayName: String, name: String): Feature = apply(active, displayName, None, name)
-    
-    var stringToModule = Map[String, shared.Module]()
-    var moduleToFeature = Map[shared.Module, Feature]()
-    var stringToFeature = Map[String, Feature]()
   }
-
+  
   object Features {
     import shared._
-    def toJsObject = js.Dictionary[Feature](Feature.stringToFeature.toSeq : _*)
+    def toJsObject = js.Dictionary[Feature](stringToFeature.toSeq : _*)
+    def stringToModule = FeaturesMappings.stringToModule
+    def moduleToFeature = FeaturesMappings.moduleToFeature
+    def stringToFeature = FeaturesMappings.stringToFeature
+    
     val verification = Feature(active= true, displayName= "Verification", module= Verification)
     val synthesis    = Feature(active= true, displayName= "Synthesis", module= Synthesis)
     val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Disambiguation)
@@ -519,7 +525,7 @@ trait LeonWeb extends EqSyntax {
 
   localFeatures foreach { locFeatures =>
     for ((f, locFeature) <- locFeatures) {
-      Feature.stringToFeature.get(f) match {
+      Features.stringToFeature.get(f) match {
         case Some(feature) =>
           feature.active = locFeature.active
         case None =>
@@ -528,13 +534,13 @@ trait LeonWeb extends EqSyntax {
   }
 
   val fts = $("#params-panel ul")
-  for ((f, feature) <- Feature.stringToFeature) {
+  for ((f, feature) <- Features.stringToFeature) {
     fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
   }
 
   $(".feature").click(((self: Element) => {
     val f = $(self).attr("ref")
-    val feature = Feature.stringToFeature(f)
+    val feature = Features.stringToFeature(f)
     feature.active = !feature.active
 
     feature.module match {
@@ -770,6 +776,62 @@ trait LeonWeb extends EqSyntax {
     }
     resizeEditor()
   }
+  val possibleGutterMarkers = Set(
+    "fa", "fa-bolt", "text-danger", "fa-check", "text-success", "fa-exclamation-circle", "text-danger", "fa-clock-o", "text-warning", "fa-refresh"
+  )
+  
+  val errorGutterMarkers = Set("fa-bolt", "fa-exclamation-circle", "fa-clock-o", "fa-refresh")
+  val nonErrorGutterMarkers = Set("text-success")
+  
+  def drawVerificationOverviewInGutter(): Unit = {
+    val verification = overview.modules.verification
+    val details = overview.Data.verification
+    val session = Main.editor.getSession()
+    val decorations = collection.mutable.Map[Int, Set[String]]().withDefault { x => Set.empty[String] }
+    for((k, v) <- details) {
+      for(vc <- v.vcs) {
+        val classStatus: Set[String] = vc.status match {
+          case VerifStatus.crashed =>
+            Set("fa", "fa-bolt", "text-danger")
+          case VerifStatus.valid =>
+            Set("fa", "fa-check", "text-success")
+          case VerifStatus.invalid =>
+            Set("fa", "fa-exclamation-circle", "text-danger")
+          case VerifStatus.timeout =>
+            Set("fa", "fa-clock-o", "text-warning")
+          case VerifStatus.undefined =>
+            Set("fa", "fa-refresh")
+          case _ => Set.empty/*
+          case VerifStatus.cond_valid =>
+            """fa fa-check"""
+          case VerifStatus.undefined =>
+            """fa fa-refresh fa-spin"""
+
+          case VerifStatus.unknown =>
+            ""*/
+        }
+        println(s"Adding $classStatus between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
+        for{i <- vc.lineFrom to vc.lineTo; row = i.toInt - 1} {
+          for(p <- possibleGutterMarkers) {
+            session.removeGutterDecoration(row, p)
+          }
+          val existing = decorations(row)
+          if(existing.isEmpty || existing.intersect(nonErrorGutterMarkers).nonEmpty) {
+            decorations(row) = classStatus
+          }
+        }
+      }
+    }
+    for(row <- 0 until session.getLength().toInt) {
+      for(p <- possibleGutterMarkers) {
+        session.removeGutterDecoration(row, p)
+      }
+    }
+    //println("Finished. Adding " + decorations.size + " decorations")
+    for{(row, classes) <- decorations} {
+      session.addGutterDecoration(row, classes.mkString(" "))
+    }
+  }
 
   def drawOverView(): Unit = {
     val overview_table = $("#overview_table")
@@ -778,7 +840,7 @@ trait LeonWeb extends EqSyntax {
     html += "<tr>"
     html += "<th>Function</th>"
     for ((name, module) <- overview.modules.list) {
-      if (Feature.stringToFeature(name).active) {
+      if (Features.stringToFeature(name).active) {
         html += "<th>" + module.column + "</th>"
       }
     }
@@ -790,7 +852,7 @@ trait LeonWeb extends EqSyntax {
       html += "<tr>"
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
-        if (Feature.moduleToFeature(mod.module).active) {
+        if (Features.moduleToFeature(mod.module).active) {
           val data = overview.Data.asInstanceOf[js.Dictionary[Map[String, Status]]](m)
           data.get(fname) match {
             case Some(status) =>
@@ -1249,7 +1311,7 @@ trait LeonWeb extends EqSyntax {
 
     setConnected()
 
-    for ((module, feature) <- Feature.moduleToFeature) {
+    for ((module, feature) <- Features.moduleToFeature) {
       try {
         Backend.main.setFeatureActive(module, feature.active)
       } catch {
@@ -1516,7 +1578,6 @@ trait LeonWeb extends EqSyntax {
     }) :js.Function),
     readOnly = true
   ).asInstanceOf[EditorCommand]
-  console.log("Adding command", saveCommand)
   editor.commands.addCommand(saveCommand);
 
   editor.commands.removeCommand("replace");

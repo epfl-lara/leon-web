@@ -156,6 +156,8 @@ case class VC(
   fun: String,
   kind: String,
   time: String,
+  lineFrom: Int,
+  lineTo: Int,
   counterExample: Option[Map[String, DualOutput]] = None,
   execution: Option[ResultOutput] = None
 ) extends Status
