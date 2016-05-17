@@ -55,6 +55,11 @@ object FeaturesMappings {
 @JSExport
 object MainDelayed extends js.JSApp {
   @JSExport
+  def setTimeout(i: Int) = {
+    Main.Server ! VerificationTimeout(i)
+  }
+
+  @JSExport
   def main(): Unit = {
     $(document).ready(Main.main _)
   }
@@ -84,7 +89,7 @@ trait LeonAPI {
 
 @JSExport("Main")
 object Main extends LeonWeb with LeonAPI  {
-
+  
   def main(): Unit = {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
 
@@ -897,7 +902,7 @@ trait LeonWeb extends EqSyntax {
     }
     html += "</tr>"
 
-    for ((fname, fdata) <- overview.functions) {
+    for ((fname, fdata) <- overview.functions.toSeq.sortBy(_._1)) {
       val fdata = overview.functions(fname)
 
       html += "<tr>"

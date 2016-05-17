@@ -33,6 +33,7 @@ case class DoRepair(fname: String) extends MessageToServer with RepairModule
 // verification
 sealed trait VerificationModule { val module = Verification }
 case class PrettyPrintCounterExample(output: String, rawoutput: String, fname: String) extends MessageToServer with VerificationModule
+case class VerificationTimeout(seconds: Int) extends MessageToServer with VerificationModule
 
 // git
 sealed trait GitModule {
