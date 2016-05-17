@@ -142,6 +142,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
   )).copy(interruptManager = interruptManager, reporter = reporter)
   
   var program: Option[Program] = None
+  var SOLVERTIMEOUT = 5
   
   activateCache = true
 
@@ -245,7 +246,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
       toGenerate ++= toInvalidate
 
-      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(5.seconds)
+      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(SOLVERTIMEOUT.seconds)
 
       val vctx = new VerificationContext(ctx, cstate.program, tsolver)
 
@@ -288,6 +289,8 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
             case None =>
               notifyError("Could not find original expression of "+rawoutput)
           }
+        case VerificationTimeout(t) =>
+          SOLVERTIMEOUT = t
         case _ => notifyError("Received unknown event: "+event)
       }
 
