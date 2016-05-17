@@ -5,12 +5,14 @@ import leon.verification._
 import leon.purescala.Definitions._
 import leon.evaluators._
 import leon.purescala.Expressions._
+import leon.purescala.Common.Identifier
 import leon.web.shared.VerifStatus
 
 case class FunVerifStatus(fd: FunDef,
                           results: Map[VC, (Option[VCResult], Option[EvaluationResults.Result[Expr]])],
                           isCondValid: Boolean = false,
-                          verifCrashed: Boolean = false) {
+                          verifCrashed: Boolean = false,
+                          crashingInputs: Option[Map[Identifier, Expr]] = None) {
 
   lazy val vcData = results.toSeq.map {
     case (vc, (ores, cexExec)) => (vc, ores.getOrElse(VCResult.unknown), cexExec) 

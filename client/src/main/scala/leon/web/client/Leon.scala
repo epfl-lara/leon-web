@@ -606,10 +606,10 @@ trait LeonWeb extends EqSyntax {
             overview.Data.verification.get(fname) match {
               case Some(d) =>
                 openVerifyDialog()
-                displayVerificationDetails(d.status, d.vcs)
+                displayVerificationDetails(d.fname, d.status, d.vcs, d.crashingInputs)
               case None =>
                 openVerifyDialog()
-                displayVerificationDetails("unknown", Array[VC]())
+                displayVerificationDetails(fname, "unknown", Array[VC](), None)
             }
           }): js.ThisFunction)
         }
@@ -780,8 +780,12 @@ trait LeonWeb extends EqSyntax {
     "fa", "fa-bolt", "text-danger", "fa-check", "text-success", "fa-exclamation-circle", "text-danger", "fa-clock-o", "text-warning", "fa-refresh"
   )
   
-  val errorGutterMarkers = Set("fa-bolt", "fa-exclamation-circle", "fa-clock-o", "fa-refresh")
-  val nonErrorGutterMarkers = Set("text-success")
+  val priorities = Map(
+      "fa-exclamation-circle" -> 5,
+      "fa-bolt" -> 4,
+      "fa-clock-o" -> 3,
+      "fa-refresh" -> 2,
+      "text-success" -> 1).withDefault { x => 0 }
   
   def drawVerificationOverviewInGutter(): Unit = {
     val verification = overview.modules.verification
@@ -789,8 +793,10 @@ trait LeonWeb extends EqSyntax {
     val session = Main.editor.getSession()
     val decorations = collection.mutable.Map[Int, Set[String]]().withDefault { x => Set.empty[String] }
     for((k, v) <- details) {
+      val vstatus = v.status
       for(vc <- v.vcs) {
-        val classStatus: Set[String] = vc.status match {
+        val status = if(vstatus == VerifStatus.crashed) vstatus else vc.status
+        val classStatus: Set[String] = status match {
           case VerifStatus.crashed =>
             Set("fa", "fa-bolt", "text-danger")
           case VerifStatus.valid =>
@@ -799,8 +805,9 @@ trait LeonWeb extends EqSyntax {
             Set("fa", "fa-exclamation-circle", "text-danger")
           case VerifStatus.timeout =>
             Set("fa", "fa-clock-o", "text-warning")
-          case VerifStatus.undefined =>
+          case VerifStatus.undefined | VerifStatus.unknown =>
             Set("fa", "fa-refresh")
+          //case  | V =>
           case _ => Set.empty/*
           case VerifStatus.cond_valid =>
             """fa fa-check"""
@@ -810,14 +817,15 @@ trait LeonWeb extends EqSyntax {
           case VerifStatus.unknown =>
             ""*/
         }
-        println(s"Adding $classStatus between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
+        val priority = (0 :: (classStatus collect priorities).toList).max
+        println(s"Adding $classStatus (status = ${vc.status}) between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
         for{i <- vc.lineFrom to vc.lineTo; row = i.toInt - 1} {
-          for(p <- possibleGutterMarkers) {
-            session.removeGutterDecoration(row, p)
-          }
           val existing = decorations(row)
-          if(existing.isEmpty || existing.intersect(nonErrorGutterMarkers).nonEmpty) {
+          val existing_priority = (0 :: (existing collect priorities).toList).max
+          if(existing_priority < priority) {
             decorations(row) = classStatus
+          } else {
+            println(s"Discarded adding line $row because lower priority than " + existing)
           }
         }
       }
@@ -828,8 +836,8 @@ trait LeonWeb extends EqSyntax {
       }
     }
     //println("Finished. Adding " + decorations.size + " decorations")
-    for{(row, classes) <- decorations} {
-      session.addGutterDecoration(row, classes.mkString(" "))
+    for{(row, classes) <- decorations; cl <- classes} {
+      session.addGutterDecoration(row, cl)
     }
   }
 
@@ -898,9 +906,83 @@ trait LeonWeb extends EqSyntax {
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject, scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
 
+  def allowPrettyPrintingSynthesis(fname: String, outputs: js.Array[DualOutput], tbl: JQuery) = {
+    // Pretty-printing options.
+    tbl.find("div.output")
+    .each((index: js.Any, elem: dom.Element) => {
+      val i = index.asInstanceOf[Int]
+      //e.target.
+      //TODO: Display the "validate" and "cancel" button
+      //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
+      val validateBox = $("""<i class="fa fa-check save-expr-display mini-menu"></i>""").text("Confirm").attr("title", "Creates a new pretty-printer using the provided example")
+      val cancelBox = $("""<i class="fa fa-times cancel-expr-display mini-menu"></i>""").text("Cancel").attr("title", "Cancel the edition of this example")
+      val originalBox = $("""<i class="fa fa-eye original-expr-display mini-menu"></i>""").text("Show original").attr("title", "Show the original. Click again to return to editing")
+      val menuBox = $("<div>").addClass("menu-expr-display").append(validateBox).append(cancelBox).append(originalBox).hide()
+      menuBox.appendTo($(elem).parent())
+      
+      validateBox.on("click", () => {
+        val dualOutput = outputs(i)
+        console.log($(elem)(0))
+        val newContent = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+        dualOutput.modifying = newContent.toOption
+        console.log("Sending synthesis problem", dualOutput.toString())
+        console.log("Fname = ", fname)
+        onSynthesisTabDisplay = Some(() => Main.showContextDemo(Main.demoSynthesizePrettyPrinter))
+        //TODO: Do something with the dual output
+        Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, fname)
+        menuBox.hide()
+      })
+      cancelBox.on("click", () => {
+        val dualOutput = outputs(i)
+        dualOutput.modifying = Some(dualOutput.prettyoutput)
+        $(elem).text(dualOutput.prettyoutput)
+        menuBox.hide()
+        $(elem).blur()
+      })
+      // Focus/blur is not very robust. Here is what it does (if it needs to be extended later)
+      // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
+      // If the user unfocuses the div.output, the menu disappear after 10ms
+      // If the user focuses the originalBox, the menu disappearance is cancelled immediately
+      // If the user unfocuses the originalBox, the menu disappear after 10ms
+      
+      originalBox.on("click", () => {
+        js.timers.clearTimeout($(elem).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
+        console.log("cLicked on originalBox " + i)
+        val dualOutput = outputs(i)
+        if(originalBox.hasClass("checked")) {
+          originalBox.removeClass("checked")
+          $(elem).attr("contentEditable", true)
+          $(elem).text(dualOutput.modifying.getOrElse(dualOutput.prettyoutput))
+        } else {
+          originalBox.addClass("checked")
+          $(elem).attr("contentEditable", false)
+          dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent).toOption
+          $(elem).text(dualOutput.rawoutput)
+        }
+      }).on("blur", () => { // If not clicking on the div.output, hide the menu.
+        console.log("Blurring originalBox...")
+        $(elem).data("hidehandler", js.timers.setTimeout(100){
+          $(elem).parent().find(".menu-expr-display").hide("blind")
+        })
+      })
+    })
+    .focus((e: JQueryEventObject) => {
+      console.log("Focusing...")
+      js.timers.clearTimeout($(e.target).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
+      $(e.target).parent().find(".menu-expr-display").show("blind")
+    })
+    .on("blur", (e: JQueryEventObject) => {
+      console.log("Blurring div.output")
+      $(e.target).data("hidehandler", js.timers.setTimeout(100){
+        console.log("Atual blur")
+        $(e.target).parent().find(".menu-expr-display").hide("blind")
+      })
+    })
+  }
+
   var synthesizing = false;
 
-  def displayVerificationDetails(status: String, vcs: HandlerMessages.VCS): Unit = {
+  def displayVerificationDetails(fname: String, status: String, vcs: HandlerMessages.VCS, crashingInputs: Option[Map[String, DualOutput]] = None): Unit = {
     val pb = $("#verifyProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -943,11 +1025,35 @@ trait LeonWeb extends EqSyntax {
 
     val tbl = $("#verifyResults tbody")
     tbl.html("");
+    
+    val outputs = js.Array[DualOutput]() // For each of these elements, a <div class="output"> must be created
 
-    var targetFunction: String = null
+    crashingInputs match {
+      case Some(args) =>
+        var clas = "danger"
+        var html = "<tr class=\"" + clas + " counter-example\"><td colspan=\"4\">"
+        html += "<div>"
+        html += "  <p>The following inputs crashed the function:</p>";
+        html += "  <table class=\"input\">";
+        var suggestEdit = false
+        for((fname, value) <- args) { 
+          suggestEdit = suggestEdit || (value.prettyoutput == value.rawoutput && value.rawoutput.indexOf(",") >= 0)
+          html += "<tr><td>" + fname + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true' tabindex=0>" + value.prettyoutput + "</div></td></tr>";
+          outputs.push(value)
+        }
+        html += "  </table>"
+        html += "    </div>"
+        html += "  </td>"
+        html += "</tr>"
+        tbl.append(html)
+        
+      case None =>
+    }
+    
+    
+    
     for (i <- 0 until vcs.length) {
       val vc = vcs(i)
-      targetFunction = vc.fun
       var icon = "check"
       if (vc.status == "invalid" || vc.status == "crashed") {
         icon = "warning"
@@ -986,7 +1092,6 @@ trait LeonWeb extends EqSyntax {
         html += "<div>"
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
-        val outputs = js.Array[DualOutput]()
         var suggestEdit = false
         for((fname, value) <- vc.counterExample.get) { 
           suggestEdit = suggestEdit || (value.prettyoutput == value.rawoutput && value.rawoutput.indexOf(",") >= 0)
@@ -1010,80 +1115,9 @@ trait LeonWeb extends EqSyntax {
         tbl.append(html)
         
         if(suggestEdit) Main.showContextDemo(Main.demoEditCounterExamples)
-        
-        // Pretty-printing options.
-        tbl.find("div.output")
-        .each((index: js.Any, elem: dom.Element) => {
-          val i = index.asInstanceOf[Int]
-          //e.target.
-          //TODO: Display the "validate" and "cancel" button
-          //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
-          val validateBox = $("""<i class="fa fa-check save-expr-display mini-menu"></i>""").text("Confirm").attr("title", "Creates a new pretty-printer using the provided example")
-          val cancelBox = $("""<i class="fa fa-times cancel-expr-display mini-menu"></i>""").text("Cancel").attr("title", "Cancel the edition of this example")
-          val originalBox = $("""<i class="fa fa-eye original-expr-display mini-menu"></i>""").text("Show original").attr("title", "Show the original. Click again to return to editing")
-          val menuBox = $("<div>").addClass("menu-expr-display").append(validateBox).append(cancelBox).append(originalBox).hide()
-          menuBox.appendTo($(elem).parent())
-          
-          validateBox.on("click", () => {
-            val dualOutput = outputs(i)
-            console.log($(elem)(0))
-            val newContent = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
-            dualOutput.modifying = newContent.toOption
-            console.log("Sending synthesis problem", dualOutput.toString())
-            console.log("Fname = ", vc.fun)
-            onSynthesisTabDisplay = Some(() => Main.showContextDemo(Main.demoSynthesizePrettyPrinter))
-            //TODO: Do something with the dual output
-            Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, vc.fun)
-            menuBox.hide()
-          })
-          cancelBox.on("click", () => {
-            val dualOutput = outputs(i)
-            dualOutput.modifying = Some(dualOutput.prettyoutput)
-            $(elem).text(dualOutput.prettyoutput)
-            menuBox.hide()
-            $(elem).blur()
-          })
-          // Focus/blur is not very robust. Here is what it does (if it needs to be extended later)
-          // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
-          // If the user unfocuses the div.output, the menu disappear after 10ms
-          // If the user focuses the originalBox, the menu disappearance is cancelled immediately
-          // If the user unfocuses the originalBox, the menu disappear after 10ms
-          
-          originalBox.on("click", () => {
-            js.timers.clearTimeout($(elem).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
-            console.log("cLicked on originalBox " + i)
-            val dualOutput = outputs(i)
-            if(originalBox.hasClass("checked")) {
-              originalBox.removeClass("checked")
-              $(elem).attr("contentEditable", true)
-              $(elem).text(dualOutput.modifying.getOrElse(dualOutput.prettyoutput))
-            } else {
-              originalBox.addClass("checked")
-              $(elem).attr("contentEditable", false)
-              dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent).toOption
-              $(elem).text(dualOutput.rawoutput)
-            }
-          }).on("blur", () => { // If not clicking on the div.output, hide the menu.
-            console.log("Blurring originalBox...")
-            $(elem).data("hidehandler", js.timers.setTimeout(100){
-              $(elem).parent().find(".menu-expr-display").hide("blind")
-            })
-          })
-        })
-        .focus((e: JQueryEventObject) => {
-          console.log("Focusing...")
-          js.timers.clearTimeout($(e.target).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
-          $(e.target).parent().find(".menu-expr-display").show("blind")
-        })
-        .on("blur", (e: JQueryEventObject) => {
-          console.log("Blurring div.output")
-          $(e.target).data("hidehandler", js.timers.setTimeout(100){
-            console.log("Atual blur")
-            $(e.target).parent().find(".menu-expr-display").hide("blind")
-          })
-        })
       }
     }
+    allowPrettyPrintingSynthesis(fname, outputs, tbl)
 
     if (vcs.length == 0) {
       tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
@@ -1093,7 +1127,7 @@ trait LeonWeb extends EqSyntax {
 
     if (canRepair && Features.repair.active) {
       $(".repairButton").unbind("click").click(() => {
-        Backend.repair.doRepair(targetFunction)
+        Backend.repair.doRepair(fname)
 
         $("#verifyDialog").modal("hide")
       });

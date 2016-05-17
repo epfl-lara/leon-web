@@ -171,7 +171,9 @@ case class HCompilation(status: String) extends MessageFromServer with Status
 sealed trait Status { def status: String }
 
 case class VerificationDetails(
+  fname: String,
   status: String,
+  crashingInputs: Option[Map[String, DualOutput]],
   vcs: Array[VC],
   time: Double
 ) extends MessageFromServer with Status

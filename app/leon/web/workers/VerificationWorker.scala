@@ -120,8 +120,10 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached {
     val fvcs = 
       verifOverview.toSeq.sortBy(_._1.getPos).map{ case (fd, fv) =>
         fd.id.name -> VerificationDetails(
+           fname = fd.id.name,
            status = fv.status,
            time = fv.totalTime,
+           crashingInputs = fv.crashingInputs.map(writes),
            vcs = fv.vcData.toArray.map(writes)
         ) }.toMap
 
@@ -148,6 +150,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
     val evaluator = new CodeGenEvaluator(vctx, cstate.program, params=params)
 
     for ((f, fv) <- verifOverview.toSeq.sortBy(_._1.getPos) if funs(f)) {
+      var crashingInputs: Option[Map[Identifier, Expr]] = None
       try {
         val vcs = fv.vcData.map(_._1).toSeq
         val vr = VerificationPhase.checkVCs(vctx, vcs)
@@ -164,6 +167,9 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
                 case e: StackOverflowError =>
                   notifyError("Stack Overflow while testing counter example.")
                   None
+                case e: Throwable =>
+                  crashingInputs = Some(vc.fd.paramIds.zip(callArgs).toMap)
+                  throw e
               }
             case _ =>
               None
@@ -184,7 +190,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
         case t: Throwable =>
           logInfo("[!] Verification crashed!", t)
           clientLog("Verification crashed: "+t.getMessage())
-          verifOverview += f -> verifOverview(f).copy(verifCrashed = true)
+          verifOverview += f -> verifOverview(f).copy(verifCrashed = true, crashingInputs = crashingInputs)
       }
     }
 

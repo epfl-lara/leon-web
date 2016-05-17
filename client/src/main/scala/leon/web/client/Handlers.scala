@@ -630,7 +630,7 @@ object Handlers extends js.Object {
   }
 
   def verification_result(data: VerificationDetails) = {
-    displayVerificationDetails(data.status, data.vcs)
+    displayVerificationDetails(data.fname, data.status, data.vcs, data.crashingInputs)
   }
 
   def replace_code(data: HReplaceCode) = {
