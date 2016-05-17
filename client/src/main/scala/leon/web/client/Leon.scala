@@ -818,14 +818,14 @@ trait LeonWeb extends EqSyntax {
             ""*/
         }
         val priority = (0 :: (classStatus collect priorities).toList).max
-        println(s"Adding $classStatus (status = ${vc.status}) between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
+        //println(s"Adding $classStatus (status = ${vc.status}) between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
         for{i <- vc.lineFrom to vc.lineTo; row = i.toInt - 1} {
           val existing = decorations(row)
           val existing_priority = (0 :: (existing collect priorities).toList).max
           if(existing_priority < priority) {
             decorations(row) = classStatus
           } else {
-            println(s"Discarded adding line $row because lower priority than " + existing)
+            //println(s"Discarded adding line $row because lower priority than " + existing)
           }
         }
       }

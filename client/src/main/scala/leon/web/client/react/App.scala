@@ -64,8 +64,8 @@ class App(private val api: LeonAPI) {
       .foreach(render)
 
     // Apply every state transformation to the application state.
-    Actions.bus.map(processAction).subscribe(appState.updates)
 
+      Actions.bus.map(processAction).subscribe(appState.updates)
     // If the user is logged-in and was working on a project,
     // restore such project.
     if (isLoggedIn) {
@@ -173,8 +173,12 @@ class App(private val api: LeonAPI) {
       api.sendBuffered(shared.messages.LoadFile(owner = repo.owner, repo = repo.name, file = file))
 
       onEvent(Events.fileLoaded) { e => state =>
+        //println("Got file Load with content: " + e.content)
+        api.setEditorCode(e.content)
         state.copy(file = Some((e.file, e.content)))
       }
+      
+      
 
       now(state)
 

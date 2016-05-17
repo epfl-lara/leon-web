@@ -86,7 +86,7 @@ object GitPanel {
     ReactComponentB[Unit]("GitPanel")
       .initialState(State())
       .renderBackend[Backend]
-      .build
+      .buildU
 
   def apply() = component()
 
