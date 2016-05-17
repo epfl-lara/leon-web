@@ -129,11 +129,26 @@ trait LeonWeb extends EqSyntax {
     // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
     def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
     
-    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T forSome { type T <: MessageFromServer }, Unit]): Unit = {
-      Handlers.callbacks += callback
+    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
+      Handlers.callbacks += callback.asInstanceOf[PartialFunction[U forSome { type U <: MessageFromServer }, Unit]]
       Main.sendMessage(msg)
     }
   }
+  
+
+  $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
+    if (!$(self).hasClass("disabled")) {
+      Server ! (StorePermaLink(editor.getValue()), ({ case data => //GotPermalink //HMoveCursor
+        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
+        $("#permalink-value").show()
+      }): PartialFunction[GotPermalink, Unit])
+      event.preventDefault()
+  }}): js.ThisFunction);
+
+  $("#button-permalink-close").click((event: JQueryEventObject) => {
+    $("#permalink-value").hide()
+  })
+
   
   def registerMessageHandler(handler: MessageFromServer => Boolean): Unit =
     Handlers.registerMessageHandler(handler)
@@ -444,19 +459,6 @@ trait LeonWeb extends EqSyntax {
   }
 
   updateUndoRedo()
-
-  $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
-    if (!$(self).hasClass("disabled")) {
-      Server ! (StorePermaLink(editor.getValue()), { case data: GotPermalink => //GotPermalink //HMoveCursor
-        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
-        $("#permalink-value").show()
-      })
-      event.preventDefault()
-  }}): js.ThisFunction);
-
-  $("#button-permalink-close").click((event: JQueryEventObject) => {
-    $("#permalink-value").hide()
-  })
 
   /** Compilation
     */
@@ -787,11 +789,31 @@ trait LeonWeb extends EqSyntax {
       "fa-refresh" -> 2,
       "text-success" -> 1).withDefault { x => 0 }
   
+  case class CustomGutterDecoration(row: Int, classes: Set[String]=Set(), html: String, callback: () => Unit)
+  
+  var customGutterDecorations = collection.mutable.Map[Int, CustomGutterDecoration]()
+  
+  def updateCustomGutterDecorations() = {
+    //println("Updating custom gutter decorations")
+    $("#codebox div.ace_gutter-cell .custommarker").remove()
+    $("#codebox div.ace_gutter-cell").each((index: js.Any, elem: dom.Element) => {
+      val i = index.asInstanceOf[Int]
+      val row = elem.textContent.toInt
+      customGutterDecorations.get(row) match {
+        case None =>
+          $(elem)
+        case Some(CustomGutterDecoration(_, classes, html, callback)) =>
+          $(elem).prepend($(html).addClass("custommarker").click(() => callback()))
+      }
+      ().asInstanceOf[js.Any]
+    })
+  }
+  
   def drawVerificationOverviewInGutter(): Unit = {
     val verification = overview.modules.verification
     val details = overview.Data.verification
     val session = Main.editor.getSession()
-    val decorations = collection.mutable.Map[Int, Set[String]]().withDefault { x => Set.empty[String] }
+    val decorations = collection.mutable.Map[Int, CustomGutterDecoration]()
     for((k, v) <- details) {
       val vstatus = v.status
       for(vc <- v.vcs) {
@@ -806,7 +828,7 @@ trait LeonWeb extends EqSyntax {
           case VerifStatus.timeout =>
             Set("fa", "fa-clock-o", "text-warning")
           case VerifStatus.undefined | VerifStatus.unknown =>
-            Set("fa", "fa-refresh")
+            Set("fa", "fa-refresh"/*, "fa-spin"*/)
           //case  | V =>
           case _ => Set.empty/*
           case VerifStatus.cond_valid =>
@@ -817,28 +839,49 @@ trait LeonWeb extends EqSyntax {
           case VerifStatus.unknown =>
             ""*/
         }
+        val html = status match {
+          case VerifStatus.crashed =>
+            """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
+          case VerifStatus.undefined =>
+            """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
+          case VerifStatus.cond_valid =>
+            """<span class="text-success" title="Conditionally valid">(<i class="fa fa-check"></i>)</span>"""
+          case VerifStatus.valid =>
+            """<i class="fa fa-check text-success" title="Valid"></i>"""
+          case VerifStatus.invalid =>
+            """<i class="fa fa-exclamation-circle text-danger" title="Invalid"></i>""";
+          case VerifStatus.timeout =>
+            """<i class="fa fa-clock-o text-warning" title="Timeout"></i>"""
+          case _ =>
+            """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
+        }
         val priority = (0 :: (classStatus collect priorities).toList).max
         //println(s"Adding $classStatus (status = ${vc.status}) between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
-        for{i <- vc.lineFrom to vc.lineTo; row = i.toInt - 1} {
-          val existing = decorations(row)
+        for{row <- vc.lineFrom to vc.lineTo} {
+          val existing = decorations.get(row).map(_.classes).getOrElse(Set.empty)
           val existing_priority = (0 :: (existing collect priorities).toList).max
           if(existing_priority < priority) {
-            decorations(row) = classStatus
+            decorations(row) = CustomGutterDecoration(row, classStatus, html, () => {
+              $(s"td.verif[fname=${vc.fun}]").click()
+            })
           } else {
             //println(s"Discarded adding line $row because lower priority than " + existing)
           }
         }
       }
     }
-    for(row <- 0 until session.getLength().toInt) {
+    /*for(row <- 0 until session.getLength().toInt) {
       for(p <- possibleGutterMarkers) {
         session.removeGutterDecoration(row, p)
       }
-    }
+    }*/
     //println("Finished. Adding " + decorations.size + " decorations")
-    for{(row, classes) <- decorations; cl <- classes} {
-      session.addGutterDecoration(row, cl)
-    }
+    customGutterDecorations = decorations/*js.Array[CustomGutterDecoration]()
+    for{(row, decoration) <- decorations.toSeq.sortBy(_._1)} {
+      customGutterDecorations.push(decoration)
+      //session.addGutterDecoration(row, cl)
+    }*/
+    updateCustomGutterDecorations()
   }
 
   def drawOverView(): Unit = {
@@ -1623,6 +1666,14 @@ trait LeonWeb extends EqSyntax {
     js.timers.setTimeout(timeWindow + 50) { onCodeUpdate }
     ().asInstanceOf[js.Any]
   });
+  val callbackDecorations = (e: js.Any) => {
+    //println("New value: " + e + " and first visible row is " + editor.getFirstVisibleRow())
+    js.timers.setTimeout(50){updateCustomGutterDecorations()}
+    ().asInstanceOf[js.Any]
+  }
+  editorSession.on("changeFold", callbackDecorations)
+  editorSession.on("changeScrollTop", callbackDecorations)
+  editorSession.on("changeWrapMode", callbackDecorations)
 
   def resizeEditor(): Unit = {
     val h = $(window).height() - $("#title").height() - 6
