@@ -791,8 +791,8 @@ trait LeonWeb extends EqSyntax {
       "fa-exclamation-circle" -> 5,
       "fa-bolt" -> 4,
       "fa-clock-o" -> 3,
-      "fa-refresh" -> 2,
-      "text-success" -> 1).withDefault { x => 0 }
+      "text-success" -> 2,
+      "fa-refresh" -> 1).withDefault { x => 0 }
   
   case class CustomGutterDecoration(row: Int, classes: Set[String]=Set(), html: String, callback: () => Unit)
   
