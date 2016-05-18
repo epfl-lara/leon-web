@@ -43,4 +43,15 @@ case class FunVerifStatus(fd: FunDef,
       overallStatus
     }
   }
+  
+  // Transfer positions between old function and new function (they have to be the same)
+  def copyTo(newFun: FunDef) = {
+    this.copy(
+        fd     =newFun,
+        results=results.map{
+           case (vc, (vcResult, evalResult)) =>
+             (vc.copyTo(newFun), (vcResult, evalResult))
+        }
+    )
+  }
 }

@@ -15,8 +15,9 @@ import scala.concurrent.duration._
 import leon.evaluators.EvaluationResults
 import leon.purescala.Common.Identifier
 import leon.purescala.SelfPrettyPrinter
+import shared.equal.EqSyntax
 
-trait VerificationNotifier extends WorkerActor with StringToExprCached {
+trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSyntax {
   import ConsoleProtocol._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
@@ -233,7 +234,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
         oldVerifOverView find { case (fd, _) => FunctionHash(fd) === h } match {
           case Some((fd, vcs)) if !recomputeEverything=>
-            verifOverview += f -> vcs
+            verifOverview += f -> vcs.copyTo(f)
           case _ =>
             verifOverview -= f
             toGenerate += f
