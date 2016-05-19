@@ -88,3 +88,7 @@ You may have to remove the global sbt eclipse plugin if it interfere with the pl
 ## Notes for windows
 
 Before running leon-web through `activator run` or `sbt run`, follow the instructions [Leon for Windows](http://lara.epfl.ch/~mmayer/leon/index.html).
+
+# Advanced running mode for leon-web (deploy, tmux, etc.)
+
+Please [look into the wiki](https://github.com/epfl-lara/leon-web/wiki) for more advanced way of running leon-web
