@@ -174,8 +174,11 @@ class App(private val api: LeonAPI) {
 
       onEvent(Events.fileLoaded) { e => state =>
         //println("Got file Load with content: " + e.content)
-        api.setEditorCode(e.content)
-        state.copy(file = Some((e.file, e.content)))
+        val newState = state.copy(file = Some((e.file, e.content)))
+        js.timers.setTimeout(0) { 
+          api.setEditorCode(e.content)
+        }
+        newState
       }
       
       
