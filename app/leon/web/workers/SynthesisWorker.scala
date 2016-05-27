@@ -306,7 +306,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               }
 
               val allSol  = solutionOf(search.g.root)
-              val (_, allCode) = solutionCode(cstate, synth, allSol.getOrElse(Solution.failed(synth.problem)))
+              val (_, allCode) = solutionCode(cstate, synth, allSol.getOrElse(Solution.failed(synth.ci.problem)))
               
               event(HSynthesisExploration(
                 html = solutionsTree(n, path.reverse, ws),
