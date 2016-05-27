@@ -1664,7 +1664,8 @@ trait LeonWeb extends EqSyntax {
 
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");
-
+  editor.commands.removeCommand("gotoline")
+  
   editorSession.on("change", (e: js.Any) => {
     lastChange = new js.Date().getTime();
     updateSaveButton();

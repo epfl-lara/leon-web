@@ -12,7 +12,7 @@ class WebSynthesizer(cs: BaseActor,
                      settings: SynthesisSettings) extends Synthesizer(ctx, program, ci, settings) {
 
 
-  lazy val search = new SimpleWebSearch(cs, ctx, ci, problem, CostModels.default, Some(200))
+  lazy val search = new SimpleWebSearch(cs, ctx, ci, CostModels.default, Some(200))
 
   override def getSearch() = search
 

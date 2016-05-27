@@ -10,10 +10,9 @@ import leon.synthesis.strategies.BoundedStrategy
 class SimpleWebSearch(cs: BaseActor,
                       ctx: LeonContext,
                       ci: SourceInfo,
-                      p: Problem,
                       costModel: CostModel,
                       bound: Option[Int]
-                      ) extends Search(ctx, ci, p, {
+                      ) extends Search(ctx, ci, {
                           val cbs = new CostBasedStrategy(ctx, costModel)
                           bound match {
                             case Some(bound) => BoundedStrategy(cbs, bound)
