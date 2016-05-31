@@ -106,6 +106,7 @@ case object DisambiguationNoresult extends MessageFromServer
 case class HDisambiguationResult(
   input: String,
   fname: String,
+  forceAsking: Boolean,
   confirm_solution: HDisambiguationDisplay,
   custom_alternative: HDisambiguationDisplay,
   alternatives: List[HDisambiguationDisplay]

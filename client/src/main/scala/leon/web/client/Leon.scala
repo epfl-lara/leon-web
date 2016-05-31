@@ -496,6 +496,10 @@ trait LeonWeb extends EqSyntax {
       codebox.addClass("compilation-error")
 
       boxes.append("""<div class="overlay" />""")
+      
+      customGutterDecorations.clear()
+      updateCustomGutterDecorations()
+      
     } else if (status == "disconnected") {
       compilationStatus = 0
 
@@ -1917,6 +1921,13 @@ trait LeonWeb extends EqSyntax {
   }
   
   /* Demos to be shown in context of some events. */
+  val demoClarificationMenu =
+    Demo(
+      where = $("a[href=#clarificationResults]"),
+      placement = Placement.Top,
+      title = "Clarification tab",
+      content = """Although the solution works for the given examples, you may want to investigate ambiguities and resolve them."""
+    )
   
   val demoClarification =
     Demo(

@@ -440,8 +440,12 @@ object Handlers extends js.Object {
     }
     //disambiguationResultDisplayContainer().show()
     // Switch tabs:
-    engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
-    Main.showContextDemo(Main.demoClarification)
+    if(data.forceAsking) {
+      engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
+      Main.showContextDemo(Main.demoClarification)
+    } else {
+      Main.showContextDemo(Main.demoClarificationMenu)
+    }
   }
 
   def synthesis_exploration(data: HSynthesisExploration) = {
