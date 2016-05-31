@@ -83,7 +83,7 @@ lazy val client = (project in file("client")).settings(
   scalaVersion := "2.11.8",
   libraryDependencies ++= Seq(
     "org.scala-js" %%% "scalajs-dom" % "0.9.0",
-    "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
+    "be.doeraene" %%% "scalajs-jquery" % "0.9.0",
     "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1",
     "com.github.japgolly.scalajs-react" %%% "extra" % "0.11.1",
     "org.monifu" %%% "monifu" % "1.0-RC4",
@@ -94,6 +94,7 @@ lazy val client = (project in file("client")).settings(
   scalacOptions ++= compilerOptions ++ Seq("-Ywarn-unused-import"),
   persistLauncher := true,
   jsDependencies ++= Seq(
+    "org.webjars" % "jquery" % "2.1.3" / "2.1.3/jquery.js",
     "org.webjars.bower" % "react" % "15.0.1" / "react-with-addons.js" minified "react-with-addons.min.js" commonJSName "React",
     "org.webjars.bower" % "react" % "15.0.1" / "react-dom.js" minified "react-dom.min.js" dependsOn "react-with-addons.js" commonJSName "ReactDOM",
     "org.webjars.bower" % "react" % "15.0.1" / "react-dom-server.js" minified  "react-dom-server.min.js" dependsOn "react-dom.js" commonJSName "ReactDOMServer"

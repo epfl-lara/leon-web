@@ -39,6 +39,7 @@ trait HTMLElementExtended extends Element {
   def value: String = js.native
   def selectionStart: js.UndefOr[Int] = js.native
   def focus(): Unit = js.native
+  var selectedIndex: Int = js.native
 }
 
 @js.native

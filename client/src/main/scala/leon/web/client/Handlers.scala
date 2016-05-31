@@ -84,7 +84,7 @@ object Handlers extends js.Object {
           if (hasFunctions && Features.synthesis.active) {
             if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
               val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
-              val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+              val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
               console.log("Finding rules to apply 2 " + new js.Date())
               Backend.synthesis.getRulesToApply(fname, cid)
             }
@@ -268,8 +268,8 @@ object Handlers extends js.Object {
         }
       })
       $("#synthesisDialog .exploreButton").unbind("click").click(() => {
-        val cid = $("#synthesisDialog").attr("cid").toInt
-        val fname = $("#synthesisDialog").attr("fname")
+        val cid = $("#synthesisDialog").attr("cid").getOrElse("0").toInt
+        val fname = $("#synthesisDialog").attr("fname").getOrElse("")
 
         $("#synthesisDialog").modal("hide")
 
@@ -327,11 +327,11 @@ object Handlers extends js.Object {
     edittext.on("keyup paste click", () => {
       val pos = SelectionHandler.getSelection(edittext.get(0).asInstanceOf[dom.raw.Element])
       var changeSelection = false
-      edittext.find("font[face=FontAwesome]").each{ (index: js.Any, _this: dom.Element) =>
+      edittext.find("font[face=FontAwesome]").each{ (index: Int, _this: dom.Element) =>
         changeSelection = true
         $(_this).replaceWith($(_this).html())
       }
-      edittext.find("span.placeholder").each{ (index: js.Any, _this: dom.Element) =>
+      edittext.find("span.placeholder").each{ (index: Int, _this: dom.Element) =>
         val oldHtml = $(_this).html()
         if(oldHtml != "&#xf059;" && oldHtml != "") {
           $(_this).replaceWith("&#xf059;|".r.replaceAllIn(oldHtml, ""))
@@ -471,14 +471,14 @@ object Handlers extends js.Object {
 
     val wsOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
-      b.attr("ws").toInt
+      b.attr("ws").getOrElse("0").toInt
     }
 
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
       var path = List[Int]()
-      if (new EqOps(b.attr("path")) =!= "") {
-        path = b.attr("path").split("-").map((e: String) => e.toInt).toList
+      if (new EqOps(b.attr("path").getOrElse("")) =!= "") {
+        path = b.attr("path").getOrElse("").split("-").map((e: String) => e.toInt).toList
       }
       path
     }
@@ -489,7 +489,7 @@ object Handlers extends js.Object {
           fname  = data.fname,
           cid    = data.cid,
           path   = pathOf(_this),
-          exploreAction = $(_this).attr("data-action"),
+          exploreAction = $(_this).attr("data-action").getOrElse(""),
           ws     = wsOf(_this),
           select = $(_this).value().asInstanceOf[String].toInt)
     }): js.ThisFunction);
@@ -499,7 +499,7 @@ object Handlers extends js.Object {
       Backend.synthesis.explore(
           fname = data.fname,
           cid   = data.cid, pathOf(self),
-          exploreAction = $(self).attr("data-action"),
+          exploreAction = $(self).attr("data-action").getOrElse(""),
           ws    = wsOf(self))
       working = true
     }): js.ThisFunction);
@@ -549,7 +549,7 @@ object Handlers extends js.Object {
       Backend.synthesis.search(fname, cid)
     }))
     if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
-      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
+      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
       synthesis_chosen_rule match {
         case None => // Explore
         case Some("search") => // Search
@@ -565,7 +565,7 @@ object Handlers extends js.Object {
       Backend.synthesis.explore(fname, cid)
     })
     $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
-      val rid = $(self).attr("rid").toInt
+      val rid = $(self).attr("rid").getOrElse("0").toInt
       synthesis_chosen_rule = Some(rid.toString)
       Backend.synthesis.doApplyRule(fname, cid, rid)
     }): js.ThisFunction)

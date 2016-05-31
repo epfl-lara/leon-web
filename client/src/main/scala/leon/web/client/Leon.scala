@@ -180,7 +180,7 @@ trait LeonWeb extends EqSyntax {
     if (displayedMarker > 0) {
       editor.getSession().removeMarker(displayedMarker);
 
-      $(".leon-explore-location.ace_start").each((index: js.Any, _this: dom.Element) =>
+      $(".leon-explore-location.ace_start").each((index: Int, _this: dom.Element) =>
         $(_this).tooltip("destroy").asInstanceOf[js.Any]);
 
     }
@@ -327,7 +327,7 @@ trait LeonWeb extends EqSyntax {
   $("#codecolumn").keyup(displayExplorationFacts _)
 
   def togglePanel(button: String, show: Boolean): Unit = {
-    val panel = "#" + $(button).attr("ref")
+    val panel = "#" + $(button).attr("ref").getOrElse("")
 
     if (!show) {
       $(panel).hide()
@@ -347,8 +347,8 @@ trait LeonWeb extends EqSyntax {
   }
 
   $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
-    val button  = "#" + $(self).attr("id")
-    val panel   = "#" + $(self).attr("ref")
+    val button  = "#" + $(self).attr("id").getOrElse("")
+    val panel   = "#" + $(self).attr("ref").getOrElse("")
     val visible = $(panel).is(":visible")
 
     togglePanel(button, !visible)
@@ -548,9 +548,9 @@ trait LeonWeb extends EqSyntax {
   for ((f, feature) <- Features.stringToFeature) {
     fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
   }
-
+  
   $(".feature").click(((self: Element) => {
-    val f = $(self).attr("ref")
+    val f = $(self).attr("ref").getOrElse("")
     val feature = Features.stringToFeature(f)
     feature.active = !feature.active
 
@@ -613,7 +613,7 @@ trait LeonWeb extends EqSyntax {
         }
         def handlers(): Unit = {
           $("td.verif").click(((self: Element) => {
-            val fname = $(self).attr("fname")
+            val fname = $(self).attr("fname").getOrElse("")
             overview.Data.verification.get(fname) match {
               case Some(d) =>
                 openVerifyDialog()
@@ -650,7 +650,7 @@ trait LeonWeb extends EqSyntax {
         }
         def handlers(): Unit = {
           $("td.termin").click(((self: Element) => {
-            val fname = $(self).attr("fname")
+            val fname = $(self).attr("fname").getOrElse("")
             openTerminationDialog()
             overview.Data.termination.get(fname) match {
               case Some(d) =>
@@ -681,7 +681,7 @@ trait LeonWeb extends EqSyntax {
         }
         def handlers(): Unit = {
           $("td.invart").click(((self: Element) => {
-            val fname = $(self).attr("fname")
+            val fname = $(self).attr("fname").getOrElse("")
             overview.Data.invariant.get(fname) match {
               case Some(d) =>
                 openInvariantDialog()
@@ -763,7 +763,7 @@ trait LeonWeb extends EqSyntax {
       $("#synthesis .dropdown-toggle").unbind("click.droppdown").on("click.droppdown", ((self: Element, e: JQueryEventObject) => {
         val p = $(self).parents(".problem")
 
-        Backend.synthesis.getRulesToApply(p.attr("fname"), p.attr("cid").orIfNull("0").toInt)
+        Backend.synthesis.getRulesToApply(p.attr("fname").getOrElse("0"), p.attr("cid").getOrElse("0").toInt)
 
       }): js.ThisFunction)
     }
@@ -805,8 +805,7 @@ trait LeonWeb extends EqSyntax {
   def updateCustomGutterDecorations() = {
     //println("Updating custom gutter decorations")
     $("#codebox div.ace_gutter-cell .custommarker").remove()
-    $("#codebox div.ace_gutter-cell").each((index: js.Any, elem: dom.Element) => {
-      val i = index.asInstanceOf[Int]
+    $("#codebox div.ace_gutter-cell").each((i: Int, elem: dom.Element) => {
       val row = elem.textContent.toInt
       customGutterDecorations.get(row) match {
         case None =>
@@ -943,7 +942,7 @@ trait LeonWeb extends EqSyntax {
 
   def addClickToLine(within: String): Unit = {
     $(within + " .clicktoline[line]").click(((_this: Element) => {
-      val line = $(_this).attr("line").toDouble
+      val line = $(_this).attr("line").getOrElse("0").toDouble
       editor.gotoLine(line);
     }): js.ThisFunction)
   }
@@ -953,7 +952,7 @@ trait LeonWeb extends EqSyntax {
     }): js.ThisFunction)
 
     $(within + " .hovertoline[line]").hover((((_this: Element, event: JQueryEventObject) => {
-      val line = $(_this).attr("line").toDouble
+      val line = $(_this).attr("line").getOrElse("0").toDouble
       editor.gotoLine(line).asInstanceOf[js.Any]
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject, scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
@@ -961,8 +960,7 @@ trait LeonWeb extends EqSyntax {
   def allowPrettyPrintingSynthesis(fname: String, outputs: js.Array[DualOutput], tbl: JQuery) = {
     // Pretty-printing options.
     tbl.find("div.output")
-    .each((index: js.Any, elem: dom.Element) => {
-      val i = index.asInstanceOf[Int]
+    .each((i: Int, elem: dom.Element) => {
       //e.target.
       //TODO: Display the "validate" and "cancel" button
       //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
@@ -1611,8 +1609,8 @@ trait LeonWeb extends EqSyntax {
   def loadSelectedExample(): Unit = {
     val selected = $("""#example-loader""").find(":selected[id]")
 
-    val id = selected.attr("id")
-    val group = selected.attr("group")
+    val id = selected.attr("id").getOrElse("")
+    val group = selected.attr("group").getOrElse("")
 
     loadExample(group, id)
   }
@@ -1843,7 +1841,7 @@ trait LeonWeb extends EqSyntax {
         var action = "close"
 
         $("#demoPane button").click(((self: Element) => {
-          action = $(self).attr("demo-action")
+          action = $(self).attr("demo-action").getOrElse("")
           hideDemo(id)
         }): js.ThisFunction)
 
