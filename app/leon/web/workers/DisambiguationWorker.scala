@@ -39,13 +39,14 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
   }
   
   import shared.messages.{DoCancel => _, _}
-  def convertQuestion(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr]): HDisambiguationResult = {
+  def convertQuestion(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr], currentSolutionNonDeterministic: Boolean): HDisambiguationResult = {
     val (in, mapping) = ExamplesAdder.replaceGenericValuesByVariable(tupleWrap(question.inputs))
     
     @inline def instantiate(x: Expr) = ExprOps.replace(mapping, x)
     
     HDisambiguationResult(input = in.asString,
         fname = fd.id.name,
+        forceAsking = currentSolutionNonDeterministic,
         confirm_solution = HDisambiguationDisplay(
                 instantiate(question.current_output).asString(synth.program)(synth.context), 
                 convertExampleToFullCode(cstate, synth, in, instantiate(question.current_output))),
@@ -101,21 +102,25 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       sender ! Cancelled(this)
 
     case NewSolutions(cstate, synth, ssol) =>
-      logInfo("Receiving new solutions ! disambiguating ...")
+      logInfo("Receiving new solutions. disambiguating ...")
       import shared.messages._
       event(DisambiguationStarted)
       val ci = synth.ci
       val SourceInfo(fd, src, pb) = ci
       
-      val qb = new QuestionBuilder(fd.paramIds.filter(x => !x.getType.isInstanceOf[FunctionType]), ssol, filterRedundantExprs)(synth.context, cstate.program)
+      val qb = new QuestionBuilder(fd.paramIds.filter(x => !x.getType.isInstanceOf[FunctionType]), ssol, filterRedundantExprs, Some(fd))(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
       qb.setKeepEmptyAlternativeQuestions { case s => !isGround(s.asString) }
       qb.setValueEnumerator(NonEmptyValueGrammarfirst)
       val questions = qb.result()
-      
+      val solutionNonDeterministic = ssol.headOption.exists(sol =>
+        (sol.term #:: sol.defs.toStream.map(_.fullBody)).exists(expr =>
+          ExprOps.exists{
+            case StringLiteral(s) if s == leon.synthesis.rules.StringRender.EDIT_ME => true
+            case _ => false }(expr)))
       if(questions.nonEmpty) {
         logInfo("Sending back results")
-        event(convertQuestion(cstate, synth, fd, questions.head))
+        event(convertQuestion(cstate, synth, fd, questions.head, solutionNonDeterministic))
       } else {
         event(DisambiguationNoresult)
       }

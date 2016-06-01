@@ -388,31 +388,22 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val solCode = sol.toSimplifiedExpr(synth.context, synth.program, fd)
 
-    val (defs, expr) = liftClosures(solCode)
-
     val fInt = new FileInterface(new MuteReporter())
 
-    val nfd = fd.duplicate()
-
-    nfd.body = nfd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
+    val oldFd = ci.fd
+    val newFd = ci.fd.duplicate()
+    newFd.body = newFd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
       case ch if ch === src && ch.getPos === src.getPos =>
-        Some(expr)
+        Some(solCode)
       case _ =>
         None
     }(b)))
 
-    val fds = nfd :: defs.toList.sortBy(_.id.name)
-
-    val prog = DefOps.addFunDefs(cstate.program, fds, fd)
-    val p = new ScalaPrinter(PrinterOptions(), Some(prog))
+    val resFd = flattenFunctions(newFd, ctx, cstate.program)
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                  fd,
-                                  (indent) => {
-      implicit val pctx = PrinterContext(fd, Nil, indent, p)
-      p"${nary(fds, "\n\n")}"
-      p.toString
-    })
+                                  oldFd,
+                                  resFd)(ctx)
 
     (solCode, allCode)
   }
@@ -547,20 +538,10 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           } else {
             (sol, true)
           }
-
-          val solCode = newSol.toSimplifiedExpr(ctx, prog, ci.fd)
-          val fInt = new FileInterface(new MuteReporter())
-
+          
+          val (solCode, allCode) = solutionCode(cstate, synth, newSol)
 
           val oldFd = ci.fd
-          val newFd = ci.fd.duplicate()
-          newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
-
-          val resFd = flattenFunctions(newFd, ctx, prog)
-
-          val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                        oldFd,
-                                        resFd)(ctx)
 
           val (closed, total) = search.g.getStats()
 
