@@ -31,6 +31,10 @@ trait JQueryExtended extends JQuery {
   def modal(e: String): JQuery = js.native
   
   def popover(parameters: js.Any): JQuery = js.native
+  
+  def toggleClass(e: String, duration: Int): JQuery = js.native
+  def addClass(e: String, duration: Int): JQuery = js.native
+  def removeClass(e: String, duration: Int): JQuery = js.native
 }
 
 @js.native

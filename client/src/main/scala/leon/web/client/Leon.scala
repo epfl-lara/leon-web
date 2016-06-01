@@ -143,10 +143,10 @@ trait LeonWeb extends EqSyntax {
 
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
     if (!$(self).hasClass("disabled")) {
-      Server ! (StorePermaLink(editor.getValue()), ({ case data => //GotPermalink //HMoveCursor
+      Server ![GotPermalink] (StorePermaLink(editor.getValue()), { case data =>
         $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
         $("#permalink-value").show()
-      }): PartialFunction[GotPermalink, Unit])
+      })
       event.preventDefault()
   }}): js.ThisFunction);
 
@@ -331,10 +331,10 @@ trait LeonWeb extends EqSyntax {
 
     if (!show) {
       $(panel).hide()
-      $(button).addClass("disabled")
+      $(button).addClass("off")
     } else {
       $(panel).show()
-      $(button).removeClass("disabled")
+      $(button).removeClass("off")
     }
   }
 
@@ -357,7 +357,28 @@ trait LeonWeb extends EqSyntax {
     LocalStorage.update("leonPanels", JSON.stringify(leonPanels))
 
   }): js.ThisFunction);
-
+  
+  val button_web_state = Persistent("leonPanels-button-web", true)
+  
+  def toggleWeb(activate: Boolean) = {
+    val button  = $("#button-web")
+    if(activate) {
+      button.removeClass("off")
+      WebMode.activate()
+    } else {
+      button.addClass("off")
+      WebMode.deactivate()
+    }
+    button_web_state := activate
+  }
+  toggleWeb(button_web_state)
+  
+  $("#button-web").click(((self: Element, event: JQueryEventObject) => {
+    val makeVisible = $("#button-web").hasClass("off")
+    toggleWeb(makeVisible)
+  }): js.ThisFunction)
+  
+  // Out of date:
   $("#button-save").click((event: JQueryEventObject) => {
     recompile()
     event.preventDefault()
@@ -394,11 +415,18 @@ trait LeonWeb extends EqSyntax {
 
   val maxHistory = 20;
 
-  def fromStorage[A <: js.Any](key: String): Option[A] =
+  def fromStorage[A](key: String): Option[A] =
     LocalStorage(key)
       .flatMap(x => x.asInstanceOf[js.UndefOr[String]].toOption)
       .map(JSON.parse(_).asInstanceOf[A])
 
+  case class Persistent[T](name: String, defaultValue: T) {
+    def get() = fromStorage[T](name)
+    def apply() = get().getOrElse(defaultValue)
+    def :=(v: T): Unit = LocalStorage.update(name, JSON.stringify(v.asInstanceOf[js.Any]))
+  }
+  implicit def convertPersistentToValue[T](p: Persistent[T]): T = p()
+  
   // Undo/Redo
   var backwardChanges = fromStorage[js.Array[String]]("backwardChanges").getOrElse(new js.Array[String])
   var forwardChanges  = fromStorage[js.Array[String]]("forwardChanges").getOrElse(new js.Array[String])
@@ -1592,7 +1620,7 @@ trait LeonWeb extends EqSyntax {
       updateCompilationProgress(0)
     }
   }
-
+  
   def onCodeUpdate(): Unit = {
     val now = new js.Date().getTime()
 
@@ -1602,8 +1630,8 @@ trait LeonWeb extends EqSyntax {
       }
       lastChange = new js.Date().getTime();
     }
-
-    LocalStorage.update("leonEditorCode", editor.getValue());
+    
+    leonEditorCode := editor.getValue()
   }
 
   def loadSelectedExample(): Unit = {
@@ -1718,7 +1746,9 @@ trait LeonWeb extends EqSyntax {
     $("#terminationDialog").modal("show")
   }
 
-  var storedCode = LocalStorage("leonEditorCode")
+  val leonEditorCode = Persistent("leonEditorCode", "")
+  
+  var storedCode = leonEditorCode.get
   
   var onSynthesisTabDisplay: Option[() => Unit] = None
 
@@ -1730,8 +1760,10 @@ trait LeonWeb extends EqSyntax {
     case object Bottom extends Placement("bottom")
     case object Top extends Placement("top")
   }
+  
+  val leonSeenDemo = Persistent("leonSeenDemo", 0)
 
-  val seenDemo = LocalStorage("leonSeenDemo").getOrElse("0").toInt
+  val seenDemo = leonSeenDemo: Int
   @ScalaJSDefined class Demo(_where: => JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
     def where: JQuery = _where
     val title: String = _title
@@ -1847,10 +1879,10 @@ trait LeonWeb extends EqSyntax {
 
         $("#demoPane").unbind("hide.bs.modal").on("hide.bs.modal", () => {
           if (action == "next") {
-            LocalStorage.update("leonSeenDemo", (id + 1).toString)
+            leonSeenDemo := id + 1
             js.timers.setTimeout(500) { showDemo(id + 1) }
           } else {
-            LocalStorage.update("leonSeenDemo", 100.toString)
+            leonSeenDemo := 100
           }
         })
 
@@ -1860,7 +1892,7 @@ trait LeonWeb extends EqSyntax {
         val where = demo.where
 
         if (where.length == 0) {
-          LocalStorage.update("leonSeenDemo", (id + 1).toString)
+          leonSeenDemo := id + 1
           hideDemo(id)
           showDemo(id + 1)
           return ;
@@ -1879,12 +1911,12 @@ trait LeonWeb extends EqSyntax {
         where.popover("show")
 
         $("#demoPane button[demo-action=\"close\"]").click(() => {
-          LocalStorage.update("leonSeenDemo", 100.toString)
+          leonSeenDemo := 100
           hideDemo(id)
         })
 
         $("#demoPane button[demo-action=\"next\"]").click(() => {
-          LocalStorage.update("leonSeenDemo", (id + 1).toString)
+          leonSeenDemo := id + 1
           hideDemo(id)
           showDemo(id + 1)
         })

@@ -27,7 +27,8 @@ val appDependencies = Seq(
   "org.webjars" % "ace" % "01.08.2014",
   "org.webjars" % "bootstrap" % "3.2.0",
   "org.webjars" % "jquery" % "2.1.1",
-  "org.webjars" % "font-awesome" % "4.1.0",
+  "org.webjars" % "jquery-ui" % "1.11.4",
+  "org.webjars" % "font-awesome" % "4.2.0",
   "org.webjars" % "octicons" % "3.1.0",
   "org.webjars" % "prettify" % "4-Mar-2013",
   "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"
@@ -95,6 +96,7 @@ lazy val client = (project in file("client")).settings(
   persistLauncher := true,
   jsDependencies ++= Seq(
     "org.webjars" % "jquery" % "2.1.3" / "2.1.3/jquery.js",
+    "org.webjars" % "jquery-ui" % "1.11.4" / "jquery-ui.js" dependsOn "jquery.js",
     "org.webjars.bower" % "react" % "15.0.1" / "react-with-addons.js" minified "react-with-addons.min.js" commonJSName "React",
     "org.webjars.bower" % "react" % "15.0.1" / "react-dom.js" minified "react-dom.min.js" dependsOn "react-with-addons.js" commonJSName "ReactDOM",
     "org.webjars.bower" % "react" % "15.0.1" / "react-dom-server.js" minified  "react-dom-server.min.js" dependsOn "react-dom.js" commonJSName "ReactDOMServer"

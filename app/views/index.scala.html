@@ -5,7 +5,7 @@
     <div id="title" class="std-background">
     <h1>Leon</h1>
       <div class="toolbox">
-        <a id="button-save" href="#"><i class="fa fa-save"></i> <span>Save</span></a>
+        <!-- a id="button-save" href="#"><i class="fa fa-save"></i> <span>Save</span></a -->
         <a id="button-undo" href="#"><i class="fa fa-undo"></i> <span>Undo</span></a>
         <a id="button-redo" href="#"><i class="fa fa-repeat"></i> <span>Redo</span></a>
         <a id="button-permalink" href="#"><i class="fa fa-link"></i> <span>Link</span></a>
@@ -13,10 +13,11 @@
             <input type="text" value="" />
             <a id="button-permalink-close" href="#"><i class="fa fa-ban"></i></a>
         </div>
-        <a id="button-console" class="disabled menu-button" ref="console-panel" href="#"><i class="fa fa-list-alt"></i> <span>Console</span></a>
-        <a id="button-params" class="disabled menu-button" ref="params-panel" href="#"><i class="fa fa-cog"></i> <span>Params</span></a>
+        <a id="button-console" class="off menu-button" ref="console-panel" href="#"><i class="fa fa-list-alt"></i> <span>Console</span></a>
+        <a id="button-params" class="off menu-button" ref="params-panel" href="#"><i class="fa fa-cog"></i> <span>Params</span></a>
         <a id="button-about" href="http://lara.epfl.ch/w/leon" target="_blank"><i class="fa fa-info"></i> <span>About</span></a>
         <a id="button-doc" href="/doc/" target="_blank"><i class="fa fa-graduation-cap"></i> <span>Documentation</span></a>
+        <span id="button-web" class="off"><i class="fa fa-newspaper-o"></i> <span>WebBuilder</span></span>
         @tags.login(user)
       </div>
     </div>

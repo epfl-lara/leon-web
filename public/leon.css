@@ -32,8 +32,13 @@ input[type="checkbox"] + label {
 }
 
 .panel > h3, #title {
-    background: #19214F !important;
+    background: #19214F;
 }
+
+.panel > h3.webdesign, #title.webdesign {
+    background: #79009D;
+}
+
 
 #overview {
   position: relative;
@@ -52,6 +57,10 @@ input[type="checkbox"] + label {
 
 #overview .progress-bar, #invariant .progress-bar {
   background-color: #19214F;
+}
+
+#overview .progress-bar.webdesign, #invariant .progress-bar.webdesign {
+    background: #79009D;
 }
 
 #overview .progress, #invariant .progress {
@@ -152,14 +161,23 @@ div.toolbox {
     font-size: 1em;
 }
 
-div#title div.toolbox a {
+div#title div.toolbox a, div#title div.toolbox > span {
     float: left;
     color: white;
     padding: 0px 3px 1px 6px;
 }
 
+div#title div.toolbox > span {
+	cursor: pointer;
+}
+
 div#title div.toolbox a.disabled {
     color: #666;
+    cursor: default;
+}
+
+div#title div.toolbox a.off, div#title div.toolbox > span.off {
+    color: #AAA;
 }
 
 div.panel {
