@@ -38,15 +38,24 @@ object Backend {
       Server ! AccessPermaLink(link)
     def setFeatureActive(feature: shared.Module, active: Boolean) =
       Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
-    def doUpdateCode(code: String) =
-      Server ! DoUpdateCode(code = code) andThenAnalytics Action.doUpdateCode
-    def doUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String) =
+    var requestId = 0
+      
+    def doUpdateCode(code: String): Int = {
+      requestId += 1
+      Server ! DoUpdateCode(code = code, requestId = requestId) andThenAnalytics Action.doUpdateCode
+      requestId
+    }
+    def doUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String): Int = {
+      requestId += 1
       Server ! DoUpdateCodeInProject(
            owner  = owner,
            repo   = repo,
            file   = file,
            branch = branch,
-           code   = code) andThenAnalytics (Action.doUpdateCodeInProject, s"$owner: $repo:$branch/$file")
+           code   = code,
+           requestId = requestId) andThenAnalytics (Action.doUpdateCodeInProject, s"$owner: $repo:$branch/$file")
+      requestId
+    }
     def cancel() =
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
   }

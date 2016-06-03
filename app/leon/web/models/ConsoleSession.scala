@@ -105,6 +105,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       modules += ModuleEntry(Execution     , new ExecutionWorker(self, interruptManager))
       modules += ModuleEntry(Repair        , new RepairWorker(self, interruptManager))
       modules += ModuleEntry(Invariant     , new OrbWorker(self, interruptManager))
+      modules += ModuleEntry(WebsiteBuilder, new WebBuilderWorker(self, interruptManager))
 
       logInfo("New client")
 
@@ -142,11 +143,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         logInfo("[<] " + message.getClass.getName)
         message match {
           case message: MainModule => message match {
-            case MDoCancel => self ! DoCancel
-              case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
-              case DoUpdateCodeInProject(owner, repo, file, branch, code) => withUser { user =>
+              case MDoCancel => self ! DoCancel
+              case DoUpdateCode(code, requestId) => self ! ConsoleProtocol.UpdateCode(code, None, None, requestId)
+              case DoUpdateCodeInProject(owner, repo, file, branch, code, requestId) => withUser { user =>
                 val project = Project(owner, repo, branch, file)
-                self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project))
+                self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), requestId)
               }
               case StorePermaLink(code) => self ! message
               case AccessPermaLink(link) => self ! message
@@ -477,7 +478,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
     }
 
-    case UpdateCode(code, user, project) =>
+    case UpdateCode(code, user, project, requestId) =>
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
 
@@ -554,6 +555,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               optProgram = Some(program),
               code       = Some(code),
               compResult = "success",
+              requestId  = Some(requestId),
               wasLoop    = Set(),
               project    = project,
               savedFile  = Some(savedFile.getName())

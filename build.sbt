@@ -87,6 +87,7 @@ lazy val client = (project in file("client")).settings(
     "be.doeraene" %%% "scalajs-jquery" % "0.9.0",
     "com.github.japgolly.scalajs-react" %%% "core" % "0.11.1",
     "com.github.japgolly.scalajs-react" %%% "extra" % "0.11.1",
+    "com.github.japgolly.scalacss" %%% "ext-react" % "0.4.1",
     "org.monifu" %%% "monifu" % "1.0-RC4",
     "com.scalawarrior" %%% "scalajs-ace" % "0.0.2",
     "com.lihaoyi" %%% "upickle" % "0.3.6"
@@ -117,7 +118,8 @@ lazy val shared = (crossProject.crossType(CrossType.Pure) in file("shared")).
   settings(
     scalaVersion := "2.11.8",
     libraryDependencies ++= Seq(
-    "me.chrons" %%% "boopickle" % "1.1.3")).
+    "me.chrons" %%% "boopickle" % "1.1.3"),
+    scalaSource in Compile := baseDirectory.value / "../../leon/library").
   jsConfigure(_ enablePlugins ScalaJSPlay)
 
 lazy val sharedJvm = shared.jvm.settings(name := "sharedJvm")
