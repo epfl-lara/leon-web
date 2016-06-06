@@ -63,15 +63,15 @@ object ProgramEvaluator {
   }
 
   
-  def evaluateAndConvertResult(program: Program, sourceCode: String, serverReporter: ServerReporter): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
+  def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
     val sReporter = serverReporter.startProcess("ProgramEvaluator")
-    val resultWebPage = evaluateProgramConcrete(program, sReporter) match {
+    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
       case Some(resultEvaluatedExpr) =>
         convertWebPageExprToClientWebPageAndSourceMap(resultEvaluatedExpr, program, sourceCode, sReporter) match {
           case Some((webId, sourceMapMaker)) =>
             val ctx = defaultLeonContext()
             val resultEvaluationTreeExprLazy = () => {
-              val abstractValue = evaluateProgramAbstract(program, serverReporter)(ctx)
+              val abstractValue = evaluateProgramAbstract(program, forceFunDef, serverReporter)(ctx)
               abstractValue.map(sourceMapMaker)
             }
             Some((webId, resultEvaluationTreeExprLazy, ctx))
@@ -102,10 +102,10 @@ object ProgramEvaluator {
     * @param serverReporter
     * @return resultEvaluationTreeExpr
     */
-  private def evaluateProgramAbstract(program: Program, serverReporter: ServerReporter)(implicit ctx: LeonContext): Option[Expr] = {
+  private def evaluateProgramAbstract(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter)(implicit ctx: LeonContext): Option[Expr] = {
     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
     val abstractEvaluator = new AbstractOnlyEvaluator(ctx, program)
-    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate) match {
+    val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
       case Some(funDef) => funDef
       case None => {
         sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")
@@ -136,13 +136,13 @@ object ProgramEvaluator {
     * @param serverReporter
     * @return concrete value of the program execution.
     */
-  private def evaluateProgramConcrete(program: Program, serverReporter: ServerReporter): Option[Expr] = {
+  private def evaluateProgramConcrete(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter): Option[Expr] = {
      val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
     val leonReporter = new DefaultReporter(Set())
     val ctx = leon.Main.processOptions(Seq()).copy(reporter = leonReporter)
     ctx.interruptManager.registerSignalHandler()
     val defaultEvaluator = new DefaultEvaluator(ctx, program)
-    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate) match {
+    val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
       case Some(funDef) => funDef
       case None => {
         sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")

@@ -39,6 +39,11 @@ input[type="checkbox"] + label {
     background: #79009D;
 }
 
+.tmp-highlight {
+	position: absolute;
+    background:rgba(100,200,100,0.5);
+    z-index:20;
+}
 
 #overview {
   position: relative;

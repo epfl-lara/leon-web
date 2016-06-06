@@ -5,7 +5,7 @@ package stringModification
 import leon.LeonContext
 import leon.purescala.{Common, ExprOps}
 import leon.purescala.Common._
-import leon.purescala.Definitions.{CaseClassDef, Program}
+import leon.purescala.Definitions.{CaseClassDef, Program, FunDef}
 import leon.purescala.Expressions.{AsInstanceOf, CaseClass, CaseClassSelector, Expr, StringConcat, StringLiteral, Tuple, TupleSelect}
 import leon.purescala.Types.CaseClassType
 import leon.solvers.string.StringSolver
@@ -219,21 +219,28 @@ object StringModificationProcessor {
     val fileInterface = new FileInterface(context.reporter)
 //    var changedElements = List[StringPositionInSourceCode]()
 
-    def applySolution(sourceCode: String, program: Program, solution: StringSolver.Assignment): (String, Program) = {
+    def applySolution(sourceCode: String, program: Program, solution: StringSolver.Assignment): (String, Program, Option[FunDef]) = {
+      println("Transforming a solution...")
       solution.toList
         .sortBy({case (identifier, str) => identifier.getPos})
         .reverse
-        .foldLeft((sourceCode, program))(
-          {case ((sCode, prog), (identifier, string)) =>
+        .foldLeft((sourceCode, program, ProgramEvaluator.functionToEvaluate))(
+          {case ((sCode, prog, optFunDef), (identifier, string)) =>
             val replacement = StringLiteral(string)
-          (fileInterface.substitute(sCode, identifier, replacement),
-           DefOps.replaceDefs(prog)(fd => {
+            val (newProg, _, newFuns, _) = DefOps.replaceDefs(prog)(fd => {
              if(ExprOps.exists{ e => e.getPos == identifier.getPos }(fd.fullBody)) {
                val newFd = fd.duplicate()
-               newFd.fullBody = ExprOps.preMap{ case e if e.getPos == identifier.getPos => Some(replacement) case _ => None }(fd.fullBody)
+               newFd.fullBody = ExprOps.postMap{
+                 case e if e.getPos == identifier.getPos =>
+                   Some(replacement)
+                 case _ => None
+                 }(fd.fullBody)
                Some(newFd)
              } else None
-           }, cd => None)._1
+           }, cd => None)
+          (fileInterface.substitute(sCode, identifier, replacement),
+           newProg,
+           optFunDef.flatMap(newFuns.get)
           )}
         )
     }
@@ -247,7 +254,7 @@ object StringModificationProcessor {
       }).toList
     }
 
-    val (newSourceCode, newProgram) = applySolution(sourceCode, cstate.program, firstSol)
+    val (newSourceCode, newProgram, newFunDef) = applySolution(sourceCode, cstate.program, firstSol)
     val changedElements = buildListOfStringPositionsForModifiedIdentifier(firstSol)
 
 
@@ -279,7 +286,7 @@ object StringModificationProcessor {
         // Imperative information
         wasLoop = cstate.wasLoop
     )
-    w.processNewCode(newCState, false) match {
+    w.processNewCode(newCState, false, newFunDef) match {
       case SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPageIDed), _), newSourceId) =>
         sReporter.report(Info, "Sending back to client the new source code and a WebPage with IDed WebElements")
         StringModificationSubmissionResult(Some(StringModificationSubmissionConcResult(newSourceCode, changedElements, newSourceId, webPageIDed)), "")

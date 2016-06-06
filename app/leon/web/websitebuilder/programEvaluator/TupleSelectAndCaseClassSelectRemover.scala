@@ -25,6 +25,8 @@ object TupleSelectAndCaseClassSelectRemover {
           } else recurse(CaseClassSelector(cct, i, id))
         case AsInstanceOf(expr2, classType) =>
           recurse(expr2)
+        case MapApply(FiniteMap(pairs, keyType, valueType), theKey) =>
+          recurse(pairs(theKey))
         case _ => expr1
       }
     }

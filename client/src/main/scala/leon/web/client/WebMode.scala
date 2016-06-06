@@ -8,7 +8,7 @@ import JQueryExtended.toJQueryExtended
 object WebMode {
   
   var codeColumnOldClass = ""
-  val codecolumnNewClass = "col-lg-3 col-sm-3 col-xs-12"
+  val codecolumnNewClass = "col-lg-4 col-sm-4 col-xs-12"
   def activate() = {
     $(".panel > h3, #title, #overview .progress-bar, #invariant .progress-bar").addClass("webdesign", 800)
     codeColumnOldClass = $("#codecolumn").attr("class").getOrElse("")

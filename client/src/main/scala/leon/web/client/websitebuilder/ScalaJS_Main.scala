@@ -65,7 +65,7 @@ object ScalaJS_Main {
     submitButtonAction() */
   }
 
-  private var idOfLastSourceCodeModificationSent = 0
+  //private var idOfLastSourceCodeModificationSent = 0
   def submitSourceCode() = { // Already dealt in handlers.scala
     /*idOfLastSourceCodeModificationSent += 1
     println(s"submit source code change with requestId = $idOfLastSourceCodeModificationSent")
@@ -142,6 +142,8 @@ object ScalaJS_Main {
 //      }
 //    }
   }
+  def idOfLastSourceCodeModificationSent = Backend.main.requestId
+  def idOfLastSourceCodeModificationSent_=(v: Int) = Backend.main.requestId = v
   def submitSourceCode_serverAnswerHandler(sourceCodeProcessingResult: SubmitSourceCodeResult) = {
     println("Server sent something in response to a code submission")
     sourceCodeProcessingResult match {
@@ -462,13 +464,14 @@ object ScalaJS_Main {
 
   object AceEditor {
     //ID of the html div that should contain the aceeditor
-    val aceEditorID = "aceeditor"
+    //val aceEditorID = "aceeditor"
     //Contains the aceEditor created
-    var aceEditor: Option[Editor] = None
+    //var aceEditor: Option[Editor] = None
+    def aceEditor = Option(MainDelayed.editor)
     lazy val aceRange = ace.require("ace/range").Range;
 
     def initialiseAndIncludeEditorInWebPage() = {
-      val editor = ace.edit(aceEditorID)
+      /*val editor = ace.edit(aceEditorID)
       aceEditor = Some(editor)
       //editor.setTheme("ace/theme/monokai")
       //ace.require("ace/token_tooltip"); // From leon-web
@@ -516,6 +519,8 @@ object ScalaJS_Main {
       //    println(sourceCode)
       //    println("sourceCode should have been printed (in function initialiseAndIncludeAceEditorForSourceCode of ScalaJS_Main)")
       //    editor.setValue(sourceCode)
+       *    
+       */
     }
 //    def getBootstrapSourceCode_serverAnswerHandler(serverAnswer: Either[String, ServerError]) = {
 //      serverAnswer match {
@@ -696,6 +701,7 @@ object ScalaJS_Main {
 //    dom.document.getElementById("scalajsScriptInclusionPoint").appendChild(scriptTagToInclude.render)
 //  }
   def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements, destinationDivID: String) = {
+    println("Rendering " + webPageWithIDedWebElements)
     val webPageDiv = <.div(
       ^.id := "webPage",
       convertWebElementWithIDToReactElement(webPageWithIDedWebElements.main)

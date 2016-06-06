@@ -26,13 +26,12 @@ import leon.web.websitebuilder.logging.serverReporter._
 class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
-  var cstate: Option[CompilationState] = None
-  
   def receive = {
     case s: GetBootstrapSourceCode => event(processGetBootstrapSourceCode(s))
     //case s: SubmitSourceCode => processSubmitSourceCode(s)*
     case OnUpdateCode(c) => 
       logInfo("WebBuilder received code, processing...")
+      //println(c.program)
       ProgramEvaluator.functionToEvaluate = c.program.definedFunctions.find{ fd =>
         fd.returnType match {
           case CaseClassType(ccd, targs) => ccd.id.name == "WebPage"
@@ -41,10 +40,13 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
       }
       
       event(processNewCode(c, true))
-    case s: SubmitStringModification => cstate match {
-      case Some(cstate) => event(processStringModificationSubmission(cstate, s))
-      case None => clientLog("Error: Could not process string modification because no program available")
-    }
+    case OnClientEvent(cstate, s) =>
+      s match {
+        case s: SubmitStringModification => 
+          println("Will process string modification" + s)
+          event(processStringModificationSubmission(cstate, s))
+        case _ => notifyError("Unknown event for WebBuilderWorker : " + s)
+      }
 
     case DoCancel =>
       sender ! Cancelled(this)
@@ -58,13 +60,12 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     GetBootstrapSourceCode_answer(src)
   }
 
-  def processNewCode(cstate: CompilationState, onUserRequest: Boolean): SubmitSourceCodeResult = {
-    this.cstate = Some(cstate)
+  def processNewCode(cstate: CompilationState, onUserRequest: Boolean, forceFunDef: Option[FunDef] = None): SubmitSourceCodeResult = {
     val requestId = cstate.requestId.getOrElse(0)
     val sourceCode = cstate.code.getOrElse("")
     val serverReporter = new ServerReporter
     val program = cstate.program
-    ProgramEvaluator.evaluateAndConvertResult(program, sourceCode, serverReporter) match {
+    ProgramEvaluator.evaluateAndConvertResult(program, sourceCode, forceFunDef, serverReporter) match {
       case (Some((webPageWithIDedWebElement, sourceMapProducer, ctx)), evaluationLog) =>
         if (onUserRequest) {
           Memory.setSourceMap(requestId, sourceMapProducer)(ctx)
