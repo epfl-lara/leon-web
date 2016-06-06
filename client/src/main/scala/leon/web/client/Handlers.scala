@@ -10,7 +10,7 @@ import jquery.{ jQuery => $, JQuery, JQueryEventObject }
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
-import leon.web.shared.equal
+import leon.web.shared._
 import scala.collection.mutable.ListBuffer
 
 
@@ -23,8 +23,6 @@ object Handlers extends js.Object {
   def alert = g.alert
   import leon.web.shared.messages._
 
-  import Implicits._
-  
   import equal.EqOps
   
   val callbacks = ListBuffer[PartialFunction[U forSome {type U <: MessageFromServer }, Unit]]()
@@ -148,7 +146,10 @@ object Handlers extends js.Object {
       case data: HCompilation => compilation(data)
       case data: HRepairResult => repair_result(data)
       case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
-      
+      case SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPage), log), requestId) =>
+        if(requestId == Backend.main.requestId) {
+          websitebuilder.ScalaJS_Main.renderWebPage(webPage, "htmlDisplayerDiv")
+        }
       case RegisteredHandlers() => // OK
       case _ =>
         console.log("Unknown event type: " + data)
