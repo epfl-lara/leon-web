@@ -43,7 +43,7 @@ object Main {
       "Your name: ", <.input(
         ^.tpe := "text",
         ^.id := "name",
-        ^.placeHolder := "Your name here"),
+        ^.placeholder := "Your name here"),
       <.p("Please make your choice between the following meals:"),
       <.div(
         "1.",

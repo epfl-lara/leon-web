@@ -247,6 +247,7 @@ trait LeonWeb extends EqSyntax {
     val execution    = Feature(active= true, displayName= "Execution", module= Execution)
     val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Repair)
     val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
+    val webbuilding   = Feature(active= true, displayName="Web building<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= WebsiteBuilder)
   }
 
   def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {

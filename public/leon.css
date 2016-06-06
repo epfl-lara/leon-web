@@ -63,6 +63,10 @@ input[type="checkbox"] + label {
     background: #79009D;
 }
 
+.webdesigninitial {
+	width: 0px;
+}
+
 #overview .progress, #invariant .progress {
   height: 28px;
   margin: 0px;
@@ -88,7 +92,7 @@ div#title {
   src: local('Kaushan Script'), local('KaushanScript-Regular'), url(fonts/KaushanScript-Regular.woff) format('woff');
 }
 
-#leon h1 {
+#leon #panelscolumn h1, #title h1 {
     font-family: 'Kaushan Script', cursive;
     padding: 0px;
     margin: 3px 0px 0px 8px;

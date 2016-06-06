@@ -35,6 +35,8 @@
           </form>
           <ul id="annotations"></ul>
         </div>
+        <div id="htmlDisplayerDiv" class="col-lg-6 col-sm-6 col-xs-12" style="display: none">
+        </div>
         <div id="panelscolumn" class="col-lg-3 col-sm-3 col-xs-12">
           <div class="panels">
             @for(msg <- request.flash.get("error")) {

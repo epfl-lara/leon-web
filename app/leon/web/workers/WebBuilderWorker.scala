@@ -6,6 +6,7 @@ import models._
 import leon.utils._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions._
+import leon.purescala.Types._
 import websitebuilder._
 import memory._
 import leon.web.shared.messages.GetBootstrapSourceCode
@@ -31,6 +32,14 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     case s: GetBootstrapSourceCode => event(processGetBootstrapSourceCode(s))
     //case s: SubmitSourceCode => processSubmitSourceCode(s)*
     case OnUpdateCode(c) => 
+      logInfo("WebBuilder received code, processing...")
+      ProgramEvaluator.functionToEvaluate = c.program.definedFunctions.find{ fd =>
+        fd.returnType match {
+          case CaseClassType(ccd, targs) => ccd.id.name == "WebPage"
+          case _ => false
+        }
+      }
+      
       event(processNewCode(c, true))
     case s: SubmitStringModification => cstate match {
       case Some(cstate) => event(processStringModificationSubmission(cstate, s))

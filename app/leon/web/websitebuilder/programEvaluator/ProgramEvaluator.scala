@@ -7,7 +7,7 @@ import javassist.bytecode.stackmap.TypeTag
 import leon.DefaultReporter
 import leon.collection.Cons
 import leon.evaluators.{AbstractEvaluator, AbstractOnlyEvaluator, EvaluationResults}
-import leon.purescala.Definitions.{CaseClassDef, Program}
+import leon.purescala.Definitions.{CaseClassDef, Program, FunDef}
 import leon.purescala.Expressions._
 import leon.purescala.Types.CaseClassType
 import leon.webDSL.webDescription._
@@ -28,6 +28,7 @@ import leon.LeonContext
   */
 object ProgramEvaluator {
   val fullNameOfTheFunctionToEvaluate = "Main.main"
+  var functionToEvaluate: Option[FunDef] = None
   val fullNameOfTheWebPageClass = "webDSL.webDescription.WebPage"
 
   case class ExceptionDuringConversion(msg:String) extends Exception
@@ -104,7 +105,7 @@ object ProgramEvaluator {
   private def evaluateProgramAbstract(program: Program, serverReporter: ServerReporter)(implicit ctx: LeonContext): Option[Expr] = {
     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
     val abstractEvaluator = new AbstractOnlyEvaluator(ctx, program)
-    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate) match {
+    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate) match {
       case Some(funDef) => funDef
       case None => {
         sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")
@@ -141,7 +142,7 @@ object ProgramEvaluator {
     val ctx = leon.Main.processOptions(Seq()).copy(reporter = leonReporter)
     ctx.interruptManager.registerSignalHandler()
     val defaultEvaluator = new DefaultEvaluator(ctx, program)
-    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate) match {
+    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate) match {
       case Some(funDef) => funDef
       case None => {
         sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")

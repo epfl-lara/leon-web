@@ -3,6 +3,7 @@ import leon.webDSL.webDescription._
 import leon.webDSL.webBuilding._
 import implicits._
 import scala.language.dynamics
+import leon.lang.Map
 
 object Reflex4YouTranslations {
   val translations = Map(
@@ -27,6 +28,6 @@ object Reflex4YouTranslations {
         <.div(
             <.h1(t.welcome_to + t.websiteurl),
             <.p(t.welcome_to + t.websiteurl + t.a_cool_website + " " + t.Please + t.writeyourname + t.ibelow ),
-            <.input(^.tpe := "text", ^.placeHolder := t.writeyourname + t.ihere)))
+            <.input(^.tpe := "text", ^.placeholder := t.writeyourname + t.ihere)))
   }
 }
