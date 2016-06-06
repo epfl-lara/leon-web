@@ -620,7 +620,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         notifyAnnotations(annotations)
       }
       else {
-        val cstate = lastCompilationState
+        val cstate = lastCompilationState.copy(requestId = Some(requestId))
+        self ! DispatchTo(WebsiteBuilder, OnUpdateCode(cstate))
         event(HCompilation(cstate.compResult))
       }
 

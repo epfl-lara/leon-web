@@ -149,6 +149,8 @@ object Handlers extends js.Object {
       case SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPage), log), requestId) =>
         if(requestId == Backend.main.requestId) {
           websitebuilder.ScalaJS_Main.renderWebPage(webPage, "htmlDisplayerDiv")
+        } else {
+          println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
         }
       case RegisteredHandlers() => // OK
       case _ =>

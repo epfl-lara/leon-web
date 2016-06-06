@@ -30,7 +30,7 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     case s: GetBootstrapSourceCode => event(processGetBootstrapSourceCode(s))
     //case s: SubmitSourceCode => processSubmitSourceCode(s)*
     case OnUpdateCode(c) => 
-      logInfo("WebBuilder received code, processing...")
+      logInfo("WebBuilder received code requestId = "+c.requestId+", processing...")
       //println(c.program)
       ProgramEvaluator.functionToEvaluate = c.program.definedFunctions.find{ fd =>
         fd.returnType match {
