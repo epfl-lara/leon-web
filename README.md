@@ -41,7 +41,17 @@ Later, when pulling changes, use the command `git submodule update --recursive`.
     # GitHub application credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
     auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"```
-    
+	```
+* To enable github integration when you will launch your local leon server, do the following:
+   * Go to [github.com](https://github.com)
+   * Click on your picture > Settings
+   * Navigate to "OAuth applications"
+   * Open the "Developer applications" tab
+   * Click on "Register a new application"
+   * Give a name, for example "LeonWebLocal"
+   * Put http://localhost:9000 in Homepage URL and Authorization callback URL
+   * Validate.
+
 #### Launch your local leon server
 
 Open a console in your leon installation folder run `activator run`.
