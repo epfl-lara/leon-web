@@ -146,11 +146,15 @@ object Handlers extends js.Object {
       case data: HCompilation => compilation(data)
       case data: HRepairResult => repair_result(data)
       case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
-      case SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPage), log), requestId) =>
-        if(requestId == Backend.main.requestId) {
-          websitebuilder.ScalaJS_Main.renderWebPage(webPage, "htmlDisplayerDiv")
-        } else {
-          println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
+      case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), requestId) =>
+        optWebpage match {
+          case Some(webPage) =>
+            if(requestId == Backend.main.requestId) {
+              websitebuilder.ScalaJS_Main.renderWebPage(webPage, "htmlDisplayerDiv")
+            } else {
+              println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
+            }
+          case None =>
         }
       case RegisteredHandlers() => // OK
       case _ =>

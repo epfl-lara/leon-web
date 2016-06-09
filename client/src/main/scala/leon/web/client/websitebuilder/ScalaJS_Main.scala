@@ -16,6 +16,7 @@ import japgolly.scalajs.react.ReactNode
 import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.webDSL.webDescription._
 import leon.web.shared._
+import leon.collection.{List => LeonList}
 import scala.scalajs.js.timers.SetTimeoutHandle
 import scalacss.ScalaCssReact._
 import scalacss.mutable.StyleSheetRegistry
@@ -696,17 +697,34 @@ object ScalaJS_Main {
       }
     }
   }
+  
+  def renderCss(s: StyleSheet): String = {
+    def renderStyle(s: WebStyle): String = {
+      s.attributeName + ": " + s.attributeValue
+    }
+    def renderRule(r: StyleRule): String = {
+      r.target.split(",").map("#htmlDisplayerDiv " + _).mkString(",") +
+        " {\n  " + LeonList.mkString(r.rules, ";\n  ", renderStyle) + "}"
+    }
+    LeonList.mkString(s.elems, "\n\n", renderRule)
+  }
 
 //  def includeScriptInMainTemplate(scriptTagToInclude: scalatags.JsDom.TypedTag[org.scalajs.dom.html.Script]) = {
 //    dom.document.getElementById("scalajsScriptInclusionPoint").appendChild(scriptTagToInclude.render)
 //  }
   def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements, destinationDivID: String) = {
     println("Rendering " + webPageWithIDedWebElements)
+    val css = renderCss(webPageWithIDedWebElements.css)
+    
     val webPageDiv = <.div(
       ^.id := "webPage",
       convertWebElementWithIDToReactElement(webPageWithIDedWebElements.main)
     )
     ReactDOM.render(webPageDiv, document.getElementById(destinationDivID))
+    if($("#webpagecss").length == 0) {
+      $("head").append($("<style>").attr("id", "webpagecss"))
+    }
+    $("#webpagecss").text(css)
   }
 
   def leonListToList[T](leonList: leon.collection.List[T]): List[T] = {
@@ -768,7 +786,11 @@ object ScalaJS_Main {
               reservedAttributeForImplicitWebProgrammingID := webElID,
               leonListToList(sons).map(convertWebElementWithIDToReactElement),
               ^.title := "webElID= "+webElID,
-              leonListToList(attributes).map{ x => x.attributeName.reactAttr := x.attributeValue },
+              leonListToList(attributes).map{ x =>
+                if(x.attributeName == "class") {
+                  ^.className := x.attributeValue 
+                } else  x.attributeName.reactAttr := x.attributeValue
+              },
               leonListToList(styles).map{ x => x.attributeName.reactStyle := x.attributeValue }
             )
           case WebElementWithID(_,_) =>

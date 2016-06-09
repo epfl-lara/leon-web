@@ -48,6 +48,8 @@ object ProgramEvaluator {
     val webStyleCaseClassDef = getCaseClassDefValOrFail(programExtractor.webStyle_webElementCaseClassDef(sReporter))
     val consCaseClassDef = getCaseClassDefValOrFail(programExtractor.leonCons_caseClassDef(sReporter))
     val nilCaseClassDef = getCaseClassDefValOrFail(programExtractor.leonNil_caseClassDef(sReporter))
+    val StyleSheetCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_StyleSheetCaseClassDef(sReporter))
+    val StyleRuleCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_StyleRuleCaseClassDef(sReporter))
     
     def exprOfLeonListOfExprToLeonListOfExpr(leonListExpr: Expr) : leon.collection.List[Expr] = {
       val actualLeonListExpr = TupleSelectAndCaseClassSelectRemover.removeTopLevelTupleSelectsAndCaseClassSelects(leonListExpr)
@@ -220,9 +222,7 @@ object ProgramEvaluator {
 
       def buildSourceMapAndGiveIDsToWebElements(webPage: WebPage, sourceCode: String, program: Program, serverReporter: ServerReporter): (WebPageWithIDedWebElements, Expr => SourceMap) = {
         val sReporter = serverReporter.startFunction("buildSourceMapAndGiveIDsToWebElements")
-        val bootstrapWebElement: WebElement = webPage match {
-          case WebPage(elem) => elem
-        }
+        val WebPage(bootstrapWebElement: WebElement, bootstrapcss: StyleSheet) = webPage
         val cb = new ConversionBuilder(new ProgramExtractor(program), serverReporter)
         import cb._
         
@@ -339,7 +339,7 @@ object ProgramEvaluator {
           }
         }
 
-        val webPageWithIDedElements = WebPageWithIDedWebElements(giveIDToWebElement(0, bootstrapWebElement, sReporter)._1)
+        val webPageWithIDedElements = WebPageWithIDedWebElements(giveIDToWebElement(0, bootstrapWebElement, sReporter)._1, bootstrapcss)
         val computeSourceMap = (resultEvaluationTreeExpr: Expr) => {
           val sourceMap = new SourceMap(sourceCode, program)
           val bootstrapExprOfUnevaluatedWebElement : Expr = resultEvaluationTreeExpr match {

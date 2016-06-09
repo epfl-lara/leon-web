@@ -41,4 +41,10 @@ class ProgramExtractor(val program: Program) {
   def leonNil_caseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
     lookupCaseClass("leon.collection.Nil", serverReporter)
   }
+  def webPage_StyleSheetCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
+    lookupCaseClass("leon.webDSL.webDescription.StyleSheet", serverReporter)
+  }
+  def webPage_StyleRuleCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
+    lookupCaseClass("leon.webDSL.webDescription.StyleRule", serverReporter)
+  }
 }
