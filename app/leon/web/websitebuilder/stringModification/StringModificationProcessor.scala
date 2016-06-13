@@ -227,7 +227,7 @@ object StringModificationProcessor {
         .foldLeft((sourceCode, program, ProgramEvaluator.functionToEvaluate))(
           {case ((sCode, prog, optFunDef), (identifier, string)) =>
             val replacement = StringLiteral(string)
-            val (newProg, _, newFuns, _) = DefOps.replaceDefs(prog)(fd => {
+            val transformer = DefOps.funDefReplacer(fd => {
              if(ExprOps.exists{ e => e.getPos == identifier.getPos }(fd.fullBody)) {
                val newFd = fd.duplicate()
                newFd.fullBody = ExprOps.postMap{
@@ -237,10 +237,11 @@ object StringModificationProcessor {
                  }(fd.fullBody)
                Some(newFd)
              } else None
-           }, cd => None)
+           })
+            val newProg = DefOps.transformProgram(transformer, prog)
+            val optNewFun = optFunDef.map(transformer.transform)
           (fileInterface.substitute(sCode, identifier, replacement),
-           newProg,
-           optFunDef.flatMap(newFuns.get)
+           newProg, optNewFun
           )}
         )
     }

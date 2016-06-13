@@ -309,6 +309,7 @@ object Handlers extends js.Object {
   }
   
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
+    alternative.display = "(_edit_me\\d+_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val result: JQuery = $("<pre>")
       .addClass("disambiguationAlternative")
       .addClass(if(current) "current" else "")
@@ -327,7 +328,6 @@ object Handlers extends js.Object {
     }).dblclick(() => {
       
     })
-    alternative.display = "(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
     val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").addClass(if(current) "current" else "").text(alternative.display).hide()
     edittext.html(edittext.html().replaceAll("_edit_me_", """<span class="placeholder" style="font-family:FontAwesome">&#xf059;</span>"""))    
@@ -387,7 +387,7 @@ object Handlers extends js.Object {
         editbox.click()
         container.focus()
       }
-    } else if(alternative.display.indexOf("_edit_me_") > -1) { // Must edit when clicking.
+    } else if("_edit_me_".r.findFirstIn(alternative.display).nonEmpty) { // Must edit when clicking.
       result.hide()
       js.timers.setTimeout(1){
         editbox.click()
