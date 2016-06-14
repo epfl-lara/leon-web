@@ -251,7 +251,13 @@ case class GitOperationDone(
   success: Boolean,
   data: GitOperationResult = GitOperationResultNone
 ) extends MessageFromServer with Event
-  
+
+case class GetBootstrapSourceCode_answer(bootstrapSourceCode: Option[String]) extends MessageFromServer
+case class SubmitSourceCodeResult(result: SourceCodeSubmissionResult, requestId: Int) extends MessageFromServer
+case class SubmitStringModificationResult(
+    stringModificationSubmissionResult: StringModificationSubmissionResult,
+    sourceId: Int, stringModSubResID: Int) extends MessageFromServer
+
 object HandlerMessages {
   type VCS = Array[VC]
   type Html = String
@@ -261,6 +267,7 @@ object HandlerMessages {
 object MessageFromServer {
   import boopickle.Default._
   import boopickle.PicklerHelper
+  import Picklers._
   
   implicit val goPickler = generatePickler[GitOperation]
   

@@ -13,6 +13,7 @@ case class CompilationState (
   savedFile: Option[String] = None,
   compResult: String,
   optProgram: Option[Program],
+  requestId: Option[Int],
   // Imperative information
   wasLoop: Set[FunDef]) {
 
@@ -70,6 +71,7 @@ object CompilationState {
       code       = Some(code),
       compResult = "failure",
       optProgram = None,
+      requestId  = None,
       wasLoop    = Set(),
       project    = project,
       savedFile  = savedFile
@@ -80,6 +82,7 @@ object CompilationState {
       code       = None,
       compResult = "unknown",
       optProgram = None,
+      requestId  = None,
       wasLoop    = Set(),
       project    = None,
       savedFile  = None

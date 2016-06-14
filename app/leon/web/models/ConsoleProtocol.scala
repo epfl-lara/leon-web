@@ -19,7 +19,7 @@ object ConsoleProtocol {
 
   case class ProcessClientEvent(event: Array[Byte])
 
-  case class UpdateCode(code: String, user: Option[User], project: Option[Project])
+  case class UpdateCode(code: String, user: Option[User], project: Option[Project], requestId: Int)
 
   case class Cancelled(wa: WorkerActor)
   case object DoCancel

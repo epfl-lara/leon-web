@@ -28,7 +28,7 @@ class CompilingWSReporter(channel: Concurrent.Channel[Array[Byte]]) extends WSRe
     import boopickle.Default._
     import shared.messages.{MessageFromServer, HCompilationProgress}
     import shared.messages.MessageFromServer._
-    channel.push(Pickle.intoBytes[MessageFromServer](HCompilationProgress(current, total)).array())
+    channel.push(Pickle.intoBytes[MessageFromServer](HCompilationProgress(total, current)).array())
   }
 
   override def account(msg: Message): Message = {
