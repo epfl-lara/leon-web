@@ -60,15 +60,15 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
   }
   
   def isGround(s: String): Boolean = {
-    s == s.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
+    s == leon.synthesis.rules.StringRender.EDIT_ME_REGEXP.replaceAllIn(s, "")
   }
   
   /** Returns the expression if it is different from the previous ones, else None */
   def filterRedundantExprs(prev: Seq[Expr], current: Expr): Option[Expr] = {
     val currentStr = current.toString
-    val currentStrSimp = currentStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
+    val currentStrSimp = leon.synthesis.rules.StringRender.EDIT_ME_REGEXP.replaceAllIn(currentStr, "")
     if(prev.exists { prev => val prevStr = prev.toString
-        val prevStrSimp = prevStr.replaceAll(leon.synthesis.rules.StringRender.EDIT_ME, "")
+        val prevStrSimp = leon.synthesis.rules.StringRender.EDIT_ME_REGEXP.replaceAllIn(prevStr, "")
         (!isGround(prevStr) && prevStrSimp == currentStrSimp) || ExprOps.canBeHomomorphic(prev, current).nonEmpty
       })
       None
@@ -108,15 +108,32 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       val ci = synth.ci
       val SourceInfo(fd, src, pb) = ci
       
+      
+      
+      
       val qb = new QuestionBuilder(fd.paramIds.filter(x => !x.getType.isInstanceOf[FunctionType]), ssol, filterRedundantExprs, Some(fd))(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
       qb.setKeepEmptyAlternativeQuestions { case s => !isGround(s.asString) }
       qb.setValueEnumerator(NonEmptyValueGrammarfirst)
+      val firstSol = ssol.head
+      val exprsToTestFirst = firstSol.ifOnFunDef(fd){
+        implicit val newProgram = DefOps.addFunDefs(cstate.program, firstSol.defs, cstate.program.definedFunctions.head)
+
+        try {
+          Some(new InputPatternCoverage(fd.typed).result())
+        } catch {
+          case e: InputPatternCoverageException => println("Could not cover solution\n" + e)
+            None
+        }
+      }.map(_.distinct.sortBy { e => - e.map(ExprOps.formulaSize _).sum })
+      println("Expressions to test first: ") 
+      exprsToTestFirst.map(_.map(println).toList)
+      qb.setExpressionsToTestFirst(exprsToTestFirst)
       val questions = qb.result()
       val solutionNonDeterministic = ssol.headOption.exists(sol =>
         (sol.term #:: sol.defs.toStream.map(_.fullBody)).exists(expr =>
           ExprOps.exists{
-            case StringLiteral(s) if s == leon.synthesis.rules.StringRender.EDIT_ME => true
+            case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
             case _ => false }(expr)))
       if(questions.nonEmpty) {
         logInfo("Sending back results")

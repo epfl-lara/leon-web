@@ -45,7 +45,11 @@ class App(private val api: LeonAPI) {
       LocalStorage("appState")
         .map((s: String) =>
           try {
-            AppState.fromJSON(s)
+            val res = AppState.fromJSON(s)
+            if(!res.treatAsProject) {
+              api.setTreatAsProject(res.treatAsProject)
+            }
+            res
           } catch {
             case e: Throwable =>
               println("Impossible to recover app state. Recreating a new one")

@@ -10,7 +10,7 @@ import jquery.{ jQuery => $, JQuery, JQueryEventObject }
 import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
 import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
-import leon.web.shared.equal
+import leon.web.shared._
 import scala.collection.mutable.ListBuffer
 
 
@@ -23,8 +23,6 @@ object Handlers extends js.Object {
   def alert = g.alert
   import leon.web.shared.messages._
 
-  import Implicits._
-  
   import equal.EqOps
   
   val callbacks = ListBuffer[PartialFunction[U forSome {type U <: MessageFromServer }, Unit]]()
@@ -148,7 +146,16 @@ object Handlers extends js.Object {
       case data: HCompilation => compilation(data)
       case data: HRepairResult => repair_result(data)
       case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
-      
+      case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), requestId) =>
+        optWebpage match {
+          case Some(webPage) =>
+            if(requestId == Backend.main.requestId) {
+              websitebuilder.ScalaJS_Main.renderWebPage(webPage, "htmlDisplayerDiv")
+            } else {
+              println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
+            }
+          case None =>
+        }
       case RegisteredHandlers() => // OK
       case _ =>
         console.log("Unknown event type: " + data)
@@ -302,6 +309,7 @@ object Handlers extends js.Object {
   }
   
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
+    alternative.display = "(_edit_me\\d+_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val result: JQuery = $("<pre>")
       .addClass("disambiguationAlternative")
       .addClass(if(current) "current" else "")
@@ -320,7 +328,6 @@ object Handlers extends js.Object {
     }).dblclick(() => {
       
     })
-    alternative.display = "(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
     val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").addClass(if(current) "current" else "").text(alternative.display).hide()
     edittext.html(edittext.html().replaceAll("_edit_me_", """<span class="placeholder" style="font-family:FontAwesome">&#xf059;</span>"""))    
@@ -380,7 +387,7 @@ object Handlers extends js.Object {
         editbox.click()
         container.focus()
       }
-    } else if(alternative.display.indexOf("_edit_me_") > -1) { // Must edit when clicking.
+    } else if("_edit_me_".r.findFirstIn(alternative.display).nonEmpty) { // Must edit when clicking.
       result.hide()
       js.timers.setTimeout(1){
         editbox.click()

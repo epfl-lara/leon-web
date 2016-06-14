@@ -403,7 +403,8 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                   oldFd,
-                                  resFd)(ctx)
+                                  resFd,
+                                  Some(cstate.program))(ctx)
 
     (solCode, allCode)
   }
