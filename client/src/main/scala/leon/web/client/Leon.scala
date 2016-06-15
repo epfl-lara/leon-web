@@ -423,7 +423,14 @@ trait LeonWeb extends EqSyntax {
   def fromStorage[A](key: String): Option[A] =
     LocalStorage(key)
       .flatMap(x => x.asInstanceOf[js.UndefOr[String]].toOption)
-      .map(JSON.parse(_).asInstanceOf[A])
+      .map(x => 
+        try {
+          JSON.parse(x).asInstanceOf[A]
+        } catch {
+          case e: Throwable => // May be a string.
+            JSON.parse("\""+x+"\"").asInstanceOf[A]
+        }
+      )
 
   case class Persistent[T](name: String, defaultValue: T) {
     def get() = fromStorage[T](name)
