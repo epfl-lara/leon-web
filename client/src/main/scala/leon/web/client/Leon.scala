@@ -44,6 +44,18 @@ class Feature(_a: Boolean, _n: String, _m: Either[shared.Module, String]) extend
   val name: String = _m.fold((m: shared.Module) => m.name, (i : String) => i )
   val displayName: String = _n
   val module: Option[shared.Module] = _m.fold(a => Some(a), _ => None)
+  
+  def toggle(): Boolean = {
+    active = !active
+    Main.regenerateFeaturesPanel()
+    module match {
+      case Some(module) =>
+        Backend.main.setFeatureActive(module, active)
+      case None =>
+    }
+    LocalStorage.update("leonFeatures", JSON.stringify(Main.Features.toJsObject));
+    active
+  }
 }
 
 object FeaturesMappings {
@@ -247,7 +259,7 @@ trait LeonWeb extends EqSyntax {
     val execution    = Feature(active= true, displayName= "Execution", module= Execution)
     val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Repair)
     val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
-    val webbuilding   = Feature(active= true, displayName="Web building<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= WebsiteBuilder)
+    val webbuilding  = Feature(active= false, displayName="Web building<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= WebsiteBuilder)
   }
 
   def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {
@@ -359,24 +371,16 @@ trait LeonWeb extends EqSyntax {
 
   }): js.ThisFunction);
   
-  val button_web_state = Persistent("leonPanels-button-web", true)
-  
   def toggleWeb(activate: Boolean) = {
-    val button  = $("#button-web")
     if(activate) {
-      button.removeClass("off")
       WebMode.activate()
     } else {
-      button.addClass("off")
       WebMode.deactivate()
     }
-    button_web_state := activate
   }
-  toggleWeb(button_web_state)
   
   $("#button-web").click(((self: Element, event: JQueryEventObject) => {
-    val makeVisible = $("#button-web").hasClass("off")
-    toggleWeb(makeVisible)
+    toggleWeb(Features.webbuilding.toggle())
   }): js.ThisFunction)
   
   // Out of date:
@@ -572,31 +576,30 @@ trait LeonWeb extends EqSyntax {
       }
     }
   }
+  toggleWeb(Features.webbuilding.active)
 
-  val fts = $("#params-panel ul")
-  for ((f, feature) <- Features.stringToFeature) {
-    fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
-  }
-  
-  $(".feature").click(((self: Element) => {
-    val f = $(self).attr("ref").getOrElse("")
-    val feature = Features.stringToFeature(f)
-    feature.active = !feature.active
-
-    feature.module match {
-      case Some(module) =>
-        Backend.main.setFeatureActive(module, feature.active)
-      case None =>
+  def regenerateFeaturesPanel() = {
+    val fts = $("#params-panel ul").empty()
+    for ((f, feature) <- Features.stringToFeature) {
+      fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
     }
-
-    LocalStorage.update("leonFeatures", JSON.stringify(Features.toJsObject));
-
-    recompile()
-
-    drawOverView()
-    drawSynthesisOverview()
-    setPresentationMode()
-  }): js.ThisFunction)
+    
+    $(".feature").click(((self: Element) => {
+      val f = $(self).attr("ref").getOrElse("")
+      val feature = Features.stringToFeature(f)
+      val active = feature.toggle()
+      if(feature.name == Features.webbuilding.name) {
+        toggleWeb(active)
+      }
+  
+      recompile()
+  
+      drawOverView()
+      drawSynthesisOverview()
+      setPresentationMode()
+    }): js.ThisFunction)
+  }
+  regenerateFeaturesPanel()
 
   setPresentationMode()
 
