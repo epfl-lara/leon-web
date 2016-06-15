@@ -428,7 +428,7 @@ trait LeonWeb extends EqSyntax {
           JSON.parse(x).asInstanceOf[A]
         } catch {
           case e: Throwable => // May be a string.
-            JSON.parse("\""+x+"\"").asInstanceOf[A]
+            x.asInstanceOf[A]
         }
       )
 
