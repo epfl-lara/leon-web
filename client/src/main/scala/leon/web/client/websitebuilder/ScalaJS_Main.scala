@@ -580,7 +580,10 @@ object ScalaJS_Main {
       }
       positions.headOption match {
         case Some(p) =>
-          aceEditor.foreach(_.getSession().setScrollTop(p.lineFrom - 1))
+          println("Scrolling to line " + p.lineFrom)
+          aceEditor.foreach{editor =>
+            editor.resize(true);
+            editor.scrollToLine(p.lineFrom - 1, true, true, () => ())}
         case None =>
       }
     }
