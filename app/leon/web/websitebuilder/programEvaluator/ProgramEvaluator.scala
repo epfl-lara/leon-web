@@ -342,9 +342,9 @@ object ProgramEvaluator {
         val webPageWithIDedElements = WebPageWithIDedWebElements(giveIDToWebElement(0, bootstrapWebElement, sReporter)._1, bootstrapcss)
         val computeSourceMap = (resultEvaluationTreeExpr: Expr) => {
           val sourceMap = new SourceMap(sourceCode, program)
-          val bootstrapExprOfUnevaluatedWebElement : Expr = resultEvaluationTreeExpr match {
-          case CaseClass(CaseClassType(`webPageCaseClassDef`, targs_1), Seq(arg)) =>
-            arg
+          val (bootstrapExprOfUnevaluatedWebElement, bootstrapExprOfUnevaluatedStyle)= resultEvaluationTreeExpr match {
+          case CaseClass(CaseClassType(`webPageCaseClassDef`, targs_1), Seq(argwebpage, argwebstyle)) =>
+            (argwebpage, argwebstyle)
           }
           giveIDToWebElementsAndFillSourceMap(0, bootstrapWebElement, bootstrapExprOfUnevaluatedWebElement, sourceMap, sReporter)
           sourceMap
