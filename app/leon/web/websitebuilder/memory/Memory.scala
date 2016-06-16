@@ -50,7 +50,10 @@ object Memory {
         try {
           Await.result(_sourceMap._2, 100.seconds)
         } catch {
-          case e: Throwable => None
+          case e: Throwable => 
+            println(e.getMessage)
+            println(e.getStackTrace.mkString("\n"))
+            None
         }
       }
     }
