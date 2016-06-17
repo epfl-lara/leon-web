@@ -43,7 +43,7 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     case OnClientEvent(cstate, s) =>
       s match {
         case s: SubmitStringModification => 
-          println("Will process string modification" + s)
+          println("Will process string modification " + s)
           event(processStringModificationSubmission(cstate, s))
         case _ => notifyError("Unknown event for WebBuilderWorker : " + s)
       }

@@ -30,13 +30,18 @@ object Memory {
   }
   /** Returns the source map if the ids corresponds.*/
   def getSourceMap(id: Int): Option[SourceMap] = {
+//    TODO: turn these println into serverReporter.report
+    println("getSourceMap called for id "+id)
     if (_sourceMap == null) {
       throw new RuntimeException("Memory was asked for the sourceMap, while the sourceMap var contained a null")
     }
     else {
       if(id != _sourceMap._1) {
+        println("Variable _sourceMap does not contain a sourceMap for id "+id+" (it contains a sourceMap for id "+_sourceMap._1+")")
+        println("Looking in the _autoSourceMap variable")
         if(_autoSourceMap != null) {
           if(id != _autoSourceMap._1) {
+            println("Variable _autoSourceMap does not contain a sourceMap for id "+id+" (it contains a sourceMap for id "+_autoSourceMap._1+")")
             None
           } else {
             try {
@@ -47,6 +52,7 @@ object Memory {
           }
         } else  None
       } else {
+        println("Variable _sourceMap does contain a sourceMap for id "+id+". Awaiting the result of "+_sourceMap._2)
         try {
           Await.result(_sourceMap._2, 100.seconds)
         } catch {
