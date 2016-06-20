@@ -84,7 +84,7 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     }
   }
 
-  def processStringModificationSubmission(cstate: CompilationState, submission: SubmitStringModification): SubmitStringModificationResult = {
+  def processStringModificationSubmission(cstate: CompilationState, submission: SubmitStringModification): SubmitStringModification_answer = {
     val sReporter = new ServerReporter
     val stringModification = submission.stringModification
     val stringModID = submission.stringModID
@@ -110,6 +110,6 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
           |${weExprFromSourceMap}
            """.stripMargin)
 
-    SubmitStringModificationResult(StringModificationProcessor.process(this, cstate, stringModification, sourceCodeId, sReporter), sourceCodeId, stringModID)
+    SubmitStringModification_answer(StringModificationProcessor.process(this, cstate, stringModification, sourceCodeId, sReporter), sourceCodeId, stringModID)
   }
 }

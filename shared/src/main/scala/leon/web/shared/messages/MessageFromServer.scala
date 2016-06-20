@@ -3,6 +3,7 @@ package shared
 package messages
 import github._
 import git._
+import shared.StringModificationSubmissionResult
 
 sealed trait MessageFromServer
 
@@ -254,9 +255,11 @@ case class GitOperationDone(
 
 case class GetBootstrapSourceCode_answer(bootstrapSourceCode: Option[String]) extends MessageFromServer
 case class SubmitSourceCodeResult(result: SourceCodeSubmissionResult, requestId: Int) extends MessageFromServer
-case class SubmitStringModificationResult(
-    stringModificationSubmissionResult: StringModificationSubmissionResult,
-    sourceId: Int, stringModSubResID: Int) extends MessageFromServer
+case class SubmitStringModification_answer(
+                                            stringModificationSubmissionResult: StringModificationSubmissionResult,
+                                            requestSourceId: Int,
+                                            requestStringModSubResID: Int
+                                          ) extends MessageFromServer
 
 object HandlerMessages {
   type VCS = Array[VC]

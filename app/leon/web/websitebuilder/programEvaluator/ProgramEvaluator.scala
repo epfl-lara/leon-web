@@ -41,15 +41,14 @@ object ProgramEvaluator {
           throw ExceptionDuringConversion(log)
       }
     }
-    val webPageCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_webElementCaseClassDef(sReporter))
-    val textElementCaseClassDef = getCaseClassDefValOrFail(programExtractor.textElement_webElementCaseClassDef(sReporter))
-    val elementCaseClassDef = getCaseClassDefValOrFail(programExtractor.element_webElementCaseClassDef(sReporter))
-    val webPropertyCaseClassDef = getCaseClassDefValOrFail(programExtractor.webAttribute_webElementCaseClassDef(sReporter))
-    val webStyleCaseClassDef = getCaseClassDefValOrFail(programExtractor.webStyle_webElementCaseClassDef(sReporter))
-    val consCaseClassDef = getCaseClassDefValOrFail(programExtractor.leonCons_caseClassDef(sReporter))
-    val nilCaseClassDef = getCaseClassDefValOrFail(programExtractor.leonNil_caseClassDef(sReporter))
-    val StyleSheetCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_StyleSheetCaseClassDef(sReporter))
-    val StyleRuleCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_StyleRuleCaseClassDef(sReporter))
+
+   val wrappedUpCaseClassDefMap = programExtractor.getWrappedUpCaseClassDefMap(sReporter)
+   val webPageCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("WebPage"))
+   val textElementCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("TextElement"))
+   val elementCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("Element"))
+   val webStyleCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("WebStyle"))
+   val consCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("leonListCons"))
+   val nilCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("leonListNil"))
     
     def exprOfLeonListOfExprToLeonListOfExpr(leonListExpr: Expr) : leon.collection.List[Expr] = {
       val actualLeonListExpr = TupleSelectAndCaseClassSelectRemover.removeTopLevelTupleSelectsAndCaseClassSelects(leonListExpr)
@@ -70,13 +69,13 @@ object ProgramEvaluator {
     val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
       case Some(resultEvaluatedExpr) =>
         convertWebPageExprToClientWebPageAndSourceMap(resultEvaluatedExpr, program, sourceCode, sReporter) match {
-          case Some((webId, sourceMapMaker)) =>
+          case Some((webPageWithIDedWebElements, sourceMapMaker)) =>
             val ctx = defaultLeonContext()
             val resultEvaluationTreeExprLazy = () => {
               val abstractValue = evaluateProgramAbstract(program, forceFunDef, serverReporter)(ctx)
               abstractValue.map(sourceMapMaker)
             }
-            Some((webId, resultEvaluationTreeExprLazy, ctx))
+            Some((webPageWithIDedWebElements, resultEvaluationTreeExprLazy, ctx))
           case None =>
             None
         }
