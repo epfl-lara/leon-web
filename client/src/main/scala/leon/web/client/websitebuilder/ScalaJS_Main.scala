@@ -38,6 +38,7 @@ object ScalaJS_Main {
 //  An attribute that SHOULD NOT be used by the end user, whose purpose is to serve as id for the html elements of the web interface
   val reservedAttributeForImplicitWebProgrammingID = "data-reservedattributeforimplicitwebprogrammingid".reactAttr
   val reservedAttributeForImplicitWebProgrammingID_name = "data-reservedattributeforimplicitwebprogrammingid"
+  val htmlWebPageDisplayerDivID = "htmlDisplayerDiv"
 
   import leon.web.client.Main.Server
   
@@ -158,7 +159,7 @@ object ScalaJS_Main {
           //            webPage.asInstanceOf[WebPageWithIDedWebElements].sons.foldLeft(0)((useless, webElem) => {println(webElem.weid); useless})
           //            dom.document.getElementById("sourceCodeSubmitButton").setAttribute("style", "background-color:none")
           SourceCodeSubmitButton.removeCustomBackground()
-          renderWebPage(webPage, "htmlDisplayerDiv")
+          renderWebPage(webPage, htmlWebPageDisplayerDivID)
         } else {
           println(s"Received answer $requestId while expecting answer $idOfLastSourceCodeModificationSent from the server. Waiting.")
         }
@@ -277,49 +278,6 @@ object ScalaJS_Main {
 //      }
 //    })
 //  }
-  def submitStringModification_serverAnswerHandler(stringModificationSubmissionResultForNetwork: SubmitStringModificationResult) = {
-    println("Server sent something in response to a string modification submission")
-    stringModificationSubmissionResultForNetwork match {
-      case SubmitStringModificationResult(
-      StringModificationSubmissionResult(Some(StringModificationSubmissionConcResult(newSourceCode, positions, newId, webPageWithIDedWebElements)), log),
-      sourceId,
-      stringModID
-      ) => {
-        //            println(
-        //              s"""
-        //                 |Received new source code with stringModificationID of $stringModID: $newSourceCode
-        //                  """.stripMargin)
-        println(
-          s"""
-             |Received new source code with stringModificationID of $stringModID: TEMPORARY DISABLED
-                  """.stripMargin)
-        if (stringModID == idOfLastStringModificationSent && sourceId == idOfLastSourceCodeModificationSent ) {
-          idOfLastSourceCodeModificationSent = newId
-          renderWebPage(webPageWithIDedWebElements, "htmlDisplayerDiv")
-          println("Accepting the stringModificationResult with id: "+stringModID)
-        }
-        else {
-          println("Rejecting outdated stringModificationResult (id= "+stringModID+", while the id of the last StringModification sent is: "+idOfLastStringModificationSent+")")
-        }
-        //            remove the standard onChange callback of the Ace Editor, so that the "submit source code change" button does not turn red
-        //            because of the following call to AceEditor.setEditorValue
-        AceEditor.removeAceEdOnChangeCallback()
-        AceEditor.setEditorValue(newSourceCode)
-        AceEditor.addMarkings(positions)
-
-        AceEditor.activateAceEdOnChangeCallback_standard()
-      }
-      case SubmitStringModificationResult(
-      StringModificationSubmissionResult(None, log),
-      sourceId,
-      stringModID
-      ) => {
-        println("Received \"None\" while expecting \"Some(newSourceCode)\" from the server")
-        println("Received a StringModificationSubmissionResult from the server, but without sourceCode. Here is the log sent by the server:")
-        println("\"" + log + "\"")
-      }
-    }
-  }
 
   def getElementByImplicitWebProgrammingID(impWebProgID: String) : org.scalajs.jquery.JQuery = {
 //    $("["+reservedAttributeForImplicitWebProgrammingID_name+"="+impWebProgID+"]")
@@ -439,25 +397,14 @@ object ScalaJS_Main {
       submitHtmlButton
     )
     import scalacss.ScalaCssReact._
-    val discussionBox = <.div(
-      ^.id := "discussionbox",
-      GlobalStyles.discussionbox,
-      <.div(
-          ^.id := "discussionCommentId",
-          "Weeeeeeeelcome behind the scenes.",
-          GlobalStyles.discussionComment,
-          GlobalStyles.triangleBorderRight
-      ),
-      Clipart.goat()
-    )
-
+    val clarificationBox = ClarificationBox.initialState
     val divContent = <.div(
       ^.height := "100%",
       <.div("<< minimize", ^.id := "minimizeButton"),
       <.h1("Behind the scenes", ^.display.inline, ^.verticalAlign.middle),
       SourceCodeSubmitButton.scalaJSButton,
       htmlMenu,
-      discussionBox,
+      clarificationBox,
       <.div(^.id := "aceeditor")
     )
     ReactDOM.render(divContent, document.getElementById(destinationDivId))
@@ -502,7 +449,7 @@ object ScalaJS_Main {
 //      "Test button"
 //    )
     val htmlDisplayerDiv = <.div(
-      ^.id := "htmlDisplayerDiv"
+      ^.id := htmlWebPageDisplayerDivID
     )
     val divContent = <.div(
 //      testButton,
@@ -771,7 +718,7 @@ object ScalaJS_Main {
 //  def includeScriptInMainTemplate(scriptTagToInclude: scalatags.JsDom.TypedTag[org.scalajs.dom.html.Script]) = {
 //    dom.document.getElementById("scalajsScriptInclusionPoint").appendChild(scriptTagToInclude.render)
 //  }
-  def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements, destinationDivID: String) = {
+  def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements, destinationDivID: String = htmlWebPageDisplayerDivID) = {
     println("Rendering " + webPageWithIDedWebElements)
     val css = renderCss(webPageWithIDedWebElements.css)
     

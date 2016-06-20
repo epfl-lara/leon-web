@@ -551,14 +551,14 @@ object StringModificationProcessor {
           solutions.take(maxNumberOfConsideredSolutions).toList.flatMap(
             solution => {
               val (newSourceCode, newProgram, newFuntionToExecuteOption, changedElements) = applySolution(sourceCode, originalProgram, solution)
-              val newFunctionToExecute match {
-                case Some(f) => f
-                case None => failure("The \"applySolution\" function did not yield the new function to evaluate")
-              }
+//              val newFunctionToExecute  = newFuntionToExecuteOption match {
+//                case Some(f) => f
+//                case None => failure("The \"applySolution\" function did not yield the new function to evaluate")
+//              }
               ProgramEvaluator.evaluateAndConvertResult(
                 newProgram,
                 newSourceCode,
-                newFunctionToExecute,
+                newFuntionToExecuteOption,
                 serverReporter
               ) match {
                 case (None, evaluationLog) =>
@@ -810,7 +810,7 @@ object StringModificationProcessor {
     }
     catch {
       case StringModificationProcessingException(msg) =>
-        StringModificationSubmissionResult(None, msg)
+        throw new Exception(msg)
     }
     result
   }

@@ -12,12 +12,12 @@ import memory._
 import leon.web.shared.messages.GetBootstrapSourceCode
 import leon.web.websitebuilder.programEvaluator.LeonProgramMaker
 import leon.web.shared.SourceCodeSubmissionResult
-import leon.web.shared.messages.SubmitStringModificationResult
 import leon.web.websitebuilder.logging.serverReporter.ServerReporter
 import leon.web.websitebuilder.stringModification.StringModificationProcessor
 import leon.web.websitebuilder.programEvaluator.ProgramEvaluator
 import leon.web.websitebuilder.bootstrapSourceCode.BootstrapSourceCodeGetter
 import leon.web.shared.messages.GetBootstrapSourceCode_answer
+import leon.web.shared.messages.SubmitStringModification_answer
 import leon.web.shared.messages.SubmitStringModification
 import leon.web.shared.messages.SubmitSourceCodeResult
 import leon.web.shared.messages.MessageFromServer
