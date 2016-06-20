@@ -17,7 +17,8 @@ import logging.OptionValWithLog
 import logging.serverReporter.{Error, Info, ServerReporter, _}
 import memory.Memory
 import programEvaluator.{ProgramEvaluator, SourceMap, _}
-import shared.{PotentialWebPagesList, StringModificationSubmissionResult, _}
+//import shared.{PotentialWebPagesList, StringModificationSubmissionResult, _}
+import leon.web.shared._
 
 import scala.collection.mutable.ListBuffer
 import leon.utils.RangePosition
@@ -407,33 +408,67 @@ object StringModificationProcessor {
           """.stripMargin)
         (res1, changedElements.toList)
       }
+//
+//      /**
+//        * Modify the original program by applying the changes from the solution
+//        *
+//        * @param originalProgram
+//        * @param solution
+//        * @return
+//        */
+//      def applySolutionToProgram(originalProgram: Program, solution: StringSolver.Assignment): Program = {
+//        import leon.purescala.DefOps
+//        //    Warning: This do not replace top-level vals
+//        val newProgram = DefOps.replaceFunDefs(originalProgram)({ fd =>
+//          if (ExprOps.exists(e => solution.exists({ case (id, str) => id.getPos == e.getPos }))(fd.fullBody)) {
+//            val newFD = fd.duplicate()
+//            newFD.fullBody = ExprOps.preMap(e => solution.find({ case (id, str) => id.getPos == e.getPos }) match {
+//              case Some((id, str)) =>
+//                //                The ".copiedFrom(id)" is here so that the new StringLiteral has (in particular) the same value for his
+//                //                  position than the one it replaces (id)
+//                val newIdentifier = StringLiteral(str).copiedFrom(id)
+//                Some(newIdentifier)
+//              case None => None
+//            })(fd.fullBody)
+//            Some(newFD)
+//          }
+//          else None
+//        })._1
+//        newProgram
+//      }
 
-      /**
-        * Modify the original program by applying the changes from the solution
-        *
-        * @param originalProgram
-        * @param solution
-        * @return
-        */
-      def applySolutionToProgram(originalProgram: Program, solution: StringSolver.Assignment): Program = {
-        import leon.purescala.DefOps
-        //    Warning: This do not replace top-level vals
-        val newProgram = DefOps.replaceFunDefs(originalProgram)({ fd =>
-          if (ExprOps.exists(e => solution.exists({ case (id, str) => id.getPos == e.getPos }))(fd.fullBody)) {
-            val newFD = fd.duplicate()
-            newFD.fullBody = ExprOps.preMap(e => solution.find({ case (id, str) => id.getPos == e.getPos }) match {
-              case Some((id, str)) =>
-                //                The ".copiedFrom(id)" is here so that the new StringLiteral has (in particular) the same value for his
-                //                  position than the one it replaces (id)
-                val newIdentifier = StringLiteral(str).copiedFrom(id)
-                Some(newIdentifier)
-              case None => None
-            })(fd.fullBody)
-            Some(newFD)
-          }
-          else None
-        })._1
-        newProgram
+      def applySolution(sourceCode: String, program: Program, solution: StringSolver.Assignment): (String, Program, Option[FunDef], List[StringPositionInSourceCode]) = {
+        println("Transforming a solution...")
+        solution.toList
+          .sortBy({case (identifier, str) => identifier.getPos})
+          .reverse
+          .foldLeft((sourceCode, program, ProgramEvaluator.functionToEvaluate, List[StringPositionInSourceCode]()))(
+            {case ((sCode, prog, optFunDef, changedElements), (identifier, string)) =>
+              val newChangedElements = changedElements :+ {identifier.getPos match {
+                case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
+                case _ => StringPositionInSourceCode(0, 0, 0, 0)
+              }}
+              val replacement = StringLiteral(string)
+              val transformer = DefOps.funDefReplacer(fd => {
+                if(ExprOps.exists{ e => e.getPos == identifier.getPos }(fd.fullBody)) {
+                  val newFd = fd.duplicate()
+                  newFd.fullBody = ExprOps.postMap{
+                    case e if e.getPos == identifier.getPos =>
+                      Some(replacement)
+                    case _ => None
+                  }(fd.fullBody)
+                  Some(newFd)
+                } else None
+              })
+              val newProg = DefOps.transformProgram(transformer, prog)
+              val optNewFun = optFunDef.map(transformer.transform)
+              (fileInterface.substitute(sCode, identifier, replacement),
+                newProg,
+                optNewFun,
+                newChangedElements
+              )
+            }
+          )
       }
 
       def buildListOfStringPositionsForModifiedIdentifier(solution: StringSolver.Assignment): List[StringPositionInSourceCode] = {
@@ -515,25 +550,50 @@ object StringModificationProcessor {
         val rawSolutions: List[RawSolution] =
           solutions.take(maxNumberOfConsideredSolutions).toList.flatMap(
             solution => {
-              val (newSourceCode, changedElements) = applySolutionToSourceCode(sourceCode, solution, sReporter)
+              val (newSourceCode, newProgram, newFuntionToExecuteOption, changedElements) = applySolution(sourceCode, originalProgram, solution)
+              val newFunctionToExecute match {
+                case Some(f) => f
+                case None => failure("The \"applySolution\" function did not yield the new function to evaluate")
+              }
               ProgramEvaluator.evaluateAndConvertResult(
-                applySolutionToProgram(originalProgram, solution),
+                newProgram,
                 newSourceCode,
+                newFunctionToExecute,
                 serverReporter
               ) match {
                 case (None, evaluationLog) =>
                   //            Memory.setSourceMap(newSourceId, () => None)(null)
                   serverReporter.report(Error,
                     s"""
-                    |ProgramEvaluator did not manage to evaluate and unexpr the result of the leon program.
-                    | Here is the evaluation log: $evaluationLog
+                       |ProgramEvaluator did not manage to evaluate and unexpr the result of the leon program.
+                       | Here is the evaluation log: $evaluationLog
                     """.stripMargin)
                   None
                 case (Some((idedWebPage, sourceMapProducer, ctx)), evaluationLog) =>
                   leonContextOfFirstSolution = Some(ctx)
                   Some(RawSolution(newSourceCode, idedWebPage, changedElements, sourceMapProducer))
-                //                  Some((idedWebPage, sourceMapProducer, newSourceCode, changedElements))
-              }}
+              }
+            }
+
+//              val (newSourceCode, changedElements) = applySolutionToSourceCode(sourceCode, solution, sReporter)
+//              ProgramEvaluator.evaluateAndConvertResult(
+//                applySolutionToProgram(originalProgram, solution),
+//                newSourceCode,
+//                serverReporter
+//              ) match {
+//                case (None, evaluationLog) =>
+//                  //            Memory.setSourceMap(newSourceId, () => None)(null)
+//                  serverReporter.report(Error,
+//                    s"""
+//                    |ProgramEvaluator did not manage to evaluate and unexpr the result of the leon program.
+//                    | Here is the evaluation log: $evaluationLog
+//                    """.stripMargin)
+//                  None
+//                case (Some((idedWebPage, sourceMapProducer, ctx)), evaluationLog) =>
+//                  leonContextOfFirstSolution = Some(ctx)
+//                  Some(RawSolution(newSourceCode, idedWebPage, changedElements, sourceMapProducer))
+//                //                  Some((idedWebPage, sourceMapProducer, newSourceCode, changedElements))
+//              }}
           )
         sReporter.report(Info, "Number of considered solutions: "+rawSolutions.length)
         /**

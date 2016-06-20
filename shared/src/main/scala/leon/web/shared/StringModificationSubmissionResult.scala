@@ -1,5 +1,10 @@
+package leon.web
 package shared
 import leon.webDSL.webDescription.{WebPageWithIDedWebElements}
+
+/**
+  * Created by dupriez on 3/10/16.
+  */
 
 case class StringPositionInSourceCode(lineFrom: Int, colFrom: Int, lineTo: Int, colTo: Int)
 
@@ -23,9 +28,6 @@ case class  PotentialWebPagesList(
                                    //Will be None if there is one or no solutions
                                  )
 
-/**
-  * Created by dupriez on 3/10/16.
-  */
 
 //The reason why StringModificationSubmissionResult always contains a PotentialWebPagesList, which may or may not contain potential webPages,
 // instead of an Option[PotentialWebPageList] is because boopickle complained that it cannot pickle Option[PotentialWebPageList]

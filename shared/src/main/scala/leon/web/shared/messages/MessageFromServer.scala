@@ -1,9 +1,9 @@
 package leon.web
 package shared
 package messages
+//package leon.web.shared
 import github._
 import git._
-import shared.StringModificationSubmissionResult
 
 sealed trait MessageFromServer
 
