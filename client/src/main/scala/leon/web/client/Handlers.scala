@@ -25,7 +25,7 @@ object Handlers extends js.Object {
 
   import equal.EqOps
   
-  val callbacks = ListBuffer[PartialFunction[U forSome {type U <: MessageFromServer }, Unit]]()
+  val callbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
   
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
