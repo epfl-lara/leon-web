@@ -24,9 +24,9 @@ object Handlers extends js.Object {
   import leon.web.shared.messages._
 
   import equal.EqOps
-  
-  val callbacks = ListBuffer[PartialFunction[U forSome {type U <: MessageFromServer }, Unit]]()
-  
+
+  val callbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
+
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
     callbacks.find(c => c.isDefinedAt(data)) match {
@@ -35,6 +35,7 @@ object Handlers extends js.Object {
         callback(data)
         return
       case None =>
+        println("No appropriate callback found for data: "+data)
     }
     //println("Processing " + data)
     data match {

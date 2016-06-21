@@ -89,7 +89,7 @@ object MainDelayed extends js.JSApp {
 }
 
 trait LeonAPI {
-  def setEditorCode(code: String, resetEditor: Boolean = true): Unit
+  def setEditorCode(code: String, resetEditor: Boolean = true, shouldRecompile: Boolean = true): Unit
   def setCurrentProject(project: Option[Project]): Unit
   def getCurrentProject(): Option[Project]
   def setTreatAsProject(value: Boolean): Unit
@@ -141,13 +141,27 @@ trait LeonWeb extends EqSyntax {
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
     
-  object Server {// Mimick actor-like properties
+  object Server {
+    // Mimick actor-like properties
     def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
+
     // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
     def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
-    
-    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
-      Handlers.callbacks += callback.asInstanceOf[PartialFunction[U forSome { type U <: MessageFromServer }, Unit]]
+
+    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T],
+                                  callback: PartialFunction[T, Unit]): Unit = {
+      Handlers.callbacks += new PartialFunction[MessageFromServer, Unit] {
+        def isDefinedAt(e: MessageFromServer) = callback != null &&
+          callback.isInstanceOf[T]
+
+        def apply(e: MessageFromServer): Unit =
+          if (isDefinedAt(e))
+            callback(e.asInstanceOf[T])
+
+        def applyOrElse(e: MessageFromServer, v: Unit): Unit =
+          if (isDefinedAt(e))
+            callback(e.asInstanceOf[T])
+      }
       Main.sendMessage(msg)
     }
   }

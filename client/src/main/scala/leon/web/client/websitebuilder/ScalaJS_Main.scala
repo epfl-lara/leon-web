@@ -237,8 +237,6 @@ object ScalaJS_Main {
             }
         }
       }
-      case e@_ =>
-        println("Strange, client received something else than a SubmitStringModification_answerS")
     })
   }
 
