@@ -25,7 +25,7 @@ object ClarificationBox {
     //      IDMang.interfaceIDAttr := solutionButtonsDivID
     //    )
     <.div(
-      ^.id := "clarificationBox",
+      ^.id := WebBuildingUIManager.clarificationBoxID,
       //      IDMang.interfaceIDAttr := "clarificationBox",
       ////      ^.id := "discussionbox",
       GlobalStyles.discussionbox,
@@ -82,6 +82,10 @@ object ClarificationBox {
       )
   }
 
+  def cleanSolutionButtons() = {
+    ReactDOM.render(<.div(), document.getElementById(solutionButtonsDivID))
+  }
+
   def setSolutionButtons(solutions: List[ShippableClarificationSolution], idOfClarifiedWebElement: Int): Unit = {
     //    solutionButtonsIDList = List()
     object LabelProducer {
@@ -104,10 +108,11 @@ object ClarificationBox {
             ScalaJS_Main.AceEditor.setEditorValue(solution.sourceCode)
             ScalaJS_Main.renderWebPage(solution.idedWebPage)
             ScalaJS_Main.submitStringModification(StringModification(idOfClarifiedWebElement, None, solution.textContentOfClarifiedWebElementOption.get))
+            cleanSolutionButtons()
           }
         },
-        () => println("entered"),
-        () => println("left")
+        () => (),
+        () => ()
       )
       //      solutionButtonsIDList += interfaceID
       button

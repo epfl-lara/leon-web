@@ -150,7 +150,7 @@ object Handlers extends js.Object {
         optWebpage match {
           case Some(webPage) =>
             if(requestId == Backend.main.requestId) {
-              websitebuilder.ScalaJS_Main.renderWebPage(webPage, "htmlDisplayerDiv")
+              websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
             } else {
               println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
             }

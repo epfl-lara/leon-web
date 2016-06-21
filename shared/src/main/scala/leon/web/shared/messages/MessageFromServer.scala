@@ -4,6 +4,7 @@ package messages
 //package leon.web.shared
 import github._
 import git._
+import shared.SourceCodeSubmissionResult
 
 sealed trait MessageFromServer
 

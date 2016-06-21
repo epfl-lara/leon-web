@@ -38,7 +38,8 @@ object ScalaJS_Main {
 //  An attribute that SHOULD NOT be used by the end user, whose purpose is to serve as id for the html elements of the web interface
   val reservedAttributeForImplicitWebProgrammingID = "data-reservedattributeforimplicitwebprogrammingid".reactAttr
   val reservedAttributeForImplicitWebProgrammingID_name = "data-reservedattributeforimplicitwebprogrammingid"
-  val htmlWebPageDisplayerDivID = "htmlDisplayerDiv"
+//  val htmlWebPageDisplayerDivID = "htmlDisplayerDiv"
+  val htmlWebPageDisplayerDivID = WebBuildingUIManager.webPageDisplayerID
 
   import leon.web.client.Main.Server
   
@@ -236,6 +237,8 @@ object ScalaJS_Main {
             }
         }
       }
+      case e@_ =>
+        println("Strange, client received something else than a SubmitStringModification_answerS")
     })
   }
 
@@ -709,7 +712,7 @@ object ScalaJS_Main {
       s.attributeName + ": " + s.attributeValue
     }
     def renderRule(r: StyleRule): String = {
-      r.target.split(",").map("#htmlDisplayerDiv " + _).mkString(",") +
+      r.target.split(",").map("#"+htmlWebPageDisplayerDivID+" " + _).mkString(",") +
         " {\n  " + LeonList.mkString(r.rules, ";\n  ", renderStyle) + "}"
     }
     LeonList.mkString(s.elems, "\n\n", renderRule)
