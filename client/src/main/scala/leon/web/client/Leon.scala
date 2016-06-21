@@ -89,7 +89,7 @@ object MainDelayed extends js.JSApp {
 }
 
 trait LeonAPI {
-  def setEditorCode(code: String, resetEditor: Boolean = true, shouldRecompile: Boolean = true): Unit
+  def setEditorCode(code: String, resetEditor: Boolean = true): Unit
   def setCurrentProject(project: Option[Project]): Unit
   def getCurrentProject(): Option[Project]
   def setTreatAsProject(value: Boolean): Unit
@@ -152,13 +152,9 @@ trait LeonWeb extends EqSyntax {
                                   callback: PartialFunction[T, Unit]): Unit = {
       Handlers.callbacks += new PartialFunction[MessageFromServer, Unit] {
         def isDefinedAt(e: MessageFromServer) = callback != null &&
-          callback.isInstanceOf[T]
+          e.isInstanceOf[T]
 
         def apply(e: MessageFromServer): Unit =
-          if (isDefinedAt(e))
-            callback(e.asInstanceOf[T])
-
-        def applyOrElse(e: MessageFromServer, v: Unit): Unit =
           if (isDefinedAt(e))
             callback(e.asInstanceOf[T])
       }
