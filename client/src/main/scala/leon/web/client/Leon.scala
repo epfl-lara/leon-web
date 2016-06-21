@@ -147,7 +147,10 @@ trait LeonWeb extends EqSyntax {
     def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
     
     def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
-      Handlers.callbacks += callback.asInstanceOf[PartialFunction[U forSome { type U <: MessageFromServer }, Unit]]
+      Handlers.callbacks += new PartialFunction[MessageFromServer, Unit] {
+        def isDefinedAt(e: MessageFromServer) = callback != null && callback.isInstanceOf[T]
+        def apply(e: MessageFromServer): Unit = callback(e.asInstanceOf[T])
+      }
       Main.sendMessage(msg)
     }
   }
