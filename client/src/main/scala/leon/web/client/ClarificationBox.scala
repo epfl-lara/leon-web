@@ -4,6 +4,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.websitebuilder.ScalaJS_Main
 import leon.webDSL.webDescription.WebPageWithIDedWebElements
 import org.scalajs.dom.document
+import org.scalajs.jquery.{ jQuery => $, _ }
 
 import scala.collection.mutable.ListBuffer
 import scalacss.ScalaCssReact._
@@ -50,74 +51,42 @@ object ClarificationBox {
     def genButtonID() = {counter+=1; "clarificationBoxButtonID"+counter}
   }
 
-  /**
-    * Creates a react button with the provided label and callbacks.
-    * Returns a couple: (the button, it's interfaceID)
-    *
-    * @param label
-    * @param onClickCallback
-    * @param onMouseEnterCallback
-    * @param onMouseLeaveCallback
-    * @return
-    */
-  private def createButton(
-                            label: String,
-                            onClickCallback: ()=>Unit,
-                            onMouseEnterCallback: ()=>Unit,
-                            onMouseLeaveCallback: ()=>Unit
-                          ) : (ReactTagOf[org.scalajs.dom.html.Button], String) = {
-    val buttonID = IDProvider.genButtonID()
-    (
-      <.button(
-        label,
-        ^.id := buttonID,
-        //        IDMang.interfaceIDAttr := buttonID,
-        ^.className := "btn btn-default",
-        //      ^.verticalAlign := "-webkit-baseline-middle",
-        ^.onClick --> Callback{onClickCallback()},
-        ^.onMouseEnter --> Callback{onMouseEnterCallback()},
-        ^.onMouseLeave --> Callback{onMouseLeaveCallback()}
-      ),
-      buttonID
-      )
-  }
-
   def cleanSolutionButtons() = {
     ReactDOM.render(<.div(), document.getElementById(solutionButtonsDivID))
   }
 
   def setSolutionButtons(solutions: List[ShippableClarificationSolution], idOfClarifiedWebElement: Int): Unit = {
-    //    solutionButtonsIDList = List()
-    object LabelProducer {
-      private var counter = 0
-      def genLabel() = {counter += 1; "Solution "+counter}
-    }
-    //    TODO: complete this function so that it generates buttons that do interesting things
-    def createAndRegisterSolutionButton(solution: ShippableClarificationSolution, idOfClarifiedWebElement: Int) : ReactTagOf[org.scalajs.dom.html.Button] = {
-      //      println(
-      //        s"""Creating a solution button:
-      //           |  idOfClarifiedWebElement: $idOfClarifiedWebElement
-      //           |  sourceCode: ${solution.sourceCode}
-      //           |  webPage: ${solution.idedWebPage}
-      //           |  textContentOfCLarifiedWebElement: ${solution.textContentOfClarifiedWebElementOption.get}
-      //         """.stripMargin)
-      val (button, interfaceID) = createButton(
-        LabelProducer.genLabel(),
-        onClickCallback = {
-          () => {
+    val clarifiedElement = $("span[data-reservedattributeforimplicitwebprogrammingid="+idOfClarifiedWebElement+"]")
+    def solutionToCallback(solution: ShippableClarificationSolution): () => Unit = {
+      () => {
 //            ScalaJS_Main.AceEditor.setEditorValue(solution.sourceCode)
-            ScalaJS_Main.renderWebPage(solution.idedWebPage)
-            ScalaJS_Main.submitStringModification(StringModification(idOfClarifiedWebElement, None, solution.textContentOfClarifiedWebElementOption.get))
-            cleanSolutionButtons()
-          }
-        },
-        () => (),
-        () => ()
-      )
-      //      solutionButtonsIDList += interfaceID
-      button
+        ScalaJS_Main.renderWebPage(solution.idedWebPage)
+        ScalaJS_Main.submitStringModification(StringModification(idOfClarifiedWebElement, None, solution.textContentOfClarifiedWebElementOption.get))
+        cleanSolutionButtons()
+      }
     }
-    val newSolutionButtonDiv = <.div(solutions.map(solution => createAndRegisterSolutionButton(solution, idOfClarifiedWebElement)))
+    import websitebuilder.DiffViewer.FullDiff
+    def solutionToOnMouseEnter(solution: ShippableClarificationSolution)(f: FullDiff): () => Unit = {
+      () => clarifiedElement.empty().append(f.prefix).append(f.middle).append(f.suffix)
+    }
+    def solutionToOnMouseLeave(solution: ShippableClarificationSolution)(f: FullDiff): () => Unit = {
+      () => clarifiedElement.empty().append(f.original)
+    }
+    
+    val allButtons = websitebuilder.DiffViewer.displayDiffs(
+        solutions.head.textContentOfClarifiedWebElementOption.getOrElse(""),
+        solutions.tail.map(_.textContentOfClarifiedWebElementOption.getOrElse("")),
+        15,
+        GlobalStyles.webbuilderClarificationAddition.className.value,
+        //GlobalStyles.webbuilderClarificationDeletion.className.value,
+        GlobalStyles.webbuilderClarificationAddition.className.value,
+        GlobalStyles.webbuilderClarificationModification.className.value,
+        solutionToCallback(solutions.head), solutions.tail.map(solutionToCallback),
+        solutionToOnMouseEnter(solutions.head), solutions.tail.map(solutionToOnMouseEnter),
+        solutionToOnMouseLeave(solutions.head), solutions.tail.map(solutionToOnMouseLeave)
+    )
+    
+    val newSolutionButtonDiv = <.div(allButtons)
     ReactDOM.render(newSolutionButtonDiv, document.getElementById(solutionButtonsDivID))
   }
 }

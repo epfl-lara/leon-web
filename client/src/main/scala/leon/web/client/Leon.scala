@@ -30,6 +30,9 @@ import shared.messages.{Event => _, _}
 import scala.scalajs.js.typedarray._
 import java.nio.ByteBuffer
 import org.scalajs.dom.raw.FileReader
+import scalacss.ScalaCssReact._
+import scalacss.mutable.StyleSheetRegistry
+import scalacss.Defaults._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -74,6 +77,10 @@ object MainDelayed extends js.JSApp {
   @JSExport
   def main(): Unit = {
     $(document).ready(Main.main _)
+    
+    val registry = new StyleSheetRegistry
+    registry.register(GlobalStyles)
+    registry.addToDocumentOnRegistration()
   }
 
   val editor = ace.edit("codebox");
