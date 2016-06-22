@@ -35,22 +35,6 @@ import scala.collection.mutable
   */
 object StringModificationProcessor {
 
-  //
-  //  /* Evaluates partially an expression until there is no more TupleSelect and CaseClassSelector.*/
-  //  def simplifyCaseSelect(expr: Expr): Expr = expr match {
-  //    case TupleSelect(Tuple(args), i) =>
-  //      args(i - 1)
-  //    case TupleSelect(arg, i) =>
-  //      simplifyCaseSelect(TupleSelect(simplifyCaseSelect(arg), i))
-  //    case CaseClassSelector(cct, CaseClass(ct, args), id) =>
-  //      args(cct.classDef.selectorID2Index(id))
-  //    case CaseClassSelector(cct, AsInstanceOf(expr, ct), id) =>
-  //      simplifyCaseSelect(CaseClassSelector(cct, expr, id))
-  //    case CaseClassSelector(cct, inExpr, id) =>
-  //      simplifyCaseSelect(CaseClassSelector(cct, simplifyCaseSelect(inExpr), id))
-  //    case _ => throw new Exception(s"Cannot partially evaluate $expr")
-  //  }
-
   object TupleSelectOrCaseClassSelect {
     def unapply(expr: Expr): Option[Expr] = {
       expr match {
@@ -335,11 +319,17 @@ object StringModificationProcessor {
             sReporter.report(Info, "The modified TextElement has already been clarified, we update its equation in the clarification problem.")
             val updatedEquation = {
               val previousEquation = textElementIDsToEquationsInPreviousWebPageMap(weID)
-              (previousEquation._1, newVal)
+              val ssReporter = sReporter.addTab
+              sReporter.report(Info,"Previous equation to be updated:")
+              ssReporter.report(Info, previousEquation.toString)
+              val updatedEquation = (previousEquation._1, newVal)
+              sReporter.report(Info,"Updated equation:")
+              ssReporter.report(Info, updatedEquation.toString)
+              updatedEquation
             }
             val newTextElementIDToEquationMap = textElementIDsToEquationsInPreviousWebPageMap + (weID -> updatedEquation)
             printAndMergeDuplicateIdentifiersAndSolveEquationsAndAssignmentThenReturnResult(
-              textElementIDsToEquationsInPreviousWebPageMap.values.toList,
+              newTextElementIDToEquationMap.values.toList,
               previousAssignmentsFusion, clarificationSession, sReporter
             )
           }

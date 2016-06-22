@@ -105,7 +105,7 @@ object ClarificationBox {
         LabelProducer.genLabel(),
         onClickCallback = {
           () => {
-            ScalaJS_Main.AceEditor.setEditorValue(solution.sourceCode)
+//            ScalaJS_Main.AceEditor.setEditorValue(solution.sourceCode)
             ScalaJS_Main.renderWebPage(solution.idedWebPage)
             ScalaJS_Main.submitStringModification(StringModification(idOfClarifiedWebElement, None, solution.textContentOfClarifiedWebElementOption.get))
             cleanSolutionButtons()

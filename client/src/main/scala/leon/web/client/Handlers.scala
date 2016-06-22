@@ -35,7 +35,6 @@ object Handlers extends js.Object {
         callback(data)
         return
       case None =>
-        println("No appropriate callback found for data: "+data)
     }
     //println("Processing " + data)
     data match {
