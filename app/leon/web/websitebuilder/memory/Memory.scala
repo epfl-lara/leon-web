@@ -67,4 +67,11 @@ object Memory {
 
 //  Keys are the ids of the StringModification that triggered the need for Ambiguity Resolving
   var clarificationSessionOption: Option[ClarificationSession] = None
+
+  def reinitialiseSourceMapsVariablesAndClarificationSession() = {
+    println("Reinitialising source map variables and clarification session")
+    _sourceMap = null
+    _autoSourceMap = null
+    clarificationSessionOption = None
+  }
 }
