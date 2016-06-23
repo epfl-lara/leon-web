@@ -66,7 +66,8 @@ object ProgramEvaluator {
   
   def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
     val sReporter = serverReporter.startProcess("ProgramEvaluator")
-    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
+//    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
+    val resultWebPage = evaluateProgramConcrete(program, program.lookupFunDef(fullNameOfTheFunctionToEvaluate), sReporter) match {
       case Some(resultEvaluatedExpr) =>
         convertWebPageExprToClientWebPageAndSourceMap(resultEvaluatedExpr, program, sourceCode, sReporter) match {
           case Some((webPageWithIDedWebElements, sourceMapMaker)) =>

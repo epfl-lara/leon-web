@@ -485,6 +485,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
 
     case UpdateCode(code, user, project, requestId) =>
+      Memory.clearClarificationSession()
+
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
 

@@ -210,13 +210,14 @@ object ScalaJS_Main {
                       println("ID conditions met. Rendering the first potential webPage and displaying its sourceCode")
                       idOfLastSourceCodeModificationSent = newSourceCodeIDOption.get
                       def setSourceCode(newSourceCode: String, changedElements: List[StringPositionInSourceCode]) = {
-                        AceEditor.removeAceEdOnChangeCallback()
-                        AceEditor.setEditorValue(newSourceCode)
+//                        AceEditor.removeAceEdOnChangeCallback()
+                        AceEditor.setEditorValue(newSourceCode, triggerOnChangeCallback = false)
                         AceEditor.addMarkings(changedElements)
-                        AceEditor.activateAceEdOnChangeCallback_standard()
+//                        AceEditor.activateAceEdOnChangeCallback_standard()
                       }
                       val firstSolution = potentialWebPageList.solutionList.head
                       renderWebPage(firstSolution.idedWebPage, htmlWebPageDisplayerDivID)
+                      println("Displaying source code: "+firstSolution.sourceCode)
                       setSourceCode(firstSolution.sourceCode, firstSolution.positionsOfModificationsInSourceCode)
                       if (n > 1 && idOfClarifiedWebElementOption.isDefined) {
                         println("Received more than one (" + n + ") potential webPage from the server. Launching a clarification procedure")
@@ -414,7 +415,7 @@ object ScalaJS_Main {
     })
     AceEditor.initialiseAndIncludeEditorInWebPage()
   }
-  
+
   def minimizeSourceCodeView(): Unit = {
     $("#SourceCodeDiv").animate(l(left = "-600px"), complete = () => {
       $("#ViewerDiv").removeClass("edited")
@@ -488,7 +489,7 @@ object ScalaJS_Main {
       editor.setShowPrintMargin(false);
       editor.setAutoScrollEditorIntoView();
       editor.setHighlightActiveLine(false);
-      
+
       editor.getSession().setMode("ace/mode/scala")
       editor.getSession().setTabSize(2)
 //      updateEditorContent()
@@ -527,7 +528,7 @@ object ScalaJS_Main {
       //    println(sourceCode)
       //    println("sourceCode should have been printed (in function initialiseAndIncludeAceEditorForSourceCode of ScalaJS_Main)")
       //    editor.setValue(sourceCode)
-       *    
+       *
        */
     }
 //    def getBootstrapSourceCode_serverAnswerHandler(serverAnswer: Either[String, ServerError]) = {
@@ -559,20 +560,28 @@ object ScalaJS_Main {
       }
     }
 
-    def setEditorValue(value: String) = {
+    def setEditorValue(value: String, triggerOnChangeCallback: Boolean = true) = {
       aceEditor match {
         case Some(e) =>
 //          println("Setting Ace Editor value to: " + value)
           val line = e.session.getScrollTop()
           val col = e.session.getScrollLeft()
+          if(!triggerOnChangeCallback){
+            leon.web.client.Main.unsetOnChangeCallbackForEditor()
+          }
           e.setValue(value)
           e.selection.clearSelection()
           e.session.setScrollTop(line)
+          if(!triggerOnChangeCallback){
+            leon.web.client.Main.setOnChangeCallbackForEditor()
+          }
           //e.session.setScrollLeft(col) // Uncomment if the API works.
         case None => "[ERROR] fun setEditorValue was called while there was no aceEditor"
       }
     }
-    
+
+
+
     var prevMarker = List[Int]()
     
     def addMarkings(positions: List[StringPositionInSourceCode]) = {

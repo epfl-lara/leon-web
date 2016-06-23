@@ -188,7 +188,7 @@ object StringModificationProcessor {
       }
 
       //      The first argument of the protoNewClarificationSession will be used as the first argument of the definitive NewClarificationSession (the one that will be registered in Memory)
-      val (solutions: Stream[Map[Identifier, String]], protoNewClarificationSession: ClarificationSession) = {
+      val (solutions: Stream[Map[Identifier, String]], protoNewClarificationSession: ClarificationSession, equations: List[Equation]) = {
         //        Assumes the modified webElement is a TextElement
         def generateStringEquationAndAssignment(teID: Int, sourceMap: SourceMap, serverReporter: ServerReporter): (Equation, Map[Identifier, String]) = {
           val sReporter = serverReporter.startFunction("generateStringEquationAndAssignment on TextElementID: "+teID)
@@ -275,7 +275,8 @@ object StringModificationProcessor {
           })
           (
             StringSolver.solveMinChange(equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers),
-            ClarificationSession(List(weID), List())
+            protoNewClarificationSession,
+            equationsWithMergedIdentifiers
             )
         }
         if (Memory.clarificationSessionOption.isEmpty || !Memory.clarificationSessionOption.get.idsOfInvolvedTextElements.contains(weID)) {
@@ -438,7 +439,7 @@ object StringModificationProcessor {
                 case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
                 case _ => StringPositionInSourceCode(0, 0, 0, 0)
               }}
-              val replacement = StringLiteral(string)
+              val replacement = StringLiteral(string).copiedFrom(identifier)
               val transformer = DefOps.funDefReplacer(fd => {
                 if(ExprOps.exists{ e => e.getPos == identifier.getPos }(fd.fullBody)) {
                   val newFd = fd.duplicate()
@@ -564,28 +565,13 @@ object StringModificationProcessor {
                   Some(RawSolution(newSourceCode, idedWebPage, changedElements, sourceMapProducer))
               }
             }
-
-//              val (newSourceCode, changedElements) = applySolutionToSourceCode(sourceCode, solution, sReporter)
-//              ProgramEvaluator.evaluateAndConvertResult(
-//                applySolutionToProgram(originalProgram, solution),
-//                newSourceCode,
-//                serverReporter
-//              ) match {
-//                case (None, evaluationLog) =>
-//                  //            Memory.setSourceMap(newSourceId, () => None)(null)
-//                  serverReporter.report(Error,
-//                    s"""
-//                    |ProgramEvaluator did not manage to evaluate and unexpr the result of the leon program.
-//                    | Here is the evaluation log: $evaluationLog
-//                    """.stripMargin)
-//                  None
-//                case (Some((idedWebPage, sourceMapProducer, ctx)), evaluationLog) =>
-//                  leonContextOfFirstSolution = Some(ctx)
-//                  Some(RawSolution(newSourceCode, idedWebPage, changedElements, sourceMapProducer))
-//                //                  Some((idedWebPage, sourceMapProducer, newSourceCode, changedElements))
-//              }}
           )
         sReporter.report(Info, "Number of considered solutions: "+rawSolutions.length)
+        if(rawSolutions.nonEmpty ){
+          sReporter.report(Info, "Raw solution 1: ")
+          val ssReporter = sReporter.addTab
+          ssReporter.report(Info, "idedWebPage: "+rawSolutions.head.idedWebPage)
+        }
         /**
           * Takes as input a list of raw solutions, and an index in this list.
           * Takes the designated raw solution and reformat it (removing elements from the tuple and changing their order)
@@ -761,24 +747,38 @@ object StringModificationProcessor {
           )(leonContextOfFirstSolution.get)
 
           val idsOfInvolvedTextElements : List[Int] = {
-            val allIdentifiersInEquations: List[Identifier] = solutions.head.keys.toList
+//            val allIdentifiersInEquations: List[Identifier] = solutions.head.keys.toList
+            val allIdentifiersInEquations: List[Identifier] = equations.foldLeft(List[Identifier]()){
+              case (identifiersAccumulator, equation) => identifiersAccumulator ++ equation._1.flatMap({
+                case Left(string) => None
+                case Right(identifier) => Some(identifier)
+              })
+            }
+//            println("allIdentifiersInEquations= "+allIdentifiersInEquations)
             val posOfAllIdentifiersInEquations: List[Position] = allIdentifiersInEquations.map((identifier) => identifier.getPos)
+//            println("posOfAllIdentifiersInEquations= "+posOfAllIdentifiersInEquations)
             val allIdsOfWebElementsInSourceMap: List[Int] = sourceMap.keys.toList
+//            println("allIdsOfWebElementsInSourceMap= "+allIdsOfWebElementsInSourceMap)
             val allWebElementsUnevaluatedExprInOriginalWebPage : List[Expr] = allIdsOfWebElementsInSourceMap.map{ id => sourceMap.webElementIDToExpr(id) .optionValue.get}
+//            println("allWebElementsUnevaluatedExprInOriginalWebPage= "+allWebElementsUnevaluatedExprInOriginalWebPage)
             val allWebElementsInOriginalWebPage: List[WebElement] = allIdsOfWebElementsInSourceMap.map{ id => sourceMap.webElementIDToWebElement(id). optionValue.get}
             //            The identifiers in allIdentifiersInEquations should come from the same program than the unevaluated exprs
-            //             in allWebElementsUnevaluatedExprInOriginalWebPage, so ensure that the equality test works properly.
+            //             in allWebElementsUnevaluatedExprInOriginalWebPage, to ensure that the equality test works properly.
             //            Filtering the (id, unevalExpr) couples by only keeping those that corresponds to TextElements
+//            println("allWebElementsInOriginalWebPage= "+allWebElementsInOriginalWebPage)
             val webElemIDsAndUnevaluatedExprOfAllTextElementsInOriginalWebPage: List[(Int, Expr)] =
               allIdsOfWebElementsInSourceMap.zip(allWebElementsUnevaluatedExprInOriginalWebPage).zip( allWebElementsInOriginalWebPage).collect{
                 case (idAndUnevalExpr: (Int, Expr), webElement: TextElement) => idAndUnevalExpr
               }
-            webElemIDsAndUnevaluatedExprOfAllTextElementsInOriginalWebPage.collect {
+//            println("webElemIDsAndUnevaluatedExprOfAllTextElementsInOriginalWebPage= "+webElemIDsAndUnevaluatedExprOfAllTextElementsInOriginalWebPage)
+            val returnValue = webElemIDsAndUnevaluatedExprOfAllTextElementsInOriginalWebPage.collect {
               case (webElemId: Int, unevalTextElemExpr: Expr) if ExprOps.exists {
                 case s: StringLiteral => posOfAllIdentifiersInEquations.contains(s.getPos)
                 case _ => false
               } (unevalTextElemExpr) => webElemId
             }
+//            println("idsOfInvolvedTextElements= "+returnValue)
+            returnValue
           }
 
           val finalNewClarificationSession = ClarificationSession(

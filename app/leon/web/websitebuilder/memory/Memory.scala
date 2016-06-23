@@ -66,12 +66,28 @@ object Memory {
   def lastSourceId = _sourceMap._1
 
 //  Keys are the ids of the StringModification that triggered the need for Ambiguity Resolving
-  var clarificationSessionOption: Option[ClarificationSession] = None
+  private var _clarificationSessionOption: Option[ClarificationSession] = None
+  def clarificationSessionOption_=(newValue: Option[ClarificationSession]) = {
+    println("Newly registered clarification session:")
+    newValue match {
+      case None => println("  None")
+      case Some(clarificationSession) =>
+        println("textElementIdsForEquations: "+clarificationSession.textElementIdsForEquations)
+        println("idsOfInvolvedTextElements: "+ clarificationSession.idsOfInvolvedTextElements)
+    }
+    _clarificationSessionOption = newValue
+  }
+  def clarificationSessionOption = _clarificationSessionOption
 
   def reinitialiseSourceMapsVariablesAndClarificationSession() = {
     println("Reinitialising source map variables and clarification session")
     _sourceMap = null
     _autoSourceMap = null
+    clarificationSessionOption = None
+  }
+
+  def clearClarificationSession() = {
+    println("Clearing clarification session")
     clarificationSessionOption = None
   }
 }

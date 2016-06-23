@@ -1650,6 +1650,7 @@ trait LeonWeb extends EqSyntax {
   }
   
   def onCodeUpdate(): Unit = {
+
     val now = new js.Date().getTime()
 
     if (lastChange < (now - timeWindow)) {
@@ -1658,8 +1659,9 @@ trait LeonWeb extends EqSyntax {
       }
       lastChange = new js.Date().getTime();
     }
-    
+
     leonEditorCode := editor.getValue()
+    ClarificationBox.removeSolutionButtons()
   }
 
   def loadSelectedExample(): Unit = {
@@ -1672,6 +1674,7 @@ trait LeonWeb extends EqSyntax {
   }
 
   def setEditorCode(code: String, resetEditor: Boolean = true): Unit = {
+    println("setEditorCode called with: "+code)
     storeCurrent(editorSession.getValue())
     if(resetEditor) {
     editor.setValue(code);
@@ -1723,13 +1726,33 @@ trait LeonWeb extends EqSyntax {
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");
   editor.commands.removeCommand("gotoline")
-  
+
+  def unsetOnChangeCallbackForEditor() = {
+    EditorOnChangeCallback.enabled = false
+  }
+
+  def setOnChangeCallbackForEditor() = {
+    EditorOnChangeCallback.enabled = true
+  }
+  object EditorOnChangeCallback {
+    var enabled = true
+    def callback() = {
+      if(enabled){
+        lastChange = new js.Date().getTime();
+        updateSaveButton();
+        js.timers.setTimeout(timeWindow + 50) { onCodeUpdate }
+        ().asInstanceOf[js.Any]
+      }
+      else{
+        println("Currently no callback onChange for the editor")
+      }
+    }
+  }
+
+  println("Adding an onChange callback to the editor")
   editorSession.on("change", (e: js.Any) => {
-    lastChange = new js.Date().getTime();
-    updateSaveButton();
-    js.timers.setTimeout(timeWindow + 50) { onCodeUpdate }
-    ().asInstanceOf[js.Any]
-  });
+    EditorOnChangeCallback.callback()
+  })
   val callbackDecorations = (e: js.Any) => {
     //println("New value: " + e + " and first visible row is " + editor.getFirstVisibleRow())
     js.timers.setTimeout(50){updateCustomGutterDecorations()}
