@@ -294,6 +294,22 @@ object StringModificationProcessor {
           //          result (right hand side) wrong, because it is built from the webPage stored in the sourceMap (hence the PREVIOUS webPage)
           //          As such, it must be modified to have the correct right hand term.
           val (protoEquation, assignment) = generateStringEquationAndAssignment(weID, sourceMap, sReporter)
+          val localEquation : Equation = {
+//            The second elements of a couple is the index of the first element of the couple in the list of the elements whose concatenation yield the text of the TextElement
+            val startingValue : List[(StringFormToken, Int)] = protoEquation._1.zipWithIndex
+            /**
+              *
+              * @param oldText
+              * @param newText
+              * @param stringFormTokensWithIndexes
+              * @return (cutOldText, cutNewText, cutStringFormTokensWithIndexes
+              */
+            def cutSamenessFromLeft(oldText: String, newText: String, stringFormTokensWithIndexes: List[(StringFormToken, Int)]): (String, String, List[(StringFormToken, Int)]) ={
+              if(stringFormTokensWithIndexes.isEmpty){
+                println()
+              }
+            }
+          }
           val equation = (protoEquation._1, newVal)
           printAndMergeDuplicateIdentifiersAndSolveEquationsAndAssignmentThenReturnResult(List(equation), assignment, ClarificationSession(List(weID), List()), sReporter)
         }
@@ -809,8 +825,10 @@ object StringModificationProcessor {
 /**
   * To be stored and reused along with the client-server dialogue on the resolving of a string modification ambiguity
   *
-  * @param textElementIdsForEquations Stores the ids of the TextElement from which an equation should be generated
+  * @param abstractLocalEquations Stores couples corresponding to local equations:
+  *                                 - The first element is the id of the TextElement from which the equation comes from
+  *                                 - The second element is a list of indexes in the list of StringLiterals used in the TextElement's text.Stores the ids of the TextElement from which an equation should be generated
   * @param idsOfInvolvedTextElements: The ids of all the TextElements whose texts are produced thanks to at least one
   *                                string element that appears in one of the equation
   */
-case class ClarificationSession(textElementIdsForEquations: List[Int], idsOfInvolvedTextElements: List[Int])
+case class ClarificationSession(abstractLocalEquations: List[(Int, List[Int])], idsOfInvolvedTextElements: List[Int])

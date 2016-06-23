@@ -72,7 +72,7 @@ object Memory {
     newValue match {
       case None => println("  None")
       case Some(clarificationSession) =>
-        println("textElementIdsForEquations: "+clarificationSession.textElementIdsForEquations)
+        println("abstractLocalEquations: "+clarificationSession.abstractLocalEquations)
         println("idsOfInvolvedTextElements: "+ clarificationSession.idsOfInvolvedTextElements)
     }
     _clarificationSessionOption = newValue
