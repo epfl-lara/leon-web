@@ -188,7 +188,7 @@ object StringModificationProcessor {
       }
 
       //      The first argument of the protoNewClarificationSession will be used as the first argument of the definitive NewClarificationSession (the one that will be registered in Memory)
-      val (solutions: Stream[Map[Identifier, String]], protoNewClarificationSession: ClarificationSession, equations: List[Equation]) = {
+      val (solutions: Stream[Map[Identifier, String]], protoNewClarificationSession: ClarificationSession, equations: List[Equation], originalAssignment: Assignment) = {
         //        Assumes the modified webElement is a TextElement
         def generateStringEquationAndAssignment(teID: Int, sourceMap: SourceMap, serverReporter: ServerReporter): (Equation, Map[Identifier, String]) = {
           val sReporter = serverReporter.startFunction("generateStringEquationAndAssignment on TextElementID: "+teID)
@@ -276,7 +276,8 @@ object StringModificationProcessor {
           (
             StringSolver.solveMinChange(equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers),
             protoNewClarificationSession,
-            equationsWithMergedIdentifiers
+            equationsWithMergedIdentifiers,
+            assignmentWithMergedIdentifiers
             )
         }
         if (Memory.clarificationSessionOption.isEmpty || !Memory.clarificationSessionOption.get.idsOfInvolvedTextElements.contains(weID)) {
@@ -362,43 +363,43 @@ object StringModificationProcessor {
       implicit val context = LeonContext.empty
       val fileInterface = new FileInterface(context.reporter)
 
-      /**
-        * Modify the original sourceCode by applying the changes from the solution
-        *
-        * @param sourceCode
-        * @param solution
-        * @return
-        */
-      def applySolutionToSourceCode(sourceCode: String, solution: StringSolver.Assignment, serverReporter: ServerReporter): (String, List[StringPositionInSourceCode]) = {
-        val sReporter = serverReporter.startFunction("applySolutionToSourceCode")
-        sReporter.report(Info,
-          s"""Arguments:
-              |  base source code: $sourceCode
-              |  solution to apply: $solution
-           """.stripMargin)
-        val changedElements = ListBuffer[StringPositionInSourceCode]()
-        val res1 = solution.toList
-          .sortBy({ case (identifier, str) => identifier.getPos })
-          .reverse
-          .foldLeft(sourceCode)({
-            case (sCode, (identifier, string)) =>
-              changedElements += (identifier.getPos match {
-                case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
-                case _ => StringPositionInSourceCode(0, 0, 0, 0)
-              })
-              identifier.getPos match {
-                case r: RangePosition =>
-                  sReporter.report(Info, s"""Replacing from (${r.lineFrom}, ${r.colFrom}) to (${r.lineTo}, ${r.colTo}) with "$string" (I guess)""")
-              }
-              fileInterface.substitute(sCode, identifier, StringLiteral(string))
-          }
-          )
-        sReporter.report(Info,
-          s"""Resulting Source Code:
-              | $res1
-          """.stripMargin)
-        (res1, changedElements.toList)
-      }
+//      /**
+//        * Modify the original sourceCode by applying the changes from the solution
+//        *
+//        * @param sourceCode
+//        * @param solution
+//        * @return
+//        */
+//      def applySolutionToSourceCode(sourceCode: String, solution: StringSolver.Assignment, serverReporter: ServerReporter): (String, List[StringPositionInSourceCode]) = {
+//        val sReporter = serverReporter.startFunction("applySolutionToSourceCode")
+//        sReporter.report(Info,
+//          s"""Arguments:
+//              |  base source code: $sourceCode
+//              |  solution to apply: $solution
+//           """.stripMargin)
+//        val changedElements = ListBuffer[StringPositionInSourceCode]()
+//        val res1 = solution.toList
+//          .sortBy({ case (identifier, str) => identifier.getPos })
+//          .reverse
+//          .foldLeft(sourceCode)({
+//            case (sCode, (identifier, string)) =>
+//              changedElements += (identifier.getPos match {
+//                case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
+//                case _ => StringPositionInSourceCode(0, 0, 0, 0)
+//              })
+//              identifier.getPos match {
+//                case r: RangePosition =>
+//                  sReporter.report(Info, s"""Replacing from (${r.lineFrom}, ${r.colFrom}) to (${r.lineTo}, ${r.colTo}) with "$string" (I guess)""")
+//              }
+//              fileInterface.substitute(sCode, identifier, StringLiteral(string))
+//          }
+//          )
+//        sReporter.report(Info,
+//          s"""Resulting Source Code:
+//              | $res1
+//          """.stripMargin)
+//        (res1, changedElements.toList)
+//      }
 //
 //      /**
 //        * Modify the original program by applying the changes from the solution
@@ -428,38 +429,55 @@ object StringModificationProcessor {
 //        newProgram
 //      }
 
-      def applySolution(sourceCode: String, program: Program, solution: StringSolver.Assignment): (String, Program, Option[FunDef], List[StringPositionInSourceCode]) = {
-        println("Transforming a solution...")
-        solution.toList
-          .sortBy({case (identifier, str) => identifier.getPos})
-          .reverse
-          .foldLeft((sourceCode, program, ProgramEvaluator.functionToEvaluate, List[StringPositionInSourceCode]()))(
-            {case ((sCode, prog, optFunDef, changedElements), (identifier, string)) =>
-              val newChangedElements = changedElements :+ {identifier.getPos match {
-                case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
-                case _ => StringPositionInSourceCode(0, 0, 0, 0)
-              }}
-              val replacement = StringLiteral(string).copiedFrom(identifier)
-              val transformer = DefOps.funDefReplacer(fd => {
-                if(ExprOps.exists{ e => e.getPos == identifier.getPos }(fd.fullBody)) {
-                  val newFd = fd.duplicate()
-                  newFd.fullBody = ExprOps.postMap{
-                    case e if e.getPos == identifier.getPos =>
-                      Some(replacement)
-                    case _ => None
-                  }(fd.fullBody)
-                  Some(newFd)
-                } else None
-              })
-              val newProg = DefOps.transformProgram(transformer, prog)
-              val optNewFun = optFunDef.map(transformer.transform)
-              (fileInterface.substitute(sCode, identifier, replacement),
-                newProg,
-                optNewFun,
-                newChangedElements
-              )
-            }
-          )
+      def applySolution(sourceCode: String, program: Program, solution: StringSolver.Assignment, originalAssignment: Assignment, serverReporter: ServerReporter): (String, Program, Option[FunDef], List[StringPositionInSourceCode]) = {
+        val sReporter = serverReporter.startFunction("applySolution")
+        def doReplacement(sourceCode: String, program: Program, assignment: Assignment, serverReporter: ServerReporter) : (String, Program, Option[FunDef], List[StringPositionInSourceCode]) = {
+          val sReporter = serverReporter.addTab
+          assignment.toList
+            .sortBy({case (identifier, str) => identifier.getPos})
+            .reverse
+            .foldLeft((sourceCode, program, ProgramEvaluator.functionToEvaluate, List[StringPositionInSourceCode]()))(
+              { case ((sCode, prog, optFunDef, changedElements), (identifier, string)) =>
+                val newChangedElements = changedElements :+ {
+                  identifier.getPos match {
+                    case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) =>
+                      sReporter.report(Info, s"""Replacing (from (l:$lineFrom,c:$colFrom) to (l:$lineTo,c:$colTo)) with "$string"""")
+                      StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
+                    case _ => StringPositionInSourceCode(0, 0, 0, 0)
+                  }
+                }
+                val replacement = StringLiteral(string).copiedFrom(identifier)
+                val transformer = DefOps.funDefReplacer(fd => {
+                  if (ExprOps.exists { e => e.getPos == identifier.getPos }(fd.fullBody)) {
+                    val newFd = fd.duplicate()
+                    newFd.fullBody = ExprOps.postMap {
+                      case e if e.getPos == identifier.getPos =>
+                        Some(replacement)
+                      case _ => None
+                    }(fd.fullBody)
+                    Some(newFd)
+                  } else None
+                })
+                val newProg = DefOps.transformProgram(transformer, prog)
+                val optNewFun = optFunDef.map(transformer.transform)
+                (fileInterface.substitute(sCode, identifier, replacement),
+                  newProg,
+                  optNewFun,
+                  newChangedElements
+                  )
+              }
+            )
+        }
+//        The source code comes from the beginning of the clarification, so we need to apply all the changes that were
+//        done to it via the previous rounds of clarification, and only then apply the solution to the current clarification round
+//        (Yes, we lose performance because we do the same replacements in the program and then throwing it away to work
+//         on the latest program, which should be up to date with the last clarification round
+        sReporter.report(Info,"Performing replacements in the source code from before the start of the clarification so that it is up to date with the previous rounds of clarification")
+        val sourceCodeWithOriginalAssignment : String = doReplacement(sourceCode, program, originalAssignment, sReporter) match {
+          case (newSourceCode, _, _, _) => newSourceCode
+        }
+        sReporter.report(Info, "Performing the replacements prescribed by the current clarification solution to both the new up-to-date source code and the program")
+        doReplacement(sourceCodeWithOriginalAssignment, program, solution, sReporter)
       }
 
       def buildListOfStringPositionsForModifiedIdentifier(solution: StringSolver.Assignment): List[StringPositionInSourceCode] = {
@@ -541,7 +559,7 @@ object StringModificationProcessor {
         val rawSolutions: List[RawSolution] =
           solutions.take(maxNumberOfConsideredSolutions).toList.flatMap(
             solution => {
-              val (newSourceCode, newProgram, newFuntionToExecuteOption, changedElements) = applySolution(sourceCode, originalProgram, solution)
+              val (newSourceCode, newProgram, newFuntionToExecuteOption, changedElements) = applySolution(sourceCode, originalProgram, solution, originalAssignment, sReporter)
 //              val newFunctionToExecute  = newFuntionToExecuteOption match {
 //                case Some(f) => f
 //                case None => failure("The \"applySolution\" function did not yield the new function to evaluate")
