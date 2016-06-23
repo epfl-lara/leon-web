@@ -13,6 +13,7 @@ import com.scalawarrior.scalajs.ace._
 import japgolly.scalajs.react.Callback
 import japgolly.scalajs.react.ReactDOM
 import japgolly.scalajs.react.ReactNode
+import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.webDSL.webDescription._
 import shared.{PotentialWebPagesList, StringModificationSubmissionResult, StringPositionInSourceCode, _}
@@ -693,22 +694,22 @@ object ScalaJS_Main {
             submitStringModification(stringModification)
           })
     }
-    private def buildStringModification(webElementID: Int): StringModification = {
+    private def buildStringModification(webElementID: Int, newValue: String): StringModification = {
 //      println("innerText of webElem with ID 7: "+getElementByImplicitWebProgrammingID("7")(0).innerText)
-      val newValue = getElementByImplicitWebProgrammingID(webElementID.toString)(0).innerText.getOrElse("getOrElseFailed in StringModificationSubmitter")
+      //val newValue = getElementByImplicitWebProgrammingID(webElementID.toString)(0).innerText.getOrElse("getOrElseFailed in StringModificationSubmitter")
       StringModification(webElementID, None, newValue)
     }
-    def newStringModificationOfTheTextWebAttr(webElementID: Int) = {
+    def newStringModificationOfTheTextWebAttr(webElementID: Int, newValue: String) = {
       if (lastModification != null) {
         if (lastModification.webElementID == webElementID) {
 //          This new modification is on the same webElement and on the same WebAttribute than the current one.
-          lastModification = buildStringModification(webElementID)
+          lastModification = buildStringModification(webElementID, newValue)
           stopTimeout()
           launchTimeout(lastModification)
         }
       }
       else {
-        lastModification = buildStringModification(webElementID)
+        lastModification = buildStringModification(webElementID, newValue)
         launchTimeout(lastModification)
       }
     }
@@ -760,9 +761,9 @@ object ScalaJS_Main {
     */
   def convertWebElementWithIDToReactElement(webElWithID: WebElement) : ReactNode = {
 //    val webElID = /*idGenerator.generateID()*/ 0
-    def generateTextChangeCallback(webElID: Int) = {
+    def generateTextChangeCallback(webElID: Int, newValue: String) = {
       Callback{
-        StringModificationSubmitter.newStringModificationOfTheTextWebAttr(webElID)
+        StringModificationSubmitter.newStringModificationOfTheTextWebAttr(webElID, newValue)
       }
     }
 
@@ -789,12 +790,12 @@ object ScalaJS_Main {
       case WebElementWithID(webElem, webElID) =>
         webElem match {
           case TextElement(text) =>
-            val textChangeCallback = generateTextChangeCallback(webElID)
+            val textChangeCallback = (e: ReactEvent) => generateTextChangeCallback(webElID, e.target.textContent)
             <.span(splitTextIntoReactNodeSeq(text),
               reservedAttributeForImplicitWebProgrammingID := webElID,
               ^.contentEditable := "true",
-              ^.onChange --> textChangeCallback,
-              ^.onInput --> textChangeCallback,
+              ^.onChange ==> textChangeCallback,
+              ^.onInput ==> textChangeCallback,
               ^.title := "webElID= "+webElID
             )
           case Element(tag, sons, attributes, styles) =>

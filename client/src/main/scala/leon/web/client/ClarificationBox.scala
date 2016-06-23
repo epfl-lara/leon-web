@@ -59,6 +59,7 @@ object ClarificationBox {
     val clarifiedElement = $("span[data-reservedattributeforimplicitwebprogrammingid="+idOfClarifiedWebElement+"]")
     def solutionToCallback(solution: ShippableClarificationSolution): () => Unit = {
       () => {
+        clarifiedElement.empty().append(solution.textContentOfClarifiedWebElementOption.getOrElse(""))
 //            ScalaJS_Main.AceEditor.setEditorValue(solution.sourceCode)
         ScalaJS_Main.renderWebPage(solution.idedWebPage)
         ScalaJS_Main.submitStringModification(StringModification(idOfClarifiedWebElement, None, solution.textContentOfClarifiedWebElementOption.get))

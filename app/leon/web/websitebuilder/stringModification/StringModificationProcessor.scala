@@ -548,7 +548,7 @@ object StringModificationProcessor {
 //              }
               ProgramEvaluator.evaluateAndConvertResult(
                 newProgram,
-                newSourceCode,
+                sourceCode,
                 newFuntionToExecuteOption,
                 serverReporter
               ) match {

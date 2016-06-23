@@ -128,7 +128,7 @@ object DiffViewer {
     (s2mids_stripped.zipWithIndex.map{ case (s2mid_stripped, index) =>
       val s2OnClick = otherCallbacks.applyOrElse(index, (_: Int) => () => ())
       val s2mid = s2mids.applyOrElse(index, (_: Int) => "")
-      val fullDiff = FullDiff(alternatives(index), prefix, $("<span>").text(s2mid).addClass(classMid), suffix)
+      val fullDiff = FullDiff(s1, prefix, $("<span>").text(s2mid).addClass(classMid), suffix)
       val s2OnMouseEnter = otherOnMouseEnter.applyOrElse(index, (_: Int) => (_: FullDiff) => () => ())(fullDiff)
       val s2OnMouseLeave = otherOnMouseLeave.applyOrElse(index, (_: Int) => (_: FullDiff) => () => ())(fullDiff)
       
