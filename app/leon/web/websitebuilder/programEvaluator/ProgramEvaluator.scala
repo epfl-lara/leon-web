@@ -4,10 +4,11 @@ package programEvaluator
 
 import java.lang.reflect.Type
 import javassist.bytecode.stackmap.TypeTag
+
 import leon.DefaultReporter
 import leon.collection.Cons
 import leon.evaluators.{AbstractEvaluator, AbstractOnlyEvaluator, EvaluationResults}
-import leon.purescala.Definitions.{CaseClassDef, Program, FunDef}
+import leon.purescala.Definitions.{CaseClassDef, FunDef, Program}
 import leon.purescala.Expressions._
 import leon.purescala.Types.CaseClassType
 import leon.webDSL.webDescription._
@@ -17,11 +18,15 @@ import logging.serverReporter.Error
 import logging.serverReporter._
 import shared.SourceCodeSubmissionResult
 import stringModification.StringModificationProcessor.TupleSelectOrCaseClassSelect
+
 import scala.reflect.runtime.universe
 import scala.reflect.api
 import leon.evaluators.DefaultEvaluator
+
 import scala.collection.mutable.ListBuffer
 import leon.LeonContext
+
+import leon.solvers.string.StringSolver.Assignment
 
 /**
   * Created by dupriez on 3/10/16.
@@ -64,12 +69,12 @@ object ProgramEvaluator {
   }
 
   
-  def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
+  def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter, assignment: Assignment): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
     val sReporter = serverReporter.startProcess("ProgramEvaluator")
 //    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
     val resultWebPage = evaluateProgramConcrete(program, program.lookupFunDef(fullNameOfTheFunctionToEvaluate), sReporter) match {
       case Some(resultEvaluatedExpr) =>
-        convertWebPageExprToClientWebPageAndSourceMap(resultEvaluatedExpr, program, sourceCode, sReporter) match {
+        convertWebPageExprToClientWebPageAndSourceMap(resultEvaluatedExpr, program, sourceCode, sReporter, assignment) match {
           case Some((webPageWithIDedWebElements, sourceMapMaker)) =>
             val ctx = defaultLeonContext()
             val resultEvaluationTreeExprLazy = () => {
@@ -169,7 +174,7 @@ object ProgramEvaluator {
   }
 
   // The second element takes the result of the abstract Evaluator and updates the source map.
-  private def convertWebPageExprToClientWebPageAndSourceMap(webPageEvaluatedExpr: Expr, program: Program, sourceCode: String, serverReporter: ServerReporter): Option[(WebPageWithIDedWebElements, Expr => SourceMap)] = {
+  private def convertWebPageExprToClientWebPageAndSourceMap(webPageEvaluatedExpr: Expr, program: Program, sourceCode: String, serverReporter: ServerReporter, assignment: Assignment): Option[(WebPageWithIDedWebElements, Expr => SourceMap)] = {
 
     val sReporter = serverReporter.startFunction("Converting the WebPage Expr into a WebPage, and building the sourceMap")
     sReporter.report(Info, "webPage expr to be converted: "+ "DISABLED (to re-enable it, look for \"#VERBOSITY\" in ProgramEvaluator.scala)")
@@ -341,7 +346,7 @@ object ProgramEvaluator {
 
         val webPageWithIDedElements = WebPageWithIDedWebElements(giveIDToWebElement(0, bootstrapWebElement, sReporter)._1, bootstrapcss)
         val computeSourceMap = (resultEvaluationTreeExpr: Expr) => {
-          val sourceMap = new SourceMap(sourceCode, program)
+          val sourceMap = new SourceMap(sourceCode, program, assignment)
           val (bootstrapExprOfUnevaluatedWebElement, bootstrapExprOfUnevaluatedStyle)= resultEvaluationTreeExpr match {
           case CaseClass(CaseClassType(`webPageCaseClassDef`, targs_1), Seq(argwebpage, argwebstyle)) =>
             (argwebpage, argwebstyle)

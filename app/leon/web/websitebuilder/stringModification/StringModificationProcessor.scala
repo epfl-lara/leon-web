@@ -30,6 +30,26 @@ import stringModification.ClarificationSession
 
 import scala.collection.mutable
 
+object IdentifierMerger {
+  //          Result: a map from all the identifiers in the argument to their representative identifier
+  def mergeIdentifiers(identifiers: List[Identifier]): Map[Identifier, Identifier] = {
+    case class IdentifierLineAndCol(line: Int, column: Int)
+    def identifierToIdentifierLineAndCol(identifier: Identifier): IdentifierLineAndCol = {
+      IdentifierLineAndCol(identifier.getPos.line, identifier.getPos.col)
+    }
+    val finalIdentifiers = scala.collection.mutable.Map[IdentifierLineAndCol, Identifier]()
+    /** Building the finalIdentifier map **/
+    identifiers.foreach((identifier) => {
+      finalIdentifiers += (identifierToIdentifierLineAndCol(identifier) -> identifier)
+    })
+    val resultMap = Map[Identifier, Identifier]()
+    identifiers.foldLeft(Map[Identifier,Identifier]())((map, identifier) => {
+      map + (identifier -> finalIdentifiers(identifierToIdentifierLineAndCol(identifier)))
+    })
+    return resultMap
+  }
+}
+
 /**
   * Created by dupriez on 4/18/16.
   */
@@ -73,9 +93,9 @@ object StringModificationProcessor {
 
     val unevalExprOfWebElem = sourceMap.webElementIDToExpr(weID) match {
       case OptionValWithLog(Some(value), log) =>
-        sReporter.report(Info, s"Obtained the Expr of the unevaluated webElement (id=$weID) from SourceMap: " + "DISABLED (to re-enable it, look for \"#VERBOSITY\" in StringModificationProcessor.scala)")
+//        sReporter.report(Info, s"Obtained the Expr of the unevaluated webElement (id=$weID) from SourceMap: " + "DISABLED (to re-enable it, look for \"#VERBOSITY\" in StringModificationProcessor.scala)")
         //        #VERBOSITY
-        //        sReporter.report(Info, s"Obtained the Expr of the unevaluated webElement (id=$weID) from SourceMap: $value")
+                sReporter.report(Info, s"Obtained the Expr of the unevaluated webElement (id=$weID) from SourceMap: $value")
         value
       case OptionValWithLog(None, log) =>
         sReporter.report(Info, "SourceMap query for the Expr of the unevaluated webElement failed")
@@ -212,6 +232,8 @@ object StringModificationProcessor {
                                                                                              protoNewClarificationSession: ClarificationSession,
                                                                                              sReporter: ServerReporter
                                                                                            ) = {
+          val assignment = sourceMap.assignment
+
           /**
             * Assumes all the identifier present in its arguments come from the same File.
             * Make sure that the same instance of the Identifier class is used consistently through the equations and assignments
@@ -441,7 +463,7 @@ object StringModificationProcessor {
                 val newChangedElements = changedElements :+ {
                   identifier.getPos match {
                     case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) =>
-                      sReporter.report(Info, s"""Replacing (from (l:$lineFrom,c:$colFrom) to (l:$lineTo,c:$colTo)) with "$string"""")
+                      sReporter.report(Info, s"""Replacing identifier: $identifier with position: (from (l:$lineFrom,c:$colFrom) to (l:$lineTo,c:$colTo)) by "$string"""")
                       StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
                     case _ => StringPositionInSourceCode(0, 0, 0, 0)
                   }
@@ -472,12 +494,13 @@ object StringModificationProcessor {
 //        done to it via the previous rounds of clarification, and only then apply the solution to the current clarification round
 //        (Yes, we lose performance because we do the same replacements in the program and then throwing it away to work
 //         on the latest program, which should be up to date with the last clarification round
-        sReporter.report(Info,"Performing replacements in the source code from before the start of the clarification so that it is up to date with the previous rounds of clarification")
-        val sourceCodeWithOriginalAssignment : String = doReplacement(sourceCode, program, originalAssignment, sReporter) match {
-          case (newSourceCode, _, _, _) => newSourceCode
-        }
+//        sReporter.report(Info,"Performing replacements in the source code from before the start of the clarification so that it is up to date with the previous rounds of clarification")
+//        val sourceCodeWithOriginalAssignment : String = doReplacement(sourceCode, program, originalAssignment, sReporter) match {
+//          case (newSourceCode, _, _, _) => newSourceCode
+//        }
         sReporter.report(Info, "Performing the replacements prescribed by the current clarification solution to both the new up-to-date source code and the program")
-        doReplacement(sourceCodeWithOriginalAssignment, program, solution, sReporter)
+//        doReplacement(sourceCodeWithOriginalAssignment, program, solution, sReporter)
+        doReplacement(sourceCode, program, originalAssignment ++ solution, sReporter)
       }
 
       def buildListOfStringPositionsForModifiedIdentifier(solution: StringSolver.Assignment): List[StringPositionInSourceCode] = {
@@ -566,9 +589,10 @@ object StringModificationProcessor {
 //              }
               ProgramEvaluator.evaluateAndConvertResult(
                 newProgram,
-                sourceCode,
+                newSourceCode,
                 newFuntionToExecuteOption,
-                serverReporter
+                serverReporter,
+                originalAssignment
               ) match {
                 case (None, evaluationLog) =>
                   //            Memory.setSourceMap(newSourceId, () => None)(null)
@@ -830,5 +854,6 @@ object StringModificationProcessor {
   * @param textElementIdsForEquations Stores the ids of the TextElement from which an equation should be generated
   * @param idsOfInvolvedTextElements: The ids of all the TextElements whose texts are produced thanks to at least one
   *                                string element that appears in one of the equation
+  * @param assignment store the assignment deduced by the previous rounds of clarification.
   */
-case class ClarificationSession(textElementIdsForEquations: List[Int], idsOfInvolvedTextElements: List[Int])
+case class ClarificationSession(textElementIdsForEquations: List[Int], idsOfInvolvedTextElements: List[Int], assignment: Assignment)

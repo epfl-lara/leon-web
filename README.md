@@ -102,3 +102,5 @@ Before running leon-web through `activator run` or `sbt run`, follow the instruc
 # Advanced running mode for leon-web (deploy, tmux, etc.)
 
 Please [look into the wiki](https://github.com/epfl-lara/leon-web/wiki) for more advanced way of running leon-web
+
+# WebBuilder
