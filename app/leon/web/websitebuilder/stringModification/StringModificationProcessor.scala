@@ -16,7 +16,7 @@ import leon.webDSL.webDescription._
 import logging.OptionValWithLog
 import logging.serverReporter.{Error, Info, ServerReporter, _}
 import memory.Memory
-import programEvaluator.{ProgramEvaluator, SourceMap, _}
+import programEvaluator.{ProgramEvaluator, dustbin}
 //import shared.{PotentialWebPagesList, StringModificationSubmissionResult, _}
 import leon.web.shared._
 
@@ -80,7 +80,7 @@ object StringModificationProcessor {
     throw new StringModificationProcessingException(s"Failure in StringModificationProcessor: ${failureMessage}")
   }
 
-  private def getWebElemAndUnevalExprOfWebElemFromSourceMap(weID: Int, sourceMap: SourceMap, sReporter: ServerReporter) = {
+  private def getWebElemAndUnevalExprOfWebElemFromSourceMap(weID: Int, sourceMap: dustbin.SourceMap, sReporter: ServerReporter) = {
 
     val webElem = sourceMap.webElementIDToWebElement(weID) match {
       case OptionValWithLog(Some(value), log) =>
@@ -210,7 +210,7 @@ object StringModificationProcessor {
       //      The first argument of the protoNewClarificationSession will be used as the first argument of the definitive NewClarificationSession (the one that will be registered in Memory)
       val (solutions: Stream[Map[Identifier, String]], protoNewClarificationSession: ClarificationSession, equations: List[Equation], originalAssignment: Assignment) = {
         //        Assumes the modified webElement is a TextElement
-        def generateStringEquationAndAssignment(teID: Int, sourceMap: SourceMap, serverReporter: ServerReporter): (Equation, Map[Identifier, String]) = {
+        def generateStringEquationAndAssignment(teID: Int, sourceMap: dustbin.SourceMap, serverReporter: ServerReporter): (Equation, Map[Identifier, String]) = {
           val sReporter = serverReporter.startFunction("generateStringEquationAndAssignment on TextElementID: "+teID)
           val (webElement, unevaluatedExprOfWebElement) = getWebElemAndUnevalExprOfWebElemFromSourceMap(teID, sourceMap, sReporter)
           //          Checking that the webElement is a TextElement
@@ -574,7 +574,7 @@ object StringModificationProcessor {
                                 sourceCode: String,
                                 idedWebPage: WebPageWithIDedWebElements,
                                 positionsOfModificationsInSourceCode: List[StringPositionInSourceCode],
-                                sourceMapProducer: () => Option[SourceMap]
+                                sourceMapProducer: () => Option[dustbin.SourceMap]
                               )
 
         sReporter.report(Info, "String Solver found at least one solution")
@@ -622,7 +622,7 @@ object StringModificationProcessor {
           * @param indexOfSolutionToFormat an index in the rawSolutionsList, indicating the rawSolution to be formatted
           * @return The formatted solution
           */
-        def formatSolution(rawSolutionsList: List[(WebPageWithIDedWebElements, () => Option[SourceMap], String, List[StringPositionInSourceCode])],
+        def formatSolution(rawSolutionsList: List[(WebPageWithIDedWebElements, () => Option[dustbin.SourceMap], String, List[StringPositionInSourceCode])],
                            indexOfSolutionToFormat: Int
                           ): (String, WebPageWithIDedWebElements, List[StringPositionInSourceCode]) = {
           rawSolutionsList(indexOfSolutionToFormat) match {

@@ -1,13 +1,12 @@
 package leon.web.websitebuilder
 package memory
 
-import programEvaluator.SourceMap
-
 import scala.concurrent.Future
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import leon.LeonContext
+import leon.web.websitebuilder.programEvaluator.dustbin.SourceMap
 import leon.web.websitebuilder.stringModification.ClarificationSession
 
 /**

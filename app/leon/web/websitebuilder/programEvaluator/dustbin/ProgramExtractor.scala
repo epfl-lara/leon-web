@@ -1,10 +1,8 @@
-package leon.web.websitebuilder
-package programEvaluator
+package leon.web.websitebuilder.programEvaluator.dustbin
 
 import leon.purescala.Definitions.{CaseClassDef, Program}
-import leon.purescala.Expressions.Expr
-import logging.OptionValWithLog
-import logging.serverReporter._
+import leon.web.websitebuilder.logging.OptionValWithLog
+import leon.web.websitebuilder.logging.serverReporter.{Error, Info, ServerReporter}
 
 
 class ProgramExtractor(val program: Program) {

@@ -25,8 +25,8 @@ import leon.evaluators.DefaultEvaluator
 
 import scala.collection.mutable.ListBuffer
 import leon.LeonContext
-
 import leon.solvers.string.StringSolver.Assignment
+import leon.web.websitebuilder.programEvaluator.dustbin.ProgramExtractor
 
 /**
   * Created by dupriez on 3/10/16.
@@ -69,7 +69,7 @@ object ProgramEvaluator {
   }
 
   
-  def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter, assignment: Assignment): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
+  def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter, assignment: Assignment): (Option[(WebPageWithIDedWebElements, () => Option[dustbin.SourceMap], LeonContext)], String) = {
     val sReporter = serverReporter.startProcess("ProgramEvaluator")
 //    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
     val resultWebPage = evaluateProgramConcrete(program, program.lookupFunDef(fullNameOfTheFunctionToEvaluate), sReporter) match {
@@ -174,14 +174,14 @@ object ProgramEvaluator {
   }
 
   // The second element takes the result of the abstract Evaluator and updates the source map.
-  private def convertWebPageExprToClientWebPageAndSourceMap(webPageEvaluatedExpr: Expr, program: Program, sourceCode: String, serverReporter: ServerReporter, assignment: Assignment): Option[(WebPageWithIDedWebElements, Expr => SourceMap)] = {
+  private def convertWebPageExprToClientWebPageAndSourceMap(webPageEvaluatedExpr: Expr, program: Program, sourceCode: String, serverReporter: ServerReporter, assignment: Assignment): Option[(WebPageWithIDedWebElements, Expr => dustbin.SourceMap)] = {
 
     val sReporter = serverReporter.startFunction("Converting the WebPage Expr into a WebPage, and building the sourceMap")
     sReporter.report(Info, "webPage expr to be converted: "+ "DISABLED (to re-enable it, look for \"#VERBOSITY\" in ProgramEvaluator.scala)")
 //    #VERBOSITY
 //    sReporter.report(Info, "webPage expr to be converted: "+ webPageEvaluatedExpr)
 
-    val result: Either[(WebPageWithIDedWebElements, Expr => SourceMap), String] = try {
+    val result: Either[(WebPageWithIDedWebElements, Expr => dustbin.SourceMap), String] = try {
       /** Looking up the case classes of webDSL_Leon**/
       def lookupCaseClass(program: Program)(caseClassFullName: String): CaseClassDef = {
         program.lookupCaseClass(caseClassFullName) match {
@@ -225,7 +225,7 @@ object ProgramEvaluator {
         }
       }
 
-      def buildSourceMapAndGiveIDsToWebElements(webPage: WebPage, sourceCode: String, program: Program, serverReporter: ServerReporter): (WebPageWithIDedWebElements, Expr => SourceMap) = {
+      def buildSourceMapAndGiveIDsToWebElements(webPage: WebPage, sourceCode: String, program: Program, serverReporter: ServerReporter): (WebPageWithIDedWebElements, Expr => dustbin.SourceMap) = {
         val sReporter = serverReporter.startFunction("buildSourceMapAndGiveIDsToWebElements")
         val WebPage(bootstrapWebElement: WebElement, bootstrapcss: StyleSheet) = webPage
         val cb = new ConversionBuilder(new ProgramExtractor(program), serverReporter)
@@ -246,7 +246,7 @@ object ProgramEvaluator {
           * @param correspondingUnevaluatedExpr
           * @return
           */
-        def giveIDToWebElementsAndFillSourceMap(id: Int, webElement: WebElement, correspondingUnevaluatedExpr: Expr, sourceMap: SourceMap, sReporter: ServerReporter) : (WebElementWithID, Int) = {
+        def giveIDToWebElementsAndFillSourceMap(id: Int, webElement: WebElement, correspondingUnevaluatedExpr: Expr, sourceMap: dustbin.SourceMap, sReporter: ServerReporter) : (WebElementWithID, Int) = {
           //sReporter.report(Info, "Processing: webElement: "+webElement+" and corresponding unevaluated Expr: "+correspondingUnevaluatedExpr)
           def sanityCheck(webElement: WebElement, correspondingUnevaluatedExpr: Expr, caseClassDef: CaseClassDef, webElementName: String, sReporter:ServerReporter): Unit = {
             correspondingUnevaluatedExpr match {
@@ -346,7 +346,7 @@ object ProgramEvaluator {
 
         val webPageWithIDedElements = WebPageWithIDedWebElements(giveIDToWebElement(0, bootstrapWebElement, sReporter)._1, bootstrapcss)
         val computeSourceMap = (resultEvaluationTreeExpr: Expr) => {
-          val sourceMap = new SourceMap(sourceCode, program, assignment)
+          val sourceMap = new dustbin.SourceMap(sourceCode, program, assignment)
           val (bootstrapExprOfUnevaluatedWebElement, bootstrapExprOfUnevaluatedStyle)= resultEvaluationTreeExpr match {
           case CaseClass(CaseClassType(`webPageCaseClassDef`, targs_1), Seq(argwebpage, argwebstyle)) =>
             (argwebpage, argwebstyle)
