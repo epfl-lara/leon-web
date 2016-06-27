@@ -28,10 +28,10 @@ object CaseClassDefExtractor {
     "leonListNil" -> "leon.collection.Nil"
   )
 
-  def extractCaseClassDefs(program: Program, serverReporter: ServerReporter): Option[Map[String, CaseClassDef]] = {
+  def extractCaseClassDefs(program: Program, serverReporter: ServerReporter): Map[String, CaseClassDef] = {
     val sReporter = serverReporter.startFunction("Looking up Case Class Defs")
     case class ExtractingFailure(log: String) extends Exception
-    val (log: String, wrappedUpCaseClassDefMap) =
+    val (log: String, wrappedUpCaseClassDefMap: Map[String, CaseClassDef]) =
       try {
         caseClassDefNameAndFullNameMap.foldLeft(("Looking them up in the program: ", Map[String, CaseClassDef]())){
           case ((log:String, underConstructionMap), (caseClassName: String, caseClassFullName: String)) =>
@@ -46,7 +46,6 @@ object CaseClassDefExtractor {
     catch {
       case ExtractingFailure(log) =>
         sReporter.report(Error, log)
-        None
     }
     sReporter.report(Info, log)
     wrappedUpCaseClassDefMap

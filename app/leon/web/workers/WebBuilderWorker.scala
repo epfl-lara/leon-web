@@ -9,44 +9,35 @@ import leon.purescala.Definitions._
 import leon.purescala.Types._
 import websitebuilder._
 import memory._
-import leon.web.shared.messages.GetBootstrapSourceCode
-import leon.web.websitebuilder.programEvaluator.LeonProgramMaker
+import leon.web.shared.messages._
 import leon.web.shared.SourceCodeSubmissionResult
 import leon.web.websitebuilder.logging.serverReporter.ServerReporter
 import leon.web.websitebuilder.stringModification.StringModificationProcessor
 import leon.web.websitebuilder.programEvaluator.ProgramEvaluator
 import leon.web.websitebuilder.bootstrapSourceCode.BootstrapSourceCodeGetter
-import leon.web.shared.messages.GetBootstrapSourceCode_answer
-import leon.web.shared.messages.SubmitStringModification_answer
-import leon.web.shared.messages.SubmitStringModification
-import leon.web.shared.messages.SubmitSourceCodeResult
-import leon.web.shared.messages.MessageFromServer
 import leon.web.websitebuilder.logging.serverReporter._
+import leon.web.websitebuilder.programEvaluator.dustbin.LeonProgramMaker
 
 class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
   def receive = {
-    case s: GetBootstrapSourceCode => event(processGetBootstrapSourceCode(s))
-    //case s: SubmitSourceCode => processSubmitSourceCode(s)*
-    case OnUpdateCode(c) => 
-      logInfo("WebBuilder received code requestId = "+c.requestId+", processing...")
-      //println(c.program)
-      ProgramEvaluator.functionToEvaluate = c.program.definedFunctions.find{ fd =>
-        fd.returnType match {
-          case CaseClassType(ccd, targs) => ccd.id.name == "WebPage"
-          case _ => false
-        }
-      }
-      
-      event(processNewCode(c, true))
+    case s: RequestInitialClientWebBuildingState =>
+      event(NewClientWebBuildingState(APIForClient.requestInitialClientWBState()))
+
+//      TODO: Is this wrapping in OnClientEvent really needed? Why is it here?
     case OnClientEvent(cstate, s) =>
       s match {
-        case s: SubmitStringModification => 
+        case s:SendStringModification =>
           println("Will process string modification " + s)
-          event(processStringModificationSubmission(cstate, s))
+          event(NewClientWebBuildingState(APIForClient.stringModification(s.stringModification, s.baseServerWBStateID)))
         case _ => notifyError("Unknown event for WebBuilderWorker : " + s)
       }
+
+    case OnUpdateCode(cstate) =>
+      logInfo("WebBuilder received an update on the source code. requestId = "+cstate.requestId)
+//      TODO: What to do if cstate.code is worth None?
+      event(NewClientWebBuildingState(APIForClient.sourceCodeChange(cstate.code.get)))
 
     case DoCancel =>
       sender ! Cancelled(this)

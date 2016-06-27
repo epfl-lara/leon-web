@@ -6,6 +6,7 @@ import JQueryExtended.toJQueryExtended
 import japgolly.scalajs.react.ReactDOM
 import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.websitebuilder.Offset
+import main.scala.leon.web.client.websitebuilder.ClarificationBox
 import org.scalajs.dom.document
 
 

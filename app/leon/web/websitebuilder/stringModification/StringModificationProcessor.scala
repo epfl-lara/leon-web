@@ -16,7 +16,7 @@ import leon.webDSL.webDescription._
 import logging.OptionValWithLog
 import logging.serverReporter.{Error, Info, ServerReporter, _}
 import memory.Memory
-import programEvaluator.{ProgramEvaluator, dustbin}
+import programEvaluator.{ProgramEvaluator, TupleSelectAndCaseClassSelectRemover, dustbin}
 //import shared.{PotentialWebPagesList, StringModificationSubmissionResult, _}
 import leon.web.shared._
 
@@ -232,8 +232,6 @@ object StringModificationProcessor {
                                                                                              protoNewClarificationSession: ClarificationSession,
                                                                                              sReporter: ServerReporter
                                                                                            ) = {
-          val assignment = sourceMap.assignment
-
           /**
             * Assumes all the identifier present in its arguments come from the same File.
             * Make sure that the same instance of the Identifier class is used consistently through the equations and assignments
@@ -591,8 +589,7 @@ object StringModificationProcessor {
                 newProgram,
                 newSourceCode,
                 newFuntionToExecuteOption,
-                serverReporter,
-                originalAssignment
+                serverReporter
               ) match {
                 case (None, evaluationLog) =>
                   //            Memory.setSourceMap(newSourceId, () => None)(null)
@@ -856,4 +853,4 @@ object StringModificationProcessor {
   *                                string element that appears in one of the equation
   * @param assignment store the assignment deduced by the previous rounds of clarification.
   */
-case class ClarificationSession(textElementIdsForEquations: List[Int], idsOfInvolvedTextElements: List[Int], assignment: Assignment)
+case class ClarificationSession(textElementIdsForEquations: List[Int], idsOfInvolvedTextElements: List[Int])

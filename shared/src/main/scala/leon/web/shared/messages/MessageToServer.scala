@@ -56,6 +56,12 @@ sealed trait WebsiteBuilderModule {
 case class GetBootstrapSourceCode() extends MessageToServerExpecting[GetBootstrapSourceCode_answer] with WebsiteBuilderModule
 case class SubmitStringModification(stringModification: StringModification, sourceCodeId: Int, stringModID: Int) extends MessageToServerExpecting[SubmitStringModification_answer] with WebsiteBuilderModule
 
+case class RequestInitialClientWebBuildingState() extends MessageToServerExpecting[NewClientWebBuildingState] with WebsiteBuilderModule
+//Replacement for SubmitStringModification
+//  idOfCorrespondingWBStateDataIfClarificationOption: In case this StringModification corresponds to one of the
+//    ClarificationOption that were proposed to the client, the webStateDadaID of the corresponding WBStateDate on the server.
+case class SendStringModification(stringModification: StringModification, baseServerWBStateID: Int, idOfCorrespondingWBStateDataIfClarificationOption: Option[Int]) extends MessageToServerExpecting[NewClientWebBuildingState] with WebsiteBuilderModule
+
 
 object MessageToServer {
   import boopickle.Default._

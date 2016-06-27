@@ -9,7 +9,7 @@ import leon.webDSL.webDescription.WebElement
 /**
   * Created by dupriez on 3/31/16.
   */
-class SourceMap(val sourceCode: String, program: Program, val assignment: Assignment) extends ProgramExtractor(program) {
+class SourceMap(val sourceCode: String, program: Program) extends ProgramExtractor(program) {
   private val _webElementIDToExpr: scala.collection.mutable.Map[Int, (WebElement, Expr)] = scala.collection.mutable.Map()
   def webElementIDToExpr(webElementID: Int) : OptionValWithLog[Expr] = {
     if (_webElementIDToExpr.contains(webElementID)) {

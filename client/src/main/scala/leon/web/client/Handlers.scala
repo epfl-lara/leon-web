@@ -3,14 +3,18 @@ package client
 
 import org.scalajs.dom
 import dom.html.Element
+
 import scala.scalajs.js
 import js.annotation._
 import org.scalajs.jquery
-import jquery.{ jQuery => $, JQuery, JQueryEventObject }
-import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
+import jquery.{JQuery, JQueryEventObject, jQuery => $}
+
+import js.Dynamic.{global => g, literal => l, newInstance => jsnew}
 import js.JSConverters._
 import com.scalawarrior.scalajs.ace._
 import leon.web.shared._
+import main.scala.leon.web.client.websitebuilder.WebBuilderClientInterface
+
 import scala.collection.mutable.ListBuffer
 
 
@@ -146,6 +150,8 @@ object Handlers extends js.Object {
       case data: HCompilation => compilation(data)
       case data: HRepairResult => repair_result(data)
       case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
+      case NewClientWebBuildingState(clientWebBuildingState) => WebBuilderClientInterface.applyNewClientState(clientWebBuildingState)
+//        TODO: Remove the following, because this event should no longer be sent by the server
       case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), requestId) =>
         optWebpage match {
           case Some(webPage) =>

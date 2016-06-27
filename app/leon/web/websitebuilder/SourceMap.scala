@@ -10,10 +10,10 @@ import leon.webDSL.webDescription.WebElement
 
 class SourceMap {
   private val _webElementIDToWebElementAndUnevaluatedExpr: scala.collection.mutable.Map[Int, (WebElement, Expr)] = scala.collection.mutable.Map()
-  private def query(webElementID: Int, serverReporter: ServerReporter): Option[(WebElement, Expr]= {
+  private def query(webElementID: Int, serverReporter: ServerReporter): Option[(WebElement, Expr)]= {
     if (_webElementIDToWebElementAndUnevaluatedExpr.contains(webElementID)) {
       serverReporter.addTab.report(Info, "SourceMap query successful for webElement id= "+webElementID)
-      _webElementIDToWebElementAndUnevaluatedExpr(webElementID)
+      Some(_webElementIDToWebElementAndUnevaluatedExpr(webElementID))
     }
     else {
       serverReporter.addTab.report(Info, "SourceMap query failed for webElement id= "+webElementID)

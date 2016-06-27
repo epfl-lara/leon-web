@@ -9,27 +9,32 @@ import org.scalajs.dom
 import org.scalajs.dom.{console, document}
 import org.scalajs.dom.html.Element
 import org.scalajs.dom.WebSocket
-import org.scalajs.dom.{Event, MessageEvent, CloseEvent, ErrorEvent}
+import org.scalajs.dom.{CloseEvent, ErrorEvent, Event, MessageEvent}
 import org.scalajs.dom.ext.LocalStorage
-import scala.scalajs.js.Dynamic.{ global => g, literal => l/*, newInstance => jsnew*/ }
+
+import scala.scalajs.js.Dynamic.{global => g, literal => l}
 import japgolly.scalajs.react._
 import com.scalawarrior.scalajs.ace._
 import org.scalajs.jquery
-import jquery.{ jQuery => $, JQueryAjaxSettings, JQueryXHR, JQuery, JQueryEventObject }
+import jquery.{JQuery, JQueryAjaxSettings, JQueryEventObject, JQueryXHR, jQuery => $}
 import JQueryExtended._
 import Bool._
 import Implicits._
-import shared.{VerifStatus, TerminationStatus, InvariantStatus, Constants}
-import shared.{Module => ModuleDescription, Main => MainModule, _}
-import shared.{Project}
+import shared.{Constants, InvariantStatus, TerminationStatus, VerifStatus}
+import shared.{Main => MainModule, Module => ModuleDescription, _}
+import shared.Project
 import shared.equal.EqSyntax
 import client.react.{App => ReactApp}
 import client.react.Actions
 import client.utils.BufferedWebSocket
 import shared.messages.{Event => _, _}
+
 import scala.scalajs.js.typedarray._
 import java.nio.ByteBuffer
+
+import main.scala.leon.web.client.websitebuilder.ClarificationBox
 import org.scalajs.dom.raw.FileReader
+
 import scalacss.ScalaCssReact._
 import scalacss.mutable.StyleSheetRegistry
 import scalacss.Defaults._
