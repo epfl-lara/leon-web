@@ -6,8 +6,17 @@ import leon.webDSL.webDescription.WebPageWithIDedWebElements
 /**
   * Created by dupriez on 27/06/16.
   */
-case class ClientWBStateData(
-                              sourceCode: String,
-                              idedWebPage: WebPageWithIDedWebElements,
-                              positionsOfModificationsInSourceCode_option: Option[List[StringPositionInSourceCode]]
-                            )
+
+///**
+//  *
+//  * @param idOfCorrespondingWBStateData The stateDataID of the WBStateData on the server from which this ClarificationOption was derived
+//  * @param sourceCode
+//  * @param idedWebPage
+//  * @param positionsOfModificationsInSourceCode
+//  */
+//case class ClientWBStateData(
+//                              idOfCorrespondingWBStateData: Int,
+//                              sourceCode: String,
+//                              idedWebPage: WebPageWithIDedWebElements,
+//                              positionsOfModificationsInSourceCode: List[StringPositionInSourceCode]
+//                            )

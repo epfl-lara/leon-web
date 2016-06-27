@@ -11,6 +11,7 @@ import main.scala.leon.web.shared.webBuilding.ClientWBState
 object APIForClient {
   def requestInitialClientWBState(): ClientWBState = {
     ???
+
   }
   def sourceCodeChange(newSourceCode: String): ClientWBState = {
     ???

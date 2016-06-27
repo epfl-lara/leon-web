@@ -17,16 +17,24 @@ object WebBuilderClientInterface {
   def applyNewClientState(clientWBState: ClientWBState): Unit = {
     println(s"Client is applying a new ClientWBState, with stateID ${clientWBState.stateID}")
 
+    def printlnClientWBStateData(clientWBStateData: ClientWBStateData) = {
+      clientWBStateData match {
+        case ClientWBStateData(idOfCorrespondingWBStateData, sourceCode, idedWebPage, positionsOfModificationsInSourceCode) =>
+          println(" idOfCorrespondingWBStateData: "+idOfCorrespondingWBStateData)
+          println(" SourceCode: "+sourceCode)
+          println(" idedWebPage: "+idedWebPage)
+          println(" positionsOfModificationsInSourceCode: "+positionsOfModificationsInSourceCode)
+      }
+    }
+
     clientWBState.stateData match {
-      case ClientWBStateData(sourceCode, idedWebPage, positionsOfModificationsInSourceCode_option) =>
+      case cwbsd@ClientWBStateData(idOfCorrespondingWBStateData, sourceCode, idedWebPage, positionsOfModificationsInSourceCode) =>
         println("Displayed state:")
-        println(" SourceCode: "+sourceCode)
-        println("idedWebPage: "+idedWebPage)
-        println("positionsOfModificationsInSourceCode_option: "+positionsOfModificationsInSourceCode_option)
+        printlnClientWBStateData(cwbsd)
         EditorManipulator.updateEditor(
           clientWBState.stateData.sourceCode,
           triggerOnChangeCallback=false,
-          positionsOfModificationsInSourceCode_option.getOrElse(List())
+          positionsOfModificationsInSourceCode
         )
         ScalaJS_Main.renderWebPage(idedWebPage)
     }
@@ -35,13 +43,11 @@ object WebBuilderClientInterface {
         println("Clarification received")
         def printlnClarificationOption(index: Int, clientClarificationOption: ClientClarificationOption) = {
           clientClarificationOption match {
-            case ClientClarificationOption(sourceCode, idedWebPage, positionsOfModificationsInSourceCode, textOfClarifiedWebElement, idOfCorrespondingWBStateData) =>
+            case ClientClarificationOption(clientWBStateData, textOfClarifiedWebElement) =>
+//            case ClientClarificationOption(sourceCode, idedWebPage, positionsOfModificationsInSourceCode, textOfClarifiedWebElement, idOfCorrespondingWBStateData) =>
               println("ClarificationOption "+index+":")
-              println(" SourceCode: "+sourceCode)
-              println(" idedWebPage: "+idedWebPage)
-              println(" positionsOfModificationsInSourceCode: "+positionsOfModificationsInSourceCode)
+              printlnClientWBStateData(clientWBStateData)
               println(" textOfClarifiedWebElement: "+textOfClarifiedWebElement)
-              println(" idOfCorrespondingWBStateData: "+idOfCorrespondingWBStateData)
           }
         }
         List.range(1, clarificationOptions.length-1).foreach((i:Int)=> {printlnClarificationOption(i, clarificationOptions(i-1))})
