@@ -3,7 +3,6 @@ package leon.web.websitebuilder.state
 import leon.web.shared.StringPositionInSourceCode
 import leon.web.websitebuilder.SourceMap
 import leon.webDSL.webDescription.WebPageWithIDedWebElements
-import main.scala.leon.web.shared.webBuilding.ClientWBStateData
 
 /**
   * Created by dupriez on 27/06/16.
@@ -26,7 +25,7 @@ class WBStateData(
                  ) {
   val stateDataID = WBStateData.generateStateDataID()
 
-  def convertToClientWBStateData: ClientWBStateData = {
+  def convertToClientWBStateData: ClientWBStateData_Server = {
     ???
   }
 }

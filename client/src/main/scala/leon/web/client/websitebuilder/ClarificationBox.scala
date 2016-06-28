@@ -5,7 +5,8 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.websitebuilder.ScalaJS_Main
 import leon.web.client.{GlobalStyles, WebBuildingUIManager, websitebuilder}
 import leon.web.shared._
-import main.scala.leon.web.shared.webBuilding.{ClientClarificationOption, WebElementID}
+import main.scala.leon.web.client.websitebuilder.state.{ClientClarificationOption_Client, ClientWBStateData_Client}
+import main.scala.leon.web.shared.webBuilding.WebElementID
 import org.scalajs.dom.document
 import org.scalajs.jquery.{jQuery => $}
 
@@ -58,15 +59,22 @@ object ClarificationBox {
 
 //  TODO: This function is just a quick solution, that unpack and repack the data to reuse the previous setSolutionButtons function.
 //  TODO: The latter should eventually be rewritten to directly accept the data.
-  def setSolutionButtons_(clarificationOptions: List[ClientClarificationOption], idOdClarifiedWebElement: WebElementID): Unit = {
+  def setSolutionButtons_(clarificationOptions: List[ClientClarificationOption_Client], idOdClarifiedWebElement: WebElementID): Unit = {
     setSolutionButtons(
       clarificationOptions.map{
-        case ClientClarificationOption(sourceCode, idedWebPage, positionsOfModificationsInSourceCode, textOfClarifiedWebElement, idOfCorrespondingWBStateData) =>
-          ShippableClarificationSolution(sourceCode, idedWebPage, positionsOfModificationsInSourceCode, Some(textOfClarifiedWebElement))
+        case ClientClarificationOption_Client(clientWBStateData, textOfClarifiedWebElement) =>
+          clientWBStateData match {
+            case ClientWBStateData_Client(idOfCorrespondingWBStateData, sourceCode, idedWebPage, positionsOfModificationsInSourceCode) =>
+              ShippableClarificationSolution(sourceCode, idedWebPage, positionsOfModificationsInSourceCode, Some(textOfClarifiedWebElement))
+          }
       },
       idOdClarifiedWebElement.id,
-      clarificationOptions.map{
-        case ClientClarificationOption(_,_,_,_,idOfCorrespondingWBStateData)=>idOfCorrespondingWBStateData
+      clarificationOptions.map {
+        case ClientClarificationOption_Client(clientWBStateData, _) =>
+          clientWBStateData match {
+            case ClientWBStateData_Client(idOfCorrespondingWBStateData, _, _, _) =>
+              idOfCorrespondingWBStateData
+          }
       }
     )
   }

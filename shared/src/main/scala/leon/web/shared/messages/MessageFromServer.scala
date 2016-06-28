@@ -4,7 +4,7 @@ package messages
 //package leon.web.shared
 import github._
 import git._
-import main.scala.leon.web.shared.webBuilding.ClientWBState
+import main.scala.leon.web.shared.webBuilding.{SerialisedClientWBState}
 import shared.SourceCodeSubmissionResult
 
 sealed trait MessageFromServer
@@ -263,7 +263,8 @@ case class SubmitStringModification_answer(
                                             requestStringModSubResID: Int
                                           ) extends MessageFromServer
 
-case class NewClientWebBuildingState(clientWebBuildingState: ClientWBState) extends MessageFromServer
+//case class NewClientWebBuildingState(clientWebBuildingState: ClientWBState) extends MessageFromServer
+case class NewClientWebBuildingState(clientWebBuildingState: SerialisedClientWBState) extends MessageFromServer
 
 object HandlerMessages {
   type VCS = Array[VC]

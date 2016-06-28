@@ -1,7 +1,7 @@
 package leon.web.websitebuilder
 
 import leon.web.shared.StringModification
-import main.scala.leon.web.shared.webBuilding.ClientWBState
+import main.scala.leon.web.shared.webBuilding.{SerialisedClientWBState}
 
 /**
   * Created by dupriez on 27/06/16.
@@ -9,14 +9,14 @@ import main.scala.leon.web.shared.webBuilding.ClientWBState
   * Defines the functions to call when receiving a message from the client
   */
 object APIForClient {
-  def requestInitialClientWBState(): ClientWBState = {
+  def requestInitialClientWBState(): SerialisedClientWBState = {
     ???
 
   }
-  def sourceCodeChange(newSourceCode: String): ClientWBState = {
+  def sourceCodeChange(newSourceCode: String): SerialisedClientWBState = {
     ???
   }
-  def stringModification(stringModification: StringModification, baseServerWBStateID: Int): ClientWBState = {
+  def stringModification(stringModification: StringModification, baseServerWBStateID: Int): SerialisedClientWBState = {
     ???
   }
 }

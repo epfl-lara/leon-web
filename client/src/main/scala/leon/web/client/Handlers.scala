@@ -150,7 +150,7 @@ object Handlers extends js.Object {
       case data: HCompilation => compilation(data)
       case data: HRepairResult => repair_result(data)
       case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
-      case NewClientWebBuildingState(clientWebBuildingState) => WebBuilderClientInterface.applyNewClientState(clientWebBuildingState)
+      case NewClientWebBuildingState(clientWebBuildingState) => WebBuilderClientInterface.receiveNewSerialisedClientState(clientWebBuildingState)
 //        TODO: Remove the following, because this event should no longer be sent by the server
       case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), requestId) =>
         optWebpage match {

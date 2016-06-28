@@ -1,7 +1,6 @@
 package leon.web.websitebuilder.state
 
 import leon.web.websitebuilder.clarification.ClarificationState
-import main.scala.leon.web.shared.webBuilding.ClientWBState
 
 /**
   * Created by dupriez on 27/06/16.
@@ -21,7 +20,7 @@ class WBState(
            ) {
   val stateID = WBState.generateStateID()
 
-  def convertToClientWBState: ClientWBState = {
+  def convertToClientWBState: ClientWBState_Server = {
     ???
   }
 }
