@@ -17,11 +17,11 @@ case class SerialisedClientWBState(
                                     idedWebPage: WebPageWithIDedWebElements,
                                     positionsOfModificationsInSourceCode: List[StringPositionInSourceCode],
 //                                  clarificationData
-                                    idOfToBeClarifiedWebElement: WebElementID,
+                                    idOfToBeClarifiedWebElement_option: Option[WebElementID],
 //                                    clientClarificationOptions
-                                      idOfCorrespondingWBStateData_list: List[Int],
-                                      sourceCode_list: List[String],
-                                      idedWebPage_list: List[WebPageWithIDedWebElements],
-                                      positionsOfModificationsInSourceCode_list: List[List[StringPositionInSourceCode]],
-                                      textOfClarifiedWebElement_list: List[String]
+                                      idOfCorrespondingWBStateData_list_option: Option[List[Int]],
+                                      sourceCode_list_option: Option[List[String]],
+                                      idedWebPage_list_option: Option[List[WebPageWithIDedWebElements]],
+                                      positionsOfModificationsInSourceCode_list_option: Option[List[List[StringPositionInSourceCode]]],
+                                      textOfClarifiedWebElement_list_option: Option[List[String]]
                                   )
