@@ -87,6 +87,21 @@ object ClarificationBox {
         clarifiedElement.empty().append(solution._1.textContentOfClarifiedWebElementOption.getOrElse(""))
 //            ScalaJS_Main.AceEditor.setEditorValue(solution._1.sourceCode)
         ScalaJS_Main.renderWebPage(solution._1.idedWebPage)
+        solution match {
+          case (
+            ShippableClarificationSolution(
+              sourceCode,
+              idedWebPage,
+              positionsOfModificationsInSourceCode,
+              textContentOfClarifiedWebElementOption
+            ),
+            idOfCorrespondingWBStateData: Int
+            ) =>
+            val correspondingClientWebStateData: ClientWBStateData_Client = {
+              ClientWBStateData_Client(idOfCorrespondingWBStateData, sourceCode, idedWebPage, positionsOfModificationsInSourceCode)
+            }
+            WebBuilderClientInterface.applyClientWBStateData(correspondingClientWebStateData)
+        }
         WebBuilderClientInterface.sendStringModification(
           StringModification(idOfClarifiedWebElement, None, solution._1.textContentOfClarifiedWebElementOption.get),
           Some(solution._2)
