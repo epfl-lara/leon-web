@@ -1,8 +1,7 @@
-package leon.web.websitebuilder
+package leon.web.websitebuilder.webPageExprConversion
 
 import leon.purescala.Definitions.{CaseClassDef, Program}
-import leon.web.websitebuilder.logging.OptionValWithLog
-import leon.web.websitebuilder.logging.serverReporter.{Info, Error, ServerReporter}
+import leon.web.websitebuilder.logging.serverReporter.{Error, Info, ServerReporter}
 
 /**
   * Created by dupriez on 26/06/16.

@@ -12,7 +12,7 @@ object WBStateMemory {
   private val maxLengthOfWbStateQueue = 5
   private val wbStateQueue = mutable.Queue[WBState]()
 
-  def getWBStateFromIDOrFail(askedWBStateID: Int, serverReporter: ServerReporter): WBState = {
+  def getWBStateFromIDOrThrowException(askedWBStateID: Int, serverReporter: ServerReporter): WBState = {
     val sReporter = serverReporter.startFunction(s"Retrieving WBState with id $askedWBStateID from Memory")
     wbStateQueue.find((wbState) => wbState.stateID == askedWBStateID) match {
       case Some(wbState) =>

@@ -1,6 +1,6 @@
 package leon.web.websitebuilder.clarification
 
-import leon.web.websitebuilder.state.{SourceCodeAndProgramBinding, SourceCodeAndProgram_StronglyBinded, WBStateData}
+import leon.web.websitebuilder.state._
 import main.scala.leon.web.shared.webBuilding.WebElementID
 
 /**
@@ -11,16 +11,33 @@ import main.scala.leon.web.shared.webBuilding.WebElementID
   *
   * @param originalSourceCodeAndProgram_stronglyBinded
   * @param idOfToBeClarifiedTextElement
-  * @param potentialNewStateData Alternatives to the StateData of the State this ClarificationState is in
+  * @param clarificationOptions Alternatives to the StateData of the State this ClarificationState is in
   * @param localStringEquations
   * @param idsOfInvolvedTextElements The ids of the textElements whose text is made out of at least one StringLiteral that appears in one of the equations
   */
-class ClarificationState(
-                          val originalSourceCodeAndProgram_stronglyBinded: SourceCodeAndProgram_StronglyBinded,
-                          val idOfToBeClarifiedTextElement: WebElementID,
-                          val potentialNewStateData: List[WBStateData],
-                          val localStringEquations: List[LocalStringEquation],
-                          val idsOfInvolvedTextElements: List[WebElementID]
+case class ClarificationState(
+                               originalSourceCodeAndProgram_stronglyBinded: SourceCodeAndProgram_StronglyBinded,
+                               idOfToBeClarifiedTextElement: WebElementID,
+                               clarificationOptions: List[ClarificationOption],
+                               localStringEquations: List[LocalStringEquation],
+                               idsOfInvolvedTextElements: List[WebElementID]
                         ) {
+  def extractClientClarificationData: ClientClarificationData_Server = {
+    ClientClarificationData_Server(
+      clarificationOptions.map(_.extractClientClarificationOption),
+      idOfToBeClarifiedTextElement
+    )
+  }
+}
 
+case class ClarificationOption(
+                              wBStateData: WBStateData,
+                              textOfClarifiedWebElement: String
+                              ) {
+  def extractClientClarificationOption: ClientClarificationOption_Server = {
+    ClientClarificationOption_Server(
+      wBStateData.extractClientWBStateData,
+      textOfClarifiedWebElement
+    )
+  }
 }

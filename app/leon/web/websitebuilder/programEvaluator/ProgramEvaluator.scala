@@ -111,7 +111,7 @@ object ProgramEvaluator {
     */
   private def evaluateProgramAbstract(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter)(implicit ctx: LeonContext): Option[Expr] = {
     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
-    val abstractEvaluator = new AbstractOnlyEvaluator(ctx, program)
+    val abstractEvaluator  = new AbstractOnlyEvaluator(ctx, program)
     val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
       case Some(funDef) => funDef
       case None => {
