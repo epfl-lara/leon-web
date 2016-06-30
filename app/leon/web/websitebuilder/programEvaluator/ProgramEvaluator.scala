@@ -107,13 +107,14 @@ object ProgramEvaluator {
   private def evaluateProgramAbstract(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter)(implicit ctx: LeonContext): Option[Expr] = {
     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
     val abstractEvaluator = new AbstractOnlyEvaluator(ctx, program)
-    val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
-      case Some(funDef) => funDef
-      case None => {
-        sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")
-        return None
-      }
-    }
+//    val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
+//      case Some(funDef) => funDef
+//      case None => {
+//        sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")
+//        return None
+//      }
+//    }
+    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).get
     abstractEvaluator.eval(FunctionInvocation(mainFunDef.typed, List())) match {
       case EvaluationResults.Successful(resultEvaluationTreeExpr) => {
 //        Note: in resultEvaluationTreeExpr, the function calls are replaced by their return value

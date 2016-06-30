@@ -19,16 +19,19 @@ object Memory {
   private var _sourceMap :  (Int, Future[Option[SourceMap]], LeonContext)= null
   private var _autoSourceMap: (Int, Future[Option[SourceMap]], LeonContext) = null // For automatically generated code.
   def setSourceMap(id: Int, produceSourceMap: ()=>Option[SourceMap])(implicit ctx: LeonContext): Unit = {
+    println("Setting SourceMap with id: "+id)
     if(_sourceMap != null && _sourceMap._3 != null) {
       _sourceMap._3.interruptManager.interrupt()
     }
     _sourceMap = (id, Future { produceSourceMap() }, ctx)
   }
   def setAutoSourceMap(id: Int, produceSourceMap: ()=>Option[SourceMap])(implicit ctx: LeonContext): Unit = {
+    println("Setting autoSourceMap with id: "+id)
     if(_autoSourceMap != null && _autoSourceMap._3 != null) {
       _autoSourceMap._3.interruptManager.interrupt()
     }
     _autoSourceMap = (id, Future { produceSourceMap() }, ctx)
+    println("AutoSourceMap has one for id: "+_autoSourceMap._1)
   }
   /** Returns the source map if the ids corresponds.*/
   def getSourceMap(id: Int): Option[SourceMap] = {
@@ -42,6 +45,7 @@ object Memory {
         println("Variable _sourceMap does not contain a sourceMap for id "+id+" (it contains a sourceMap for id "+_sourceMap._1+")")
         println("Looking in the _autoSourceMap variable")
         if(_autoSourceMap != null) {
+          println("AutoSourceMap has one for id: "+_autoSourceMap._1)
           if(id != _autoSourceMap._1) {
             println("Variable _autoSourceMap does not contain a sourceMap for id "+id+" (it contains a sourceMap for id "+_autoSourceMap._1+")")
             None
@@ -49,7 +53,10 @@ object Memory {
             try {
               Await.result(_autoSourceMap._2, 100.seconds)
             } catch {
-              case e: Throwable => None
+              case e: Throwable =>
+                println(e.getMessage)
+                println(e.getStackTrace.mkString("\n"))
+                None
             }
           }
         } else  None

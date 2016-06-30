@@ -600,6 +600,10 @@ object StringModificationProcessor {
           //      Exactly one solution
           sReporter.report(Info, "Proposing exactly one solution. Cleaning the clarification session.")
           Memory.clarificationSessionOption = None
+          Memory.setAutoSourceMap(
+            newSourceId,
+            rawSolutions.head.sourceMapProducer
+          )(leonContextOfFirstSolution.get)
           StringModificationSubmissionResult(
             PotentialWebPagesList(
               newSourceCodeID = Some(newSourceId),
