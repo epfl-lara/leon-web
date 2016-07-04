@@ -30,6 +30,9 @@ import shared.messages.{Event => _, _}
 import scala.scalajs.js.typedarray._
 import java.nio.ByteBuffer
 import org.scalajs.dom.raw.FileReader
+import scalacss.ScalaCssReact._
+import scalacss.mutable.StyleSheetRegistry
+import scalacss.Defaults._
 
 @ScalaJSDefined
 class ExplorationFact(val range: Range, val res: String) extends js.Object
@@ -74,6 +77,10 @@ object MainDelayed extends js.JSApp {
   @JSExport
   def main(): Unit = {
     $(document).ready(Main.main _)
+    
+    val registry = new StyleSheetRegistry
+    registry.register(GlobalStyles)
+    registry.addToDocumentOnRegistration()
   }
 
   val editor = ace.edit("codebox");
@@ -141,8 +148,10 @@ trait LeonWeb extends EqSyntax {
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
   def sendBuffered(msg: MessageToServer): Unit = leonSocket.sendBuffered(msg)
     
-  object Server {// Mimick actor-like properties
+  object Server {
+    // Mimick actor-like properties
     def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
+
     // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
     def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
     
@@ -1636,6 +1645,7 @@ trait LeonWeb extends EqSyntax {
   }
   
   def onCodeUpdate(): Unit = {
+
     val now = new js.Date().getTime()
 
     if (lastChange < (now - timeWindow)) {
@@ -1644,8 +1654,9 @@ trait LeonWeb extends EqSyntax {
       }
       lastChange = new js.Date().getTime();
     }
-    
+
     leonEditorCode := editor.getValue()
+    ClarificationBox.removeSolutionButtons()
   }
 
   def loadSelectedExample(): Unit = {
@@ -1709,13 +1720,33 @@ trait LeonWeb extends EqSyntax {
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");
   editor.commands.removeCommand("gotoline")
-  
-  editorSession.on("change", (e: js.Any) => {
+
+  def unsetOnChangeCallbackForEditor() = {
+    EditorOnChangeCallback.enabled = false
+  }
+
+  def setOnChangeCallbackForEditor() = {
+    EditorOnChangeCallback.enabled = true
+  }
+  object EditorOnChangeCallback {
+    var enabled = true
+    def callback() = {
+      if(enabled){
     lastChange = new js.Date().getTime();
     updateSaveButton();
     js.timers.setTimeout(timeWindow + 50) { onCodeUpdate }
     ().asInstanceOf[js.Any]
-  });
+      }
+      else{
+        println("Currently no callback onChange for the editor")
+      }
+    }
+  }
+
+  println("Adding an onChange callback to the editor")
+  editorSession.on("change", (e: js.Any) => {
+    EditorOnChangeCallback.callback()
+  })
   val callbackDecorations = (e: js.Any) => {
     //println("New value: " + e + " and first visible row is " + editor.getFirstVisibleRow())
     js.timers.setTimeout(50){updateCustomGutterDecorations()}

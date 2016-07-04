@@ -12,12 +12,12 @@ import memory._
 import leon.web.shared.messages.GetBootstrapSourceCode
 import leon.web.websitebuilder.programEvaluator.LeonProgramMaker
 import leon.web.shared.SourceCodeSubmissionResult
-import leon.web.shared.messages.SubmitStringModificationResult
 import leon.web.websitebuilder.logging.serverReporter.ServerReporter
 import leon.web.websitebuilder.stringModification.StringModificationProcessor
 import leon.web.websitebuilder.programEvaluator.ProgramEvaluator
 import leon.web.websitebuilder.bootstrapSourceCode.BootstrapSourceCodeGetter
 import leon.web.shared.messages.GetBootstrapSourceCode_answer
+import leon.web.shared.messages.SubmitStringModification_answer
 import leon.web.shared.messages.SubmitStringModification
 import leon.web.shared.messages.SubmitSourceCodeResult
 import leon.web.shared.messages.MessageFromServer
@@ -43,7 +43,7 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     case OnClientEvent(cstate, s) =>
       s match {
         case s: SubmitStringModification => 
-          println("Will process string modification" + s)
+          println("Will process string modification " + s)
           event(processStringModificationSubmission(cstate, s))
         case _ => notifyError("Unknown event for WebBuilderWorker : " + s)
       }
@@ -84,7 +84,7 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
     }
   }
 
-  def processStringModificationSubmission(cstate: CompilationState, submission: SubmitStringModification): SubmitStringModificationResult = {
+  def processStringModificationSubmission(cstate: CompilationState, submission: SubmitStringModification): SubmitStringModification_answer = {
     val sReporter = new ServerReporter
     val stringModification = submission.stringModification
     val stringModID = submission.stringModID
@@ -110,6 +110,6 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
           |${weExprFromSourceMap}
            """.stripMargin)
 
-    SubmitStringModificationResult(StringModificationProcessor.process(this, cstate, stringModification, sourceCodeId, sReporter), sourceCodeId, stringModID)
+    SubmitStringModification_answer(StringModificationProcessor.process(this, cstate, stringModification, sourceCodeId, sReporter), sourceCodeId, stringModID)
   }
 }

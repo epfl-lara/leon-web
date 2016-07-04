@@ -41,15 +41,14 @@ object ProgramEvaluator {
           throw ExceptionDuringConversion(log)
       }
     }
-    val webPageCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_webElementCaseClassDef(sReporter))
-    val textElementCaseClassDef = getCaseClassDefValOrFail(programExtractor.textElement_webElementCaseClassDef(sReporter))
-    val elementCaseClassDef = getCaseClassDefValOrFail(programExtractor.element_webElementCaseClassDef(sReporter))
-    val webPropertyCaseClassDef = getCaseClassDefValOrFail(programExtractor.webAttribute_webElementCaseClassDef(sReporter))
-    val webStyleCaseClassDef = getCaseClassDefValOrFail(programExtractor.webStyle_webElementCaseClassDef(sReporter))
-    val consCaseClassDef = getCaseClassDefValOrFail(programExtractor.leonCons_caseClassDef(sReporter))
-    val nilCaseClassDef = getCaseClassDefValOrFail(programExtractor.leonNil_caseClassDef(sReporter))
-    val StyleSheetCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_StyleSheetCaseClassDef(sReporter))
-    val StyleRuleCaseClassDef = getCaseClassDefValOrFail(programExtractor.webPage_StyleRuleCaseClassDef(sReporter))
+
+   val wrappedUpCaseClassDefMap = programExtractor.getWrappedUpCaseClassDefMap(sReporter)
+   val webPageCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("WebPage"))
+   val textElementCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("TextElement"))
+   val elementCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("Element"))
+   val webStyleCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("WebStyle"))
+   val consCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("leonListCons"))
+   val nilCaseClassDef = getCaseClassDefValOrFail(wrappedUpCaseClassDefMap("leonListNil"))
     
     def exprOfLeonListOfExprToLeonListOfExpr(leonListExpr: Expr) : leon.collection.List[Expr] = {
       val actualLeonListExpr = TupleSelectAndCaseClassSelectRemover.removeTopLevelTupleSelectsAndCaseClassSelects(leonListExpr)
@@ -67,16 +66,17 @@ object ProgramEvaluator {
   
   def evaluateAndConvertResult(program: Program, sourceCode: String, forceFunDef: Option[FunDef], serverReporter: ServerReporter): (Option[(WebPageWithIDedWebElements, () => Option[SourceMap], LeonContext)], String) = {
     val sReporter = serverReporter.startProcess("ProgramEvaluator")
-    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
+//    val resultWebPage = evaluateProgramConcrete(program, forceFunDef, sReporter) match {
+    val resultWebPage = evaluateProgramConcrete(program, program.lookupFunDef(fullNameOfTheFunctionToEvaluate), sReporter) match {
       case Some(resultEvaluatedExpr) =>
         convertWebPageExprToClientWebPageAndSourceMap(resultEvaluatedExpr, program, sourceCode, sReporter) match {
-          case Some((webId, sourceMapMaker)) =>
+          case Some((webPageWithIDedWebElements, sourceMapMaker)) =>
             val ctx = defaultLeonContext()
             val resultEvaluationTreeExprLazy = () => {
               val abstractValue = evaluateProgramAbstract(program, forceFunDef, serverReporter)(ctx)
               abstractValue.map(sourceMapMaker)
             }
-            Some((webId, resultEvaluationTreeExprLazy, ctx))
+            Some((webPageWithIDedWebElements, resultEvaluationTreeExprLazy, ctx))
           case None =>
             None
         }
@@ -107,13 +107,14 @@ object ProgramEvaluator {
   private def evaluateProgramAbstract(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter)(implicit ctx: LeonContext): Option[Expr] = {
     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
     val abstractEvaluator = new AbstractOnlyEvaluator(ctx, program)
-    val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
-      case Some(funDef) => funDef
-      case None => {
-        sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")
-        return None
-      }
-    }
+//    val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
+//      case Some(funDef) => funDef
+//      case None => {
+//        sReporter.report(Error, "lookupFunDef(\"" + fullNameOfTheFunctionToEvaluate + "\") gave no result")
+//        return None
+//      }
+//    }
+    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).get
     abstractEvaluator.eval(FunctionInvocation(mainFunDef.typed, List())) match {
       case EvaluationResults.Successful(resultEvaluationTreeExpr) => {
 //        Note: in resultEvaluationTreeExpr, the function calls are replaced by their return value

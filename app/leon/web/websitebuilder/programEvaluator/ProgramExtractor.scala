@@ -20,31 +20,44 @@ class ProgramExtractor(val program: Program) {
     }
   }
 
-  def element_webElementCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.Element", serverReporter)
+  private def lookupCaseClass(caseClassFullName: String): (OptionValWithLog[CaseClassDef], String) = {
+    program.lookupCaseClass(caseClassFullName) match {
+      case Some(classDef) =>
+        (OptionValWithLog(Some(classDef), ""), s"$caseClassFullName: Success,")
+      case None =>
+        (OptionValWithLog(None, "Failed Source Map lookup for the caseClassDef of: \"" + caseClassFullName+"\""), s"$caseClassFullName: Failure,")
+    }
   }
-  def textElement_webElementCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.TextElement", serverReporter)
-  }
-  def webAttribute_webElementCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.WebAttribute", serverReporter)
-  }
-  def webStyle_webElementCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.WebStyle", serverReporter)
-  }
-  def webPage_webElementCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.WebPage", serverReporter)
-  }
-  def leonCons_caseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.collection.Cons", serverReporter)
-  }
-  def leonNil_caseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.collection.Nil", serverReporter)
-  }
-  def webPage_StyleSheetCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.StyleSheet", serverReporter)
-  }
-  def webPage_StyleRuleCaseClassDef(serverReporter: ServerReporter): OptionValWithLog[CaseClassDef] = {
-    lookupCaseClass("leon.webDSL.webDescription.StyleRule", serverReporter)
+
+  private var wrappedUpCaseClassDefMapMemoisation: Option[Map[String,OptionValWithLog[CaseClassDef]]] = None
+
+  private val caseClassDefNameAndFullNameMap = Map(
+    "Element" -> "leon.webDSL.webDescription.Element",
+    "TextElement" -> "leon.webDSL.webDescription.TextElement",
+    "WebAttribute" -> "leon.webDSL.webDescription.WebAttribute",
+    "WebStyle" -> "leon.webDSL.webDescription.WebStyle",
+    "WebPage" -> "leon.webDSL.webDescription.WebPage",
+    "leonListCons" -> "leon.collection.Cons",
+    "leonListNil" -> "leon.collection.Nil"
+  )
+
+  def getWrappedUpCaseClassDefMap(serverReporter: ServerReporter): Map[String,OptionValWithLog[CaseClassDef]] = {
+    val sReporter  = serverReporter.startFunction("Looking up Case Class Defs")
+    wrappedUpCaseClassDefMapMemoisation match {
+      case Some(memoisedValue) =>
+          sReporter.report(Info, "Loading them from storage")
+          memoisedValue
+      case None =>
+  //        sReporter.report(Info, "Looking them up in the program: ")
+        val (log: String, wrappedUpCaseClassDefMap) =
+          caseClassDefNameAndFullNameMap.foldLeft(("Looking them up in the program: ", Map[String, OptionValWithLog[CaseClassDef]]())){
+            case ((log:String, underConstructionMap), (caseClassName: String, caseClassFullName: String)) =>
+              val lookupResult = lookupCaseClass(caseClassFullName)
+              (log + lookupResult._2, underConstructionMap + (caseClassName -> lookupResult._1))
+          }
+        wrappedUpCaseClassDefMapMemoisation = Some(wrappedUpCaseClassDefMap)
+        sReporter.report(Info, log)
+        wrappedUpCaseClassDefMap
+    }
   }
 }
