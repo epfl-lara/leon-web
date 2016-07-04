@@ -1,8 +1,10 @@
 package leon.web
 package shared
 package messages
+//package leon.web.shared
 import github._
 import git._
+import shared.SourceCodeSubmissionResult
 
 sealed trait MessageFromServer
 
@@ -85,7 +87,9 @@ case class HSynthesisResult(
   closed: Double = 0.0,
   total: Double = 0.0,
   solCode: String = "",
+  solCodeSimplified: String = "",
   allCode: String = "",
+  allCodeSimplified: String = "",
   cursor: Option[HMoveCursor] = None,
   proven: Boolean = false
 ) extends MessageFromServer
@@ -118,6 +122,7 @@ case class HSynthesisExploration(
   cid: Int,
   from: List[Int],
   allCode: String,
+  allCodeSimplified: String,
   cursor: Option[HMoveCursor]
 ) extends MessageFromServer
 
@@ -254,9 +259,11 @@ case class GitOperationDone(
 
 case class GetBootstrapSourceCode_answer(bootstrapSourceCode: Option[String]) extends MessageFromServer
 case class SubmitSourceCodeResult(result: SourceCodeSubmissionResult, requestId: Int) extends MessageFromServer
-case class SubmitStringModificationResult(
-    stringModificationSubmissionResult: StringModificationSubmissionResult,
-    sourceId: Int, stringModSubResID: Int) extends MessageFromServer
+case class SubmitStringModification_answer(
+                                            stringModificationSubmissionResult: StringModificationSubmissionResult,
+                                            requestSourceId: Int,
+                                            requestStringModSubResID: Int
+                                          ) extends MessageFromServer
 
 object HandlerMessages {
   type VCS = Array[VC]

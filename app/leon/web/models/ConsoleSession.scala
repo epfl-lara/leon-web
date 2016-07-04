@@ -3,6 +3,7 @@ package leon.web
 package models
 
 import akka.actor._
+
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.Future
@@ -29,9 +30,12 @@ import leon.web.utils.String._
 import java.io.File
 import java.io.PrintWriter
 import java.util.concurrent.atomic.AtomicBoolean
+
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import java.nio.ByteBuffer
+
+import leon.web.websitebuilder.memory.Memory
 
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
@@ -106,6 +110,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       modules += ModuleEntry(Repair        , new RepairWorker(self, interruptManager))
       modules += ModuleEntry(Invariant     , new OrbWorker(self, interruptManager))
       modules += ModuleEntry(WebsiteBuilder, new WebBuilderWorker(self, interruptManager))
+
+      Memory.reinitialiseSourceMapsVariablesAndClarificationSession()
 
       logInfo("New client")
 
@@ -479,6 +485,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
 
     case UpdateCode(code, user, project, requestId) =>
+      Memory.clearClarificationSession()
+
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
 

@@ -1,7 +1,6 @@
 package leon.web
 package shared
 package messages
-
 import git._
 
 sealed trait MessageToServer {
@@ -55,7 +54,7 @@ sealed trait WebsiteBuilderModule {
 }
 
 case class GetBootstrapSourceCode() extends MessageToServerExpecting[GetBootstrapSourceCode_answer] with WebsiteBuilderModule
-case class SubmitStringModification(stringModification: StringModification, sourceCodeId: Int, stringModID: Int) extends MessageToServerExpecting[SubmitStringModificationResult] with WebsiteBuilderModule
+case class SubmitStringModification(stringModification: StringModification, sourceCodeId: Int, stringModID: Int) extends MessageToServerExpecting[SubmitStringModification_answer] with WebsiteBuilderModule
 
 
 object MessageToServer {

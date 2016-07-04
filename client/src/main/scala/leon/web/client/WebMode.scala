@@ -1,10 +1,13 @@
 package leon.web
 package client
 
-import org.scalajs.jquery.{ jQuery => $ }
-
+import org.scalajs.jquery.{jQuery => $}
 import JQueryExtended.toJQueryExtended
+import japgolly.scalajs.react.ReactDOM
+import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.websitebuilder.Offset
+import org.scalajs.dom.document
+
 
 object WebMode {
   val LeonTitle = "Leon"
@@ -28,6 +31,7 @@ object WebMode {
     $("#htmlDisplayerDiv").show()
     scalajs.js.timers.setTimeout(800) {
       $("#htmlDisplayerDiv").removeClass("webdesigninitial", 400)
+      ReactDOM.render(ClarificationBox.initialState, document.getElementById(WebBuildingUIManager.clarificationBoxID))
       Main.resizeEditor()
     }
   }

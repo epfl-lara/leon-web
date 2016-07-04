@@ -31,7 +31,7 @@ class SourceMap(val sourceCode: String, program: Program) extends ProgramExtract
   def addMapping(id: Int, webElement: WebElement, exprOfUneavaluatedWebElement: Expr) = {
     _webElementIDToExpr(id) = (webElement, exprOfUneavaluatedWebElement)
   }
-
+  def keys = _webElementIDToExpr.keys
 }
 
 

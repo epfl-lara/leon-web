@@ -95,4 +95,16 @@ object GlobalStyles extends StyleSheet.Inline {
       borderColor(transparent, c"#fff")
     )
   )
+  
+  val webbuilderClarificationAddition = style(
+      backgroundColor(c"#0f0"),
+      border := "1px solid #0f0"
+  )
+  val webbuilderClarificationDeletion = style(
+      backgroundColor(c"#f00"),
+      border := "1px solid #f00"
+  )
+  val webbuilderClarificationModification = style(
+      backgroundColor(c"#ff0")
+  )
 }
