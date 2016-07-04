@@ -87,7 +87,9 @@ case class HSynthesisResult(
   closed: Double = 0.0,
   total: Double = 0.0,
   solCode: String = "",
+  solCodeSimplified: String = "",
   allCode: String = "",
+  allCodeSimplified: String = "",
   cursor: Option[HMoveCursor] = None,
   proven: Boolean = false
 ) extends MessageFromServer
@@ -120,6 +122,7 @@ case class HSynthesisExploration(
   cid: Int,
   from: List[Int],
   allCode: String,
+  allCodeSimplified: String,
   cursor: Option[HMoveCursor]
 ) extends MessageFromServer
 

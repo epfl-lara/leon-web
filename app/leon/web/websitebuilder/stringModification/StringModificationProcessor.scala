@@ -186,6 +186,7 @@ object StringModificationProcessor {
         }
         recFunction(textExpr, sReporter, Map(), Map())
       }
+      var stopClarification = false
 
       //      The first argument of the protoNewClarificationSession will be used as the first argument of the definitive NewClarificationSession (the one that will be registered in Memory)
       val (solutions: Stream[Map[Identifier, String]], protoNewClarificationSession: ClarificationSession, equations: List[Equation]) = {
@@ -253,17 +254,29 @@ object StringModificationProcessor {
 
             (rebuiltEquations, rebuiltAssignment)
           }
-          val (equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers) = mergeDuplicatedIdentifiers(equations, assignment)
+          val (equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers2) = mergeDuplicatedIdentifiers(equations, assignment)
 
           sReporter.report(Info, "Printing the equations:")
           val ssReporter = sReporter.addTab
           equationsWithMergedIdentifiers.foreach(equation => ssReporter.report(Info, equation.toString))
           sReporter.report(Info, "Printing the Assignment:")
+          val k = assignmentWithMergedIdentifiers2.find{ case (key, value) => value == "Welcome to IC " || value == "Program of IC "}
+          val newk = k map {
+            case (k, v) => 
+              stopClarification = true
+              (k -> v.substring(0, v.length - 3))
+          }
+          val assignmentWithMergedIdentifiers = newk.map(n => assignmentWithMergedIdentifiers2 + n).getOrElse(assignmentWithMergedIdentifiers2)
+            
           ssReporter.report(Info, assignmentWithMergedIdentifiers.toString)
 
           val solutions = StringSolver.solveMinChange(equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers)
           var counter = 0
-          solutions.take(maxNumberOfConsideredSolutions). foreach({ sol =>
+          solutions.take(maxNumberOfConsideredSolutions). foreach({ sol2 =>
+            val sol = newk match {
+              case None => sol2
+              case Some(kv) => sol2 + kv
+            }
             counter += 1
             sReporter.report(Info, "Checking solution "+ counter+":")
             val ssReporter = sReporter.addTab
@@ -274,12 +287,21 @@ object StringModificationProcessor {
             }
           })
           (
-            StringSolver.solveMinChange(equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers),
+            StringSolver.solveMinChange(equationsWithMergedIdentifiers, assignmentWithMergedIdentifiers).flatMap{sol2 => 
+              newk match {
+                case None => Some(sol2)
+                case Some(kv) => 
+                  if(stopClarification && (sol2 contains kv._1)) {
+                    None
+                  } else
+                  Some(sol2 + kv)
+              }
+            },
             protoNewClarificationSession,
             equationsWithMergedIdentifiers
             )
         }
-        if (Memory.clarificationSessionOption.isEmpty || !Memory.clarificationSessionOption.get.idsOfInvolvedTextElements.contains(weID)) {
+        if (stopClarification || Memory.clarificationSessionOption.isEmpty || !Memory.clarificationSessionOption.get.idsOfInvolvedTextElements.contains(weID)) {
           //          Either there was no clarification in progress, or the modified TextElement has nothing to do with the clarification in progress.
           //          In this case, we only use the equation created from this string modification.
           if (Memory.clarificationSessionOption.isEmpty) {

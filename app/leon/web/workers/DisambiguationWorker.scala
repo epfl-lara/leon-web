@@ -123,13 +123,14 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
           Some(new InputPatternCoverage(fd.typed).result())
         } catch {
           case e: InputPatternCoverageException => println("Could not cover solution\n" + e)
+            println(e.getStackTrace.mkString("\n"))
             None
         }
       }.map(_.distinct.sortBy { e => - e.map(ExprOps.formulaSize _).sum })
       println("Expressions to test first: ") 
       exprsToTestFirst.map(_.map(println).toList)
       qb.setExpressionsToTestFirst(exprsToTestFirst)
-      val questions = qb.result()
+      val questions = qb.resultAsStream()
       val solutionNonDeterministic = ssol.headOption.exists(sol =>
         (sol.term #:: sol.defs.toStream.map(_.fullBody)).exists(expr =>
           ExprOps.exists{

@@ -257,7 +257,7 @@ object Handlers extends js.Object {
       pbb.addClass("progress-bar-success")
 
       $("#synthesisResults .code.solution").removeClass("prettyprinted")
-      $("#synthesisResults .code.solution").text(data.solCode)
+      $("#synthesisResults .code.solution").text(data.solCodeSimplified)
       
       $("#synthesisDialog").find("a[href=#clarificationResults]").parent().hide()
       $("#synthesisDialog").find("a[href=#synthesisResults]").click()
@@ -267,7 +267,8 @@ object Handlers extends js.Object {
       $("#synthesisDialog .exploreButton").show()
       $("#synthesisDialog .importButton").show()
       $("#synthesisDialog .importButton").unbind("click").click(() => {
-        Handlers(HReplaceCode(newCode = data.allCode))
+        val newCode = if($("#clarificationResults").is(":visible")) data.allCode else data.allCodeSimplified
+        Handlers(HReplaceCode(newCode = newCode))
         if (data.cursor.isDefined) {
           js.timers.setTimeout(100) {
             Handlers(data.cursor.get)
