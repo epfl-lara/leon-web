@@ -72,7 +72,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                     error("Failed to repair :(")
                   } else {
                     val (sol, isTrusted) = solutions.last
-                    val expr = sol.toSimplifiedExpr(ctx, program, fd)
+                    val expr = sol.toSimplifiedExpr(ctx, program, leon.purescala.Path(fd.precOrTrue))
 
                     val fdDup = fd.duplicate()
                     fdDup.body = Some(expr)
