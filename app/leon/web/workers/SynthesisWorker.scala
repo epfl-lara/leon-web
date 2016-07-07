@@ -158,7 +158,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               val hctx = new SearchContext(synth.sctx, synth.ci.source, n, search)
 
               if (!n.isExpanded) {
-                n.expand(hctx)
+                search.expand(n, hctx)
               }
 
               action match {
@@ -171,7 +171,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                     case Some((d, _)) =>
                       n.selected = List(d)
                       if (!d.isExpanded) {
-                        d.expand(hctx)
+                        search.expand(d, hctx)
                       }
                     case _ =>
                       notifyError("Not found")
@@ -255,7 +255,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 while (matcher.find()) {
                   val ws = matcher.group(1).size
                   val i = matcher.group(2).toInt
-                  matcher.appendReplacement(result, solutionsTree(n.descendants(i), i:: path, ws)) 
+                  matcher.appendReplacement(result, solutionsTree(n.descendants(i), i:: path, ws).replace("$", "\\$"))
                 }
                 matcher.appendTail(result);
 
@@ -266,7 +266,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 n match {
                   case on: OrNode =>
                     if (!on.isExpanded) {
-                      on.expand(hctx)
+                      search.expand(on, hctx)
                     }
 
                     val options = on.descendants.zipWithIndex.collect { case (d: AndNode, i) =>
@@ -354,7 +354,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
               if (!an.isExpanded) {
                 val hctx = new SearchContext(sctx, synth.ci.source, an, search)
-                an.expand(hctx)
+                search.expand(an, hctx)
               }
 
               an.solutions.getOrElse {
@@ -388,7 +388,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     val ci = synth.ci
     val SourceInfo(fd, src, pb) = ci //SourceInfo(fd, pc, src, spec, tb) = ci
 
-    val solCode = sol.toSimplifiedExpr(synth.context, synth.program, fd)
+    val solCode = sol.toSimplifiedExpr(synth.context, synth.program, ci.problem.pc)
     val hasEditMe = ExprOps.exists{
       case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
       case _ => false
@@ -477,7 +477,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           
           if (!orNode.isExpanded) {
             val hctx = new SearchContext(synth.sctx, synth.ci.source, orNode, synth.search)
-            orNode.expand(hctx)
+            search.expand(orNode, hctx)
           }
 
           val andNodes = orNode.descendants.collect {
