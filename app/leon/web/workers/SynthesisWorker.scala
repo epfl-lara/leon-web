@@ -242,7 +242,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                   }
                 
 
-                val sol = simplifier(osol.getOrElse(Solution.chooseComplete(n.p)).toExpr)
+                val sol = simplifier(osol.getOrElse(Solution.chooseComplete(n.p)).term)
 
                 var code = ScalaPrinter(sol)
 
