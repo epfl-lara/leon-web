@@ -110,7 +110,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       val ci = synth.ci
       val SourceInfo(fd, src, pb) = ci
       
-      val solCode = ssol_before.head.toSimplifiedExpr(ctx, cstate.program, fd)
+      val solCode = ssol_before.head.toSimplifiedExpr(ctx, cstate.program, ci.problem.pc)
       val hasEditMe = ExprOps.exists{
         case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
         case _ => false
