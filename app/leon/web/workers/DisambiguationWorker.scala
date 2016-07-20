@@ -78,14 +78,16 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
   import leon.grammars._
   
   /** Specific enumeration of strings, which can be used with the QuestionBuilder#setValueEnumerator method */
-  object NonEmptyValueGrammarfirst extends SimpleExpressionGrammar {
-    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[ProductionRule[TypeTree, Expr]] = t match {
+  object NonEmptyValueGrammarfirst extends leon.grammars.SimpleExpressionGrammar {
+    def computeProductions(t: TypeTree)(implicit ctx: LeonContext): Seq[Prod] = t match {
+       case Int32Type => List(terminal(IntLiteral(0)))
+       case IntegerType => List(terminal(InfiniteIntegerLiteral(BigInt(0))))
        case StringType =>
           List(
-            terminal(StringLiteral("foo"), Tags.Constant),
-            terminal(StringLiteral("\"'\n\t"), Tags.Constant)
-            //terminal(StringLiteral("Lara 2007"))
+            terminal(StringLiteral("foo"))
           )
+       case CharType =>
+         List(terminal(CharLiteral('a')))
        case tp: TypeParameter =>
           List(
             terminal(GenericValue(tp, 1))
@@ -101,15 +103,20 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
     case DoCancel =>
       sender ! Cancelled(this)
 
-    case NewSolutions(cstate, synth, ssol) =>
+    case NewSolutions(cstate, synth, ssol_before) =>
       logInfo("Receiving new solutions. disambiguating ...")
       import shared.messages._
       event(DisambiguationStarted)
       val ci = synth.ci
       val SourceInfo(fd, src, pb) = ci
       
+      val solCode = ssol_before.head.toSimplifiedExpr(ctx, cstate.program, ci.problem.pc)
+      val hasEditMe = ExprOps.exists{
+        case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
+        case _ => false
+      }(solCode)
       
-      
+      val ssol = if(hasEditMe) ssol_before.take(1) else ssol_before
       
       val qb = new QuestionBuilder(fd.paramIds.filter(x => !x.getType.isInstanceOf[FunctionType]), ssol, filterRedundantExprs, Some(fd))(synth.context, cstate.program)
       qb.setSortAlternativesBy(QuestionBuilder.AlternativeSortingType.BalancedParenthesisIsBetter())
