@@ -72,7 +72,9 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       // a call-back for updating progress in the interface
       val progressCallback: InferenceCondition => Unit = (ic: InferenceCondition) => {
         val funName = InstUtil.userFunctionName(ic.fd)
+        println(s"Looking for function with name: $funName")
         val userFun = functionByName(funName, startProg).get
+        println(s"Found function with name: $userFun")
         // replace '?' in the template
         val template = userFun.template.map { k =>
           PrettyPrinter(simplePostTransform {
@@ -100,7 +102,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       }
 
       if (hasLazyEval(startProg)) { // we need to use laziness extension phase
-        val leonctx = createLeonContext(ctx, s"--mem", s"--timeout=100")
+        val leonctx = createLeonContext(ctx, "--mem", "--webMode", "--timeout=120")
         val (stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
         val checkCtx = HOMemVerificationPhase.contextForChecks(leonctx)
         Future {
@@ -141,7 +143,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         }
       } else {
         setStateBeforeInference(cstate)
-        val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3") 
+        val leonctx = createLeonContext(this.ctx, "--webMode", "--timeout=120", "--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3") 
         val inferContext = new InferenceContext(startProg, leonctx)
         val engine = (new InferenceEngine(inferContext))
         inferEngine = Some(engine)
