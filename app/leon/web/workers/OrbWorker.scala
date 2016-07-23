@@ -37,7 +37,7 @@ import scala.util.Failure
 import scala.util.Try
 import leon.purescala.Definitions.Program
 import laziness._
-import LazinessUtil._
+import HOMemUtil._
 import verification._
 
 /**
@@ -100,11 +100,11 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       }
 
       if (hasLazyEval(startProg)) { // we need to use laziness extension phase
-        val leonctx = createLeonContext(ctx, s"--lazy", s"--useOrb", s"--timeout=100")
-        val (stateVeriProg, resourceVeriProg) = LazinessEliminationPhase.genVerifiablePrograms(this.ctx, startProg)
-        val checkCtx = LazyVerificationPhase.contextForChecks(leonctx)
+        val leonctx = createLeonContext(ctx, s"--mem", s"--timeout=100")
+        val (stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
+        val checkCtx = HOMemVerificationPhase.contextForChecks(leonctx)
         Future {
-          LazyVerificationPhase.checkSpecifications(stateVeriProg, checkCtx)
+          HOMemVerificationPhase.checkSpecifications(stateVeriProg, checkCtx)
         } onComplete {
           case Success(stateResult: VerificationReport) =>
             var failed = false
@@ -126,11 +126,11 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
                 invariantOverview += fd.id.name -> FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = !fd.hasTemplate)
               notifyInvariantOverview(cstate)
               // resource inference
-              val inferctx = LazyVerificationPhase.getInferenceContext(checkCtx, resourceVeriProg)
+              val inferctx = HOMemVerificationPhase.getInferenceContext(checkCtx, resourceVeriProg)
               val engine = new InferenceEngine(inferctx)
               inferEngine = Some(engine)
               Future {
-                LazyVerificationPhase.checkUsingOrb(engine, inferctx, Some(progressCallback))
+                HOMemVerificationPhase.checkUsingOrb(engine, inferctx, Some(progressCallback))
               } onComplete {
                 onInferComplete(inferctx)
               }
@@ -141,7 +141,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         }
       } else {
         setStateBeforeInference(cstate)
-        val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=3", "--solvers=smt-z3") //, s"--functions=${inFun.id.name}")
+        val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3") 
         val inferContext = new InferenceContext(startProg, leonctx)
         val engine = (new InferenceEngine(inferContext))
         inferEngine = Some(engine)
@@ -179,9 +179,8 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
   }
 
   def hasLazyEval(program: Program): Boolean = {
-    userLevelFunctions(program).exists{fd =>
-      isMemoized(fd) || exists(isLazyInvocation(_)(program))(fd.fullBody)
-    }
+    // TODO: fix this to handle higher-order functions without memoization
+    userLevelFunctions(program).exists{fd => isMemoized(fd)  }
   }
 
   def hasTemplates(program: Program): Boolean = {
