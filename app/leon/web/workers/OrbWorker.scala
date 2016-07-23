@@ -143,7 +143,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         }
       } else {
         setStateBeforeInference(cstate)
-        val leonctx = createLeonContext(this.ctx, "--webMode", "--timeout=120", "--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3") 
+        val leonctx = createLeonContext(this.ctx, "--webMode", "--timeout=120", "--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3", "-nlTimeout=3") 
         val inferContext = new InferenceContext(startProg, leonctx)
         val engine = (new InferenceEngine(inferContext))
         inferEngine = Some(engine)
