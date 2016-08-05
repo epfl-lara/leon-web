@@ -22,6 +22,7 @@ import leon.web.shared.messages.SubmitStringModification
 import leon.web.shared.messages.SubmitSourceCodeResult
 import leon.web.shared.messages.MessageFromServer
 import leon.web.websitebuilder.logging.serverReporter._
+import leon.evaluators.DefaultEvaluator
 
 class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -72,15 +73,24 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
         } else {
           Memory.setAutoSourceMap(requestId, sourceMapProducer)(ctx)
         }
+        val javascript = cstate.program.definedFunctions.find{
+          case fd => 
+            fd.params.length == 0 && fd.id.name == "javascript" && fd.returnType == StringType
+        }.flatMap{ fd =>
+          new DefaultEvaluator(ctx, cstate.program).eval(FunctionInvocation(fd.typed, Seq())).result match {
+            case Some(StringLiteral(s)) => Some(s)
+            case _ => None
+          }
+        }
 
-        SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPageWithIDedWebElement), evaluationLog), requestId)
+        SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPageWithIDedWebElement), evaluationLog), javascript, requestId)
       case (None, evaluationLog) =>
         Memory.setSourceMap(requestId, () => None)(null)
         SubmitSourceCodeResult(SourceCodeSubmissionResult(None,
           s"""
              |ProgramEvaluator did not manage to evaluate and unexpr the result of the leon program.
              | Here is the evaluation log: $evaluationLog
-          """.stripMargin), requestId)
+          """.stripMargin), None, requestId)
     }
   }
 

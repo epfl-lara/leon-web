@@ -152,7 +152,7 @@ object ScalaJS_Main {
   def submitSourceCode_serverAnswerHandler(sourceCodeProcessingResult: SubmitSourceCodeResult) = {
     println("Server sent something in response to a code submission")
     sourceCodeProcessingResult match {
-      case SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPage), log), requestId) => {
+      case SubmitSourceCodeResult(SourceCodeSubmissionResult(Some(webPage), log), javascript, requestId) => {
         if(requestId == idOfLastSourceCodeModificationSent) {
           println(
             s"""
@@ -166,7 +166,7 @@ object ScalaJS_Main {
           println(s"Received answer $requestId while expecting answer $idOfLastSourceCodeModificationSent from the server. Waiting.")
         }
       }
-      case SubmitSourceCodeResult(SourceCodeSubmissionResult(None, log), _) =>
+      case SubmitSourceCodeResult(SourceCodeSubmissionResult(None, log), javascript, _) =>
         println("Received \"None\" while expecting \"Some(WebPage)\" from the server")
     }
   }
@@ -729,6 +729,9 @@ object ScalaJS_Main {
     LeonList.mkString(s.elems, "\n\n", renderRule)
   }
 
+  def loadJavascript(s: String): Unit = {
+    window.eval(s)    
+  }
 //  def includeScriptInMainTemplate(scriptTagToInclude: scalatags.JsDom.TypedTag[org.scalajs.dom.html.Script]) = {
 //    dom.document.getElementById("scalajsScriptInclusionPoint").appendChild(scriptTagToInclude.render)
 //  }
