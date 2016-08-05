@@ -258,7 +258,7 @@ case class GitOperationDone(
 ) extends MessageFromServer with Event
 
 case class GetBootstrapSourceCode_answer(bootstrapSourceCode: Option[String]) extends MessageFromServer
-case class SubmitSourceCodeResult(result: SourceCodeSubmissionResult, requestId: Int) extends MessageFromServer
+case class SubmitSourceCodeResult(result: SourceCodeSubmissionResult, javascript: Option[String], requestId: Int) extends MessageFromServer
 case class SubmitStringModification_answer(
                                             stringModificationSubmissionResult: StringModificationSubmissionResult,
                                             requestSourceId: Int,

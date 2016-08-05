@@ -7,6 +7,7 @@ import leon.utils._
 import leon.purescala.Expressions._
 import leon.purescala.Definitions.{TypedFunDef, Program}
 import leon.web.shared.messages.{HUpdateExplorationFacts, NewResult}
+import leon.purescala.SelfPrettyPrinter
 
 class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) with StringToExprCached {
   import ConsoleProtocol._
@@ -62,7 +63,8 @@ class ExecutionWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                         Some(rp -> err)
                       }
                     case e =>
-                      Some(rp -> e.asString)
+                      implicit val p = cstate.program
+                      Some(rp -> SelfPrettyPrinter.print(e, e.asString))
                   }
 
                 case _ =>
