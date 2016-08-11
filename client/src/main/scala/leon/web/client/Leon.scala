@@ -270,7 +270,7 @@ trait LeonWeb extends EqSyntax {
     val presentation = Feature(active= false, displayName= "Presentation Mode", name= "presentation")
     val execution    = Feature(active= true, displayName= "Execution", module= Execution)
     val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Repair)
-    val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
+    val invariant    = Feature(active= true, displayName="Resource Bounds<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
     val webbuilding  = Feature(active= false, displayName="Web building<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= WebsiteBuilder)
   }
 
