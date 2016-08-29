@@ -114,7 +114,8 @@ object ProgramEvaluator {
 //        return None
 //      }
 //    }
-    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).get
+    val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).getOrElse(
+        throw new Exception("Could not find function " + fullNameOfTheFunctionToEvaluate))
     abstractEvaluator.eval(FunctionInvocation(mainFunDef.typed, List())) match {
       case EvaluationResults.Successful(resultEvaluationTreeExpr) => {
 //        Note: in resultEvaluationTreeExpr, the function calls are replaced by their return value
