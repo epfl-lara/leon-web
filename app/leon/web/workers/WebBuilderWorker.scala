@@ -15,7 +15,6 @@ import leon.web.shared.SourceCodeSubmissionResult
 import leon.web.websitebuilder.logging.serverReporter.ServerReporter
 import leon.web.websitebuilder.stringModification.StringModificationProcessor
 import leon.web.websitebuilder.programEvaluator.ProgramEvaluator
-import leon.web.websitebuilder.bootstrapSourceCode.BootstrapSourceCodeGetter
 import leon.web.shared.messages.GetBootstrapSourceCode_answer
 import leon.web.shared.messages.SubmitStringModification_answer
 import leon.web.shared.messages.SubmitStringModification
@@ -28,8 +27,6 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
   import ConsoleProtocol._
 
   def receive = {
-    case s: GetBootstrapSourceCode => event(processGetBootstrapSourceCode(s))
-    //case s: SubmitSourceCode => processSubmitSourceCode(s)*
     case OnUpdateCode(c) => 
       logInfo("WebBuilder received code requestId = "+c.requestId+", processing...")
       //println(c.program)
@@ -53,12 +50,6 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
       sender ! Cancelled(this)
 
     case _ =>
-  }
-
-  def processGetBootstrapSourceCode(getBootstrapSourceCode: GetBootstrapSourceCode): MessageFromServer = {
-    val serverReporter = new ServerReporter
-    val src = BootstrapSourceCodeGetter.getBootstrapSourceCode(serverReporter)
-    GetBootstrapSourceCode_answer(src)
   }
 
   def processNewCode(cstate: CompilationState, onUserRequest: Boolean, forceFunDef: Option[FunDef] = None): SubmitSourceCodeResult = {
