@@ -67,13 +67,16 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
 
                   progress("Verifying repair ...")
                   val (search, solutions) = synth.validate((search0, sols0), allowPartial = false)
-
+                  
                   if (solutions.isEmpty) {
                     error("Failed to repair :(")
                   } else {
-                    val (sol, isTrusted) = solutions.last
+                    val (sol, isTrusted) = solutions.head match {
+                      case (sol, true) => (sol, true)
+                      case (sol, false) => solutions.take(4).find{ _._2 }.getOrElse(solutions.head) // 4 is arbitrary.
+                    }
                     val expr = sol.toSimplifiedExpr(ctx, program, leon.purescala.Path(fd.precOrTrue))
-
+                    
                     val fdDup = fd.duplicate()
                     fdDup.body = Some(expr)
 
