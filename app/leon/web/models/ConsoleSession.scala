@@ -140,7 +140,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case ProcessClientEvent(event) =>
       import boopickle.Default._
-      import shared.messages._
       import shared.messages.MessageToServer._
       
       val message = Unpickle[MessageToServer].fromBytes(ByteBuffer.wrap(event))
@@ -149,22 +148,22 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         logInfo("[<] " + message.getClass.getName)
         message match {
           case message: MainModule => message match {
-              case MDoCancel => self ! DoCancel
-              case DoUpdateCode(code, requestId) => self ! ConsoleProtocol.UpdateCode(code, None, None, requestId)
-              case DoUpdateCodeInProject(owner, repo, file, branch, code, requestId) => withUser { user =>
-                val project = Project(owner, repo, branch, file)
-                self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), requestId)
-              }
-              case StorePermaLink(code) => self ! message
-              case AccessPermaLink(link) => self ! message
-              case FeatureSet(f, active) => 
-                if (modules contains f) {
-                  if (active) {
-                    modules(f).isActive = true
-                  } else {
-                    modules(f).isActive = false
-                  }
+            case MDoCancel => self ! DoCancel
+            case DoUpdateCode(code, requestId) => self ! ConsoleProtocol.UpdateCode(code, None, None, requestId)
+            case DoUpdateCodeInProject(owner, repo, file, branch, code, requestId) => withUser { user =>
+              val project = Project(owner, repo, branch, file)
+              self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), requestId)
+            }
+            case StorePermaLink(code) => self ! message
+            case AccessPermaLink(link) => self ! message
+            case FeatureSet(f, active) => 
+              if (modules contains f) {
+                if (active) {
+                  modules(f).isActive = true
+                } else {
+                  modules(f).isActive = false
                 }
+              }
           }
           case message: GitModule => message match {
             case LoadRepositories => withUser { user =>

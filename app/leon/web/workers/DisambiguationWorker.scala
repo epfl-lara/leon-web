@@ -35,6 +35,10 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       val ea = new ExamplesAdder(synth.context, cstate.program)
       ea.setRemoveFunctionParameters(true)
       ea.addToFunDef(nfd, Seq((in, out)))
+      // Add possibly missed letdefs.
+      
+      var innerFunctions = DefOps.getAllReachableInlineFunctions(fd, Set(fd)) -- Set(fd)
+      nfd.body = nfd.body.map(LetDef(innerFunctions.toSeq, _))
     })(cstate, synth.context)
   }
   
@@ -144,7 +148,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
             case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
             case _ => false }(expr)))
       if(questions.nonEmpty) {
-        logInfo("Sending back results")
+        logInfo("Got a question to ask:" + questions.head)
         event(convertQuestion(cstate, synth, fd, questions.head, solutionNonDeterministic))
       } else {
         event(DisambiguationNoresult)

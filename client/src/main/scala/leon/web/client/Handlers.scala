@@ -53,12 +53,14 @@ object Handlers extends js.Object {
           val fname = fdata.name
           overview.functions(fname) = fdata
         }
+        repair_started = false
 
       case data: HUpdateVerificationOverview =>
         overview.Data.verification = data.overview
     
         drawOverView()
         drawVerificationOverviewInGutter()
+        maybeUpdateRepairDialog()
       case data: HUpdateTerminationOverview =>
         overview.Data.termination = data.overview
 
@@ -177,6 +179,20 @@ object Handlers extends js.Object {
   def registerMessageHandler(handler: MessageFromServer => Boolean) = {
     RegisteredHandlers.handlers += handler
   }
+  
+  def maybeUpdateRepairDialog() = {
+    val c = overview.Data.verification
+    c.get(repair_result_fname.getOrElse("")) match {
+      case Some(vc) =>
+        if($("#repairDialog").is(":visible") && !repair_started) {
+          if(vc.status == VerifStatus.invalid) {
+            repair_started = true
+            Backend.repair.doRepair(repair_result_fname.getOrElse(""))
+          }
+        }
+      case None =>
+    }
+  }
 
   def updateExplorationFacts(newResults: Array[NewResult]): Unit = {
     for (i <- 0 until newResults.length) {
@@ -260,7 +276,7 @@ object Handlers extends js.Object {
       $("#synthesisResults .code.solution").removeClass("prettyprinted")
       $("#synthesisResults .code.solution").text(data.solCodeSimplified)
       
-      $("#synthesisDialog").find("a[href=#clarificationResults]").parent().hide()
+      $("#synthesisDialog").find("a[href^=#clarification]").parent().hide()
       $("#synthesisDialog").find("a[href=#synthesisResults]").click()
       
       //$("#synthesisResults").show()
@@ -307,7 +323,9 @@ object Handlers extends js.Object {
       $("#synthesisDialog .engineResult")
     } else if($("#synthesisExploreDialog").is(":visible")) {
       $("#synthesisExploreDialog .engineResult")
-    } else $("") // TODO: Exploration
+    } else if($("#repairDialog").is(":visible")) {
+      $("#repairDialog .engineResult")
+    } else $("") 
   }
   
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
@@ -410,18 +428,18 @@ object Handlers extends js.Object {
   
   def disambiguation_started() = {
     $("""<i class="fa fa-refresh fa-spin" title=""></i>""").appendTo(
-      engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().addClass("loading").show()
+      engineResultDisplayContainer().find("a[href^=#clarification]").parent().addClass("loading").show()
     )
   }
   
   def disambiguation_noresult() = {
-    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().hide()
+    engineResultDisplayContainer().find("a[href^=#clarification]").parent().hide()
     .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
   }
   
   def disambiguation_result(data: HDisambiguationResult) = {
     console.log("Received disambiguation data " + data.toString)
-    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent()
+    engineResultDisplayContainer().find("a[href^=#clarification]").parent()
     .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
     val toFill = disambiguationResultDisplay()
     
@@ -450,7 +468,7 @@ object Handlers extends js.Object {
     //disambiguationResultDisplayContainer().show()
     // Switch tabs:
     if(data.forceAsking) {
-      engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
+      engineResultDisplayContainer().find("a[href^=#clarification]").click()
       Main.showContextDemo(Main.demoClarification)
     } else {
       Main.showContextDemo(Main.demoClarificationMenu)
@@ -525,6 +543,8 @@ object Handlers extends js.Object {
   
   var synthesis_chosen_rule: Option[String] = None
   var synthesis_result_fname: js.UndefOr[String] = js.undefined
+  var repair_started: Boolean = false
+  var repair_result_fname: js.UndefOr[String] = js.undefined
 
   def synthesis_rulesToApply(data: HSynthesisRulesToApply) = {
     val fname = data.fname
@@ -567,7 +587,6 @@ object Handlers extends js.Object {
           Backend.synthesis.doApplyRule(fname, cid, rid.toInt)
       }
     }
-
     
     $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
       synthesis_chosen_rule = None
@@ -586,6 +605,7 @@ object Handlers extends js.Object {
 
     // setup and open pane
     if (data.result == "init") {
+      repair_result_fname = data.fname
       $("#repairResults").hide()
       $("#repairFocused").hide()
       $("#repairDialog .importButton").hide()
@@ -596,6 +616,16 @@ object Handlers extends js.Object {
       $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
         if (synthesizing) Backend.repair.cancel()
       })
+      
+      $("#repairDialog .engineResult > ul a").off("click.tabs")
+      $("#repairDialog .engineResult > ul a").on("click.tabs", ((_this: Element, event: JQueryEventObject) => {
+          event.preventDefault();
+          $(_this).parent().addClass("current").show();
+          $(_this).parent().siblings().removeClass("current");
+          var tab = $(_this).attr("href");
+          $("#repairDialog .engineResult > div").not(tab).css("display", "none");
+          $(tab).fadeIn();
+      }): js.ThisFunction);
     } else if (data.result == "progress") {
       pbb.addClass("active progress-bar-striped")
       pbb.removeClass("progress-bar-success progress-bar-danger")
@@ -626,7 +656,10 @@ object Handlers extends js.Object {
 
       $("#repairResults .code.solution").removeClass("prettyprinted")
       $("#repairResults .code.solution").text(data.solCode)
-      $("#repairResults").show()
+      
+      $("#repairDialog").find("a[href^=#clarification]").parent().hide()
+      $("#repairDialog").find("a[href=#repairResults]").click()
+      //$("#repairResults").show()
       g.prettyPrint();
       $("#repairDialog .importButton").show()
       $("#repairDialog .importButton").unbind("click").click(() => {
@@ -639,6 +672,7 @@ object Handlers extends js.Object {
       })
       $("#repairDialog .cancelButton").hide()
       $("#repairDialog .closeButton").show()
+      disambiguationResultDisplay().empty()
     }
   }
 
