@@ -382,6 +382,9 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     }
   }
 
+  /**
+    * @return the solution and the complete code, and the simplified solution and the complete code with simplified solution.
+    * In this context, simplified means that all free variables from the rule StringRender are replaced by "" */
   def solutionCode(cstate: CompilationState, synth: Synthesizer, sol: Solution): (Expr, String, Expr, String) = {
     import leon.purescala.PrinterHelpers._
 

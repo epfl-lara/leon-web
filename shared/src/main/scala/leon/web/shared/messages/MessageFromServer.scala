@@ -146,7 +146,8 @@ case class HRepairResult(
   success: String = "",
   solCode: String = "",
   allCode: String = "",
-  cursor: Option[HMoveCursor] = None
+  cursor: Option[HMoveCursor] = None,
+  fname: String = ""
 ) extends MessageFromServer
 
 case class ResultOutput(
