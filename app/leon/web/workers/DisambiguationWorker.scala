@@ -37,30 +37,40 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       ea.addToFunDef(nfd, Seq((in, out)))
       // Add possibly missed letdefs.
       
-      var innerFunctions = DefOps.getAllReachableInlineFunctions(fd, Set(fd)) -- Set(fd)
-      nfd.body = nfd.body.map(LetDef(innerFunctions.toSeq, _))
+      val innerFunctions = DefOps.getAllReachableInlineFunctions(fd, Set(fd)) -- Set(fd)
+      val updateBody = if(innerFunctions.nonEmpty) LetDef(innerFunctions.toSeq, _: Expr) else (i: Expr) => i
+      nfd.body = nfd.body.map(updateBody)
     })(cstate, synth.context)
   }
   
   import shared.messages.{DoCancel => _, _}
-  def convertQuestion(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr], currentSolutionNonDeterministic: Boolean): HDisambiguationResult = {
+  def convertQuestion(cstate: CompilationState, synth: Synthesizer, fd: FunDef, question: Question[Expr], currentSolutionNonDeterministic: Boolean, existingFullCode: Option[String]): HDisambiguationResult = {
     val (in, mapping) = ExamplesAdder.replaceGenericValuesByVariable(tupleWrap(question.inputs))
     
     @inline def instantiate(x: Expr) = ExprOps.replace(mapping, x)
+    
+    val customFullCode = existingFullCode getOrElse convertExampleToFullCode(cstate, synth, in, StringLiteral(shared.Constants.disambiguationPlaceHolder))
+    def customizeAllCode(alternativeToPlaceHolder: String): String = {
+      customFullCode.replace("\"" + shared.Constants.disambiguationPlaceHolder + "\"", alternativeToPlaceHolder)
+    }
+    val confirm_solution_text = instantiate(question.current_output).asString(synth.program)(synth.context)
     
     HDisambiguationResult(input = in.asString,
         fname = fd.id.name,
         forceAsking = currentSolutionNonDeterministic,
         confirm_solution = HDisambiguationDisplay(
-                instantiate(question.current_output).asString(synth.program)(synth.context), 
-                convertExampleToFullCode(cstate, synth, in, instantiate(question.current_output))),
+                confirm_solution_text, 
+                customizeAllCode(confirm_solution_text)),
         custom_alternative = HDisambiguationDisplay(
                 shared.Constants.disambiguationPlaceHolder, 
-                convertExampleToFullCode(cstate, synth, in, StringLiteral(shared.Constants.disambiguationPlaceHolder))),
-       alternatives =
-            question.other_outputs.map(output => HDisambiguationDisplay(
-                instantiate(output).asString(synth.program)(synth.context), 
-                convertExampleToFullCode(cstate, synth, in, instantiate(output)))))
+                customFullCode),
+        alternatives =
+            question.other_outputs.map{output => 
+              val other_output_text = instantiate(output).asString(synth.program)(synth.context)
+              HDisambiguationDisplay(
+                other_output_text,
+                customizeAllCode(confirm_solution_text))
+    })
   }
   
   def isGround(s: String): Boolean = {
@@ -149,7 +159,12 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
             case _ => false }(expr)))
       if(questions.nonEmpty) {
         logInfo("Got a question to ask:" + questions.head)
-        event(convertQuestion(cstate, synth, fd, questions.head, solutionNonDeterministic))
+        val mainQuestion = convertQuestion(cstate, synth, fd, questions.head, solutionNonDeterministic, None)
+        event(mainQuestion)
+        val customFullCode= mainQuestion.custom_alternative.allCode
+        for(question <- questions.tail) { // All the questions now port on the same input now.
+          event(convertQuestion(cstate, synth, fd, question, solutionNonDeterministic, Some(customFullCode)))
+        }
       } else {
         event(DisambiguationNoresult)
       }
