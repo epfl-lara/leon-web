@@ -430,12 +430,15 @@ object Handlers extends js.Object {
     $("""<i class="fa fa-refresh fa-spin" title=""></i>""").appendTo(
       engineResultDisplayContainer().find("a[href^=#clarification]").parent().addClass("loading").show()
     )
+    expression_already_disambiguated = ""
   }
   
   def disambiguation_noresult() = {
     engineResultDisplayContainer().find("a[href^=#clarification]").parent().hide()
     .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
   }
+  
+  var expression_already_disambiguated = ""
   
   def disambiguation_result(data: HDisambiguationResult) = {
     console.log("Received disambiguation data " + data.toString)
@@ -448,30 +451,38 @@ object Handlers extends js.Object {
     } else {
       "(" + data.input + ")"
     }
-    toFill.empty()
-    val (premessage, message) = if(data.alternatives.length == 0) {
-           ("To ensure completeness, please edit the pretty-printing of ", " below:")
-    } else ("What should be the output of ", "?")
-    val html = premessage + "<code>" + data.fname + args + "</code>"+message+"<br>"
-    toFill.append(html)
-    
-    if(data.alternatives.length == 0) {
-      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, true))
-      toFill.find(".validate").addClass("active")
-    } else {
-      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, false))
+    if(data.fname + args == expression_already_disambiguated) {
       for(alternative <- data.alternatives) {
         toFill.append("<br>")
         toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
       }
-    }
-    //disambiguationResultDisplayContainer().show()
-    // Switch tabs:
-    if(data.forceAsking) {
-      engineResultDisplayContainer().find("a[href^=#clarification]").click()
-      Main.showContextDemo(Main.demoClarification)
     } else {
-      Main.showContextDemo(Main.demoClarificationMenu)
+      expression_already_disambiguated = data.fname + args
+      toFill.empty()
+      val (premessage, message) = if(data.alternatives.length == 0) {
+             ("To ensure completeness, please edit the pretty-printing of ", " below:")
+      } else ("What should be the output of ", "?")
+      val html = premessage + "<code>" + data.fname + args + "</code>"+message+"<br>"
+      toFill.append(html)
+      
+      if(data.alternatives.length == 0) {
+        toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, true))
+        toFill.find(".validate").addClass("active")
+      } else {
+        toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, false))
+        for(alternative <- data.alternatives) {
+          toFill.append("<br>")
+          toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
+        }
+      }
+      //disambiguationResultDisplayContainer().show()
+      // Switch tabs:
+      if(data.forceAsking) {
+        engineResultDisplayContainer().find("a[href^=#clarification]").click()
+        Main.showContextDemo(Main.demoClarification)
+      } else {
+        Main.showContextDemo(Main.demoClarificationMenu)
+      }
     }
   }
 
