@@ -69,7 +69,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
               val other_output_text = instantiate(output).asString(synth.program)(synth.context)
               HDisambiguationDisplay(
                 other_output_text,
-                customizeAllCode(confirm_solution_text))
+                customizeAllCode(other_output_text))
     })
   }
   
