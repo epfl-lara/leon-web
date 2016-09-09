@@ -594,7 +594,7 @@ object StringModificationProcessor {
           val ssReporter = sReporter.addTab
           ssReporter.report(Info, "idedWebPage: "+rawSolutions.head.idedWebPage)
         }
-        /**
+        /*
           * Takes as input a list of raw solutions, and an index in this list.
           * Takes the designated raw solution and reformat it (removing elements from the tuple and changing their order)
           *
@@ -637,7 +637,7 @@ object StringModificationProcessor {
         }
         else {
           //      More than one solution
-          /**
+          /*
             * //            * Traverse the input list, removing its elements whose first elements (TextElementWithID) is a duplicate of
             * //            *  a previously seen first element (comparing their texts).
             * //            * Also returns the list of the indexes in the input list of its elements (List[TextElementWithID]) that were kept
