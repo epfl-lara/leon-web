@@ -9,7 +9,7 @@ import akka.actor.ActorRef
 import models.ConsoleProtocol
 import leon.invariant.engine._
 import leon.invariant.util._
-import leon.purescala.Definitions.ValDef
+import leon.purescala.Definitions._
 import leon.transformations.InstUtil
 import leon.transformations.InstrumentationPhase
 import shared.Module
@@ -35,7 +35,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 import scala.util.Failure
 import scala.util.Try
-import leon.purescala.Definitions.Program
 import laziness._
 import HOMemUtil._
 import verification._
@@ -143,7 +142,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         }
       } else {
         setStateBeforeInference(cstate)
-        val leonctx = createLeonContext(this.ctx, "--webMode", "--timeout=120", "--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3", "-nlTimeout=3") 
+        val leonctx = createLeonContext(this.ctx, "--webMode", "--timeout=120", "--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3", "-nlTimeout=3")
         val inferContext = new InferenceContext(startProg, leonctx)
         val engine = (new InferenceEngine(inferContext))
         inferEngine = Some(engine)
@@ -182,13 +181,13 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
   def hasLazyEval(program: Program): Boolean = {
     // TODO: fix this to handle higher-order functions without memoization
-    userLevelFunctions(program).exists{fd => isMemoized(fd)  }
+    userLevelFunctions(program).exists{fd => fd.flags.contains(IsField(true)) || hasMemAnnotation(fd) }
   }
 
   def hasTemplates(program: Program): Boolean = {
     userLevelFunctions(program).exists(_.hasTemplate)
   }
-  
+
   import shared.messages._
 
   def funInvariantStatusToOverviewFunction(fi: FunInvariantStatus): InvariantDetails = {
@@ -198,12 +197,12 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       oldInvariant = fi.template.getOrElse(""),
       newInvariant = fi.invString.getOrElse(""),
       newCode = fi.newCode.getOrElse(""),
-      time = fi.time.getOrElse(0.0)   
+      time = fi.time.getOrElse(0.0)
     )
   }
-  
+
   def notifyInvariantOverview(cstate: CompilationState): Unit = {
-    val fics = 
+    val fics =
       ((invariantOverview.toSeq.filter(_._2.fd.nonEmpty).sortBy(_._2.fd.map(_.getPos).get).map {
         case (fd, fi) =>
           fd -> funInvariantStatusToOverviewFunction(fi)
