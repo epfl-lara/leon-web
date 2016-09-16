@@ -70,7 +70,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
       // a call-back for updating progress in the interface
       val progressCallback: InferenceCondition => Unit = (ic: InferenceCondition) => {
-        val funName = InstUtil.userFunctionName(ic.fd)
+        val funName = HOMemUtil.userFunctionName(ic.fd)
         println(s"Looking for function with name: $funName")
         val userFun = functionByName(funName, startProg).get
         println(s"Found function with name: $userFun")
