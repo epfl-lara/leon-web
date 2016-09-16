@@ -597,7 +597,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
               modules(Invariant).actor ! OnUpdateCode(cstate)
-              modules(Termination).actor ! OnUpdateCode(cstate)
+              val termmod = modules(Termination)
+              if(termmod.isActive)
+                termmod.actor ! OnUpdateCode(cstate)
             } else {
               modules.values.filter(e => e.isActive && e.name =!= Invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
