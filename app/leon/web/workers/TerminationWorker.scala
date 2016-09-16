@@ -46,7 +46,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
     case OnUpdateCode(cstate) if cstate.isCompiled =>
 
       val reporter = new WorkerReporter(session)
-      var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager, reporter = reporter)
+      var ctx      = leon.Main.processOptions(List("--solvers=fairz3,smt-z3")).copy(interruptManager = interruptManager, reporter = reporter)
 
       val program = cstate.program//.duplicate
 
