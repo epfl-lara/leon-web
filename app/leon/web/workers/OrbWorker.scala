@@ -101,7 +101,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       }
 
       if (hasLazyEval(startProg)) { // we need to use laziness extension phase
-        val leonctx = createLeonContext(ctx, "--mem", "--webMode", "--timeout=120")
+        val leonctx = createLeonContext(ctx, "--mem", "--unrollfactor=2", "--webMode", "--timeout=120")
         val (stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
         val checkCtx = HOMemVerificationPhase.contextForChecks(leonctx)
         Future {

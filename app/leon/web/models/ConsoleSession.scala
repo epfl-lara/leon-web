@@ -90,18 +90,17 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
     }
   }
-  
+
   import shared.messages.{DoCancel => MDoCancel, _}
   import shared._
-  
+
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
       sender ! InitSuccess(enumerator)
 
-
       interruptManager = new InterruptManager(reporter)
-      
+
       modules += ModuleEntry(Verification  , new VerificationWorker(self, interruptManager))
       modules += ModuleEntry(Termination   , new TerminationWorker(self, interruptManager))
       modules += ModuleEntry(Synthesis     , new SynthesisWorker(self, interruptManager))
@@ -135,15 +134,15 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case NotifyClient(event) =>
       import boopickle.Default._
       import shared.messages._
-      import shared.messages.MessageFromServer._ 
+      import shared.messages.MessageFromServer._
       pushMessage(Pickle.intoBytes[MessageFromServer](event).array())
 
     case ProcessClientEvent(event) =>
       import boopickle.Default._
       import shared.messages.MessageToServer._
-      
+
       val message = Unpickle[MessageToServer].fromBytes(ByteBuffer.wrap(event))
-      
+
       try {
         logInfo("[<] " + message.getClass.getName)
         message match {
@@ -156,7 +155,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             }
             case StorePermaLink(code) => self ! message
             case AccessPermaLink(link) => self ! message
-            case FeatureSet(f, active) => 
+            case FeatureSet(f, active) =>
               if (modules contains f) {
                 if (active) {
                   modules(f).isActive = true
@@ -404,7 +403,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       result onFailure { case err =>
         notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
       }
-      
+
       import shared.git._
 
       result onSuccess { case _ =>
@@ -598,6 +597,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
               modules(Invariant).actor ! OnUpdateCode(cstate)
+              modules(Termination).actor ! OnUpdateCode(cstate)
             } else {
               modules.values.filter(e => e.isActive && e.name =!= Invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
@@ -678,4 +678,3 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   }
 
 }
-
