@@ -112,10 +112,12 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
               case (vc, vr) =>
                 val funName = HOMemUtil.userFunctionName(vc.fd) //vc.fd.id.name
                 val userFun = functionByName(funName, startProg).getOrElse(vc.fd)
-                val success = vr.isValid
+                val success = vr.isValid                
                 if (!success) {
+                  val VCStatus.Invalid(cex) = vr.status
+                  val cexStr = cex.toMap.map{ case (k,v) => k.name +" -> "+ PrettyPrinter(v) }.mkString("\n")
                   invariantOverview += (funName ->
-                    FunInvariantStatus(Some(userFun), None, None, None, vr.timeMs.map(_ / 1000.0), false, true))
+                    FunInvariantStatus(Some(userFun), None, Some(cexStr), None, vr.timeMs.map(_ / 1000.0), false, true))
                   notifyInvariantOverview(cstate)
                   failed = true
                 }
