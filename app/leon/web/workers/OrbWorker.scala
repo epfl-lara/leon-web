@@ -92,7 +92,6 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       val onInferComplete: InferenceContext => Try[InferenceReport] => Unit = inferctx => _ match {
         case Success(result: InferenceReport) =>
           inferEngine = None
-          // TODO : Update ONLY the function, not all the code.
           allCode = Some(ScalaPrinter(InferenceReportUtil.pushResultsToInput(inferctx, result.conditions)))
           notifyInvariantOverview(cstate)
         case Failure(msg) =>
@@ -102,16 +101,16 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
       if (hasLazyEval(startProg)) { // we need to use laziness extension phase
         val leonctx = createLeonContext(ctx, "--mem", "--unrollfactor=2", "--webMode", "--timeout=120")
-        val (stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
+        val (clFac, stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
         val checkCtx = HOMemVerificationPhase.contextForChecks(leonctx)
         Future {
-          HOMemVerificationPhase.checkSpecifications(stateVeriProg, checkCtx)
+          HOMemVerificationPhase.checkSpecifications(clFac, stateVeriProg, checkCtx)
         } onComplete {
           case Success(stateResult: VerificationReport) =>
             var failed = false
             stateResult.vrs foreach {
               case (vc, vr) =>
-                val funName = vc.fd.id.name
+                val funName = HOMemUtil.userFunctionName(vc.fd) //vc.fd.id.name
                 val userFun = functionByName(funName, startProg).getOrElse(vc.fd)
                 val success = vr.isValid
                 if (!success) {
