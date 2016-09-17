@@ -48,7 +48,6 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
 
       val reporter = new WorkerReporter(session)
       val ctx      = leon.Main.processOptions(List("--solvers=orb-smt-z3")).copy(interruptManager = interruptManager, reporter = reporter)
-      println(ctx.options)
       val program = cstate.program
 
       // Notify the UI that the termination checker indeed will be launched now
@@ -59,15 +58,7 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
 
       logInfo("Termination checker started...")
       try {
-        //val tc = new SimpleTerminationChecker(ctx, cstate.program)
         val tc = new ComplexTerminationChecker(ctx, program)
-//        def excludeByDefault(fd: FunDef): Boolean = fd.annotations contains "library"
-//        val fdFilter = {
-//          import OptionsHelpers._
-//          filterInclusive(ctx.findOption(GlobalOptions.optFunctions).map(fdMatcher(program)), Some(excludeByDefault _))
-//        }
-//        val toVerify = tc.program.definedFunctions.filter(fdFilter).sortWith((fd1, fd2) => fd1.getPos < fd2.getPos)
-
         val data = cstate.functions.map { funDef =>
           (funDef -> Some(tc.terminates(funDef)))
         }.toMap
