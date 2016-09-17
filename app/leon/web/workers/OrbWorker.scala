@@ -115,7 +115,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
                 val success = vr.isValid                
                 if (!success) {
                   val VCStatus.Invalid(cex) = vr.status
-                  val cexStr = cex.toMap.map{ case (k,v) => k.name +" -> "+ PrettyPrinter(v) }.mkString("\n")
+                  val cexStr = cex.toMap.map{ case (k,v) => k.name +" -> "+ PrettyPrinter(v) }.mkString("; ")
                   invariantOverview += (funName ->
                     FunInvariantStatus(Some(userFun), None, Some(cexStr), None, vr.timeMs.map(_ / 1000.0), false, true))
                   notifyInvariantOverview(cstate)
