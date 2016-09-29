@@ -266,7 +266,7 @@ trait LeonWeb extends EqSyntax {
     val verification = Feature(active= true, displayName= "Verification", module= Verification)
     val synthesis    = Feature(active= true, displayName= "Synthesis", module= Synthesis)
     val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Disambiguation)
-    val termination  = Feature(active= false, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Termination)
+    val termination  = Feature(active= true, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Termination)
     val presentation = Feature(active= false, displayName= "Presentation Mode", name= "presentation")
     val execution    = Feature(active= true, displayName= "Execution", module= Execution)
     val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Repair)
