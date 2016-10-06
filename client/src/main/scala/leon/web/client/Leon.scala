@@ -611,69 +611,29 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       }
     }  
   }
+  
+  lazy val mountedSynthesisTable = {
+    val panelSynthesisTable = $("#synthesis .results_table")
+    def get(): Option[ReactComponentM[(SynthesisOverview ⇒ Unit) ⇒ Unit,SynthesisOverview,SynthesisTable.Backend,dom.raw.Element]] = {
+      if (panelSynthesisTable =!= null) {
+        panelSynthesisTable.map((i: Int, elem: dom.Element) => {
+          return Some(ReactDOM.render(SynthesisTable(), elem))
+          ().asInstanceOf[js.Any]
+        })
+      }
+      return None
+    }
+    get()
+  }
 
   def drawSynthesisOverview(): Unit = {
-    val t = $("#synthesis_table")
-    var html = "";
-
-    def addMenu(index: Int, fname: String, description: String): Unit = {
-      val id = """menu""" + fname + index
-
-      html += """ <div class="dropdown">"""
-      html += """  <a id="""" + id + """" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-magic"></i> """ + description + """</a>"""
-      html += """  <ul class="dropdown-menu" role="menu" aria-labelledby="""" + id + """">"""
-      if (compilationStatus == 1) {
-        html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid="""" + index + """">Search</a></li>"""
-        html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="explore" cid="""" + index + """">Explore</a></li>"""
-        html += """    <li role="presentation" class="divider"></li>"""
-        html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="/assets/images/loader.gif" /></a></li>"""
-      } else {
-        html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="fa fa-ban"></i> Not compiled</a></li>"""
-      }
-
-      html += """  </ul>"""
-      html += """ </div>"""
-    }
-
     val data = synthesisOverview
-
-    val fnamesOpt: Option[Array[String]] = data.functions.map(ff => ff.unzip._1.toArray)
-    val fnames = fnamesOpt.getOrElse[Array[String]](Array[String]()).sorted
-
-    for (f <- fnames) {
-      overview.functions.get(f) match {
-        case Some(function) =>
-          if (data.functions.get(f).length == 1) {
-            val sp = data.functions.get(f)(0)
-            html += "<tr><td class=\"fname problem  clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
-            addMenu(sp.index, f, function.displayName)
-            html += "</td></tr>"
-          } else {
-            html += "<tr><td class=\"fname clicktoline\" line=\"" + function.line + "\">" + function.displayName + "</td></tr>"
-            val spArray = data.functions.get(f)
-            for (i <- 0 until spArray.length) {
-              val sp = spArray(i)
-              html += "<tr>"
-              html += "<td class=\"problem subproblem clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
-              addMenu(sp.index, f, sp.description)
-              html += "</td></tr>"
-            }
-          }
-        case None =>
-      }
+    console.log("Setting synthesis overview", data.asInstanceOf[js.Any])
+    //SynthesisTable.update(data)
+    mountedSynthesisTable.foreach{
+      m => m.backend.changeState(data)
     }
 
-    t.html(html);
-
-    if (compilationStatus == 1) {
-      $("#synthesis .dropdown-toggle").unbind("click.droppdown").on("click.droppdown", ((self: Element, e: JQueryEventObject) => {
-        val p = $(self).parents(".problem")
-
-        Backend.synthesis.getRulesToApply(p.attr("fname").getOrElse("0"), p.attr("cid").getOrElse("0").toInt)
-
-      }): js.ThisFunction)
-    }
-    
     val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
     
     if (hasFunctions && Features.synthesis.active) {
@@ -1729,3 +1689,115 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
 
 }
 
+
+object SynthesisTable {
+  import japgolly.scalajs.react._
+  import japgolly.scalajs.react.vdom.prefix_<^._
+  type Props = (SynthesisOverview => Unit) => Unit
+  //case class State(data: SynthesisOverview)
+  type State = SynthesisOverview
+  
+  class Backend($: BackendScope[Props, SynthesisOverview]) {
+    def changeState(data: SynthesisOverview) = {
+      console.log("Changing state")
+      $.setState(data)
+    }
+    
+    def render(data: State, p: Props) = {
+      console.log("Rendering element")
+      p((synthesisOverview: SynthesisOverview) => $.modState(s => synthesisOverview))
+      def menu(index: Int, fname: String, description: String, cid: Int) = {
+        val id = "menu" + fname + index
+  
+        <.div(^.className :="dropdown",
+          <.a(^.id:= id, ^.href:="#", ^.role:="button", ^.className:="dropdown-toggle", "data-toggle".reactAttr:="dropdown",
+            <.i(^.className:="fa fa-magic"),
+            description,
+            ^.onClick --> (Callback{
+              if(Main.compilationStatus == 1) {
+                Backend.synthesis.getRulesToApply(fname, cid)
+              }
+            })
+          ),
+          <.ul(^.className := "dropdown-menu", ^.role:="menu", "aria-labelledby".reactAttr := id,
+            if (Main.compilationStatus == 1) {
+              List(
+                <.li(^.role:="presentation", <.a(^.role:="menuitem", ^.tabIndex:="-1", ^.href:="#", ^.action:="search", "cid".reactAttr := index, "Search")),
+                <.li(^.role:="presentation", <.a(^.role:="menuitem", ^.tabIndex:="-1", ^.href:="#", ^.action:="explore", "cid".reactAttr := index, "Search")),
+                <.li(^.role:="presentation", ^.className:="divider"),
+                <.li(^.role:="presentation", ^.className:="disabled loader temp",
+                    <.a(^.role:="menuitem", ^.tabIndex:="-1", 
+                        <.img(^.src:="/assets/images/loader.gif")
+                    )
+                )
+              )
+            } else {
+              List(
+                <.li(^.role:="presentation", ^.className:="disabled loader temp",
+                   <.a(^.role:="menuitem", ^.tabIndex:="-1",
+                       <.i(^.className:="fa fa-ban"), "Not compiled"
+              )))
+            }
+          )
+        )
+
+      }
+  
+      val fnamesOpt: Option[Array[String]] = data.functions.map(ff => ff.unzip._1.toArray)
+      val fnames = fnamesOpt.getOrElse[Array[String]](Array[String]()).sorted
+  
+      <.table(
+          ^.id:="synthesis_table", ^.className :="table table-hover table-condensed",
+          <.tbody(
+        (for (f <- fnames) yield {
+          Main.overview.functions.get(f) match {
+            case Some(function) =>
+              if (data.functions.get(f).length == 1) {
+                val sp = data.functions.get(f)(0)
+                List(<.tr(
+                  <.td(
+                    ^.className := "fname problem  clicktoline",
+                    "line".reactAttr := sp.line,
+                    "fname".reactAttr := f,
+                    "cid".reactAttr := sp.index,
+                    menu(sp.index, f, function.displayName, sp.index)
+                  )
+                ))
+              } else {
+                val head = <.tr(
+                  <.td(
+                    ^.className := "fname  clicktoline",
+                    "line".reactAttr := function.line,
+                    function.displayName
+                  )
+                )
+                val spArray = data.functions.get(f)
+                head :: (for (i <- 0 until spArray.length) yield {
+                  val sp = spArray(i)
+                  <.tr(
+                    <.td(
+                      ^.className:="problem subproblem clicktoline",
+                      "line".reactAttr := sp.line,
+                      "fname".reactAttr := f,
+                      "cid".reactAttr := sp.index,
+                      menu(sp.index, f, sp.description, sp.index)
+                    )
+                  )
+                }).toList
+              }
+            case None => Nil
+          }
+        }).toList
+      ))
+    }
+  }
+  val component = ReactComponentB[Props]("SynthesisTable")
+    .initialState(SynthesisOverview(None))
+    .renderBackend[Backend]
+    .build
+  def apply() = component(_update = _)
+  
+  private var _update = (s: SynthesisOverview) => ()
+  def update(s: SynthesisOverview) = _update(s)
+}
+  
