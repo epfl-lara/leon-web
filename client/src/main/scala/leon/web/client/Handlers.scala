@@ -14,13 +14,8 @@ import scala.collection.mutable.ListBuffer
 
 @ScalaJSDefined
 object Handlers extends js.Object {
-  import Main._
-  import JQueryExtended._
-  import dom.console
-  def window = g
-  def alert = g.alert
   import leon.web.shared.messages._
-
+  import dom.console
   import equal.EqOps
   
   val callbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
@@ -48,29 +43,28 @@ object Handlers extends js.Object {
     }
     console.log("Unknown event type: " + data)
   }
+}
+
+@ScalaJSDefined
+object Misc extends js.Object {
+  import leon.web.shared.messages._
+  import Main._
+  import JQueryExtended._
+  import dom.console
+  def window = g
+  def alert = g.alert
+  
+  @inline
+    implicit def eqOps[A](x: A): equal.EqOps[A] =
+      new equal.EqOps(x)
+  
+  //import equal.EqOps
   
   def moveCursor(data: HMoveCursor) = {
     Main.editor.selection.clearSelection();
     Main.editor.gotoLine(data.line);
   }
-  Handlers += { case data: HLog =>
-    val txt = $("#console")
-    txt.append(data.message + "\n");
-    txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
-  }
-  Handlers += { case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), javascript, requestId) =>
-    optWebpage match {
-      case Some(webPage) =>
-        if(requestId == Backend.main.requestId) {
-          websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
-          javascript foreach websitebuilder.ScalaJS_Main.loadJavascript
-        } else {
-          println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
-        }
-      case None =>
-    }
-  }
-
+  
   def updateExplorationFacts(newResults: Array[NewResult]): Unit = {
     for (i <- 0 until newResults.length) {
       val n = newResults(i);
@@ -397,7 +391,7 @@ object Handlers extends js.Object {
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
       var path = List[Int]()
-      if (new EqOps(b.attr("path").getOrElse("")) =!= "") {
+      if (b.attr("path").getOrElse("") =!= "") {
         path = b.attr("path").getOrElse("").split("-").map((e: String) => e.toInt).toList
       }
       path
@@ -480,7 +474,9 @@ object Handlers extends js.Object {
       }
     }
     
-    $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
+    $(selector + " li a[action=\"explore\"]")
+    .unbind("click")
+    .click(() => {
       synthesis_chosen_rule = None
       Backend.synthesis.explore(fname, cid)
     })
@@ -575,24 +571,10 @@ object Handlers extends js.Object {
   }
   Handlers += { case data: VerificationDetails => verification_result(data) }
 
-  def replace_code(data: HReplaceCode) = {
+  def replace_code(newCode: String) = {
     storeCurrent(editorSession.getValue())
-    editorSession.setValue(data.newCode)
+    editorSession.setValue(newCode)
     recompile()
   }
-  Handlers += { case data: HReplaceCode => replace_code(data) }
-
-  def compilation_progress(data: HCompilationProgress) = {
-    updateCompilationProgress(Math.round((data.current * 100) / data.total))
-  }
-  Handlers += { case data: HCompilationProgress => compilation_progress(data) }
-
-  def compilation(data: HCompilation) = {
-    if (data.status == "success") {
-      updateCompilationStatus("success")
-    } else {
-      updateCompilationStatus("failure")
-    }
-  }
-  Handlers += { case data: HCompilation => compilation(data) }
+  Handlers += { case data: HReplaceCode => replace_code(data.newCode) }
 }

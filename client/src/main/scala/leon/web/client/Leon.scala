@@ -76,6 +76,7 @@ trait LeonAPI {
 
 @JSExport("Main")
 object Main extends LeonWeb with LeonAPI  {
+  val m = Misc
   
   def main(): Unit = {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
@@ -257,7 +258,7 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
     }
   }
 
-  def handlers = Handlers.asInstanceOf[js.Dictionary[Any]]
+  //def handlers = Handlers.asInstanceOf[js.Dictionary[Any]]
 
   var compilationStatus = 0
   val searchFinished = false
@@ -302,7 +303,18 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
   def updateCompilationProgress(percents: Int): Unit = {
     $("#overview .progress-bar").css("width", percents + "%");
   }
+  Handlers += { case data: HCompilationProgress => updateCompilationProgress(Math.round((data.current * 100) / data.total)) }
 
+
+  def compilation(data: HCompilation) = {
+    if (data.status == "success") {
+      updateCompilationStatus("success")
+    } else {
+      updateCompilationStatus("failure")
+    }
+  }
+  Handlers += { case data: HCompilation => compilation(data) }
+  
   def updateCompilationStatus(status: String): Unit = {
     val e = $("#overview .compilation-status")
     val codebox = $("div#codebox")
@@ -591,7 +603,7 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
       if (hasFunctions && Features.synthesis.active) {
         if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
-          val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
+          val fname = (Misc.synthesis_result_fname.getOrElse(""): String)
           val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
           console.log("Finding rules to apply 2 " + new js.Date())
           Backend.synthesis.getRulesToApply(fname, cid)
@@ -1205,12 +1217,12 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
     $("#invariantDialog .cancelButton").show()
     
     $("#invariantDialog .importButton").unbind("click").click(() => {
-      Handlers.replace_code(HReplaceCode(newCode = invariant.newCode))
+      Misc.replace_code(invariant.newCode)
     })
     val code = all_invariants.get(Constants.invariantMainCode) match {
       case Some(result) =>
         $("#invariantDialog .importAllButton").unbind("click").click(() => {
-          Handlers.replace_code(HReplaceCode(newCode = result.newCode))
+          Misc.replace_code(result.newCode)
         })
         $("#invariantDialog .importAllButton").show()
       case _ =>
@@ -1684,6 +1696,25 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
+  
+  Handlers += { case data: HLog =>
+    val txt = $("#console")
+    txt.append(data.message + "\n");
+    txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
+  }
+  Handlers += { case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), javascript, requestId) =>
+    optWebpage match {
+      case Some(webPage) =>
+        if(requestId == Backend.main.requestId) {
+          websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
+          javascript foreach websitebuilder.ScalaJS_Main.loadJavascript
+        } else {
+          println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
+        }
+      case None =>
+    }
+  }
+
 
   /*
   snowStorm.snowColor = "#ddddff";
