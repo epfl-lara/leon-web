@@ -615,7 +615,7 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
       if (hasFunctions && Features.synthesis.active) {
         if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
-          val fname = (Misc.synthesis_result_fname.getOrElse(""): String)
+          val fname = (synthesis_result_fname.getOrElse(""): String)
           val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
           console.log("Finding rules to apply 2 " + new js.Date())
           Backend.synthesis.getRulesToApply(fname, cid)

@@ -19,7 +19,6 @@ object SynthesisOverviewTable {
     def render(props: Props, state: State) = {
       def menu(index: Int, fname: String, description: String, cid: Int) = {
         val id = "menu" + fname + index
-        @inline def synthesis_chosen_rule_=(s: Option[String]) = props.onSynthesisChosenRule(s)
         
         val ruleApps = state.rulesData.get((fname, cid)) match {
           case Some(HSynthesisRulesToApply(_, _, ruleApps)) if state.isCompiled =>
@@ -37,7 +36,7 @@ object SynthesisOverviewTable {
                   closed ?= <.i(^.className := "a fa-exclamation-circle"),
                   app.name,
                   ^.onClick --> Callback{ 
-                    synthesis_chosen_rule = Some(rid.toString)
+                    props onSynthesisChosenRule Some(rid.toString)
                     Backend.synthesis.doApplyRule(fname, cid, rid)
                   }
                 )
@@ -68,14 +67,14 @@ object SynthesisOverviewTable {
                     <.a(^.role:="menuitem", ^.tabIndex:="-1", ^.href:="#", ^.action:="search", "cid".reactAttr := index,
                         "Search",
                         ^.onClick --> Callback{
-                          synthesis_chosen_rule = Some("search")
+                          props onSynthesisChosenRule Some("search")
                           Backend.synthesis.search(fname, cid)
                         })),
                 <.li(^.role:="presentation",
                     <.a(^.role:="menuitem", ^.tabIndex:="-1", ^.href:="#", ^.action:="explore", "cid".reactAttr := index,
                         "Explore",
                         ^.onClick --> Callback{
-                          synthesis_chosen_rule = None
+                          props onSynthesisChosenRule None
                           Backend.synthesis.explore(fname, cid)
                         }
                     )),
