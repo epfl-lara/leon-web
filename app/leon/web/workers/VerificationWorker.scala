@@ -142,7 +142,8 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   override lazy implicit val ctx = leon.Main.processOptions(List(
     "--feelinglucky",
-    "--solvers=smt-cvc4,smt-z3,ground"
+    "--solvers=smt-z3,smt-cvc4,ground",
+    "--debug=verification,solver"
   )).copy(interruptManager = interruptManager, reporter = reporter)
 
   var program: Option[Program] = None

@@ -29,7 +29,7 @@ case class Commit(
   desc: String
 )
 
-case class HMoveCursor(line: Double, column: Double = 0) extends MessageFromServer
+case class HMoveCursor(line: Double, column: Double = 0)
 
 case class HUpdateOverview(
   overview: Map[String, OverviewFunction]

@@ -184,62 +184,64 @@ object ScalaJS_Main {
         |NewValue: ${stringModification.newValue}
       """.stripMargin)
     idOfLastStringModificationSent += 1
-    Server ![SubmitStringModification_answer] (SubmitStringModification(stringModification, idOfLastSourceCodeModificationSent, idOfLastStringModificationSent), {
-      case SubmitStringModification_answer(stringModificationSubmissionResult, requestSourceId, requestStringModID) => {
-        println(
-          s"""Received a SubmitStringModification_answer from the server containing:
-              |  - StringModificationSubmissionResult
-              |  - requestSourceID = $requestSourceId
-              |  - requestStringModID = $requestStringModID
-           """.stripMargin)
-        stringModificationSubmissionResult match {
-          case StringModificationSubmissionResult(potentialWebPageList, log) =>
-            println("Here is the log attached to the received StringModificationSubmissionResult: " + "\n\t" + log)
-            potentialWebPageList match {
-              case PotentialWebPagesList(newSourceCodeIDOption, solutionList, idOfClarifiedWebElementOption) =>
-                println("Received " + solutionList.length + " potential webPages")
-                solutionList.length match {
-                  case 0 =>
-                    println("[ERROR][UNDEFINED BEHAVIOUR]Received no potential webPage from the server")
-                  //                    TODO: Handle this case in some way
-                  case n =>
-                    println("Received at least one potential webPage, checking ID conditions")
-                    if (requestStringModID != idOfLastStringModificationSent || requestSourceId != idOfLastSourceCodeModificationSent) {
-                      println("ID conditions not met, ignoring server message")
-                    }
-                    else {
-                      println("ID conditions met. Rendering the first potential webPage and displaying its sourceCode")
-                      idOfLastSourceCodeModificationSent = newSourceCodeIDOption.get
-                      def setSourceCode(newSourceCode: String, changedElements: List[StringPositionInSourceCode]) = {
+    Server !SubmitStringModification(stringModification, idOfLastSourceCodeModificationSent, idOfLastStringModificationSent)
+  }
+  
+  Handlers += {
+    case SubmitStringModification_answer(stringModificationSubmissionResult, requestSourceId, requestStringModID) => {
+      println(
+        s"""Received a SubmitStringModification_answer from the server containing:
+            |  - StringModificationSubmissionResult
+            |  - requestSourceID = $requestSourceId
+            |  - requestStringModID = $requestStringModID
+         """.stripMargin)
+      stringModificationSubmissionResult match {
+        case StringModificationSubmissionResult(potentialWebPageList, log) =>
+          println("Here is the log attached to the received StringModificationSubmissionResult: " + "\n\t" + log)
+          potentialWebPageList match {
+            case PotentialWebPagesList(newSourceCodeIDOption, solutionList, idOfClarifiedWebElementOption) =>
+              println("Received " + solutionList.length + " potential webPages")
+              solutionList.length match {
+                case 0 =>
+                  println("[ERROR][UNDEFINED BEHAVIOUR]Received no potential webPage from the server")
+                //                    TODO: Handle this case in some way
+                case n =>
+                  println("Received at least one potential webPage, checking ID conditions")
+                  if (requestStringModID != idOfLastStringModificationSent || requestSourceId != idOfLastSourceCodeModificationSent) {
+                    println("ID conditions not met, ignoring server message")
+                  }
+                  else {
+                    println("ID conditions met. Rendering the first potential webPage and displaying its sourceCode")
+                    idOfLastSourceCodeModificationSent = newSourceCodeIDOption.get
+                    def setSourceCode(newSourceCode: String, changedElements: List[StringPositionInSourceCode]) = {
 //                        AceEditor.removeAceEdOnChangeCallback()
-                        AceEditor.setEditorValue(newSourceCode, triggerOnChangeCallback = false)
-                        AceEditor.addMarkings(changedElements)
+                      AceEditor.setEditorValue(newSourceCode, triggerOnChangeCallback = false)
+                      AceEditor.addMarkings(changedElements)
 //                        AceEditor.activateAceEdOnChangeCallback_standard()
-                      }
-                      val firstSolution = potentialWebPageList.solutionList.head
-                      renderWebPage(firstSolution.idedWebPage, htmlWebPageDisplayerDivID)
-                      println("Displaying source code: "+firstSolution.sourceCode)
-                      setSourceCode(firstSolution.sourceCode, firstSolution.positionsOfModificationsInSourceCode)
-                      if (n > 1 && idOfClarifiedWebElementOption.isDefined) {
-                        println("Received more than one (" + n + ") potential webPage from the server. Launching a clarification procedure")
-                        println("idOfClarifiedWebElementOption= " + idOfClarifiedWebElementOption)
-                        potentialWebPageList.solutionList.foldLeft(1)(
-                          (index, solution) => {
-                            println("Solution " + index + " :")
-                            println("WebPage: " + solution.idedWebPage)
-                            println("SourceCode: " + solution.sourceCode)
-                            (index + 1)
-                          }
-                        )
-                        //                        TODO: Launch clarification sequence
-                        ClarificationBox.setSolutionButtons(potentialWebPageList.solutionList, idOfClarifiedWebElementOption.get)
-                      }
                     }
-                }
-            }
-        }
+                    val firstSolution = potentialWebPageList.solutionList.head
+                    renderWebPage(firstSolution.idedWebPage, htmlWebPageDisplayerDivID)
+                    println("Displaying source code: "+firstSolution.sourceCode)
+                    setSourceCode(firstSolution.sourceCode, firstSolution.positionsOfModificationsInSourceCode)
+                    if (n > 1 && idOfClarifiedWebElementOption.isDefined) {
+                      println("Received more than one (" + n + ") potential webPage from the server. Launching a clarification procedure")
+                      println("idOfClarifiedWebElementOption= " + idOfClarifiedWebElementOption)
+                      potentialWebPageList.solutionList.foldLeft(1)(
+                        (index, solution) => {
+                          println("Solution " + index + " :")
+                          println("WebPage: " + solution.idedWebPage)
+                          println("SourceCode: " + solution.sourceCode)
+                          (index + 1)
+                        }
+                      )
+                      //                        TODO: Launch clarification sequence
+                      ClarificationBox.setSolutionButtons(potentialWebPageList.solutionList, idOfClarifiedWebElementOption.get)
+                    }
+                  }
+              }
+          }
       }
-    })
+    }
   }
 
 

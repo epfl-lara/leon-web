@@ -26,7 +26,6 @@ import leon.web.shared.messages.SubmitSourceCodeResult
 import leon.purescala.DefOps
 import leon.web.workers.WebBuilderWorker
 import leon.web.models.CompilationState
-import stringModification.ClarificationSession
 
 import scala.collection.mutable
 
@@ -740,8 +739,7 @@ object StringModificationProcessor {
                 (rawSolution) => extractTextElementsWithIDFromWebPage(rawSolution.idedWebPage, sReporter)
               ),
               sReporter)
-            val prunned = List(all._1, all._2).map((list) => list.take(maxNumberOfProposedSolutions))
-            (prunned(0), prunned(1), all._3)
+            (all._1.take(maxNumberOfProposedSolutions), all._2.take(maxNumberOfProposedSolutions), all._3)
           }
 
           val proposedSolutionsList : List[RawSolution] = proposedSolutionIndexes.map(index => rawSolutions(index))

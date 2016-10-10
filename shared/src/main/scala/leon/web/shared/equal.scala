@@ -6,7 +6,7 @@ import scala.annotation.implicitNotFound
 
 object equal {
 
-  /** The Eq typeclass provides type-safe equality.
+  /** For type-safe equality, extends equal.EqSyntax, or create an object extending it and import its content.
     * By using the `===` or the `=!=` instead of `==` one gets
     * a compile-time error if the two values being compared are
     * not of equal types or are not in a subtyping relationshing.

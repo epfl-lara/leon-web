@@ -7,193 +7,66 @@ import scala.scalajs.js
 import js.annotation._
 import org.scalajs.jquery
 import jquery.{ jQuery => $, JQuery, JQueryEventObject }
-import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import js.JSConverters._
+import js.Dynamic.{ global => g, newInstance => jsnew }
 import com.scalawarrior.scalajs.ace._
 import leon.web.shared._
 import scala.collection.mutable.ListBuffer
 
-
 @ScalaJSDefined
 object Handlers extends js.Object {
-  import Main._
-  import JQueryExtended._
-  import dom.console
-  def window = g
-  def alert = g.alert
   import leon.web.shared.messages._
-
+  import dom.console
   import equal.EqOps
   
   val callbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
   
+  val permanentCallbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
+  
+  def +=(f: PartialFunction[MessageFromServer, Unit]) = {
+    permanentCallbacks += f
+  }
+
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
+    console.log("Dealing with", data.asInstanceOf[js.Any])
     callbacks.find(c => c.isDefinedAt(data)) match {
       case Some(callback) =>
+        console.log("consuming callback")
         callbacks -= callback
         callback(data)
         return
       case None =>
     }
-    //println("Processing " + data)
-    data match {
-      case data: GotPermalink => 
-        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
-        $("#permalink-value").show()
-      case data: HMoveCursor =>
-        Main.editor.selection.clearSelection();
-        Main.editor.gotoLine(data.line);
-
-      case data: HUpdateOverview =>
-        overview.functions = js.Dictionary.empty[OverviewFunction];
-  
-        for ((i, fdata) <- data.overview) {
-          val fdata = data.overview(i)
-          val fname = fdata.name
-          overview.functions(fname) = fdata
-        }
-        repair_started = false
-
-      case data: HUpdateVerificationOverview =>
-        overview.Data.verification = data.overview
-    
-        drawOverView()
-        drawVerificationOverviewInGutter()
-        maybeUpdateRepairDialog()
-      case data: HUpdateTerminationOverview =>
-        overview.Data.termination = data.overview
-
-        drawOverView()
-      case data: HUpdateInvariantsOverview =>
-        overview.Data.invariant = data.overview
-
-        drawOverView()
-      case data: SynthesisOverview =>
-        if (synthesisOverview.toString != data.toString) {
-          synthesisOverview = data;
-          drawSynthesisOverview();
-          
-          Main.onSynthesisTabDisplay match {
-            case Some(handler) => handler()
-              Main.onSynthesisTabDisplay = None
-            case None =>
-          }
-          
-          val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
-          if (hasFunctions && Features.synthesis.active) {
-            if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
-              val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
-              val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
-              console.log("Finding rules to apply 2 " + new js.Date())
-              Backend.synthesis.getRulesToApply(fname, cid)
-            }
-          }
-        }
-        
-      case data: HUpdateExplorationFacts =>
-        updateExplorationFacts(data.newFacts)
-      case data: HEditor =>
-        if (data.annotations.isDefined) {
-          val annotations = data.annotations.get
-          val session = Main.editor.getSession();
-    
-          context = "unknown";
-    
-          $("#annotations").html("");
-    
-          for (a <- annotations) {
-            if (a.tpe == "verification") {
-              context = "verification";
-            } else if (a.tpe == "synthesis") {
-              context = "synthesis";
-            }
-            var tpe = a.tpe.kind
-            
-            if (tpe != "info" && tpe != "error" && tpe != "warning") {
-              session.addGutterDecoration(a.line, "leon_gutter_" + tpe)
-              tpe = "info";
-            }
-    
-            if (tpe == "error") {
-              val line = a.line + 1
-              $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
-            } else if (tpe == "warning") {
-              val line = a.line + 1
-              $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
-            }
-          }
-    
-          addClickToLine("#annotations");
-          session.setAnnotations(annotations.map(a => l(row = a.line-1, column = a.col-1, text = a.message, `type` = a.tpe.kind).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
-          resizeEditor();
-        }
-        
-      case data: HNotification =>
-        Main.notify(data.content, data.`type`)
-        
-      case data: HLog =>
-        val txt = $("#console")
-        txt.append(data.message + "\n");
-        txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
-
-      case data: HSynthesisResult => synthesis_result(data)
-      case DisambiguationStarted =>  disambiguation_started()
-      case DisambiguationNoresult => disambiguation_noresult()
-      case data: HDisambiguationResult => disambiguation_result(data)
-      case data: HSynthesisExploration => synthesis_exploration(data)
-      case data: VerificationDetails => verification_result(data)
-      case data: HReplaceCode => replace_code(data)
-      case data: HCompilationProgress => compilation_progress(data)
-      case data: HCompilation => compilation(data)
-      case data: HRepairResult => repair_result(data)
-      case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
-      case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), javascript, requestId) =>
-        optWebpage match {
-          case Some(webPage) =>
-            if(requestId == Backend.main.requestId) {
-              websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
-              javascript foreach websitebuilder.ScalaJS_Main.loadJavascript
-            } else {
-              println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
-            }
-          case None =>
-        }
-      case RegisteredHandlers() => // OK
-      case _ =>
-        console.log("Unknown event type: " + data)
-    }
-  }
-
-  object RegisteredHandlers {
-    var handlers = ListBuffer[MessageFromServer => Boolean]()
-    def unapply(data: MessageFromServer): Boolean = {
-      var done = false
-      for(h <- handlers if !done) {
-        done = h(data)
-      }
-      done
-    }
-  }
-  
-  def registerMessageHandler(handler: MessageFromServer => Boolean) = {
-    RegisteredHandlers.handlers += handler
-  }
-  
-  def maybeUpdateRepairDialog() = {
-    val c = overview.Data.verification
-    c.get(repair_result_fname.getOrElse("")) match {
-      case Some(vc) =>
-        if($("#repairDialog").is(":visible") && !repair_started) {
-          if(vc.status == VerifStatus.invalid) {
-            repair_started = true
-            Backend.repair.doRepair(repair_result_fname.getOrElse(""))
-          }
-        }
+    permanentCallbacks.find(c => c.isDefinedAt(data)) match {
+      case Some(callback) =>
+        callback(data)
+        return
       case None =>
     }
+    console.log("Unknown event type: " + data)
   }
+}
 
+@ScalaJSDefined
+object Misc extends js.Object {
+  import leon.web.shared.messages._
+  import Main._
+  import JQueryExtended._
+  import dom.console
+  def window = g
+  def alert = g.alert
+  
+  @inline
+    implicit def eqOps[A](x: A): equal.EqOps[A] =
+      new equal.EqOps(x)
+  
+  //import equal.EqOps
+  
+  def moveCursor(data: HMoveCursor) = {
+    Main.editor.selection.clearSelection();
+    Main.editor.gotoLine(data.line);
+  }
+  
   def updateExplorationFacts(newResults: Array[NewResult]): Unit = {
     for (i <- 0 until newResults.length) {
       val n = newResults(i);
@@ -206,6 +79,7 @@ object Handlers extends js.Object {
 
     displayExplorationFacts()
   }
+  Handlers += { case data: HUpdateExplorationFacts => updateExplorationFacts(data.newFacts) }
 
   def synthesis_result(data: HSynthesisResult) = {
     val pb = $("#synthesisProgress")
@@ -288,7 +162,7 @@ object Handlers extends js.Object {
         Handlers(HReplaceCode(newCode = newCode))
         if (data.cursor.isDefined) {
           js.timers.setTimeout(100) {
-            Handlers(data.cursor.get)
+            moveCursor(data.cursor.get)
           }
         }
       })
@@ -306,6 +180,7 @@ object Handlers extends js.Object {
       disambiguationResultDisplay().empty()
     }
   }
+  Handlers += { case data: HSynthesisResult => synthesis_result(data) }
   
   def inDialog(selector: String): JQuery = {
     $("#synthesisDialog .clarificationResults .clarificationQuestions")
@@ -432,11 +307,13 @@ object Handlers extends js.Object {
     )
     expression_already_disambiguated = ""
   }
+  Handlers += { case DisambiguationStarted =>  disambiguation_started() }
   
   def disambiguation_noresult() = {
     engineResultDisplayContainer().find("a[href^=#clarification]").parent().hide()
     .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
   }
+  Handlers += { case DisambiguationNoresult => disambiguation_noresult() }
   
   var expression_already_disambiguated = ""
   
@@ -485,6 +362,7 @@ object Handlers extends js.Object {
       }
     }
   }
+  Handlers += { case data: HDisambiguationResult => disambiguation_result(data) }
 
   def synthesis_exploration(data: HSynthesisExploration) = {
     val d = $("#synthesisExploreDialog");
@@ -515,7 +393,7 @@ object Handlers extends js.Object {
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
       var path = List[Int]()
-      if (new EqOps(b.attr("path").getOrElse("")) =!= "") {
+      if (b.attr("path").getOrElse("") =!= "") {
         path = b.attr("path").getOrElse("").split("-").map((e: String) => e.toInt).toList
       }
       path
@@ -546,69 +424,12 @@ object Handlers extends js.Object {
       Handlers(HReplaceCode(newCode = data.allCode))
       if (data.cursor.isDefined) {
         js.timers.setTimeout(100) {
-          Handlers(data.cursor.get)
+          moveCursor(data.cursor.get)
         }
       }
     })
   }
-  
-  var synthesis_chosen_rule: Option[String] = None
-  var synthesis_result_fname: js.UndefOr[String] = js.undefined
-  var repair_started: Boolean = false
-  var repair_result_fname: js.UndefOr[String] = js.undefined
-
-  def synthesis_rulesToApply(data: HSynthesisRulesToApply) = {
-    val fname = data.fname
-    val cid = data.cid
-    val rulesApps = data.rulesApps
-
-    var html = "";
-
-    // Start by removing temp content
-    if (compilationStatus == 1) {
-      for (i <- 0 until rulesApps.length) {
-        val app = rulesApps(i);
-        var statusIcon = ""
-        var clazz = "temp"
-
-        if (app.status == "closed") {
-          statusIcon = """<i class="fa fa-exclamation-circle"></i> """
-          clazz += " disabled"
-        }
-        html += """<li role="presentation" class="""" + clazz + """"><a role="menuitem" tabindex="-1" href="#" action="rule" cid="""" + cid + """" rid="""" + app.id + """">""" + statusIcon + app.name + """</a></li>"""
-      }
-    } else {
-      html += """<li role="presentation" class="temp disabled"><a role="menuitem" tabindex="-1" href="#" fname="""" + fname + """">Not yet compiled...</a></li>"""
-    }
-
-    val selector = "#synthesis .problem[fname=\"" + fname + "\"][cid=\"" + cid + "\"] ul"
-    $(selector + " li.temp").remove()
-    $(selector).append(html)
-    $(selector + " li a[action=\"search\"]").unbind("click.searchaction").on("click.searchaction", (() => {
-      synthesis_chosen_rule = Some("search")
-      Backend.synthesis.search(fname, cid)
-    }))
-    if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
-      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
-      synthesis_chosen_rule match {
-        case None => // Explore
-        case Some("search") => // Search
-          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
-        case Some(rid) => // Rule chosen
-          Backend.synthesis.doApplyRule(fname, cid, rid.toInt)
-      }
-    }
-    
-    $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
-      synthesis_chosen_rule = None
-      Backend.synthesis.explore(fname, cid)
-    })
-    $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
-      val rid = $(self).attr("rid").getOrElse("0").toInt
-      synthesis_chosen_rule = Some(rid.toString)
-      Backend.synthesis.doApplyRule(fname, cid, rid)
-    }): js.ThisFunction)
-  }
+  Handlers += { case data: HSynthesisExploration => synthesis_exploration(data) }
 
   def repair_result(data: HRepairResult) = {
     val pb = $("#repairProgress")
@@ -677,7 +498,7 @@ object Handlers extends js.Object {
         Handlers(HReplaceCode(newCode = data.allCode))
         if (data.cursor.isDefined) {
           js.timers.setTimeout(100) {
-            Handlers(data.cursor.get)
+            moveCursor(data.cursor.get)
           }
         }
       })
@@ -686,26 +507,17 @@ object Handlers extends js.Object {
       disambiguationResultDisplay().empty()
     }
   }
+  Handlers += { case data: HRepairResult => repair_result(data) }
 
   def verification_result(data: VerificationDetails) = {
     displayVerificationDetails(data.fname, data.status, data.vcs, data.crashingInputs)
   }
+  Handlers += { case data: VerificationDetails => verification_result(data) }
 
-  def replace_code(data: HReplaceCode) = {
+  def replace_code(newCode: String) = {
     storeCurrent(editorSession.getValue())
-    editorSession.setValue(data.newCode)
+    editorSession.setValue(newCode)
     recompile()
   }
-
-  def compilation_progress(data: HCompilationProgress) = {
-    updateCompilationProgress(Math.round((data.current * 100) / data.total))
-  }
-
-  def compilation(data: HCompilation) = {
-    if (data.status == "success") {
-      updateCompilationStatus("success")
-    } else {
-      updateCompilationStatus("failure")
-    }
-  }
+  Handlers += { case data: HReplaceCode => replace_code(data.newCode) }
 }
