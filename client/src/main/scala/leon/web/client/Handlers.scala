@@ -28,8 +28,10 @@ object Handlers extends js.Object {
 
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
+    console.log("Dealing with", data.asInstanceOf[js.Any])
     callbacks.find(c => c.isDefinedAt(data)) match {
       case Some(callback) =>
+        console.log("consuming callback")
         callbacks -= callback
         callback(data)
         return
@@ -428,65 +430,6 @@ object Misc extends js.Object {
     })
   }
   Handlers += { case data: HSynthesisExploration => synthesis_exploration(data) }
-    
-  var synthesis_chosen_rule: Option[String] = None
-  var synthesis_result_fname: js.UndefOr[String] = js.undefined
-
-  def synthesis_rulesToApply(data: HSynthesisRulesToApply) = {
-    val fname = data.fname
-    val cid = data.cid
-    val rulesApps = data.rulesApps
-
-    var html = "";
-
-    // Start by removing temp content
-    if (compilationStatus == 1) {
-      for (i <- 0 until rulesApps.length) {
-        val app = rulesApps(i);
-        var statusIcon = ""
-        var clazz = "temp"
-
-        if (app.status == "closed") {
-          statusIcon = """<i class="fa fa-exclamation-circle"></i> """
-          clazz += " disabled"
-        }
-        html += """<li role="presentation" class="""" + clazz + """"><a role="menuitem" tabindex="-1" href="#" action="rule" cid="""" + cid + """" rid="""" + app.id + """">""" + statusIcon + app.name + """</a></li>"""
-      }
-    } else {
-      html += """<li role="presentation" class="temp disabled"><a role="menuitem" tabindex="-1" href="#" fname="""" + fname + """">Not yet compiled...</a></li>"""
-    }
-
-    val selector = "#synthesis .problem[fname=\"" + fname + "\"][cid=\"" + cid + "\"] ul"
-    $(selector + " li.temp").remove()
-    $(selector).append(html)
-    $(selector + " li a[action=\"search\"]").unbind("click.searchaction").on("click.searchaction", (() => {
-      synthesis_chosen_rule = Some("search")
-      Backend.synthesis.search(fname, cid)
-    }))
-    if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
-      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
-      synthesis_chosen_rule match {
-        case None => // Explore
-        case Some("search") => // Search
-          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
-        case Some(rid) => // Rule chosen
-          Backend.synthesis.doApplyRule(fname, cid, rid.toInt)
-      }
-    }
-    
-    $(selector + " li a[action=\"explore\"]")
-    .unbind("click")
-    .click(() => {
-      synthesis_chosen_rule = None
-      Backend.synthesis.explore(fname, cid)
-    })
-    $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
-      val rid = $(self).attr("rid").getOrElse("0").toInt
-      synthesis_chosen_rule = Some(rid.toString)
-      Backend.synthesis.doApplyRule(fname, cid, rid)
-    }): js.ThisFunction)
-  }
-  Handlers += { case data: HSynthesisRulesToApply => synthesis_rulesToApply(data) }
 
   def repair_result(data: HRepairResult) = {
     val pb = $("#repairProgress")

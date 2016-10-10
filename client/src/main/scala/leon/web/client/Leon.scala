@@ -589,9 +589,21 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
   }
   
   var synthesisOverview: SynthesisOverview = SynthesisOverview(None)
+  var synthesis_chosen_rule: Option[String] = None
+  var synthesis_result_fname: js.UndefOr[String] = js.undefined
+  var synthesisOverview_rulesToApply: Map[(String, Int),  HSynthesisRulesToApply] = Map()
+    
+  lazy val mountedSynthesisTable = {
+    val panelSynthesisTable = $("#synthesis .results_table")(0).asInstanceOf[dom.Node]
+    if (panelSynthesisTable =!= null) {
+      Some(ReactDOM.render(SynthesisOverviewTable(() => Main.overview.functions, synthesis_chosen_rule = _), panelSynthesisTable))
+    } else None
+  }
+  
   Handlers += { case data: SynthesisOverview =>
     if (synthesisOverview.toString != data.toString) {
       synthesisOverview = data;
+      synthesisOverview_rulesToApply = Map();
       drawSynthesisOverview();
       
       Main.onSynthesisTabDisplay match {
@@ -611,28 +623,29 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       }
     }  
   }
-  
-  lazy val mountedSynthesisTable = {
-    val panelSynthesisTable = $("#synthesis .results_table")
-    def get(): Option[ReactComponentM[(SynthesisOverview ⇒ Unit) ⇒ Unit,SynthesisOverview,SynthesisTable.Backend,dom.raw.Element]] = {
-      if (panelSynthesisTable =!= null) {
-        panelSynthesisTable.map((i: Int, elem: dom.Element) => {
-          return Some(ReactDOM.render(SynthesisTable(), elem))
-          ().asInstanceOf[js.Any]
-        })
+  def synthesis_rulesToApply(data: HSynthesisRulesToApply) = {
+    synthesisOverview_rulesToApply += (data.fname, data.cid) -> data
+    drawSynthesisOverview()
+    
+    // Automatic re-search or re-application of rule.
+    if($("#synthesisDialog").is(":visible") && (Main.synthesis_result_fname.getOrElse("") == data.fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
+      val cid =  $("#synthesis_table td.fname[fname="+data.fname+"]").attr("cid").getOrElse("0").toInt
+      synthesis_chosen_rule match {
+        case None => // Explore
+        case Some("search") => // Search
+          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
+        case Some(rid) => // Rule chosen
+          Backend.synthesis.doApplyRule(data.fname, cid, rid.toInt)
       }
-      return None
     }
-    get()
   }
+  Handlers += { case data: HSynthesisRulesToApply => synthesis_rulesToApply(data) }
 
   def drawSynthesisOverview(): Unit = {
     val data = synthesisOverview
-    console.log("Setting synthesis overview", data.asInstanceOf[js.Any])
-    //SynthesisTable.update(data)
-    mountedSynthesisTable.foreach{
-      m => m.backend.changeState(data)
-    }
+    mountedSynthesisTable.foreach(
+      _.backend.changeState(compilationStatus == 1, data, synthesisOverview_rulesToApply)
+    )
 
     val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
     
@@ -1689,115 +1702,4 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
 
 }
 
-
-object SynthesisTable {
-  import japgolly.scalajs.react._
-  import japgolly.scalajs.react.vdom.prefix_<^._
-  type Props = (SynthesisOverview => Unit) => Unit
-  //case class State(data: SynthesisOverview)
-  type State = SynthesisOverview
-  
-  class Backend($: BackendScope[Props, SynthesisOverview]) {
-    def changeState(data: SynthesisOverview) = {
-      console.log("Changing state")
-      $.setState(data)
-    }
-    
-    def render(data: State, p: Props) = {
-      console.log("Rendering element")
-      p((synthesisOverview: SynthesisOverview) => $.modState(s => synthesisOverview))
-      def menu(index: Int, fname: String, description: String, cid: Int) = {
-        val id = "menu" + fname + index
-  
-        <.div(^.className :="dropdown",
-          <.a(^.id:= id, ^.href:="#", ^.role:="button", ^.className:="dropdown-toggle", "data-toggle".reactAttr:="dropdown",
-            <.i(^.className:="fa fa-magic"),
-            description,
-            ^.onClick --> (Callback{
-              if(Main.compilationStatus == 1) {
-                Backend.synthesis.getRulesToApply(fname, cid)
-              }
-            })
-          ),
-          <.ul(^.className := "dropdown-menu", ^.role:="menu", "aria-labelledby".reactAttr := id,
-            if (Main.compilationStatus == 1) {
-              List(
-                <.li(^.role:="presentation", <.a(^.role:="menuitem", ^.tabIndex:="-1", ^.href:="#", ^.action:="search", "cid".reactAttr := index, "Search")),
-                <.li(^.role:="presentation", <.a(^.role:="menuitem", ^.tabIndex:="-1", ^.href:="#", ^.action:="explore", "cid".reactAttr := index, "Search")),
-                <.li(^.role:="presentation", ^.className:="divider"),
-                <.li(^.role:="presentation", ^.className:="disabled loader temp",
-                    <.a(^.role:="menuitem", ^.tabIndex:="-1", 
-                        <.img(^.src:="/assets/images/loader.gif")
-                    )
-                )
-              )
-            } else {
-              List(
-                <.li(^.role:="presentation", ^.className:="disabled loader temp",
-                   <.a(^.role:="menuitem", ^.tabIndex:="-1",
-                       <.i(^.className:="fa fa-ban"), "Not compiled"
-              )))
-            }
-          )
-        )
-
-      }
-  
-      val fnamesOpt: Option[Array[String]] = data.functions.map(ff => ff.unzip._1.toArray)
-      val fnames = fnamesOpt.getOrElse[Array[String]](Array[String]()).sorted
-  
-      <.table(
-          ^.id:="synthesis_table", ^.className :="table table-hover table-condensed",
-          <.tbody(
-        (for (f <- fnames) yield {
-          Main.overview.functions.get(f) match {
-            case Some(function) =>
-              if (data.functions.get(f).length == 1) {
-                val sp = data.functions.get(f)(0)
-                List(<.tr(
-                  <.td(
-                    ^.className := "fname problem  clicktoline",
-                    "line".reactAttr := sp.line,
-                    "fname".reactAttr := f,
-                    "cid".reactAttr := sp.index,
-                    menu(sp.index, f, function.displayName, sp.index)
-                  )
-                ))
-              } else {
-                val head = <.tr(
-                  <.td(
-                    ^.className := "fname  clicktoline",
-                    "line".reactAttr := function.line,
-                    function.displayName
-                  )
-                )
-                val spArray = data.functions.get(f)
-                head :: (for (i <- 0 until spArray.length) yield {
-                  val sp = spArray(i)
-                  <.tr(
-                    <.td(
-                      ^.className:="problem subproblem clicktoline",
-                      "line".reactAttr := sp.line,
-                      "fname".reactAttr := f,
-                      "cid".reactAttr := sp.index,
-                      menu(sp.index, f, sp.description, sp.index)
-                    )
-                  )
-                }).toList
-              }
-            case None => Nil
-          }
-        }).toList
-      ))
-    }
-  }
-  val component = ReactComponentB[Props]("SynthesisTable")
-    .initialState(SynthesisOverview(None))
-    .renderBackend[Backend]
-    .build
-  def apply() = component(_update = _)
-  
-  private var _update = (s: SynthesisOverview) => ()
-  def update(s: SynthesisOverview) = _update(s)
-}
   
