@@ -15,8 +15,9 @@ import scala.concurrent.duration._
 import leon.evaluators.EvaluationResults
 import leon.purescala.Common.Identifier
 import leon.purescala.SelfPrettyPrinter
+import shared.equal.EqSyntax
 
-trait VerificationNotifier extends WorkerActor with StringToExprCached {
+trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSyntax {
   import ConsoleProtocol._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
@@ -43,16 +44,39 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached {
     case EvaluationResults.RuntimeError(msg)  => ResultOutput("error", error = Some(msg))
     case EvaluationResults.EvaluatorError(msg) => ResultOutput("error", error = Some(msg))
   }
+    
+  def getMinMaxRowOf(e: Positioned): (Int, Int) = {
+    e.getPos match {
+      case r:RangePosition => (r.lineFrom, r.lineTo)
+      case p => (p.line, p.line)
+    }
+  }
+  def getMinMaxRow[T](e: T)(extractor: PartialFunction[T, Positioned]): (Int, Int) = {
+    if(extractor.isDefinedAt(e)) {
+      getMinMaxRowOf(extractor(e))
+    } else {
+      (0, -1)
+    }
+  }
   
   def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])): HVC = {
     val (vc, res, cexExec) = vr
 
     val timeSec = res.timeMs.map(t => f"${t/1000d}%-3.3f").getOrElse("")
 
+    val (lineFrom, lineTo) = getMinMaxRowOf(vc)/*.kind match {
+      case VCKinds.Postcondition => getMinMaxRow(vc.fd.postcondition){ case Some(c) => c }
+      case VCKinds.Precondition => getMinMaxRow(vc.fd.precondition){ case Some(c) => c }
+      case VCKinds.Assert => getMinMaxRowOf(vc)
+      case _ => (-1, 0)
+    }*/
+    
     val base = HVC(
       kind   = vc.kind.toString,
       fun    = vc.fd.id.name,
       status = res.status.name,
+      lineFrom = lineFrom,
+      lineTo = lineTo,
       time   = timeSec
     )
 
@@ -91,14 +115,16 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached {
         }.headOption
       }.toMap
 
-      sender ! DispatchTo(shared.module.Execution, NewCounterExamples(cstate, allCEs))
+      sender ! DispatchTo(shared.Execution, NewCounterExamples(cstate, allCEs))
     }
 
     val fvcs = 
       verifOverview.toSeq.sortBy(_._1.getPos).map{ case (fd, fv) =>
         fd.id.name -> VerificationDetails(
+           fname = fd.id.name,
            status = fv.status,
            time = fv.totalTime,
+           crashingInputs = fv.crashingInputs.map(writes),
            vcs = fv.vcData.toArray.map(writes)
         ) }.toMap
 
@@ -117,6 +143,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
   )).copy(interruptManager = interruptManager, reporter = reporter)
   
   var program: Option[Program] = None
+  var SOLVERTIMEOUT = 5
   
   activateCache = true
 
@@ -125,6 +152,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
     val evaluator = new CodeGenEvaluator(vctx, cstate.program, params=params)
 
     for ((f, fv) <- verifOverview.toSeq.sortBy(_._1.getPos) if funs(f)) {
+      var crashingInputs: Option[Map[Identifier, Expr]] = None
       try {
         val vcs = fv.vcData.map(_._1).toSeq
         val vr = VerificationPhase.checkVCs(vctx, vcs)
@@ -141,6 +169,9 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
                 case e: StackOverflowError =>
                   notifyError("Stack Overflow while testing counter example.")
                   None
+                case e: Throwable =>
+                  crashingInputs = Some(vc.fd.paramIds.zip(callArgs).toMap)
+                  throw e
               }
             case _ =>
               None
@@ -161,7 +192,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
         case t: Throwable =>
           logInfo("[!] Verification crashed!", t)
           clientLog("Verification crashed: "+t.getMessage())
-          verifOverview += f -> verifOverview(f).copy(verifCrashed = true)
+          verifOverview += f -> verifOverview(f).copy(verifCrashed = true, crashingInputs = crashingInputs)
       }
     }
 
@@ -203,7 +234,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
         oldVerifOverView find { case (fd, _) => FunctionHash(fd) === h } match {
           case Some((fd, vcs)) if !recomputeEverything=>
-            verifOverview += f -> vcs
+            verifOverview += f -> vcs.copyTo(f)
           case _ =>
             verifOverview -= f
             toGenerate += f
@@ -216,7 +247,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
       toGenerate ++= toInvalidate
 
-      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(5.seconds)
+      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(SOLVERTIMEOUT.seconds)
 
       val vctx = new VerificationContext(ctx, cstate.program, tsolver)
 
@@ -255,10 +286,12 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
           val fd = cstate.program.definedFunctions.find(_.id.name == fname)
           exprOpt match {
             case Some(expr) =>
-              sender ! DispatchTo(shared.module.Synthesis, CreateUpdatePrettyPrinter(cstate, fd, expr, output))
+              sender ! DispatchTo(shared.Synthesis, CreateUpdatePrettyPrinter(cstate, fd, expr, output))
             case None =>
               notifyError("Could not find original expression of "+rawoutput)
           }
+        case VerificationTimeout(t) =>
+          SOLVERTIMEOUT = t
         case _ => notifyError("Received unknown event: "+event)
       }
 

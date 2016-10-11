@@ -3,7 +3,6 @@ package shared
 package messages
 
 import git._
-import module._
 
 sealed trait MessageToServer {
   def module: Module
@@ -15,7 +14,7 @@ sealed trait MessageToServerExpecting[ReturnType <: MessageFromServer] extends M
 sealed trait MainModule { val module = Main }
 case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPermalink] with MainModule
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
-case class FeatureSet(feature: module.Module, active: Boolean) extends MessageToServer with MainModule
+case class FeatureSet(feature: Module, active: Boolean) extends MessageToServer with MainModule
 case class DoUpdateCode(code: String) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
 case class UnlinkAccount(provider: Provider) extends MessageToServer with MainModule
@@ -34,6 +33,7 @@ case class DoRepair(fname: String) extends MessageToServer with RepairModule
 // verification
 sealed trait VerificationModule { val module = Verification }
 case class PrettyPrintCounterExample(output: String, rawoutput: String, fname: String) extends MessageToServer with VerificationModule
+case class VerificationTimeout(seconds: Int) extends MessageToServer with VerificationModule
 
 // git
 sealed trait RepositoryModule {

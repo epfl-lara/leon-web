@@ -158,6 +158,8 @@ case class VC(
   fun: String,
   kind: String,
   time: String,
+  lineFrom: Int,
+  lineTo: Int,
   counterExample: Option[Map[String, DualOutput]] = None,
   execution: Option[ResultOutput] = None
 ) extends Status
@@ -171,7 +173,9 @@ case class HCompilation(status: String) extends MessageFromServer with Status
 sealed trait Status { def status: String }
 
 case class VerificationDetails(
+  fname: String,
   status: String,
+  crashingInputs: Option[Map[String, DualOutput]],
   vcs: Array[VC],
   time: Double
 ) extends MessageFromServer with Status

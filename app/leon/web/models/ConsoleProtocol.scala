@@ -6,7 +6,7 @@ import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
 import leon.synthesis.Synthesizer
-import leon.web.shared.{Project}
+import leon.web.shared._
 import leon.web.shared.messages._
 import shared.git.GitOperation
 import shared.{Provider, Repository, RepositoryDesc}
@@ -44,7 +44,7 @@ object ConsoleProtocol {
   case class NewSolutions(cstate: CompilationState, synth: Synthesizer, solutions: Stream[leon.synthesis.Solution])
   case class CreateUpdatePrettyPrinter(cstate: CompilationState, afterFun: Option[FunDef], expr: Expr, output: String)
   
-  case class DispatchTo(module: shared.module.Module, msg: Any)
+  case class DispatchTo(module: shared.Module, msg: Any)
 
   case object Stop
 

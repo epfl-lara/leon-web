@@ -20,7 +20,7 @@ import JQueryExtended._
 import Bool._
 import Implicits._
 import shared.{VerifStatus, TerminationStatus, InvariantStatus, Constants}
-import shared.module.{Module => ModuleDescription, _}
+import shared.{Module => ModuleDescription, _}
 import shared.{Project}
 import shared.equal.EqSyntax
 import client.react.{App => ReactApp}
@@ -39,15 +39,26 @@ object ExplorationFact {
 }
 
 @ScalaJSDefined
-class Feature(_a: Boolean, _n: String, _m: Either[shared.module.Module, String]) extends js.Object {
+class Feature(_a: Boolean, _n: String, _m: Either[shared.Module, String]) extends js.Object {
   var active: Boolean = _a
-  val name: String = _m.fold((m: shared.module.Module) => m.name, (i : String) => i )
+  val name: String = _m.fold((m: shared.Module) => m.name, (i : String) => i )
   val displayName: String = _n
-  val module: Option[shared.module.Module] = _m.fold(a => Some(a), _ => None)
+  val module: Option[shared.Module] = _m.fold(a => Some(a), _ => None)
+}
+
+object FeaturesMappings {
+  var stringToModule = Map[String, shared.Module]()
+  var moduleToFeature = Map[shared.Module, Feature]()
+  var stringToFeature = Map[String, Feature]()
 }
 
 @JSExport
 object MainDelayed extends js.JSApp {
+  @JSExport
+  def setTimeout(i: Int) = {
+    Main.Server ! VerificationTimeout(i)
+  }
+
   @JSExport
   def main(): Unit = {
     $(document).ready(Main.main _)
@@ -77,8 +88,8 @@ trait LeonAPI {
 }
 
 @JSExport("Main")
-object Main extends LeonWeb with LeonAPI {
-
+object Main extends LeonWeb with LeonAPI  {
+  
   def main(): Unit = {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
 
@@ -124,11 +135,26 @@ trait LeonWeb extends EqSyntax {
     // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
     def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
     
-    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T forSome { type T <: MessageFromServer }, Unit]): Unit = {
-      Handlers.callbacks += callback
+    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
+      Handlers.callbacks += callback.asInstanceOf[PartialFunction[U forSome { type U <: MessageFromServer }, Unit]]
       Main.sendMessage(msg)
     }
   }
+  
+
+  $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
+    if (!$(self).hasClass("disabled")) {
+      Server ! (StorePermaLink(editor.getValue()), ({ case data => //GotPermalink //HMoveCursor
+        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
+        $("#permalink-value").show()
+      }): PartialFunction[GotPermalink, Unit])
+      event.preventDefault()
+  }}): js.ThisFunction);
+
+  $("#button-permalink-close").click((event: JQueryEventObject) => {
+    $("#permalink-value").hide()
+  })
+
   
   def registerMessageHandler(handler: MessageFromServer => Boolean): Unit =
     Handlers.registerMessageHandler(handler)
@@ -197,23 +223,23 @@ trait LeonWeb extends EqSyntax {
   
   // Each feature is stored in the Feature dictionary
   object Feature {
-    def apply(active: Boolean, displayName: String, module: Option[shared.module.Module], name: String): Feature = {
+    def apply(active: Boolean, displayName: String, module: Option[shared.Module], name: String): Feature = {
       val res = new Feature(active, displayName, module.map(m => Left(m)).getOrElse(Right(name)))
-      module.foreach{m => stringToModule += res.name -> m; moduleToFeature += m -> res }
-      stringToFeature += res.name -> res
+      module.foreach{m => FeaturesMappings.stringToModule += res.name -> m; FeaturesMappings.moduleToFeature += m -> res }
+      FeaturesMappings.stringToFeature += res.name -> res
       res
     }
-    def apply(active: Boolean, displayName: String, module: shared.module.Module): Feature = apply(active, displayName, Some(module), "")
+    def apply(active: Boolean, displayName: String, module: shared.Module): Feature = apply(active, displayName, Some(module), "")
     def apply(active: Boolean, displayName: String, name: String): Feature = apply(active, displayName, None, name)
-    
-    var stringToModule = Map[String, shared.module.Module]()
-    var moduleToFeature = Map[shared.module.Module, Feature]()
-    var stringToFeature = Map[String, Feature]()
   }
-
+  
   object Features {
-    import shared.module._
-    def toJsObject = js.Dictionary[Feature](Feature.stringToFeature.toSeq : _*)
+    import shared._
+    def toJsObject = js.Dictionary[Feature](stringToFeature.toSeq : _*)
+    def stringToModule = FeaturesMappings.stringToModule
+    def moduleToFeature = FeaturesMappings.moduleToFeature
+    def stringToFeature = FeaturesMappings.stringToFeature
+    
     val verification = Feature(active= true, displayName= "Verification", module= Verification)
     val synthesis    = Feature(active= true, displayName= "Synthesis", module= Synthesis)
     val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Disambiguation)
@@ -440,19 +466,6 @@ trait LeonWeb extends EqSyntax {
 
   updateUndoRedo()
 
-  $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
-    if (!$(self).hasClass("disabled")) {
-      Server ! (StorePermaLink(editor.getValue()), { case data: GotPermalink => //GotPermalink //HMoveCursor
-        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
-        $("#permalink-value").show()
-      })
-    event.preventDefault()
-  }}): js.ThisFunction);
-
-  $("#button-permalink-close").click((event: JQueryEventObject) => {
-    $("#permalink-value").hide()
-  })
-
   /** Compilation
     */
 
@@ -520,7 +533,7 @@ trait LeonWeb extends EqSyntax {
 
   localFeatures foreach { locFeatures =>
     for ((f, locFeature) <- locFeatures) {
-      Feature.stringToFeature.get(f) match {
+      Features.stringToFeature.get(f) match {
         case Some(feature) =>
           feature.active = locFeature.active
         case None =>
@@ -529,13 +542,13 @@ trait LeonWeb extends EqSyntax {
   }
 
   val fts = $("#params-panel ul")
-  for ((f, feature) <- Feature.stringToFeature) {
+  for ((f, feature) <- Features.stringToFeature) {
     fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
   }
 
   $(".feature").click(((self: Element) => {
     val f = $(self).attr("ref")
-    val feature = Feature.stringToFeature(f)
+    val feature = Features.stringToFeature(f)
     feature.active = !feature.active
 
     feature.module match {
@@ -570,7 +583,7 @@ trait LeonWeb extends EqSyntax {
     object modules {
       val list = scala.collection.mutable.Map[String, Module]() // Defined before all modules.
 
-      val verification = new Module(shared.module.Verification, list) {
+      val verification = new Module(shared.Verification, list) {
         val column = "Verif."
         def html(name: String, d: Status): HandlerMessages.Html = {
           val vstatus = d.status match {
@@ -601,10 +614,10 @@ trait LeonWeb extends EqSyntax {
             overview.Data.verification.get(fname) match {
               case Some(d) =>
                 openVerifyDialog()
-                displayVerificationDetails(d.status, d.vcs)
+                displayVerificationDetails(d.fname, d.status, d.vcs, d.crashingInputs)
               case None =>
                 openVerifyDialog()
-                displayVerificationDetails("unknown", Array[VC]())
+                displayVerificationDetails(fname, "unknown", Array[VC](), None)
             }
           }): js.ThisFunction)
         }
@@ -771,6 +784,111 @@ trait LeonWeb extends EqSyntax {
     }
     resizeEditor()
   }
+  val possibleGutterMarkers = Set(
+    "fa", "fa-bolt", "text-danger", "fa-check", "text-success", "fa-exclamation-circle", "text-danger", "fa-clock-o", "text-warning", "fa-refresh"
+  )
+  
+  val priorities = Map(
+      "fa-exclamation-circle" -> 5,
+      "fa-bolt" -> 4,
+      "fa-clock-o" -> 3,
+      "text-success" -> 2,
+      "fa-refresh" -> 1).withDefault { x => 0 }
+  
+  case class CustomGutterDecoration(row: Int, classes: Set[String]=Set(), html: String, callback: () => Unit)
+  
+  var customGutterDecorations = collection.mutable.Map[Int, CustomGutterDecoration]()
+  
+  def updateCustomGutterDecorations() = {
+    //println("Updating custom gutter decorations")
+    $("#codebox div.ace_gutter-cell .custommarker").remove()
+    $("#codebox div.ace_gutter-cell").each((index: js.Any, elem: dom.Element) => {
+      val i = index.asInstanceOf[Int]
+      val row = elem.textContent.toInt
+      customGutterDecorations.get(row) match {
+        case None =>
+          $(elem)
+        case Some(CustomGutterDecoration(_, classes, html, callback)) =>
+          $(elem).prepend($(html).addClass("custommarker").click(() => callback()))
+      }
+      ().asInstanceOf[js.Any]
+    })
+  }
+  
+  def drawVerificationOverviewInGutter(): Unit = {
+    val verification = overview.modules.verification
+    val details = overview.Data.verification
+    val session = Main.editor.getSession()
+    val decorations = collection.mutable.Map[Int, CustomGutterDecoration]()
+    for((k, v) <- details) {
+      val vstatus = v.status
+      for(vc <- v.vcs) {
+        val status = if(vstatus == VerifStatus.crashed) vstatus else vc.status
+        val classStatus: Set[String] = status match {
+          case VerifStatus.crashed =>
+            Set("fa", "fa-bolt", "text-danger")
+          case VerifStatus.valid =>
+            Set("fa", "fa-check", "text-success")
+          case VerifStatus.invalid =>
+            Set("fa", "fa-exclamation-circle", "text-danger")
+          case VerifStatus.timeout =>
+            Set("fa", "fa-clock-o", "text-warning")
+          case VerifStatus.undefined | VerifStatus.unknown =>
+            Set("fa", "fa-refresh"/*, "fa-spin"*/)
+          //case  | V =>
+          case _ => Set.empty/*
+          case VerifStatus.cond_valid =>
+            """fa fa-check"""
+          case VerifStatus.undefined =>
+            """fa fa-refresh fa-spin"""
+
+          case VerifStatus.unknown =>
+            ""*/
+        }
+        val html = status match {
+          case VerifStatus.crashed =>
+            """<i class="fa fa-bolt text-danger" title="Unnexpected error during verification"></i>"""
+          case VerifStatus.undefined =>
+            """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
+          case VerifStatus.cond_valid =>
+            """<span class="text-success" title="Conditionally valid">(<i class="fa fa-check"></i>)</span>"""
+          case VerifStatus.valid =>
+            """<i class="fa fa-check text-success" title="Valid"></i>"""
+          case VerifStatus.invalid =>
+            """<i class="fa fa-exclamation-circle text-danger" title="Invalid"></i>""";
+          case VerifStatus.timeout =>
+            """<i class="fa fa-clock-o text-warning" title="Timeout"></i>"""
+          case _ =>
+            """<i class="fa fa-refresh fa-spin" title="Verifying..."></i>"""
+        }
+        val priority = (0 :: (classStatus collect priorities).toList).max
+        //println(s"Adding $classStatus (status = ${vc.status}) between ${vc.lineFrom} and ${vc.lineTo} for ${vc.fun} [kind = ${vc.kind}]")
+        for{row <- vc.lineFrom to vc.lineTo} {
+          val existing = decorations.get(row).map(_.classes).getOrElse(Set.empty)
+          val existing_priority = (0 :: (existing collect priorities).toList).max
+          if(existing_priority < priority) {
+            decorations(row) = CustomGutterDecoration(row, classStatus, html, () => {
+              $(s"td.verif[fname=${vc.fun}]").click()
+            })
+          } else {
+            //println(s"Discarded adding line $row because lower priority than " + existing)
+          }
+        }
+      }
+    }
+    /*for(row <- 0 until session.getLength().toInt) {
+      for(p <- possibleGutterMarkers) {
+        session.removeGutterDecoration(row, p)
+      }
+    }*/
+    //println("Finished. Adding " + decorations.size + " decorations")
+    customGutterDecorations = decorations/*js.Array[CustomGutterDecoration]()
+    for{(row, decoration) <- decorations.toSeq.sortBy(_._1)} {
+      customGutterDecorations.push(decoration)
+      //session.addGutterDecoration(row, cl)
+    }*/
+    updateCustomGutterDecorations()
+  }
 
   def drawOverView(): Unit = {
     val overview_table = $("#overview_table")
@@ -779,19 +897,19 @@ trait LeonWeb extends EqSyntax {
     html += "<tr>"
     html += "<th>Function</th>"
     for ((name, module) <- overview.modules.list) {
-      if (Feature.stringToFeature(name).active) {
+      if (Features.stringToFeature(name).active) {
         html += "<th>" + module.column + "</th>"
       }
     }
     html += "</tr>"
 
-    for ((fname, fdata) <- overview.functions) {
+    for ((fname, fdata) <- overview.functions.toSeq.sortBy(_._1)) {
       val fdata = overview.functions(fname)
 
       html += "<tr>"
       html += "  <td class=\"fname clicktoline\" line=\"" + fdata.line + "\">" + fdata.displayName + "</td>"
       for ((m, mod) <- overview.modules.list) {
-        if (Feature.moduleToFeature(mod.module).active) {
+        if (Features.moduleToFeature(mod.module).active) {
           val data = overview.Data.asInstanceOf[js.Dictionary[Map[String, Status]]](m)
           data.get(fname) match {
             case Some(status) =>
@@ -837,9 +955,83 @@ trait LeonWeb extends EqSyntax {
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject, scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
 
+  def allowPrettyPrintingSynthesis(fname: String, outputs: js.Array[DualOutput], tbl: JQuery) = {
+    // Pretty-printing options.
+    tbl.find("div.output")
+    .each((index: js.Any, elem: dom.Element) => {
+      val i = index.asInstanceOf[Int]
+      //e.target.
+      //TODO: Display the "validate" and "cancel" button
+      //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
+      val validateBox = $("""<i class="fa fa-check save-expr-display mini-menu"></i>""").text("Confirm").attr("title", "Creates a new pretty-printer using the provided example")
+      val cancelBox = $("""<i class="fa fa-times cancel-expr-display mini-menu"></i>""").text("Cancel").attr("title", "Cancel the edition of this example")
+      val originalBox = $("""<i class="fa fa-eye original-expr-display mini-menu"></i>""").text("Show original").attr("title", "Show the original. Click again to return to editing")
+      val menuBox = $("<div>").addClass("menu-expr-display").append(validateBox).append(cancelBox).append(originalBox).hide()
+      menuBox.appendTo($(elem).parent())
+      
+      validateBox.on("click", () => {
+        val dualOutput = outputs(i)
+        console.log($(elem)(0))
+        val newContent = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
+        dualOutput.modifying = newContent.toOption
+        console.log("Sending synthesis problem", dualOutput.toString())
+        console.log("Fname = ", fname)
+        onSynthesisTabDisplay = Some(() => Main.showContextDemo(Main.demoSynthesizePrettyPrinter))
+        //TODO: Do something with the dual output
+        Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, fname)
+        menuBox.hide()
+      })
+      cancelBox.on("click", () => {
+        val dualOutput = outputs(i)
+        dualOutput.modifying = Some(dualOutput.prettyoutput)
+        $(elem).text(dualOutput.prettyoutput)
+        menuBox.hide()
+        $(elem).blur()
+      })
+      // Focus/blur is not very robust. Here is what it does (if it needs to be extended later)
+      // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
+      // If the user unfocuses the div.output, the menu disappear after 10ms
+      // If the user focuses the originalBox, the menu disappearance is cancelled immediately
+      // If the user unfocuses the originalBox, the menu disappear after 10ms
+      
+      originalBox.on("click", () => {
+        js.timers.clearTimeout($(elem).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
+        console.log("cLicked on originalBox " + i)
+        val dualOutput = outputs(i)
+        if(originalBox.hasClass("checked")) {
+          originalBox.removeClass("checked")
+          $(elem).attr("contentEditable", true)
+          $(elem).text(dualOutput.modifying.getOrElse(dualOutput.prettyoutput))
+        } else {
+          originalBox.addClass("checked")
+          $(elem).attr("contentEditable", false)
+          dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent).toOption
+          $(elem).text(dualOutput.rawoutput)
+        }
+      }).on("blur", () => { // If not clicking on the div.output, hide the menu.
+        console.log("Blurring originalBox...")
+        $(elem).data("hidehandler", js.timers.setTimeout(100){
+          $(elem).parent().find(".menu-expr-display").hide("blind")
+        })
+      })
+    })
+    .focus((e: JQueryEventObject) => {
+      console.log("Focusing...")
+      js.timers.clearTimeout($(e.target).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
+      $(e.target).parent().find(".menu-expr-display").show("blind")
+    })
+    .on("blur", (e: JQueryEventObject) => {
+      console.log("Blurring div.output")
+      $(e.target).data("hidehandler", js.timers.setTimeout(100){
+        console.log("Atual blur")
+        $(e.target).parent().find(".menu-expr-display").hide("blind")
+      })
+    })
+  }
+
   var synthesizing = false;
 
-  def displayVerificationDetails(status: String, vcs: HandlerMessages.VCS): Unit = {
+  def displayVerificationDetails(fname: String, status: String, vcs: HandlerMessages.VCS, crashingInputs: Option[Map[String, DualOutput]] = None): Unit = {
     val pb = $("#verifyProgress")
     val pbb = pb.children(".progress-bar")
 
@@ -882,11 +1074,35 @@ trait LeonWeb extends EqSyntax {
 
     val tbl = $("#verifyResults tbody")
     tbl.html("");
+    
+    val outputs = js.Array[DualOutput]() // For each of these elements, a <div class="output"> must be created
 
-    var targetFunction: String = null
+    crashingInputs match {
+      case Some(args) =>
+        var clas = "danger"
+        var html = "<tr class=\"" + clas + " counter-example\"><td colspan=\"4\">"
+        html += "<div>"
+        html += "  <p>The following inputs crashed the function:</p>";
+        html += "  <table class=\"input\">";
+        var suggestEdit = false
+        for((fname, value) <- args) { 
+          suggestEdit = suggestEdit || (value.prettyoutput == value.rawoutput && value.rawoutput.indexOf(",") >= 0)
+          html += "<tr><td>" + fname + "</td><td>&nbsp;:=&nbsp;</td><td><div class='output' contentEditable='true' tabindex=0>" + value.prettyoutput + "</div></td></tr>";
+          outputs.push(value)
+        }
+        html += "  </table>"
+        html += "    </div>"
+        html += "  </td>"
+        html += "</tr>"
+        tbl.append(html)
+        
+      case None =>
+    }
+    
+    
+    
     for (i <- 0 until vcs.length) {
       val vc = vcs(i)
-      targetFunction = vc.fun
       var icon = "check"
       if (vc.status == "invalid" || vc.status == "crashed") {
         icon = "warning"
@@ -925,7 +1141,6 @@ trait LeonWeb extends EqSyntax {
         html += "<div>"
         html += "  <p>The following inputs violate the VC:</p>";
         html += "  <table class=\"input\">";
-        val outputs = js.Array[DualOutput]()
         var suggestEdit = false
         for((fname, value) <- vc.counterExample.get) { 
           suggestEdit = suggestEdit || (value.prettyoutput == value.rawoutput && value.rawoutput.indexOf(",") >= 0)
@@ -949,80 +1164,9 @@ trait LeonWeb extends EqSyntax {
         tbl.append(html)
         
         if(suggestEdit) Main.showContextDemo(Main.demoEditCounterExamples)
-        
-        // Pretty-printing options.
-        tbl.find("div.output")
-        .each((index: js.Any, elem: dom.Element) => {
-          val i = index.asInstanceOf[Int]
-          //e.target.
-          //TODO: Display the "validate" and "cancel" button
-          //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
-          val validateBox = $("""<i class="fa fa-check save-expr-display mini-menu"></i>""").text("Confirm").attr("title", "Creates a new pretty-printer using the provided example")
-          val cancelBox = $("""<i class="fa fa-times cancel-expr-display mini-menu"></i>""").text("Cancel").attr("title", "Cancel the edition of this example")
-          val originalBox = $("""<i class="fa fa-eye original-expr-display mini-menu"></i>""").text("Show original").attr("title", "Show the original. Click again to return to editing")
-          val menuBox = $("<div>").addClass("menu-expr-display").append(validateBox).append(cancelBox).append(originalBox).hide()
-          menuBox.appendTo($(elem).parent())
-          
-          validateBox.on("click", () => {
-            val dualOutput = outputs(i)
-            console.log($(elem)(0))
-            val newContent = $(elem)(0).innerText.orIfNull($(elem)(0).textContent)
-            dualOutput.modifying = newContent.toOption
-            console.log("Sending synthesis problem", dualOutput.toString())
-            console.log("Fname = ", vc.fun)
-            onSynthesisTabDisplay = Some(() => Main.showContextDemo(Main.demoSynthesizePrettyPrinter))
-            //TODO: Do something with the dual output
-            Backend.verification.prettyPrintCounterExample(newContent.getOrElse(""), dualOutput.rawoutput, vc.fun)
-            menuBox.hide()
-          })
-          cancelBox.on("click", () => {
-            val dualOutput = outputs(i)
-            dualOutput.modifying = Some(dualOutput.prettyoutput)
-            $(elem).text(dualOutput.prettyoutput)
-            menuBox.hide()
-            $(elem).blur()
-          })
-          // Focus/blur is not very robust. Here is what it does (if it needs to be extended later)
-          // If the user focuses the div.output, the menu appears and any disappearance of the menu is cancelled immediately.
-          // If the user unfocuses the div.output, the menu disappear after 10ms
-          // If the user focuses the originalBox, the menu disappearance is cancelled immediately
-          // If the user unfocuses the originalBox, the menu disappear after 10ms
-          
-          originalBox.on("click", () => {
-            js.timers.clearTimeout($(elem).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
-            console.log("cLicked on originalBox " + i)
-            val dualOutput = outputs(i)
-            if(originalBox.hasClass("checked")) {
-              originalBox.removeClass("checked")
-              $(elem).attr("contentEditable", true)
-              $(elem).text(dualOutput.modifying.getOrElse(dualOutput.prettyoutput))
-            } else {
-              originalBox.addClass("checked")
-              $(elem).attr("contentEditable", false)
-              dualOutput.modifying = $(elem)(0).innerText.orIfNull($(elem)(0).textContent).toOption
-              $(elem).text(dualOutput.rawoutput)
-            }
-          }).on("blur", () => { // If not clicking on the div.output, hide the menu.
-            console.log("Blurring originalBox...")
-            $(elem).data("hidehandler", js.timers.setTimeout(100){
-              $(elem).parent().find(".menu-expr-display").hide("blind")
-            })
-          })
-        })
-        .focus((e: JQueryEventObject) => {
-          console.log("Focusing...")
-          js.timers.clearTimeout($(e.target).data("hidehandler").asInstanceOf[js.timers.SetTimeoutHandle])
-          $(e.target).parent().find(".menu-expr-display").show("blind")
-        })
-        .on("blur", (e: JQueryEventObject) => {
-          console.log("Blurring div.output")
-          $(e.target).data("hidehandler", js.timers.setTimeout(100){
-            console.log("Atual blur")
-            $(e.target).parent().find(".menu-expr-display").hide("blind")
-          })
-        })
       }
     }
+    allowPrettyPrintingSynthesis(fname, outputs, tbl)
 
     if (vcs.length == 0) {
       tbl.append("<tr class=\"empty\"><td colspan=\"4\"><div>No VC found</div></td></tr>")
@@ -1032,7 +1176,7 @@ trait LeonWeb extends EqSyntax {
 
     if (canRepair && Features.repair.active) {
       $(".repairButton").unbind("click").click(() => {
-        Backend.repair.doRepair(targetFunction)
+        Backend.repair.doRepair(fname)
 
         $("#verifyDialog").modal("hide")
       });
@@ -1250,7 +1394,7 @@ trait LeonWeb extends EqSyntax {
 
     setConnected()
 
-    for ((module, feature) <- Feature.moduleToFeature) {
+    for ((module, feature) <- Features.moduleToFeature) {
       try {
         Backend.main.setFeatureActive(module, feature.active)
       } catch {
@@ -1426,6 +1570,7 @@ trait LeonWeb extends EqSyntax {
       lastSavedChange = lastChange
 
       updateSaveButton()
+
       currentProject match {
         case Some(Project(repo, branch, file, _)) if treatAsProject =>
           Backend.repository.doUpdateCodeInProject(
@@ -1436,9 +1581,9 @@ trait LeonWeb extends EqSyntax {
           )
 
         case _ =>
-          Backend.main.doUpdateCode(
-            code = currentCode
-          )
+          // Backend.main.doUpdateCode(
+          //   code = currentCode
+          // )
       }
 
       Actions dispatch react.UpdateEditorCode(currentCode, updateEditor = false)
@@ -1517,7 +1662,6 @@ trait LeonWeb extends EqSyntax {
     }) :js.Function),
     readOnly = true
   ).asInstanceOf[EditorCommand]
-  console.log("Adding command", saveCommand)
   editor.commands.addCommand(saveCommand);
 
   editor.commands.removeCommand("replace");
@@ -1529,6 +1673,14 @@ trait LeonWeb extends EqSyntax {
     js.timers.setTimeout(timeWindow + 50) { onCodeUpdate }
     ().asInstanceOf[js.Any]
   });
+  val callbackDecorations = (e: js.Any) => {
+    //println("New value: " + e + " and first visible row is " + editor.getFirstVisibleRow())
+    js.timers.setTimeout(50){updateCustomGutterDecorations()}
+    ().asInstanceOf[js.Any]
+  }
+  editorSession.on("changeFold", callbackDecorations)
+  editorSession.on("changeScrollTop", callbackDecorations)
+  editorSession.on("changeWrapMode", callbackDecorations)
 
   def resizeEditor(): Unit = {
     val h = $(window).height() - $("#title").height() - 6

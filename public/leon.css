@@ -813,11 +813,33 @@ ul.repository-list .private .octicon {
   font-style: italic;
 }
 
-
 /* Account modal */
 .account-identities {}
 
 .account-link-another {}
+
+/* Font-Awesome icons */
+.fa {
+	line-height: initial !important
+}
+
+/* Ace */
+
+/*.ace_gutter-cell {
+	display: block;
+	padding-left: initial;
+	font-family: monospace;
+}*/
+
+.ace_gutter-cell.fa:before {
+	font-family: fontAwesome;
+}
+
+.ace_gutter-cell .custommarker {
+	cursor: pointer;
+	position: absolute;
+    left: 2px;
+}
 
 /*
 div.results_table > table {

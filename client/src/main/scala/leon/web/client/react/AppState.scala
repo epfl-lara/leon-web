@@ -9,7 +9,7 @@ import monifu.reactive._
 import monifu.reactive.subjects._
 import shared._
 import leon.web.shared.User
-import leon.web.shared.{Project, Provider, RepositoryDesc}
+import leon.web.shared.{Project, Provider}
 
 import leon.web.client.utils.picklers._
 import upickle.default._
