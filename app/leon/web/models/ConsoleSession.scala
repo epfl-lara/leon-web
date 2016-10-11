@@ -3,6 +3,7 @@ package leon.web
 package models
 
 import akka.actor._
+
 import scala.concurrent.duration._
 import scala.concurrent.Await
 import scala.concurrent.Future
@@ -27,10 +28,13 @@ import leon.web.utils.String._
 import java.io.File
 import java.io.PrintWriter
 import java.util.concurrent.atomic.AtomicBoolean
+
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import java.nio.ByteBuffer
 import leon.web.shared.{Provider, GitHubProvider}
+
+import leon.web.websitebuilder.memory.Memory
 
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
@@ -78,7 +82,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
   import shared.messages.{DoCancel => MDoCancel, _}
   import shared._
-  
+
   def receive = {
     case Init =>
       reporter = new WSReporter(channel)
@@ -93,7 +97,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       modules += ModuleEntry(Execution         , new ExecutionWorker(self, interruptManager))
       modules += ModuleEntry(Repair            , new RepairWorker(self, interruptManager))
       modules += ModuleEntry(Invariant         , new OrbWorker(self, interruptManager))
+      modules += ModuleEntry(WebsiteBuilder    , new WebBuilderWorker(self, interruptManager))
       modules += ModuleEntry(RepositoryHandler , new RepositoryWorker(self, currentUser), true)
+
+      Memory.reinitialiseSourceMapsVariablesAndClarificationSession()
 
       logInfo("New client")
 
@@ -117,25 +124,28 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case NotifyClient(event) =>
       import boopickle.Default._
       import shared.messages._
-      import shared.messages.MessageFromServer._ 
+      import shared.messages.MessageFromServer._
       pushMessage(Pickle.intoBytes[MessageFromServer](event).array())
 
     case ProcessClientEvent(event) =>
       import boopickle.Default._
-      import shared.messages._
       import shared.messages.MessageToServer._
-      
+
       val message = Unpickle[MessageToServer].fromBytes(ByteBuffer.wrap(event))
-      
+
       try {
         logInfo("[<] " + message.getClass.getName)
         message match {
           case message: MainModule => message match {
             case MDoCancel => self ! DoCancel
-            case DoUpdateCode(code) => self ! ConsoleProtocol.UpdateCode(code, None, None)
+            case DoUpdateCode(code, requestId) => self ! ConsoleProtocol.UpdateCode(code, None, None, requestId)
+            // case DoUpdateCodeInProject(owner, repo, file, branch, code, requestId) => withUser { user =>
+            //   val project = Project(owner, repo, branch, file)
+            //   self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), requestId)
+            // }
             case StorePermaLink(code) => self ! message
             case AccessPermaLink(link) => self ! message
-            case FeatureSet(f, active) => 
+            case FeatureSet(f, active) =>
               if (modules contains f) {
                 if (active) {
                   modules(f).isActive = true
@@ -147,6 +157,23 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               self ! UUnlinkAccount(user, provider)
             }
           }
+          // case message: GitModule => message match {
+          //   case LoadRepositories => withUser { user =>
+          //     self ! ULoadRepositories(user)
+          //   }
+          //   case LoadRepository(owner, repo) => withUser { user =>
+          //     self ! ULoadRepository(user, owner, repo)
+          //   }
+          //   case LoadFile(owner, repo, file) => withUser { user =>
+          //     self ! ULoadFile(user, owner, repo, file)
+          //   }
+          //   case SwitchBranch(owner, repo, branch) => withUser { user =>
+          //     self ! USwitchBranch(user, owner, repo, branch)
+          //   }
+          //   case DoGitOperation(op, project) => withUser { user =>
+          //     self ! UDoGitOperation(user, project, op)
+          //   }
+          // }
           case message if modules contains message.module =>
             val m = message.module
             if (modules(m).isActive) {
@@ -201,8 +228,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         case None =>
           clientLog("=> ERROR: No such account found.")
       }
-        
-    case UpdateCode(code, user, project) =>
+
+    case UpdateCode(code, user, project, requestId) =>
+      Memory.clearClarificationSession()
+
       if (lastCompilationState.project =!= project ||
           lastCompilationState.code =!= Some(code)) {
 
@@ -281,6 +310,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               optProgram = Some(program),
               code       = Some(code),
               compResult = "success",
+              requestId  = Some(requestId),
               wasLoop    = Set(),
               project    = project,
               savedFile  = Some(savedFile.getName())
@@ -316,6 +346,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
               modules(Invariant).actor ! OnUpdateCode(cstate)
+              val termmod = modules(Termination)
+              if(termmod.isActive)
+                termmod.actor ! OnUpdateCode(cstate)
             } else {
               modules.values.filter(e => e.isActive && e.name =!= Invariant).foreach (_.actor ! OnUpdateCode(cstate))
             }
@@ -345,7 +378,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         notifyAnnotations(annotations)
       }
       else {
-        val cstate = lastCompilationState
+        val cstate = lastCompilationState.copy(requestId = Some(requestId))
+        self ! DispatchTo(WebsiteBuilder, OnUpdateCode(cstate))
         event(HCompilation(cstate.compResult))
       }
 
@@ -395,4 +429,3 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   }
 
 }
-

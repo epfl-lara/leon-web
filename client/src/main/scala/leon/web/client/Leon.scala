@@ -20,7 +20,7 @@ import JQueryExtended._
 import Bool._
 import Implicits._
 import shared.{VerifStatus, TerminationStatus, InvariantStatus, Constants}
-import shared.{Module => ModuleDescription, _}
+import shared.{Module => ModuleDescription, Main => _, _}
 import shared.{Project}
 import shared.equal.EqSyntax
 import client.react.{App => ReactApp}
@@ -30,27 +30,10 @@ import shared.messages.{Event => _, _}
 import scala.scalajs.js.typedarray._
 import java.nio.ByteBuffer
 import org.scalajs.dom.raw.FileReader
-
-@ScalaJSDefined
-class ExplorationFact(val range: Range, val res: String) extends js.Object
-
-object ExplorationFact {
-  def apply(range: Range, res: String): ExplorationFact = new ExplorationFact(range, res)
-}
-
-@ScalaJSDefined
-class Feature(_a: Boolean, _n: String, _m: Either[shared.Module, String]) extends js.Object {
-  var active: Boolean = _a
-  val name: String = _m.fold((m: shared.Module) => m.name, (i : String) => i )
-  val displayName: String = _n
-  val module: Option[shared.Module] = _m.fold(a => Some(a), _ => None)
-}
-
-object FeaturesMappings {
-  var stringToModule = Map[String, shared.Module]()
-  var moduleToFeature = Map[shared.Module, Feature]()
-  var stringToFeature = Map[String, Feature]()
-}
+import scalacss.ScalaCssReact._
+import scalacss.mutable.StyleSheetRegistry
+import scalacss.Defaults._
+import js.JSConverters._
 
 @JSExport
 object MainDelayed extends js.JSApp {
@@ -62,6 +45,10 @@ object MainDelayed extends js.JSApp {
   @JSExport
   def main(): Unit = {
     $(document).ready(Main.main _)
+    
+    val registry = new StyleSheetRegistry
+    registry.register(GlobalStyles)
+    registry.addToDocumentOnRegistration()
   }
 
   val editor = ace.edit("codebox");
@@ -89,6 +76,7 @@ trait LeonAPI {
 
 @JSExport("Main")
 object Main extends LeonWeb with LeonAPI  {
+  val m = Misc
   
   def main(): Unit = {
     js.timers.setInterval(2000) { checkDisconnectStatus() };
@@ -109,7 +97,7 @@ object Main extends LeonWeb with LeonAPI  {
 
 }
 
-trait LeonWeb extends EqSyntax {
+trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler with DemoHandler { self: Main.type =>
   import boopickle.Default._
   import shared.messages.MessageToServer._
   
@@ -128,87 +116,49 @@ trait LeonWeb extends EqSyntax {
   def sendMessage(msg: MessageToServer): Unit = _send(Pickle.intoBytes(msg))
   def sendBuffered(msg: MessageToServer): Unit = new BufferedWebSocket(leonSocket).sendBuffered(msg)
     
-  object Server {// Mimick actor-like properties
+  object Server {
+    /** Synonym of Server ! message*/
+    def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
+
+    /**Sends a message to the server */
+    def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
+
+    /** Buffer the message in case the network is down */
     def sendBuffered(msg: MessageToServer): Unit = Main.sendBuffered(msg)
     
-    def send(msg: MessageToServer): Unit = Main.sendMessage(msg)
-    // Note that if this complain with a wrong number of arguments and using callbacks, it means that the return type of the function is not correct.
-    def !(msg: MessageToServer): Unit = Main.sendMessage(msg)
-    
-    def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
-      Handlers.callbacks += callback.asInstanceOf[PartialFunction[U forSome { type U <: MessageFromServer }, Unit]]
+    /** Sends a message after registering a callback to handle the response. */
+    /*def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
+      Handlers.callbacks += new PartialFunction[MessageFromServer, Unit] {
+        def isDefinedAt(e: MessageFromServer) = callback != null && e.isInstanceOf[T]
+        def apply(e: MessageFromServer): Unit = callback(e.asInstanceOf[T])
+      }
       Main.sendMessage(msg)
-    }
+    }*/
   }
   
-
+  /** Permalinks */
   $("#button-permalink").click(((self: Element, event: JQueryEventObject) => {
     if (!$(self).hasClass("disabled")) {
-      Server ! (StorePermaLink(editor.getValue()), ({ case data => //GotPermalink //HMoveCursor
-        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
-        $("#permalink-value").show()
-      }): PartialFunction[GotPermalink, Unit])
+      Server ! StorePermaLink(editor.getValue())
       event.preventDefault()
   }}): js.ThisFunction);
-
   $("#button-permalink-close").click((event: JQueryEventObject) => {
     $("#permalink-value").hide()
   })
-
+  Handlers += { case GotPermalink(link) =>
+    $("#permalink-value input").value(window._leon_url + "#link/" + link)
+    $("#permalink-value").show()
+  }
   
-  def registerMessageHandler(handler: MessageFromServer => Boolean): Unit =
-    Handlers.registerMessageHandler(handler)
+  def registerMessageHandler(handler: MessageFromServer => Boolean): Unit = {
+    Handlers += {
+      case m: MessageFromServer if handler(m) =>
+    }
+  }
+
   val headerHeight = $("#title").height() + 20
 
-  var lastRange: Range = null;
-  var lastDisplayedRange: Range = null;
-  var lastProcessedRange: js.UndefOr[Range] = js.undefined;
-
-  var explorationFacts = new js.Array[ExplorationFact]();
-
-  var displayedMarker = -1;
-
-  def clearExplorationFacts() = {
-    lastRange = null;
-    lastProcessedRange = js.undefined;
-
-    hideHighlight();
-
-    explorationFacts = new js.Array[ExplorationFact]();
-  }
-
-  def hideHighlight() = {
-    if (displayedMarker > 0) {
-      editor.getSession().removeMarker(displayedMarker);
-
-      $(".leon-explore-location.ace_start").each((index: js.Any, _this: dom.Element) =>
-        $(_this).tooltip("destroy").asInstanceOf[js.Any]);
-
-    }
-
-    lastDisplayedRange = null;
-    displayedMarker = -1
-  }
-
-  def showHighlight(range: Range, content: String) = {
-    if (range =!= lastDisplayedRange) {
-      hideHighlight()
-
-      lastDisplayedRange = range;
-
-      displayedMarker = editor.getSession().addMarker(range, "leon-explore-location", "text", true);
-
-      js.timers.setTimeout(50) {
-        $(".leon-explore-location.ace_start").tooltip(l(
-          title = content,
-          container = "#codebox",
-          placement = "top",
-          trigger = "manual"))
-        $(".leon-explore-location.ace_start").tooltip("show");
-      }
-    }
-  }
-
+  
   editor.getSession().on("changeScrollTop", (_: js.Any) => {
     hideHighlight();
   });
@@ -243,99 +193,23 @@ trait LeonWeb extends EqSyntax {
     val verification = Feature(active= true, displayName= "Verification", module= Verification)
     val synthesis    = Feature(active= true, displayName= "Synthesis", module= Synthesis)
     val disambiguation = Feature(active= true, displayName="Synthesis clarification<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Disambiguation)
-    val termination  = Feature(active= false, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Termination)
+    val termination  = Feature(active= true, displayName= "Termination <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Termination)
     val presentation = Feature(active= false, displayName= "Presentation Mode", name= "presentation")
     val execution    = Feature(active= true, displayName= "Execution", module= Execution)
     val repair       = Feature(active= true, displayName= "Repair <i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Repair)
-    val invariant    = Feature(active= true, displayName="Invariant inference<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
- }
-
-  def displayExplorationFacts(e: JQueryEventObject = null): js.Any = {
-    if (Features.execution.active && explorationFacts.length > 0) {
-      val lastRange = editor.selection.getRange();
-
-      if (!lastProcessedRange.isDefined || !lastRange.isEqual(lastProcessedRange.get)) {
-        var maxScore = 0.0
-        var maxRes: ExplorationFact = null
-
-        for (r <- explorationFacts) {
-          var score = 0.0;
-
-          val cmp = lastRange.compareRange(r.range)
-
-          val found = ((cmp >= -1) && (cmp <= 1));
-
-          if (cmp == -1) {
-            val match_s = lastRange.start
-            val match_e = r.range.end
-            val before_s = r.range.start
-            val after_e = lastRange.end
-
-            score = rangeScore(match_s, match_e) -
-              rangeScore(before_s, match_s) -
-              rangeScore(match_e, after_e);
-
-          } else if (cmp == 0) {
-            if (lastRange.containsRange(r.range)) {
-              val match_s = r.range.start
-              val match_e = r.range.end
-              val before_s = lastRange.start
-              val after_e = lastRange.end
-
-              score = rangeScore(match_s, match_e) -
-                rangeScore(before_s, match_s) -
-                rangeScore(match_e, after_e);
-            } else {
-              val match_s = lastRange.start
-              val match_e = lastRange.end
-              val before_s = r.range.start
-              val after_e = r.range.end
-
-              score = rangeScore(match_s, match_e) -
-                rangeScore(before_s, match_s) -
-                rangeScore(match_e, after_e);
-            }
-          } else if (cmp == 1) {
-            val match_s = r.range.start
-            val match_e = lastRange.end
-            val before_s = lastRange.start
-            val after_e = r.range.end
-
-            score = rangeScore(match_s, match_e) -
-              rangeScore(before_s, match_s) -
-              rangeScore(match_e, after_e);
-          }
-
-          if (found && (maxRes == null || maxScore < score)) {
-            maxScore = score
-            maxRes = r
-          }
-        }
-
-        if (maxRes =!= null) {
-          showHighlight(maxRes.range, maxRes.res)
-        } else {
-          hideHighlight();
-        }
-      }
-
-      lastProcessedRange = lastRange
-    }
+    val invariant    = Feature(active= true, displayName="Resource Bounds<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= Invariant)
+    val webbuilding  = Feature(active= false, displayName="Web building<i class=\"fa fa-lightbulb-o\" title=\"Beta version\"></i>", module= WebsiteBuilder)
   }
 
-  $("#codecolumn").mouseup(displayExplorationFacts _)
-
-  $("#codecolumn").keyup(displayExplorationFacts _)
-
   def togglePanel(button: String, show: Boolean): Unit = {
-    val panel = "#" + $(button).attr("ref")
+    val panel = "#" + $(button).attr("ref").getOrElse("")
 
     if (!show) {
       $(panel).hide()
-      $(button).addClass("disabled")
+      $(button).addClass("off")
     } else {
       $(panel).show()
-      $(button).removeClass("disabled")
+      $(button).removeClass("off")
     }
   }
 
@@ -348,8 +222,8 @@ trait LeonWeb extends EqSyntax {
   }
 
   $(".menu-button").click(((self: Element, event: JQueryEventObject) => {
-    val button  = "#" + $(self).attr("id")
-    val panel   = "#" + $(self).attr("ref")
+    val button  = "#" + $(self).attr("id").getOrElse("")
+    val panel   = "#" + $(self).attr("ref").getOrElse("")
     val visible = $(panel).is(":visible")
 
     togglePanel(button, !visible)
@@ -358,25 +232,24 @@ trait LeonWeb extends EqSyntax {
     LocalStorage.update("leonPanels", JSON.stringify(leonPanels))
 
   }): js.ThisFunction);
-
+  
+  def toggleWeb(activate: Boolean) = {
+    if(activate) {
+      WebMode.activate()
+    } else {
+      WebMode.deactivate()
+    }
+  }
+  
+  $("#button-web").click(((self: Element, event: JQueryEventObject) => {
+    toggleWeb(Features.webbuilding.toggle())
+  }): js.ThisFunction)
+  
+  // Out of date:
   $("#button-save").click((event: JQueryEventObject) => {
     recompile()
     event.preventDefault()
   });
-
-  $("#button-undo").click(((self: Element, event: JQueryEventObject) => {
-    if (!$(self).hasClass("disabled")) {
-      doUndo()
-    }
-    event.preventDefault()
-  }): js.ThisFunction);
-
-  $("#button-redo").click(((self: Element, event: JQueryEventObject) => {
-    if (!$(self).hasClass("disabled")) {
-      doRedo()
-    }
-    event.preventDefault()
-  }): js.ThisFunction);
 
   def hasLocalStorage(): Boolean = {
     try {
@@ -387,7 +260,7 @@ trait LeonWeb extends EqSyntax {
     }
   }
 
-  def handlers = Handlers.asInstanceOf[js.Dictionary[Any]]
+  //def handlers = Handlers.asInstanceOf[js.Dictionary[Any]]
 
   var compilationStatus = 0
   val searchFinished = false
@@ -395,35 +268,25 @@ trait LeonWeb extends EqSyntax {
 
   val maxHistory = 20;
 
-  def fromStorage[A <: js.Any](key: String): Option[A] =
+  def fromStorage[A](key: String): Option[A] =
     LocalStorage(key)
       .flatMap(x => x.asInstanceOf[js.UndefOr[String]].toOption)
-      .map(JSON.parse(_).asInstanceOf[A])
+      .map(x => 
+        try {
+          JSON.parse(x).asInstanceOf[A]
+        } catch {
+          case e: Throwable => // May be a string.
+            x.asInstanceOf[A]
+        }
+      )
 
-  // Undo/Redo
-  var backwardChanges = fromStorage[js.Array[String]]("backwardChanges").getOrElse(new js.Array[String])
-  var forwardChanges  = fromStorage[js.Array[String]]("forwardChanges").getOrElse(new js.Array[String])
-
-  def doUndo(): Unit = {
-    forwardChanges.push(editor.getValue());
-    val code = backwardChanges.pop();
-    editor.setValue(code)
-    editor.selection.clearSelection();
-    editor.gotoLine(0);
-    recompile();
-    updateUndoRedo()
+  case class Persistent[T](name: String, defaultValue: T) {
+    def get() = fromStorage[T](name)
+    def apply() = get().getOrElse(defaultValue)
+    def :=(v: T): Unit = LocalStorage.update(name, JSON.stringify(v.asInstanceOf[js.Any]))
   }
-
-  def doRedo(): Unit = {
-    backwardChanges.push(editor.getValue());
-    val code = forwardChanges.pop();
-    editor.setValue(code)
-    editor.selection.clearSelection();
-    editor.gotoLine(0);
-    recompile();
-    updateUndoRedo()
-  }
-
+  implicit def convertPersistentToValue[T](p: Persistent[T]): T = p()
+  
   def storeCurrent(code: String): Unit = {
     forwardChanges = new js.Array[String]()
     if (backwardChanges.length >= 1) {
@@ -436,43 +299,24 @@ trait LeonWeb extends EqSyntax {
     updateUndoRedo()
   }
 
-  def updateUndoRedo(): Unit = {
-    val ub = $("#button-undo")
-    val rb = $("#button-redo")
-
-    if (backwardChanges.length > 0) {
-      ub.removeClass("disabled")
-    } else {
-      ub.addClass("disabled")
-    }
-
-    if (forwardChanges.length > 0) {
-      rb.removeClass("disabled")
-    } else {
-      rb.addClass("disabled")
-    }
-
-    if (backwardChanges.length > maxHistory) {
-      backwardChanges.splice(0, backwardChanges.length - maxHistory)
-    }
-
-    if (forwardChanges.length > maxHistory) {
-      forwardChanges.splice(0, forwardChanges.length - maxHistory)
-    }
-
-    LocalStorage.update("backwardChanges", JSON.stringify(backwardChanges))
-    LocalStorage.update("forwardChanges", JSON.stringify(forwardChanges))
-  }
-
-  updateUndoRedo()
-
   /** Compilation
     */
 
   def updateCompilationProgress(percents: Int): Unit = {
     $("#overview .progress-bar").css("width", percents + "%");
   }
+  Handlers += { case data: HCompilationProgress => updateCompilationProgress(Math.round((data.current * 100) / data.total)) }
 
+
+  def compilation(data: HCompilation) = {
+    if (data.status == "success") {
+      updateCompilationStatus("success")
+    } else {
+      updateCompilationStatus("failure")
+    }
+  }
+  Handlers += { case data: HCompilation => compilation(data) }
+  
   def updateCompilationStatus(status: String): Unit = {
     val e = $("#overview .compilation-status")
     val codebox = $("div#codebox")
@@ -497,6 +341,10 @@ trait LeonWeb extends EqSyntax {
       codebox.addClass("compilation-error")
 
       boxes.append("""<div class="overlay" />""")
+      
+      customGutterDecorations.clear()
+      updateCustomGutterDecorations()
+      
     } else if (status == "disconnected") {
       compilationStatus = 0
 
@@ -540,31 +388,30 @@ trait LeonWeb extends EqSyntax {
       }
     }
   }
+  toggleWeb(Features.webbuilding.active)
 
-  val fts = $("#params-panel ul")
-  for ((f, feature) <- Features.stringToFeature) {
-    fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
-  }
-
-  $(".feature").click(((self: Element) => {
-    val f = $(self).attr("ref")
-    val feature = Features.stringToFeature(f)
-    feature.active = !feature.active
-
-    feature.module match {
-      case Some(module) =>
-        Backend.main.setFeatureActive(module, feature.active)
-      case None =>
+  def regenerateFeaturesPanel() = {
+    val fts = $("#params-panel ul").empty()
+    for ((f, feature) <- Features.stringToFeature) {
+      fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
     }
-
-    LocalStorage.update("leonFeatures", JSON.stringify(Features.toJsObject));
-
-    recompile()
-
-    drawOverView()
-    drawSynthesisOverview()
-    setPresentationMode()
-  }): js.ThisFunction)
+    
+    $(".feature").click(((self: Element) => {
+      val f = $(self).attr("ref").getOrElse("")
+      val feature = Features.stringToFeature(f)
+      val active = feature.toggle()
+      if(feature.name == Features.webbuilding.name) {
+        toggleWeb(active)
+      }
+  
+      recompile()
+  
+      drawOverView()
+      drawSynthesisOverview()
+      setPresentationMode()
+    }): js.ThisFunction)
+  }
+  regenerateFeaturesPanel()
 
   setPresentationMode()
 
@@ -610,7 +457,7 @@ trait LeonWeb extends EqSyntax {
         }
         def handlers(): Unit = {
           $("td.verif").click(((self: Element) => {
-            val fname = $(self).attr("fname")
+            val fname = $(self).attr("fname").getOrElse("")
             overview.Data.verification.get(fname) match {
               case Some(d) =>
                 openVerifyDialog()
@@ -647,7 +494,7 @@ trait LeonWeb extends EqSyntax {
         }
         def handlers(): Unit = {
           $("td.termin").click(((self: Element) => {
-            val fname = $(self).attr("fname")
+            val fname = $(self).attr("fname").getOrElse("")
             openTerminationDialog()
             overview.Data.termination.get(fname) match {
               case Some(d) =>
@@ -678,7 +525,7 @@ trait LeonWeb extends EqSyntax {
         }
         def handlers(): Unit = {
           $("td.invart").click(((self: Element) => {
-            val fname = $(self).attr("fname")
+            val fname = $(self).attr("fname").getOrElse("")
             overview.Data.invariant.get(fname) match {
               case Some(d) =>
                 openInvariantDialog()
@@ -698,73 +545,110 @@ trait LeonWeb extends EqSyntax {
       var verification = Map[String, VerificationDetails]()
       var termination = Map[String, TerminationDetails]()
       var invariant = Map[String, InvariantDetails]()
-      }
+    }
+  }
+  Handlers += { case data: HUpdateOverview =>
+    overview.functions = js.Dictionary.empty[OverviewFunction];
+
+    for ((i, fdata) <- data.overview) {
+      val fdata = data.overview(i)
+      val fname = fdata.name
+      overview.functions(fname) = fdata
+    }
+    repair_started = false
+  }
+  
+  var repair_started: Boolean = false
+  var repair_result_fname: js.UndefOr[String] = js.undefined
+  def maybeUpdateRepairDialog() = {
+    val c = overview.Data.verification
+    c.get(repair_result_fname.getOrElse("")) match {
+      case Some(vc) =>
+        if($("#repairDialog").is(":visible") && !repair_started) {
+          if(vc.status == VerifStatus.invalid) {
+            repair_started = true
+            Backend.repair.doRepair(repair_result_fname.getOrElse(""))
+          }
         }
+      case None =>
+    }
+  }
+
+  Handlers += { case data: HUpdateVerificationOverview =>
+    overview.Data.verification = data.overview
+
+    drawOverView()
+    drawVerificationOverviewInGutter()
+    maybeUpdateRepairDialog()
+  }
+  Handlers += { case data: HUpdateTerminationOverview =>
+    overview.Data.termination = data.overview
+    drawOverView()
+  }
+  Handlers += { case data: HUpdateInvariantsOverview =>
+    overview.Data.invariant = data.overview
+    drawOverView()
+  }
   
   var synthesisOverview: SynthesisOverview = SynthesisOverview(None)
-
-  def drawSynthesisOverview(): Unit = {
-    val t = $("#synthesis_table")
-    var html = "";
-
-    def addMenu(index: Int, fname: String, description: String): Unit = {
-      val id = """menu""" + fname + index
-
-      html += """ <div class="dropdown">"""
-      html += """  <a id="""" + id + """" href="#" role="button" class="dropdown-toggle" data-toggle="dropdown"> <i class="fa fa-magic"></i> """ + description + """</a>"""
-      html += """  <ul class="dropdown-menu" role="menu" aria-labelledby="""" + id + """">"""
-      if (compilationStatus == 1) {
-        html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="search" cid="""" + index + """">Search</a></li>"""
-        html += """    <li role="presentation"><a role="menuitem" tabindex="-1" href="#" action="explore" cid="""" + index + """">Explore</a></li>"""
-        html += """    <li role="presentation" class="divider"></li>"""
-        html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><img src="/assets/images/loader.gif" /></a></li>"""
-      } else {
-        html += """    <li role="presentation" class="disabled loader temp"><a role="menuitem" tabindex="-1"><i class="fa fa-ban"></i> Not compiled</a></li>"""
-      }
-
-      html += """  </ul>"""
-      html += """ </div>"""
-    }
-
-    val data = synthesisOverview
-
-    val fnamesOpt: Option[Array[String]] = data.functions.map(ff => ff.unzip._1.toArray)
-    val fnames = fnamesOpt.getOrElse[Array[String]](Array[String]()).sorted
-
-    for (f <- fnames) {
-      overview.functions.get(f) match {
-        case Some(function) =>
-          if (data.functions.get(f).length == 1) {
-            val sp = data.functions.get(f)(0)
-            html += "<tr><td class=\"fname problem  clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
-            addMenu(sp.index, f, function.displayName)
-            html += "</td></tr>"
-          } else {
-            html += "<tr><td class=\"fname clicktoline\" line=\"" + function.line + "\">" + function.displayName + "</td></tr>"
-            val spArray = data.functions.get(f)
-            for (i <- 0 until spArray.length) {
-              val sp = spArray(i)
-              html += "<tr>"
-              html += "<td class=\"problem subproblem clicktoline\" line=\"" + sp.line + "\" fname=\"" + f + "\" cid=\"" + sp.index + "\">"
-              addMenu(sp.index, f, sp.description)
-              html += "</td></tr>"
-            }
-          }
+  var synthesis_chosen_rule: Option[String] = None
+  var synthesis_result_fname: js.UndefOr[String] = js.undefined
+  var synthesisOverview_rulesToApply: Map[(String, Int),  HSynthesisRulesToApply] = Map()
+    
+  lazy val mountedSynthesisTable = {
+    val panelSynthesisTable = $("#synthesis .results_table")(0).asInstanceOf[dom.Node]
+    if (panelSynthesisTable =!= null) {
+      Some(ReactDOM.render(SynthesisOverviewTable(() => Main.overview.functions, synthesis_chosen_rule = _), panelSynthesisTable))
+    } else None
+  }
+  
+  Handlers += { case data: SynthesisOverview =>
+    if (synthesisOverview.toString != data.toString) {
+      synthesisOverview = data;
+      synthesisOverview_rulesToApply = Map();
+      drawSynthesisOverview();
+      
+      Main.onSynthesisTabDisplay match {
+        case Some(handler) => handler()
+          Main.onSynthesisTabDisplay = None
         case None =>
       }
-    }
-
-    t.html(html);
-
-    if (compilationStatus == 1) {
-      $("#synthesis .dropdown-toggle").unbind("click.droppdown").on("click.droppdown", ((self: Element, e: JQueryEventObject) => {
-        val p = $(self).parents(".problem")
-
-        Backend.synthesis.getRulesToApply(p.attr("fname"), p.attr("cid").orIfNull("0").toInt)
-
-      }): js.ThisFunction)
-    }
+      
+      val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
+      if (hasFunctions && Features.synthesis.active) {
+        if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
+          val fname = (synthesis_result_fname.getOrElse(""): String)
+          val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").getOrElse("0").toInt
+          console.log("Finding rules to apply 2 " + new js.Date())
+          Backend.synthesis.getRulesToApply(fname, cid)
+        }
+      }
+    }  
+  }
+  def synthesis_rulesToApply(data: HSynthesisRulesToApply) = {
+    synthesisOverview_rulesToApply += (data.fname, data.cid) -> data
+    drawSynthesisOverview()
     
+    // Automatic re-search or re-application of rule.
+    if($("#synthesisDialog").is(":visible") && (Main.synthesis_result_fname.getOrElse("") == data.fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
+      val cid =  $("#synthesis_table td.fname[fname="+data.fname+"]").attr("cid").getOrElse("0").toInt
+      synthesis_chosen_rule match {
+        case None => // Explore
+        case Some("search") => // Search
+          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
+        case Some(rid) => // Rule chosen
+          Backend.synthesis.doApplyRule(data.fname, cid, rid.toInt)
+      }
+    }
+  }
+  Handlers += { case data: HSynthesisRulesToApply => synthesis_rulesToApply(data) }
+
+  def drawSynthesisOverview(): Unit = {
+    val data = synthesisOverview
+    mountedSynthesisTable.foreach(
+      _.backend.changeState(compilationStatus == 1, data, synthesisOverview_rulesToApply)
+    )
+
     val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
     
     if (hasFunctions && Features.synthesis.active) {
@@ -802,8 +686,7 @@ trait LeonWeb extends EqSyntax {
   def updateCustomGutterDecorations() = {
     //println("Updating custom gutter decorations")
     $("#codebox div.ace_gutter-cell .custommarker").remove()
-    $("#codebox div.ace_gutter-cell").each((index: js.Any, elem: dom.Element) => {
-      val i = index.asInstanceOf[Int]
+    $("#codebox div.ace_gutter-cell").each((i: Int, elem: dom.Element) => {
       val row = elem.textContent.toInt
       customGutterDecorations.get(row) match {
         case None =>
@@ -889,6 +772,45 @@ trait LeonWeb extends EqSyntax {
     }*/
     updateCustomGutterDecorations()
   }
+ 
+  Handlers += { case data: HEditor =>
+    if (data.annotations.isDefined) {
+      val annotations = data.annotations.get
+      val session = Main.editor.getSession();
+
+      context = "unknown";
+
+      $("#annotations").html("");
+
+      for (a <- annotations) {
+        if (a.tpe == "verification") {
+          context = "verification";
+        } else if (a.tpe == "synthesis") {
+          context = "synthesis";
+        }
+        var tpe = a.tpe.kind
+        
+        if (tpe != "info" && tpe != "error" && tpe != "warning") {
+          session.addGutterDecoration(a.line, "leon_gutter_" + tpe)
+          tpe = "info";
+        }
+
+        if (tpe == "error") {
+          val line = a.line + 1
+          $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
+        } else if (tpe == "warning") {
+          val line = a.line + 1
+          $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
+        }
+      }
+
+      addClickToLine("#annotations");
+      session.setAnnotations(
+          annotations.map(a =>
+            l(row = a.line-1, column = a.col-1, text = a.message, `type` = a.tpe.kind).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
+      resizeEditor();
+    }
+  }
 
   def drawOverView(): Unit = {
     val overview_table = $("#overview_table")
@@ -940,7 +862,7 @@ trait LeonWeb extends EqSyntax {
 
   def addClickToLine(within: String): Unit = {
     $(within + " .clicktoline[line]").click(((_this: Element) => {
-      val line = $(_this).attr("line").toDouble
+      val line = $(_this).attr("line").getOrElse("0").toDouble
       editor.gotoLine(line);
     }): js.ThisFunction)
   }
@@ -950,7 +872,7 @@ trait LeonWeb extends EqSyntax {
     }): js.ThisFunction)
 
     $(within + " .hovertoline[line]").hover((((_this: Element, event: JQueryEventObject) => {
-      val line = $(_this).attr("line").toDouble
+      val line = $(_this).attr("line").getOrElse("0").toDouble
       editor.gotoLine(line).asInstanceOf[js.Any]
     }): js.ThisFunction).asInstanceOf[js.Function1[org.scalajs.jquery.JQueryEventObject, scala.scalajs.js.Any]], handlerOut = (event: JQueryEventObject) => ().asInstanceOf[js.Any])
   }
@@ -958,8 +880,7 @@ trait LeonWeb extends EqSyntax {
   def allowPrettyPrintingSynthesis(fname: String, outputs: js.Array[DualOutput], tbl: JQuery) = {
     // Pretty-printing options.
     tbl.find("div.output")
-    .each((index: js.Any, elem: dom.Element) => {
-      val i = index.asInstanceOf[Int]
+    .each((i: Int, elem: dom.Element) => {
       //e.target.
       //TODO: Display the "validate" and "cancel" button
       //val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").text("edit").hide().
@@ -1271,12 +1192,12 @@ trait LeonWeb extends EqSyntax {
     $("#invariantDialog .cancelButton").show()
     
     $("#invariantDialog .importButton").unbind("click").click(() => {
-      Handlers.replace_code(HReplaceCode(newCode = invariant.newCode))
+      Misc.replace_code(invariant.newCode)
     })
     val code = all_invariants.get(Constants.invariantMainCode) match {
       case Some(result) =>
         $("#invariantDialog .importAllButton").unbind("click").click(() => {
-          Handlers.replace_code(HReplaceCode(newCode = result.newCode))
+          Misc.replace_code(result.newCode)
         })
         $("#invariantDialog .importAllButton").show()
       case _ =>
@@ -1523,6 +1444,7 @@ trait LeonWeb extends EqSyntax {
       note.hide();
     }
   }
+  Handlers += { case data: HNotification => Main.notify(data.content, data.`type`) }
 
   private
   var treatAsProject = true
@@ -1592,8 +1514,9 @@ trait LeonWeb extends EqSyntax {
       updateCompilationProgress(0)
     }
   }
-
+  
   def onCodeUpdate(): Unit = {
+
     val now = new js.Date().getTime()
 
     if (lastChange < (now - timeWindow)) {
@@ -1603,14 +1526,15 @@ trait LeonWeb extends EqSyntax {
       lastChange = new js.Date().getTime();
     }
 
-    LocalStorage.update("leonEditorCode", editor.getValue());
+    leonEditorCode := editor.getValue()
+    ClarificationBox.removeSolutionButtons()
   }
 
   def loadSelectedExample(): Unit = {
     val selected = $("""#example-loader""").find(":selected[id]")
 
-    val id = selected.attr("id")
-    val group = selected.attr("group")
+    val id = selected.attr("id").getOrElse("")
+    val group = selected.attr("group").getOrElse("")
 
     loadExample(group, id)
   }
@@ -1666,13 +1590,33 @@ trait LeonWeb extends EqSyntax {
 
   editor.commands.removeCommand("replace");
   editor.commands.removeCommand("transposeletters");
+  editor.commands.removeCommand("gotoline")
 
-  editorSession.on("change", (e: js.Any) => {
+  def unsetOnChangeCallbackForEditor() = {
+    EditorOnChangeCallback.enabled = false
+  }
+
+  def setOnChangeCallbackForEditor() = {
+    EditorOnChangeCallback.enabled = true
+  }
+  object EditorOnChangeCallback {
+    var enabled = true
+    def callback() = {
+      if(enabled){
     lastChange = new js.Date().getTime();
     updateSaveButton();
     js.timers.setTimeout(timeWindow + 50) { onCodeUpdate }
     ().asInstanceOf[js.Any]
-  });
+      }
+      else{
+        println("Currently no callback onChange for the editor")
+      }
+    }
+  }
+
+  editorSession.on("change", (e: js.Any) => {
+    EditorOnChangeCallback.callback()
+  })
   val callbackDecorations = (e: js.Any) => {
     //println("New value: " + e + " and first visible row is " + editor.getFirstVisibleRow())
     js.timers.setTimeout(50){updateCustomGutterDecorations()}
@@ -1717,271 +1661,36 @@ trait LeonWeb extends EqSyntax {
     $("#terminationDialog").modal("show")
   }
 
-  var storedCode = LocalStorage("leonEditorCode")
+  val leonEditorCode = Persistent("leonEditorCode", "")
+  
+  var storedCode = leonEditorCode.get
   
   var onSynthesisTabDisplay: Option[() => Unit] = None
-
-  sealed class Placement(name: String) { override def toString = name }
-  object Placement {
-    case object Left extends Placement("left")
-    case object Right extends Placement("right")
-    case object Modal extends Placement("modal")
-    case object Bottom extends Placement("bottom")
-    case object Top extends Placement("top")
-  }
-
-  val seenDemo = LocalStorage("leonSeenDemo").getOrElse("0").toInt
-  @ScalaJSDefined class Demo(_where: => JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
-    def where: JQuery = _where
-    val title: String = _title
-    val content: String = _content
-    val placement: Placement = _placement
-  }
-  object Demo {
-    def apply(where: => JQuery, title: String, content: String, placement: Placement): Demo = new Demo(where, title, content, placement)
-  }
-
-  val demos = js.Array[Demo](
-    Demo(
-      where = $(""),
-      placement = Placement.Modal,
-      title = "Welcome to Leon!",
-      content = "Leon is an automated system for <strong>synthesizing</strong> and <strong>verifying</strong> functional Scala programs."),
-    Demo(
-      where = $("#example-loader"),
-      placement = Placement.Left,
-      title = "Select from examples",
-      content = "You can try <em>Leon</em> on a list of selected examples, covering both synthesis and verification problems."),
-    Demo(
-      where = $($(".ace_line_group")(13)).find("span").last(),
-      placement = Placement.Right,
-      title = "Edit at will",
-      content = "Feel free to modify or extend the selected examples with your own code."),
-    Demo(
-      where = $("#overview_table"),
-      placement = Placement.Left,
-      title = "Live results",
-      content = "Leon will verify your code in the background and display live verification results here."),
-    Demo(
-      where = $($("#overview_table td.status.verif")(2)),
-      placement = Placement.Left,
-      title = "Display details",
-      content = "Click on the verification status of each function to get more information!"),
-    Demo(
-      where = $("#synthesis_table td.problem").first(),
-      placement = Placement.Left,
-      title = "Synthesize",
-      content = "Click on a synthesis problem to solve it! You can either ask <em>Leon</em> to <strong>search</strong> for a solution, or perform individual steps yourself."),
-    Demo(
-      where = $("#button-permalink"),
-      placement = Placement.Bottom,
-      title = "Permalinks",
-      content = "You can generate permalinks to the editor session. If you experience any problem with the interface or if you do not understand the result, send us a link!")
-  );
   
-  def getHtmlDemo(demo: Demo, last: Boolean): String = {
-    var content = """<div id="demoPane" class="demo">"""
-    content += demo.content
-    content += """  <div class="demo-nav">"""
-    if (last) {
-      // last demo
-      content += """    <button class="btn btn-success" demo-action="close">Ok!</button>""";
-    } else {
-      content += """    <button class="btn" demo-action="close">Got it</button>""";
-      content += """    <button class="btn btn-success" demo-action="next">Next <i class="fa fa-forward"></i></button>""";
-    }
-    content += """  </div>"""
-    content += """</div>"""
-    content
-  }
-       
-  /** Creates a progress bar with "current" filled circles out of "max" circles. */
-  def createProgress(current: Int, max: Int): String = {
-    (for (i <- 0 until max) yield {
-      if (i < current) {
-        """<i class="fa fa-circle"></i>"""
-      } else {
-        """<i class="fa fa-circle-o"></i>"""
-      }
-    }).mkString("")
-  }
-
-  if (seenDemo == 0 || (seenDemo < demos.length - 1)) {
-
-    var lastDemo: JQuery = null // Do we have something better?
-
-    def showDemo(id: Int): Unit = {
-      val demo = demos(id)
-
-      if (demo.placement == Placement.Modal) {
-        // Assume only the first demo is modal
-        var html = """<div id="demoPane" class="modal fade" tabindex="-1" role="dialog" aria-labelledby="demoModal" aria-hidden="true" data-backdrop="static">"""
-        html += """  <div class="modal-dialog">"""
-        html += """    <div class="modal-content">"""
-        html += """      <div class="modal-header">"""
-        html += """        <button type="button" class="close" demo-action="close" data-dismiss="modal" aria-hidden="true">×</button>"""
-        html += """        <h3 id="demoModal">""" + demo.title + """</h3>"""
-        html += """      </div>"""
-        html += """      <div class="modal-body">"""
-        html += """        """ + demo.content
-        html += """      </div>"""
-        html += """      <div class="modal-footer">"""
-        html += """        <button class="btn btn-success" data-dismiss="modal" aria-hidden="true" demo-action="next">Take the tour <i class="fa fa-play"></i></button>"""
-        html += """        <button class="btn" data-dismiss="modal" aria-hidden="true" demo-action="close">No thanks</button>"""
-        html += """      </div>"""
-        html += """    </div>"""
-        html += """  </div>"""
-        html += """</div>"""
-
-        $("body").append(html);
-
-        $("#demoPane").modal("show")
-
-        var action = "close"
-
-        $("#demoPane button").click(((self: Element) => {
-          action = $(self).attr("demo-action")
-          hideDemo(id)
-        }): js.ThisFunction)
-
-        $("#demoPane").unbind("hide.bs.modal").on("hide.bs.modal", () => {
-          if (action == "next") {
-            LocalStorage.update("leonSeenDemo", (id + 1).toString)
-            js.timers.setTimeout(500) { showDemo(id + 1) }
-          } else {
-            LocalStorage.update("leonSeenDemo", 100.toString)
-          }
-        })
-
-      } else {
-        lastDemo = demo.where;
-        
-        val where = demo.where
-
-        if (where.length == 0) {
-          LocalStorage.update("leonSeenDemo", (id + 1).toString)
-          hideDemo(id)
-          showDemo(id + 1)
-          return ;
-        }
-
-        val progress = createProgress(id, demos.length - 1)
-
-        where.popover(l(
-          html = true,
-          placement = demo.placement.toString,
-          trigger = "manual",
-          title = """<span class="demo-progress">""" + progress + """</span>""" + demo.title,
-          content = getHtmlDemo(demo, id == demos.length - 1),
-          container = "body"))
-
-        where.popover("show")
-
-        $("#demoPane button[demo-action=\"close\"]").click(() => {
-          LocalStorage.update("leonSeenDemo", 100.toString)
-          hideDemo(id)
-        })
-
-        $("#demoPane button[demo-action=\"next\"]").click(() => {
-          LocalStorage.update("leonSeenDemo", (id + 1).toString)
-          hideDemo(id)
-          showDemo(id + 1)
-        })
-      }
-    }
-
-    def hideDemo(id: Int): Unit = {
-      val demo = demos(id)
-
-      if (demo.placement == Placement.Modal) {
-        $("#demoPane").modal("hide")
-        $("#demoPane").unbind("hidden").on("hidden", () => { $("demoPane").remove() })
-      } else {
-        lastDemo.popover("destroy")
-      }
-    }
-
-    val toShow = (seenDemo =!= 0) ? seenDemo | 0;
-    if (toShow =!= 0) {
-      js.timers.setTimeout(1000) { showDemo(toShow) }
-    } else {
-      showDemo(toShow)
-    }
-
-    storedCode = None
-  }
-
   storedCode foreach { code =>
     editor.setValue(code);
     editor.selection.clearSelection();
     editor.gotoLine(0);
   }
   
-  /* Demos to be shown in context of some events. */
-  
-  val demoClarification =
-    Demo(
-      where = $("#clarificationResults"),
-      placement = Placement.Top,
-      title = "Clarification",
-      content = """The clarification tab shows ambiguous outputs produced by custom examples.<br>You may edit them - especially to replace the <span class="placeholder" style="font-family:FontAwesome">&#xf059;</span> markers. If you edit them, remember to validate them."""
-    )
-
-  val demoEditCounterExamples =
-    Demo(
-      where = $("#verifyResults"),
-      placement = Placement.Top,
-      title = "Edit counter examples",
-      content = """You are looking at counter-examples which look complex.<br>If you wish, you can edit how they should be rendered by clicking on one of them, editing it and clicking on "validate"."""
-    )
-    
-  val demoSynthesizePrettyPrinter =
-    Demo(
-      where = $("#synthesis_table td.problem").first(),
-      placement = Placement.Left,
-      title = "Synthesize Pretty Printer",
-      content = """After showing how to render the counter-example, click to synthesize the renderer. After doing so and having clicked on "import code", the pretty printer will be ready."""
-    )
-    
-  def showContextDemo(demo: Demo, demos: Demo*): Unit = showContextDemo(demo +: demos.toSeq, 0)
-    
-  def showContextDemo(demos: Seq[Demo], index: Int): Unit = {
-    if(demos.length == 0 || index >= demos.length) return;
-    val nth = index + 1
-    val maxNth = demos.length
-    val demo = demos(index)
-    def storageName(demo: Demo) = "leonSeenDemo_"+demo.title
-    def next() = showContextDemo(demos, index + 1)
-
-    val seenDemo = LocalStorage(storageName(demo)).getOrElse("") == "closed"
-    if(seenDemo) return next();
-    
-    val content = getHtmlDemo(demo, last = true)
-    val where = demo.where
-    
-    val progress = createProgress(nth, maxNth)
-    where.popover(l(
-      html = true,
-      placement = demo.placement.toString,
-      trigger = "manual",
-      title = """<span class="demo-progress">""" + progress + """</span>""" + demo.title,
-      content = getHtmlDemo(demo, nth == maxNth),
-      container = "body"))
-
-    where.popover("show")
-    
-    $("#demoPane button[demo-action=\"close\"]").click(() => {
-      LocalStorage.update(storageName(demo), "closed")
-      where.popover("destroy")
-    })
-
-    $("#demoPane button[demo-action=\"next\"]").click(() => {
-      LocalStorage.update(storageName(demo), "closed")
-      where.popover("destroy")
-      next()
-    })
+  Handlers += { case data: HLog =>
+    val txt = $("#console")
+    txt.append(data.message + "\n");
+    txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
   }
-  
+  Handlers += { case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), javascript, requestId) =>
+    optWebpage match {
+      case Some(webPage) =>
+        if(requestId == Backend.main.requestId) {
+          websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
+          javascript foreach websitebuilder.ScalaJS_Main.loadJavascript
+        } else {
+          println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
+        }
+      case None =>
+    }
+  }
+
 
   /*
   snowStorm.snowColor = "#ddddff";
@@ -1996,3 +1705,4 @@ trait LeonWeb extends EqSyntax {
 
 }
 
+  

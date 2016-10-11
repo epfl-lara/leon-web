@@ -3,6 +3,7 @@ package workers
 
 import akka.actor._
 import leon.purescala.Definitions._
+import leon._
 import leon.termination._
 import leon.utils._
 import models._
@@ -46,9 +47,8 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
     case OnUpdateCode(cstate) if cstate.isCompiled =>
 
       val reporter = new WorkerReporter(session)
-      var ctx      = leon.Main.processOptions(List()).copy(interruptManager = interruptManager, reporter = reporter)
-
-      val program = cstate.program//.duplicate
+      val ctx      = leon.Main.processOptions(List("--solvers=orb-smt-z3")).copy(interruptManager = interruptManager, reporter = reporter)
+      val program = cstate.program
 
       // Notify the UI that the termination checker indeed will be launched now
       val data = (cstate.functions.map { funDef =>
@@ -58,12 +58,10 @@ class TerminationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s
 
       logInfo("Termination checker started...")
       try {
-        //val tc = new SimpleTerminationChecker(ctx, cstate.program)
         val tc = new ComplexTerminationChecker(ctx, program)
-
-        val data = (tc.functions.map { funDef =>
+        val data = cstate.functions.map { funDef =>
           (funDef -> Some(tc.terminates(funDef)))
-        }).toMap
+        }.toMap
         logInfo("Termination checker done.")
 
         notifyTerminOverview(cstate, data)

@@ -7,169 +7,66 @@ import scala.scalajs.js
 import js.annotation._
 import org.scalajs.jquery
 import jquery.{ jQuery => $, JQuery, JQueryEventObject }
-import js.Dynamic.{ global => g, literal => l, newInstance => jsnew }
-import js.JSConverters._
+import js.Dynamic.{ global => g, newInstance => jsnew }
 import com.scalawarrior.scalajs.ace._
-import leon.web.shared.equal
+import leon.web.shared._
 import scala.collection.mutable.ListBuffer
-
 
 @ScalaJSDefined
 object Handlers extends js.Object {
-  import Main._
-  import JQueryExtended._
-  import dom.console
-  def window = g
-  def alert = g.alert
   import leon.web.shared.messages._
-
-  import Implicits._
-  
+  import dom.console
   import equal.EqOps
   
-  val callbacks = ListBuffer[PartialFunction[U forSome {type U <: MessageFromServer }, Unit]]()
+  val callbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
   
+  val permanentCallbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
+  
+  def +=(f: PartialFunction[MessageFromServer, Unit]) = {
+    permanentCallbacks += f
+  }
+
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
+    console.log("Dealing with", data.asInstanceOf[js.Any])
     callbacks.find(c => c.isDefinedAt(data)) match {
       case Some(callback) =>
+        console.log("consuming callback")
         callbacks -= callback
         callback(data)
         return
       case None =>
     }
-    //println("Processing " + data)
-    data match {
-      case data: GotPermalink => 
-        $("#permalink-value input").value(window._leon_url + "#link/" + data.link)
-        $("#permalink-value").show()
-      case data: HMoveCursor =>
-        Main.editor.selection.clearSelection();
-        Main.editor.gotoLine(data.line);
-
-      case data: HUpdateOverview =>
-        overview.functions = js.Dictionary.empty[OverviewFunction];
-  
-        for ((i, fdata) <- data.overview) {
-          val fdata = data.overview(i)
-          val fname = fdata.name
-          overview.functions(fname) = fdata
-        }
-
-      case data: HUpdateVerificationOverview =>
-        overview.Data.verification = data.overview
-    
-        drawOverView()
-        drawVerificationOverviewInGutter()
-      case data: HUpdateTerminationOverview =>
-        overview.Data.termination = data.overview
-
-        drawOverView()
-      case data: HUpdateInvariantsOverview =>
-        overview.Data.invariant = data.overview
-
-        drawOverView()
-      case data: SynthesisOverview =>
-        if (synthesisOverview.toString != data.toString) {
-          synthesisOverview = data;
-          drawSynthesisOverview();
-          
-          Main.onSynthesisTabDisplay match {
-            case Some(handler) => handler()
-              Main.onSynthesisTabDisplay = None
-            case None =>
-          }
-          
-          val hasFunctions = data.functions.isDefined && data.functions.get.keys.nonEmpty
-          if (hasFunctions && Features.synthesis.active) {
-            if($("#synthesisDialog").is(":visible") && compilationStatus == 1) { // Automatic retrieval of rules if the synthesis dialog is visible.
-              val fname = (Handlers.synthesis_result_fname.getOrElse(""): String)
-              val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
-              console.log("Finding rules to apply 2 " + new js.Date())
-              Backend.synthesis.getRulesToApply(fname, cid)
-            }
-          }
-        }
-        
-      case data: HUpdateExplorationFacts =>
-        updateExplorationFacts(data.newFacts)
-      case data: HEditor =>
-        if (data.annotations.isDefined) {
-          val annotations = data.annotations.get
-          val session = Main.editor.getSession();
-    
-          context = "unknown";
-    
-          $("#annotations").html("");
-    
-          for (a <- annotations) {
-            if (a.tpe == "verification") {
-              context = "verification";
-            } else if (a.tpe == "synthesis") {
-              context = "synthesis";
-            }
-            var tpe = a.tpe.kind
-            
-            if (tpe != "info" && tpe != "error" && tpe != "warning") {
-              session.addGutterDecoration(a.line, "leon_gutter_" + tpe)
-              tpe = "info";
-            }
-    
-            if (tpe == "error") {
-              val line = a.line + 1
-              $("#annotations").append("<li class=\"clicktoline error\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
-            } else if (tpe == "warning") {
-              val line = a.line + 1
-              $("#annotations").append("<li class=\"clicktoline warning\" line=\"" + line + "\"><code><i class=\"fa fa-warning\"></i> " + line + ":" + a.message + "</code></li>")
-            }
-          }
-    
-          addClickToLine("#annotations");
-          session.setAnnotations(annotations.map(a => l(row = a.line-1, column = a.col-1, text = a.message, `type` = a.tpe.kind).asInstanceOf[com.scalawarrior.scalajs.ace.Annotation]).toJSArray);
-          resizeEditor();
-        }
-        
-      case data: HNotification =>
-        Main.notify(data.content, data.`type`)
-        
-      case data: HLog =>
-        val txt = $("#console")
-        txt.append(data.message + "\n");
-        txt.scrollTop((txt(0).scrollHeight - txt.height()).toInt)
-
-      case data: HSynthesisResult => synthesis_result(data)
-      case DisambiguationStarted =>  disambiguation_started()
-      case DisambiguationNoresult => disambiguation_noresult()
-      case data: HDisambiguationResult => disambiguation_result(data)
-      case data: HSynthesisExploration => synthesis_exploration(data)
-      case data: VerificationDetails => verification_result(data)
-      case data: HReplaceCode => replace_code(data)
-      case data: HCompilationProgress => compilation_progress(data)
-      case data: HCompilation => compilation(data)
-      case data: HRepairResult => repair_result(data)
-      case data: HSynthesisRulesToApply => synthesis_rulesToApply(data)
-      
-      case RegisteredHandlers() => // OK
-      case _ =>
-        console.log("Unknown event type: " + data)
+    permanentCallbacks.find(c => c.isDefinedAt(data)) match {
+      case Some(callback) =>
+        callback(data)
+        return
+      case None =>
     }
+    console.log("Unknown event type: " + data)
   }
+}
 
-  object RegisteredHandlers {
-    var handlers = ListBuffer[MessageFromServer => Boolean]()
-    def unapply(data: MessageFromServer): Boolean = {
-      var done = false
-      for(h <- handlers if !done) {
-        done = h(data)
-      }
-      done
-    }
+@ScalaJSDefined
+object Misc extends js.Object {
+  import leon.web.shared.messages._
+  import Main._
+  import JQueryExtended._
+  import dom.console
+  def window = g
+  def alert = g.alert
+  
+  @inline
+    implicit def eqOps[A](x: A): equal.EqOps[A] =
+      new equal.EqOps(x)
+  
+  //import equal.EqOps
+  
+  def moveCursor(data: HMoveCursor) = {
+    Main.editor.selection.clearSelection();
+    Main.editor.gotoLine(data.line);
   }
   
-  def registerMessageHandler(handler: MessageFromServer => Boolean) = {
-    RegisteredHandlers.handlers += handler
-  }
-
   def updateExplorationFacts(newResults: Array[NewResult]): Unit = {
     for (i <- 0 until newResults.length) {
       val n = newResults(i);
@@ -182,6 +79,7 @@ object Handlers extends js.Object {
 
     displayExplorationFacts()
   }
+  Handlers += { case data: HUpdateExplorationFacts => updateExplorationFacts(data.newFacts) }
 
   def synthesis_result(data: HSynthesisResult) = {
     val pb = $("#synthesisProgress")
@@ -250,9 +148,9 @@ object Handlers extends js.Object {
       pbb.addClass("progress-bar-success")
 
       $("#synthesisResults .code.solution").removeClass("prettyprinted")
-      $("#synthesisResults .code.solution").text(data.solCode)
+      $("#synthesisResults .code.solution").text(data.solCodeSimplified)
       
-      $("#synthesisDialog").find("a[href=#clarificationResults]").parent().hide()
+      $("#synthesisDialog").find("a[href^=#clarification]").parent().hide()
       $("#synthesisDialog").find("a[href=#synthesisResults]").click()
       
       //$("#synthesisResults").show()
@@ -260,16 +158,17 @@ object Handlers extends js.Object {
       $("#synthesisDialog .exploreButton").show()
       $("#synthesisDialog .importButton").show()
       $("#synthesisDialog .importButton").unbind("click").click(() => {
-        Handlers(HReplaceCode(newCode = data.allCode))
+        val newCode = if($("#clarificationResults").is(":visible")) data.allCode else data.allCodeSimplified
+        Handlers(HReplaceCode(newCode = newCode))
         if (data.cursor.isDefined) {
           js.timers.setTimeout(100) {
-            Handlers(data.cursor.get)
+            moveCursor(data.cursor.get)
           }
         }
       })
       $("#synthesisDialog .exploreButton").unbind("click").click(() => {
-        val cid = $("#synthesisDialog").attr("cid").toInt
-        val fname = $("#synthesisDialog").attr("fname")
+        val cid = $("#synthesisDialog").attr("cid").getOrElse("0").toInt
+        val fname = $("#synthesisDialog").attr("fname").getOrElse("")
 
         $("#synthesisDialog").modal("hide")
 
@@ -281,6 +180,7 @@ object Handlers extends js.Object {
       disambiguationResultDisplay().empty()
     }
   }
+  Handlers += { case data: HSynthesisResult => synthesis_result(data) }
   
   def inDialog(selector: String): JQuery = {
     $("#synthesisDialog .clarificationResults .clarificationQuestions")
@@ -298,10 +198,13 @@ object Handlers extends js.Object {
       $("#synthesisDialog .engineResult")
     } else if($("#synthesisExploreDialog").is(":visible")) {
       $("#synthesisExploreDialog .engineResult")
-    } else $("") // TODO: Exploration
+    } else if($("#repairDialog").is(":visible")) {
+      $("#repairDialog .engineResult")
+    } else $("") 
   }
   
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
+    alternative.display = "(_edit_me\\d+_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val result: JQuery = $("<pre>")
       .addClass("disambiguationAlternative")
       .addClass(if(current) "current" else "")
@@ -320,18 +223,17 @@ object Handlers extends js.Object {
     }).dblclick(() => {
       
     })
-    alternative.display = "(_edit_me_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
     val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").addClass(if(current) "current" else "").text(alternative.display).hide()
     edittext.html(edittext.html().replaceAll("_edit_me_", """<span class="placeholder" style="font-family:FontAwesome">&#xf059;</span>"""))    
     edittext.on("keyup paste click", () => {
       val pos = SelectionHandler.getSelection(edittext.get(0).asInstanceOf[dom.raw.Element])
       var changeSelection = false
-      edittext.find("font[face=FontAwesome]").each{ (index: js.Any, _this: dom.Element) =>
+      edittext.find("font[face=FontAwesome]").each{ (index: Int, _this: dom.Element) =>
         changeSelection = true
         $(_this).replaceWith($(_this).html())
       }
-      edittext.find("span.placeholder").each{ (index: js.Any, _this: dom.Element) =>
+      edittext.find("span.placeholder").each{ (index: Int, _this: dom.Element) =>
         val oldHtml = $(_this).html()
         if(oldHtml != "&#xf059;" && oldHtml != "") {
           $(_this).replaceWith("&#xf059;|".r.replaceAllIn(oldHtml, ""))
@@ -380,7 +282,7 @@ object Handlers extends js.Object {
         editbox.click()
         container.focus()
       }
-    } else if(alternative.display.indexOf("_edit_me_") > -1) { // Must edit when clicking.
+    } else if("_edit_me_".r.findFirstIn(alternative.display).nonEmpty) { // Must edit when clicking.
       result.hide()
       js.timers.setTimeout(1){
         editbox.click()
@@ -401,18 +303,23 @@ object Handlers extends js.Object {
   
   def disambiguation_started() = {
     $("""<i class="fa fa-refresh fa-spin" title=""></i>""").appendTo(
-      engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().addClass("loading").show()
+      engineResultDisplayContainer().find("a[href^=#clarification]").parent().addClass("loading").show()
     )
+    expression_already_disambiguated = ""
   }
+  Handlers += { case DisambiguationStarted =>  disambiguation_started() }
   
   def disambiguation_noresult() = {
-    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent().hide()
+    engineResultDisplayContainer().find("a[href^=#clarification]").parent().hide()
     .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
   }
+  Handlers += { case DisambiguationNoresult => disambiguation_noresult() }
+  
+  var expression_already_disambiguated = ""
   
   def disambiguation_result(data: HDisambiguationResult) = {
     console.log("Received disambiguation data " + data.toString)
-    engineResultDisplayContainer().find("a[href=#clarificationResults]").parent()
+    engineResultDisplayContainer().find("a[href^=#clarification]").parent()
     .removeClass("loading").find("i.fa.fa-refresh.fa-spin").remove()
     val toFill = disambiguationResultDisplay()
     
@@ -421,28 +328,41 @@ object Handlers extends js.Object {
     } else {
       "(" + data.input + ")"
     }
-    toFill.empty()
-    val (premessage, message) = if(data.alternatives.length == 0) {
-           ("To ensure completeness, please edit the pretty-printing of ", " below:")
-    } else ("What should be the output of ", "?")
-    val html = premessage + "<code>" + data.fname + args + "</code>"+message+"<br>"
-    toFill.append(html)
-    
-    if(data.alternatives.length == 0) {
-      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, true))
-      toFill.find(".validate").addClass("active")
-    } else {
-      toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, false))
+    if(data.fname + args == expression_already_disambiguated) {
       for(alternative <- data.alternatives) {
         toFill.append("<br>")
         toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
       }
+    } else {
+      expression_already_disambiguated = data.fname + args
+      toFill.empty()
+      val (premessage, message) = if(data.alternatives.length == 0) {
+             ("To ensure completeness, please edit the pretty-printing of ", " below:")
+      } else ("What should be the output of ", "?")
+      val html = premessage + "<code>" + data.fname + args + "</code>"+message+"<br>"
+      toFill.append(html)
+      
+      if(data.alternatives.length == 0) {
+        toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, true))
+        toFill.find(".validate").addClass("active")
+      } else {
+        toFill.append(displayAlternative(data.confirm_solution, current=true, data.custom_alternative, false))
+        for(alternative <- data.alternatives) {
+          toFill.append("<br>")
+          toFill.append(displayAlternative(alternative, false, data.custom_alternative, false))
+        }
+      }
+      //disambiguationResultDisplayContainer().show()
+      // Switch tabs:
+      if(data.forceAsking) {
+        engineResultDisplayContainer().find("a[href^=#clarification]").click()
+        Main.showContextDemo(Main.demoClarification)
+      } else {
+        Main.showContextDemo(Main.demoClarificationMenu)
+      }
     }
-    //disambiguationResultDisplayContainer().show()
-    // Switch tabs:
-    engineResultDisplayContainer().find("a[href=#clarificationResults]").click()
-    Main.showContextDemo(Main.demoClarification)
   }
+  Handlers += { case data: HDisambiguationResult => disambiguation_result(data) }
 
   def synthesis_exploration(data: HSynthesisExploration) = {
     val d = $("#synthesisExploreDialog");
@@ -467,14 +387,14 @@ object Handlers extends js.Object {
 
     val wsOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
-      b.attr("ws").toInt
+      b.attr("ws").getOrElse("0").toInt
     }
 
     val pathOf = (e: Element) => {
       val b = $(e).closest(".exploreBlock")
       var path = List[Int]()
-      if (new EqOps(b.attr("path")) =!= "") {
-        path = b.attr("path").split("-").map((e: String) => e.toInt).toList
+      if (b.attr("path").getOrElse("") =!= "") {
+        path = b.attr("path").getOrElse("").split("-").map((e: String) => e.toInt).toList
       }
       path
     }
@@ -485,7 +405,7 @@ object Handlers extends js.Object {
           fname  = data.fname,
           cid    = data.cid,
           path   = pathOf(_this),
-          exploreAction = $(_this).attr("data-action"),
+          exploreAction = $(_this).attr("data-action").getOrElse(""),
           ws     = wsOf(_this),
           select = $(_this).value().asInstanceOf[String].toInt)
     }): js.ThisFunction);
@@ -495,7 +415,7 @@ object Handlers extends js.Object {
       Backend.synthesis.explore(
           fname = data.fname,
           cid   = data.cid, pathOf(self),
-          exploreAction = $(self).attr("data-action"),
+          exploreAction = $(self).attr("data-action").getOrElse(""),
           ws    = wsOf(self))
       working = true
     }): js.ThisFunction);
@@ -504,68 +424,12 @@ object Handlers extends js.Object {
       Handlers(HReplaceCode(newCode = data.allCode))
       if (data.cursor.isDefined) {
         js.timers.setTimeout(100) {
-          Handlers(data.cursor.get)
+          moveCursor(data.cursor.get)
         }
       }
     })
   }
-  
-  var synthesis_chosen_rule: Option[String] = None
-  var synthesis_result_fname: js.UndefOr[String] = js.undefined
-
-  def synthesis_rulesToApply(data: HSynthesisRulesToApply) = {
-    val fname = data.fname
-    val cid = data.cid
-    val rulesApps = data.rulesApps
-
-    var html = "";
-
-    // Start by removing temp content
-    if (compilationStatus == 1) {
-      for (i <- 0 until rulesApps.length) {
-        val app = rulesApps(i);
-        var statusIcon = ""
-        var clazz = "temp"
-
-        if (app.status == "closed") {
-          statusIcon = """<i class="fa fa-exclamation-circle"></i> """
-          clazz += " disabled"
-        }
-        html += """<li role="presentation" class="""" + clazz + """"><a role="menuitem" tabindex="-1" href="#" action="rule" cid="""" + cid + """" rid="""" + app.id + """">""" + statusIcon + app.name + """</a></li>"""
-      }
-    } else {
-      html += """<li role="presentation" class="temp disabled"><a role="menuitem" tabindex="-1" href="#" fname="""" + fname + """">Not yet compiled...</a></li>"""
-    }
-
-    val selector = "#synthesis .problem[fname=\"" + fname + "\"][cid=\"" + cid + "\"] ul"
-    $(selector + " li.temp").remove()
-    $(selector).append(html)
-    $(selector + " li a[action=\"search\"]").unbind("click.searchaction").on("click.searchaction", (() => {
-      synthesis_chosen_rule = Some("search")
-      Backend.synthesis.search(fname, cid)
-    }))
-    if($("#synthesisDialog").is(":visible") && (synthesis_result_fname.getOrElse("") == fname)) { // Was not closed maybe because of disambiguation. Relaunch synthesis for the same method.
-      val cid =  $("#synthesis_table td.fname[fname="+fname+"]").attr("cid").orIfNull("0").toInt
-      synthesis_chosen_rule match {
-        case None => // Explore
-        case Some("search") => // Search
-          Backend.synthesis.search(synthesis_result_fname.getOrElse(""), cid)
-        case Some(rid) => // Rule chosen
-          Backend.synthesis.doApplyRule(fname, cid, rid.toInt)
-      }
-    }
-
-    
-    $(selector + " li a[action=\"explore\"]").unbind("click").click(() => {
-      synthesis_chosen_rule = None
-      Backend.synthesis.explore(fname, cid)
-    })
-    $(selector + " li a[action=\"rule\"]").click(((self: Element) => {
-      val rid = $(self).attr("rid").toInt
-      synthesis_chosen_rule = Some(rid.toString)
-      Backend.synthesis.doApplyRule(fname, cid, rid)
-    }): js.ThisFunction)
-  }
+  Handlers += { case data: HSynthesisExploration => synthesis_exploration(data) }
 
   def repair_result(data: HRepairResult) = {
     val pb = $("#repairProgress")
@@ -573,6 +437,7 @@ object Handlers extends js.Object {
 
     // setup and open pane
     if (data.result == "init") {
+      repair_result_fname = data.fname
       $("#repairResults").hide()
       $("#repairFocused").hide()
       $("#repairDialog .importButton").hide()
@@ -583,6 +448,16 @@ object Handlers extends js.Object {
       $("#repairDialog").unbind("hide.bs.modal").on("hide.bs.modal", () => {
         if (synthesizing) Backend.repair.cancel()
       })
+      
+      $("#repairDialog .engineResult > ul a").off("click.tabs")
+      $("#repairDialog .engineResult > ul a").on("click.tabs", ((_this: Element, event: JQueryEventObject) => {
+          event.preventDefault();
+          $(_this).parent().addClass("current").show();
+          $(_this).parent().siblings().removeClass("current");
+          var tab = $(_this).attr("href");
+          $("#repairDialog .engineResult > div").not(tab).css("display", "none");
+          $(tab).fadeIn();
+      }): js.ThisFunction);
     } else if (data.result == "progress") {
       pbb.addClass("active progress-bar-striped")
       pbb.removeClass("progress-bar-success progress-bar-danger")
@@ -613,41 +488,36 @@ object Handlers extends js.Object {
 
       $("#repairResults .code.solution").removeClass("prettyprinted")
       $("#repairResults .code.solution").text(data.solCode)
-      $("#repairResults").show()
+      
+      $("#repairDialog").find("a[href^=#clarification]").parent().hide()
+      $("#repairDialog").find("a[href=#repairResults]").click()
+      //$("#repairResults").show()
       g.prettyPrint();
       $("#repairDialog .importButton").show()
       $("#repairDialog .importButton").unbind("click").click(() => {
         Handlers(HReplaceCode(newCode = data.allCode))
         if (data.cursor.isDefined) {
           js.timers.setTimeout(100) {
-            Handlers(data.cursor.get)
+            moveCursor(data.cursor.get)
           }
         }
       })
       $("#repairDialog .cancelButton").hide()
       $("#repairDialog .closeButton").show()
+      disambiguationResultDisplay().empty()
     }
   }
+  Handlers += { case data: HRepairResult => repair_result(data) }
 
   def verification_result(data: VerificationDetails) = {
     displayVerificationDetails(data.fname, data.status, data.vcs, data.crashingInputs)
   }
+  Handlers += { case data: VerificationDetails => verification_result(data) }
 
-  def replace_code(data: HReplaceCode) = {
+  def replace_code(newCode: String) = {
     storeCurrent(editorSession.getValue())
-    editorSession.setValue(data.newCode)
+    editorSession.setValue(newCode)
     recompile()
   }
-
-  def compilation_progress(data: HCompilationProgress) = {
-    updateCompilationProgress(Math.round((data.current * 100) / data.total))
-  }
-
-  def compilation(data: HCompilation) = {
-    if (data.status == "success") {
-      updateCompilationStatus("success")
-    } else {
-      updateCompilationStatus("failure")
-    }
-  }
+  Handlers += { case data: HReplaceCode => replace_code(data.newCode) }
 }

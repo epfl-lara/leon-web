@@ -30,10 +30,9 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
     )
   }
 
-
   def index(dir: String) = UserAwareAction { implicit request =>
     val examples = if (dir === "") {
-      getExamples("verification") ++ getExamples("synthesis") ++ getExamples("invariant")
+      getExamples("verification") ++ getExamples("synthesis") ++ getExamples("resourcebounds") ++ getExamples("memresources")
     } else {
       getExamples(dir)
     }
@@ -50,7 +49,7 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
 
   }
 
-  def getExample(kind: String, id: Int) = Action { 
+  def getExample(kind: String, id: Int) = Action {
     getExamples(kind).headOption.flatMap(_._2.lift.apply(id)) match {
       case Some(ex) =>
         Ok(toJson(Map("status" -> "success", "code" -> ex.code)))
@@ -69,9 +68,9 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
     val user    = Await.result(userFuture, 1.seconds)
     val session = Akka.system.actorOf(Props(new models.ConsoleSession(request.remoteAddress, user)))
     implicit val timeout: Timeout = Timeout(1.seconds)
-    
+
     /*val out = Enumerator[Array[Byte]]()
-    
+
     val in = Iteratee.foreach[Array[Byte]](content => {
   	   session ! ProcessClientEvent(content)
     }).map{ _ => session ! Quit }*/

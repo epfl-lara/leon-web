@@ -4,6 +4,8 @@ package workers
 import akka.actor._
 import models._
 import leon.utils._
+import leon.transformations._
+import leon.invariant.util.ProgramUtil._
 import leon.verification._
 import leon.solvers._
 import leon.purescala.Definitions._
@@ -21,10 +23,10 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
   import ConsoleProtocol._
 
   protected var verifOverview = Map[FunDef, FunVerifStatus]()
-  
+
   var counterExamplesExprs: List[Map[String, Expr]] = Nil
   import shared.messages.{VC => HVC, _}
-  
+
   def writes(ex: Map[Identifier, Expr]): Map[String, DualOutput] =
     ex.toSeq.map(t => (t._1.asString, t._2)).sortBy(_._1).map {
       case (id, expr) =>
@@ -33,7 +35,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
         updateExprCache(rawoutput, expr)
         id -> DualOutput(rawoutput, exprAsString)
     }.toMap
-  
+
   def writes(er: EvaluationResults.Result[Expr]): ResultOutput = er match {
     case EvaluationResults.Successful(ex) =>
       val rawoutput = ex.asString
@@ -44,7 +46,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
     case EvaluationResults.RuntimeError(msg)  => ResultOutput("error", error = Some(msg))
     case EvaluationResults.EvaluatorError(msg) => ResultOutput("error", error = Some(msg))
   }
-    
+
   def getMinMaxRowOf(e: Positioned): (Int, Int) = {
     e.getPos match {
       case r:RangePosition => (r.lineFrom, r.lineTo)
@@ -58,7 +60,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
       (0, -1)
     }
   }
-  
+
   def writes(vr: (VC, VCResult, Option[EvaluationResults.Result[Expr]])): HVC = {
     val (vc, res, cexExec) = vr
 
@@ -70,7 +72,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
       case VCKinds.Assert => getMinMaxRowOf(vc)
       case _ => (-1, 0)
     }*/
-    
+
     val base = HVC(
       kind   = vc.kind.toString,
       fun    = vc.fd.id.name,
@@ -82,7 +84,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
 
     res.status match {
       case VCStatus.Invalid(cex) =>
-        
+
         cexExec match {
           case Some(er) =>
             base.copy(counterExample = Some(writes(cex.toMap[Identifier, Expr])),
@@ -94,7 +96,7 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
         base
     }
   }
-  
+
   def notifyVerifOverview(cstate: CompilationState): Unit = {
     if (cstate.isCompiled) {
       // All functions that depend on an invalid function
@@ -118,10 +120,11 @@ trait VerificationNotifier extends WorkerActor with StringToExprCached with EqSy
       sender ! DispatchTo(shared.Execution, NewCounterExamples(cstate, allCEs))
     }
 
-    val fvcs = 
+    val fvcs =
       verifOverview.toSeq.sortBy(_._1.getPos).map{ case (fd, fv) =>
-        fd.id.name -> VerificationDetails(
-           fname = fd.id.name,
+        val funName = InstUtil.userFunctionName(fd)
+        funName -> VerificationDetails(
+           fname = funName,
            status = fv.status,
            time = fv.totalTime,
            crashingInputs = fv.crashingInputs.map(writes),
@@ -139,12 +142,13 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
 
   override lazy implicit val ctx = leon.Main.processOptions(List(
     "--feelinglucky",
-    "--solvers=smt-cvc4,smt-z3,ground"
+    "--solvers=smt-z3,smt-cvc4,ground",
+    "--debug=verification,solver"
   )).copy(interruptManager = interruptManager, reporter = reporter)
-  
+
   var program: Option[Program] = None
   var SOLVERTIMEOUT = 5
-  
+
   activateCache = true
 
   def doVerify(cstate: CompilationState, vctx: VerificationContext, funs: Set[FunDef], standalone: Boolean): Unit = {
@@ -200,8 +204,22 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
   }
 
   def receive = {
-    case OnUpdateCode(cstate) if cstate.isCompiled =>
+    case OnUpdateCode(inputCState) if inputCState.isCompiled =>
       this.clearExprCache()
+      // create a new cstate by instrumenting the program, if necessary
+      val needsInstrumentation = inputCState.optProgram match {
+        case None => false
+        case Some(p) => userLevelFunctions(p).exists(fd =>
+          exists(e => InstUtil.instCall(e).isDefined)(fd.fullBody))
+      }
+      val cstate =
+        if (needsInstrumentation) {
+          CompilationState(inputCState.code,
+            inputCState.project, inputCState.savedFile,
+            inputCState.compResult, inputCState.optProgram.map(InstrumentationPhase.apply(ctx, _)),
+            inputCState.requestId, inputCState.wasLoop)
+        } else inputCState
+
       this.program = Some(cstate.program)
       val program = cstate.program
 
@@ -209,8 +227,8 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
       val oldVerifOverView = verifOverview
 
       val verifFunctions = cstate.functions.filter(fd => fd.hasBody).toSet
-      
-      val recomputeEverything = (verifFunctions exists { fd => 
+
+      val recomputeEverything = (verifFunctions exists { fd =>
         fd.returnType == StringType && { // If a pretty printer changed, we recompute everything.
           val h = FunctionHash(fd)
           oldVerifOverView forall { case (f, _) =>

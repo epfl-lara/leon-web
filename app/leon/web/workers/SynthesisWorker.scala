@@ -17,6 +17,7 @@ import leon.utils._
 import leon.web.shared.Action
 import models._
 import leon.purescala.TypeOps
+import leon.purescala.ExprOps
 
 class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -157,7 +158,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               val hctx = new SearchContext(synth.sctx, synth.ci.source, n, search)
 
               if (!n.isExpanded) {
-                n.expand(hctx)
+                search.expand(n, hctx)
               }
 
               action match {
@@ -170,7 +171,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                     case Some((d, _)) =>
                       n.selected = List(d)
                       if (!d.isExpanded) {
-                        d.expand(hctx)
+                        search.expand(d, hctx)
                       }
                     case _ =>
                       notifyError("Not found")
@@ -241,7 +242,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                   }
                 
 
-                val sol = simplifier(osol.getOrElse(Solution.chooseComplete(n.p)).toExpr)
+                val sol = simplifier(osol.getOrElse(Solution.chooseComplete(n.p)).term)
 
                 var code = ScalaPrinter(sol)
 
@@ -254,7 +255,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 while (matcher.find()) {
                   val ws = matcher.group(1).size
                   val i = matcher.group(2).toInt
-                  matcher.appendReplacement(result, solutionsTree(n.descendants(i), i:: path, ws)) 
+                  matcher.appendReplacement(result, solutionsTree(n.descendants(i), i:: path, ws).replace("$", "\\$"))
                 }
                 matcher.appendTail(result);
 
@@ -265,7 +266,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 n match {
                   case on: OrNode =>
                     if (!on.isExpanded) {
-                      on.expand(hctx)
+                      search.expand(on, hctx)
                     }
 
                     val options = on.descendants.zipWithIndex.collect { case (d: AndNode, i) =>
@@ -306,7 +307,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
               }
 
               val allSol  = solutionOf(search.g.root)
-              val (_, allCode) = solutionCode(cstate, synth, allSol.getOrElse(Solution.failed(synth.problem)))
+              val (_, allCode, _, allCodeSimplified) = solutionCode(cstate, synth, allSol.getOrElse(Solution.failed(synth.ci.problem)))
               
               event(HSynthesisExploration(
                 html = solutionsTree(n, path.reverse, ws),
@@ -314,6 +315,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
                 cid = cid,
                 from = path,
                 allCode = allCode,
+                allCodeSimplified = allCodeSimplified,
                 cursor = None))
 
             case None =>
@@ -352,7 +354,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
               if (!an.isExpanded) {
                 val hctx = new SearchContext(sctx, synth.ci.source, an, search)
-                an.expand(hctx)
+                search.expand(an, hctx)
               }
 
               an.solutions.getOrElse {
@@ -380,41 +382,59 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     }
   }
 
-  def solutionCode(cstate: CompilationState, synth: Synthesizer, sol: Solution): (Expr, String) = {
+  /**
+    * @return the solution and the complete code, and the simplified solution and the complete code with simplified solution.
+    * In this context, simplified means that all free variables from the rule StringRender are replaced by "" */
+  def solutionCode(cstate: CompilationState, synth: Synthesizer, sol: Solution): (Expr, String, Expr, String) = {
     import leon.purescala.PrinterHelpers._
 
     val ci = synth.ci
     val SourceInfo(fd, src, pb) = ci //SourceInfo(fd, pc, src, spec, tb) = ci
 
-    val solCode = sol.toSimplifiedExpr(synth.context, synth.program, fd)
-
-    val (defs, expr) = liftClosures(solCode)
+    val solCode = sol.toSimplifiedExpr(synth.context, synth.program, ci.problem.pc)
+    val hasEditMe = ExprOps.exists{
+      case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
+      case _ => false
+    }(solCode)
 
     val fInt = new FileInterface(new MuteReporter())
 
-    val nfd = fd.duplicate()
-
-    nfd.body = nfd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
+    val oldFd = ci.fd
+    val newFd = ci.fd.duplicate()
+    newFd.body = newFd.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
       case ch if ch === src && ch.getPos === src.getPos =>
-        Some(expr)
+        Some(solCode)
       case _ =>
         None
     }(b)))
-
-    val fds = nfd :: defs.toList.sortBy(_.id.name)
-
-    val prog = DefOps.addFunDefs(cstate.program, fds, fd)
-    val p = new ScalaPrinter(PrinterOptions(), Some(prog))
+    val resFd = flattenFunctions(newFd, ctx, cstate.program)
+    
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                  fd,
-                                  (indent) => {
-      implicit val pctx = PrinterContext(fd, Nil, indent, p)
-      p"${nary(fds, "\n\n")}"
-      p.toString
-    })
+                                  oldFd,
+                                  resFd,
+                                  Some(cstate.program))(ctx)
 
-    (solCode, allCode)
+    val (allCodeSimplified, solCodeSimplified) = if(hasEditMe) {
+      val solCodeSimplified = ExprOps.preMap{
+        case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => Some(StringLiteral(""))
+        case _ => None
+      }(solCode)
+      val newFd2 = ci.fd.duplicate()
+      newFd2.body = newFd2.body.map(b => Simplifiers.bestEffort(synth.context, synth.program)(postMap{
+        case ch if ch === src && ch.getPos === src.getPos =>
+          Some(solCodeSimplified)
+        case _ =>
+          None
+      }(b)))
+      val resFd2 = flattenFunctions(newFd2, ctx, cstate.program)
+      (fInt.substitute(cstate.code.getOrElse(""),
+                      oldFd,
+                      resFd2,
+                      Some(cstate.program))(ctx), solCodeSimplified)
+    } else (allCode, solCode)
+                                  
+    (solCode, allCode, solCodeSimplified, allCodeSimplified)
   }
 
   def sendSolution(cstate: CompilationState, synth: Synthesizer, ssol: Stream[Solution]): Unit = {
@@ -424,13 +444,15 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
     osol match {
       case Some(sol) =>
 
-        val (solCode, allCode) = solutionCode(cstate, synth, sol)
+        val (solCode, allCode, solCodeSimplified, allCodeSimplified) = solutionCode(cstate, synth, sol)
 
         event(HSynthesisResult(
           result = "success",
           solCode = ScalaPrinter(solCode),
+          solCodeSimplified = ScalaPrinter(solCodeSimplified),
           cursor = Some(HMoveCursor(fd.getPos.line, fd.getPos.col-1)),
           allCode = allCode,
+          allCodeSimplified = allCodeSimplified,
           closed = 1,
           total = 1
         ))
@@ -458,7 +480,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           
           if (!orNode.isExpanded) {
             val hctx = new SearchContext(synth.sctx, synth.ci.source, orNode, synth.search)
-            orNode.expand(hctx)
+            search.expand(orNode, hctx)
           }
 
           val andNodes = orNode.descendants.collect {
@@ -547,20 +569,10 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
           } else {
             (sol, true)
           }
-
-          val solCode = newSol.toSimplifiedExpr(ctx, prog, ci.fd)
-          val fInt = new FileInterface(new MuteReporter())
-
+          
+          val (solCode, allCode, solCodeSimplified, allCodeSimplified) = solutionCode(cstate, synth, newSol)
 
           val oldFd = ci.fd
-          val newFd = ci.fd.duplicate()
-          newFd.body = newFd.body.map(b => replace(Map(ci.source -> solCode), b))
-
-          val resFd = flattenFunctions(newFd, ctx, prog)
-
-          val allCode = fInt.substitute(cstate.code.getOrElse(""),
-                                        oldFd,
-                                        resFd)(ctx)
 
           val (closed, total) = search.g.getStats()
 
@@ -568,7 +580,9 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
             result = "success",
             proven = succeeded,
             solCode = ScalaPrinter(solCode),
+            solCodeSimplified = ScalaPrinter(solCodeSimplified),
             allCode = allCode,
+            allCodeSimplified = allCodeSimplified,
             cursor = Some(HMoveCursor(line = oldFd.getPos.line, column = oldFd.getPos.col-1 )),
             closed = closed,
             total = total

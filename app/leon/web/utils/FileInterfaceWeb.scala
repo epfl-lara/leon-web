@@ -28,8 +28,9 @@ object FileInterfaceWeb {
 
     val fds = nfd :: Nil
 
-    val prog = DefOps.replaceFunDefs(cstate.program)(f => if(f == fd) Some(nfd) else None)
-    val p = new ScalaPrinter(PrinterOptions(), Some(prog._1))
+    val transformer =  DefOps.funDefReplacer(f => if(f == fd) Some(nfd) else None)
+    val prog = DefOps.transformProgram(transformer, cstate.program)
+    val p = new ScalaPrinter(PrinterOptions(), Some(prog))
 
     val allCode = fInt.substitute(cstate.code.getOrElse(""),
                                   fd,

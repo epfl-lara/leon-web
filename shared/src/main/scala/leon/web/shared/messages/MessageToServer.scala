@@ -1,7 +1,6 @@
 package leon.web
 package shared
 package messages
-
 import git._
 
 sealed trait MessageToServer {
@@ -15,7 +14,8 @@ sealed trait MainModule { val module = Main }
 case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPermalink] with MainModule
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
 case class FeatureSet(feature: Module, active: Boolean) extends MessageToServer with MainModule
-case class DoUpdateCode(code: String) extends MessageToServer with MainModule
+case class DoUpdateCode(code: String, requestId: Int) extends MessageToServer with MainModule
+// case class DoUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String, requestId: Int) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
 case class UnlinkAccount(provider: Provider) extends MessageToServer with MainModule
 
@@ -49,6 +49,15 @@ case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToS
 case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with RepositoryModule
 case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with RepositoryModule
 case class DoUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String) extends MessageToServer with RepositoryModule
+
+// Website builder
+sealed trait WebsiteBuilderModule {
+  val module = WebsiteBuilder
+}
+
+case class GetBootstrapSourceCode() extends MessageToServerExpecting[GetBootstrapSourceCode_answer] with WebsiteBuilderModule
+case class SubmitStringModification(stringModification: StringModification, sourceCodeId: Int, stringModID: Int) extends MessageToServerExpecting[SubmitStringModification_answer] with WebsiteBuilderModule
+
 
 object MessageToServer {
   import boopickle.Default._

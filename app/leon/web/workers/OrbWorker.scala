@@ -9,7 +9,7 @@ import akka.actor.ActorRef
 import models.ConsoleProtocol
 import leon.invariant.engine._
 import leon.invariant.util._
-import leon.purescala.Definitions.ValDef
+import leon.purescala.Definitions._
 import leon.transformations.InstUtil
 import leon.transformations.InstrumentationPhase
 import shared.Module
@@ -35,9 +35,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Success
 import scala.util.Failure
 import scala.util.Try
-import leon.purescala.Definitions.Program
 import laziness._
-import LazinessUtil._
+import HOMemUtil._
 import verification._
 
 /**
@@ -71,8 +70,10 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
 
       // a call-back for updating progress in the interface
       val progressCallback: InferenceCondition => Unit = (ic: InferenceCondition) => {
-        val funName = InstUtil.userFunctionName(ic.fd)
+        val funName = HOMemUtil.userFunctionName(ic.fd)
+        println(s"Looking for function with name: $funName")
         val userFun = functionByName(funName, startProg).get
+        println(s"Found function with name: $userFun")
         // replace '?' in the template
         val template = userFun.template.map { k =>
           PrettyPrinter(simplePostTransform {
@@ -91,7 +92,6 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       val onInferComplete: InferenceContext => Try[InferenceReport] => Unit = inferctx => _ match {
         case Success(result: InferenceReport) =>
           inferEngine = None
-          // TODO : Update ONLY the function, not all the code.
           allCode = Some(ScalaPrinter(InferenceReportUtil.pushResultsToInput(inferctx, result.conditions)))
           notifyInvariantOverview(cstate)
         case Failure(msg) =>
@@ -100,22 +100,24 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       }
 
       if (hasLazyEval(startProg)) { // we need to use laziness extension phase
-        val leonctx = createLeonContext(ctx, s"--lazy", s"--useOrb", s"--timeout=100")
-        val (stateVeriProg, resourceVeriProg) = LazinessEliminationPhase.genVerifiablePrograms(this.ctx, startProg)
-        val checkCtx = LazyVerificationPhase.contextForChecks(leonctx)
+        val leonctx = createLeonContext(ctx, "--mem", "--unrollfactor=2", "--webMode", "--timeout=120")
+        val (clFac, stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
+        val checkCtx = HOMemVerificationPhase.contextForChecks(leonctx)
         Future {
-          LazyVerificationPhase.checkSpecifications(stateVeriProg, checkCtx)
+          HOMemVerificationPhase.checkSpecifications(clFac, stateVeriProg, checkCtx)
         } onComplete {
           case Success(stateResult: VerificationReport) =>
             var failed = false
             stateResult.vrs foreach {
               case (vc, vr) =>
-                val funName = vc.fd.id.name
+                val funName = HOMemUtil.userFunctionName(vc.fd) //vc.fd.id.name
                 val userFun = functionByName(funName, startProg).getOrElse(vc.fd)
-                val success = vr.isValid
+                val success = vr.isValid                
                 if (!success) {
+                  val VCStatus.Invalid(cex) = vr.status
+                  val cexStr = cex.toMap.map{ case (k,v) => k.name +" -> "+ PrettyPrinter(v) }.mkString("; ")
                   invariantOverview += (funName ->
-                    FunInvariantStatus(Some(userFun), None, None, None, vr.timeMs.map(_ / 1000.0), false, true))
+                    FunInvariantStatus(Some(userFun), None, Some(cexStr), None, vr.timeMs.map(_ / 1000.0), false, true))
                   notifyInvariantOverview(cstate)
                   failed = true
                 }
@@ -126,11 +128,11 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
                 invariantOverview += fd.id.name -> FunInvariantStatus(Some(fd), None, None, None, None, invariantFound = !fd.hasTemplate)
               notifyInvariantOverview(cstate)
               // resource inference
-              val inferctx = LazyVerificationPhase.getInferenceContext(checkCtx, resourceVeriProg)
+              val inferctx = HOMemVerificationPhase.getInferenceContext(checkCtx, resourceVeriProg)
               val engine = new InferenceEngine(inferctx)
               inferEngine = Some(engine)
               Future {
-                LazyVerificationPhase.checkUsingOrb(engine, inferctx, Some(progressCallback))
+                HOMemVerificationPhase.checkUsingOrb(engine, inferctx, Some(progressCallback))
               } onComplete {
                 onInferComplete(inferctx)
               }
@@ -141,7 +143,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
         }
       } else {
         setStateBeforeInference(cstate)
-        val leonctx = createLeonContext(this.ctx, s"--timeout=120", s"--minbounds", "--vcTimeout=3", "--solvers=smt-z3") //, s"--functions=${inFun.id.name}")
+        val leonctx = createLeonContext(this.ctx, "--webMode", "--timeout=120", "--minbounds=0", "--vcTimeout=3", "--solvers=orb-smt-z3", "-nlTimeout=3")
         val inferContext = new InferenceContext(startProg, leonctx)
         val engine = (new InferenceEngine(inferContext))
         inferEngine = Some(engine)
@@ -179,15 +181,14 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
   }
 
   def hasLazyEval(program: Program): Boolean = {
-    userLevelFunctions(program).exists{fd =>
-      isMemoized(fd) || exists(isLazyInvocation(_)(program))(fd.fullBody)
-    }
+    // TODO: fix this to handle higher-order functions without memoization
+    userLevelFunctions(program).exists{fd => fd.flags.contains(IsField(true)) || hasMemAnnotation(fd) }
   }
 
   def hasTemplates(program: Program): Boolean = {
     userLevelFunctions(program).exists(_.hasTemplate)
   }
-  
+
   import shared.messages._
 
   def funInvariantStatusToOverviewFunction(fi: FunInvariantStatus): InvariantDetails = {
@@ -197,12 +198,12 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
       oldInvariant = fi.template.getOrElse(""),
       newInvariant = fi.invString.getOrElse(""),
       newCode = fi.newCode.getOrElse(""),
-      time = fi.time.getOrElse(0.0)   
+      time = fi.time.getOrElse(0.0)
     )
   }
-  
+
   def notifyInvariantOverview(cstate: CompilationState): Unit = {
-    val fics = 
+    val fics =
       ((invariantOverview.toSeq.filter(_._2.fd.nonEmpty).sortBy(_._2.fd.map(_.getPos).get).map {
         case (fd, fi) =>
           fd -> funInvariantStatusToOverviewFunction(fi)

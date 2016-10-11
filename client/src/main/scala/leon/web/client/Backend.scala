@@ -42,6 +42,14 @@ object Backend {
     def setFeatureActive(feature: shared.Module, active: Boolean) =
       Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
 
+    var requestId = 0
+      
+    def doUpdateCode(code: String): Int = {
+      requestId += 1
+      Server ! DoUpdateCode(code = code, requestId = requestId) andThenAnalytics Action.doUpdateCode
+      requestId
+    }
+
     def cancel() =
       Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
     def unlinkAccount(provider: Provider) =

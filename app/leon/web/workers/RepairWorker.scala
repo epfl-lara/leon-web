@@ -23,25 +23,25 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
     case OnClientEvent(cstate, event) =>
       event match {
         case shared.messages.DoRepair(fname) =>
-          doRepair(cstate, fname)
+          doRepair(cstate, fname, sender)
         case _ => notifyError("Received unknown event: "+event)
       }
     case _ =>
   }
 
-  def doRepair(cstate: CompilationState, fname: String): Unit = {
+  def doRepair(cstate: CompilationState, fname: String, sender: ActorRef): Unit = {
     try {
       val program = cstate.program
       import shared.messages._
       def progress(name: String): Unit = {
-        event(HRepairResult(result = "progress", progress = name))
+        event(HRepairResult(result = "progress", fname = fname, progress = name))
       }
 
       def error(err: String): Unit = {
-        event(HRepairResult(result = "error", progress = err))
+        event(HRepairResult(result = "error", fname = fname, progress = err))
       }
 
-      event(HRepairResult(result = "init"))
+      event(HRepairResult(result = "init", fname = fname))
 
       progress("Initializing ...")
       val timeoutMs = Some(30000l)
@@ -67,13 +67,16 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
 
                   progress("Verifying repair ...")
                   val (search, solutions) = synth.validate((search0, sols0), allowPartial = false)
-
+                  
                   if (solutions.isEmpty) {
                     error("Failed to repair :(")
                   } else {
-                    val (sol, isTrusted) = solutions.last
-                    val expr = sol.toSimplifiedExpr(ctx, program, fd)
-
+                    val (sol, isTrusted) = solutions.head match {
+                      case (sol, true) => (sol, true)
+                      case (sol, false) => solutions.take(4).find{ _._2 }.getOrElse(solutions.head) // 4 is arbitrary.
+                    }
+                    val expr = sol.toSimplifiedExpr(ctx, program, leon.purescala.Path(fd.precOrTrue))
+                    
                     val fdDup = fd.duplicate()
                     fdDup.body = Some(expr)
 
@@ -85,7 +88,8 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                       fInt.substitute(
                         cstate.code.getOrElse(""),
                         fd,
-                        fdDup
+                        fdDup,
+                        Some(cstate.program)
                       )(ctx)
                     } catch {
                       case t: Throwable =>
@@ -94,6 +98,7 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                     }
 
                     event(HRepairResult(
+                      fname = fname,
                       result = "success",
                       success = "Repair Found!",
                       solCode = ScalaPrinter(expr),
@@ -103,6 +108,8 @@ class RepairWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im)
                       )),
                       allCode = allCode
                     ))
+                    
+                    sender ! DispatchTo(shared.Disambiguation, NewSolutions(cstate, synth, solutions.filter(_._2).map(_._1)))
                   }
                 } finally {
                   synth.shutdown()

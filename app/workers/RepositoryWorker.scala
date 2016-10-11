@@ -37,7 +37,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
       event match {
         case DoUpdateCodeInProject(repo, file, branch, code) => withUser { user =>
           val project = Project(repo, branch, file)
-          self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project))
+          self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), -1) // FIXME: Supply proper requestId
         }
         case LoadRepositories => withUser { user =>
           self ! ULoadRepositories(user)

@@ -1,7 +1,9 @@
 package leon.web
 package shared
 package messages
-import git._
+
+import shared.git._
+import shared.SourceCodeSubmissionResult
 
 sealed trait MessageFromServer
 
@@ -26,8 +28,9 @@ case class Commit(
   desc: String
 )
 
-
-case class UserUpdated(user: User) extends MessageFromServer
+case class UserUpdated(
+  user: User
+) extends MessageFromServer
 
 case class HMoveCursor(line: Double, column: Double = 0) extends MessageFromServer
 
@@ -87,7 +90,9 @@ case class HSynthesisResult(
   closed: Double = 0.0,
   total: Double = 0.0,
   solCode: String = "",
+  solCodeSimplified: String = "",
   allCode: String = "",
+  allCodeSimplified: String = "",
   cursor: Option[HMoveCursor] = None,
   proven: Boolean = false
 ) extends MessageFromServer
@@ -108,6 +113,7 @@ case object DisambiguationNoresult extends MessageFromServer
 case class HDisambiguationResult(
   input: String,
   fname: String,
+  forceAsking: Boolean,
   confirm_solution: HDisambiguationDisplay,
   custom_alternative: HDisambiguationDisplay,
   alternatives: List[HDisambiguationDisplay]
@@ -119,6 +125,7 @@ case class HSynthesisExploration(
   cid: Int,
   from: List[Int],
   allCode: String,
+  allCodeSimplified: String,
   cursor: Option[HMoveCursor]
 ) extends MessageFromServer
 
@@ -142,7 +149,8 @@ case class HRepairResult(
   success: String = "",
   solCode: String = "",
   allCode: String = "",
-  cursor: Option[HMoveCursor] = None
+  cursor: Option[HMoveCursor] = None,
+  fname: String = ""
 ) extends MessageFromServer
 
 case class ResultOutput(
@@ -250,7 +258,15 @@ case class GitOperationDone(
   success: Boolean,
   data: GitOperationResult = GitOperationResultNone
 ) extends MessageFromServer with Event
-  
+
+case class GetBootstrapSourceCode_answer(bootstrapSourceCode: Option[String]) extends MessageFromServer
+case class SubmitSourceCodeResult(result: SourceCodeSubmissionResult, javascript: Option[String], requestId: Int) extends MessageFromServer
+case class SubmitStringModification_answer(
+                                            stringModificationSubmissionResult: StringModificationSubmissionResult,
+                                            requestSourceId: Int,
+                                            requestStringModSubResID: Int
+                                          ) extends MessageFromServer
+
 object HandlerMessages {
   type VCS = Array[VC]
   type Html = String
@@ -260,6 +276,7 @@ object HandlerMessages {
 object MessageFromServer {
   import boopickle.Default._
   import boopickle.PicklerHelper
+  import Picklers._
   
   implicit val goPickler = generatePickler[GitOperation]
   
