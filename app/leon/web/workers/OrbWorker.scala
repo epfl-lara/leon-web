@@ -38,6 +38,7 @@ import scala.util.Try
 import laziness._
 import HOMemUtil._
 import verification._
+import invariant.structure._
 
 /**
  * @author Mikael
@@ -59,7 +60,6 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
     case OnUpdateCode(cstate) =>
       initState(cstate)
       program = Some(cstate.program)
-      val startProg = cstate.program
       inferEngine match {
         case Some(engine) =>
           engine.interrupt()
@@ -67,26 +67,64 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
           this.ctx.interruptManager.recoverInterrupt()
         case None =>
       }
+      val memVerification = hasLazyEval(cstate.program) // we need to use laziness extension phase
+       // convert question marks to templates, if any, right here before inlining.
+      val funToTmplFun = cstate.functions.flatMap { fd =>
+        val (_, tmplOpt) = FunctionUtils.tmplAndPost(fd)
+        tmplOpt.map(tmpl => fd -> tmpl).toList
+      }.toMap
+      val funToTmpl = funToTmplFun.map {
+        case (k, FunctionInvocation(_, Seq(Lambda(_, body)))) => k -> body
+      }.toMap
+      val funNameToTmpl = funToTmplFun.map { case (fd, tfun) => fd.id.name -> tfun }
+      val startProg = ProgramUtil.assignTemplateAndCojoinPost(funToTmpl, cstate.program) //note starProg could be mutated due to inlining)
 
       // a call-back for updating progress in the interface
       val progressCallback: InferenceCondition => Unit = (ic: InferenceCondition) => {
+        val timeExecution = Some(ic.time / 1000.0)
         val funName = HOMemUtil.userFunctionName(ic.fd)
         println(s"Looking for function with name: $funName")
-        val userFun = functionByName(funName, startProg).get
-        println(s"Found function with name: $userFun")
-        // replace '?' in the template
-        val template = userFun.template.map { k =>
-          PrettyPrinter(simplePostTransform {
-            case Variable(id) if id.name.startsWith("q?") =>
-              Variable(FreshIdentifier("?", id.getType))
-            case e => e
-          }(k))
-        }.getOrElse("")
-        val timeExecution = ic.time
-        invariantOverview += funName ->
-          FunInvariantStatus(Some(userFun), Some(template), ic.prettyInv.map(inv => PrettyPrinter(inv)),
-              None, timeExecution, ic.prettyInv.isDefined)
-        notifyInvariantOverview(cstate)
+        cstate.functions.find(_.id.name == funName) match {
+          case None =>
+            println(s"Failed to find a function with name: $funName")
+          case Some(userFun) =>
+            println(s"Found function with name: $funName")
+            // replace '?' in the template
+            funNameToTmpl.get(funName) match {
+              case Some(tmplInvc) =>
+                val (userInv, tmpl) = tmplInvc match {
+                  case FunctionInvocation(_, Seq(Lambda(args, tmplbody))) =>
+                    if(ic.solved) {
+                      val model = ic.invariants.head._2
+                      val repmap = args.map {
+                        case ValDef(argid) =>
+                          val value = model.collectFirst { case (id, value) if id.name == argid.name + "?" => value }.get
+                          (argid -> value)
+                      }.toMap
+                      (Some(replaceFromIDs(repmap, tmplbody)), Some(tmplbody))
+                    } else
+                      (None, Some(tmplbody))
+                  case _ =>
+                    (None, None)
+                }
+                val templateStr = tmpl.map { k =>
+                    PrettyPrinter(simplePostTransform {
+                      case Variable(id) if TVarFactory.isTemp(id, FunctionUtils.qmarkContext)  =>
+                        Variable(FreshIdentifier("?", id.getType))
+                      case e => e
+                    }(k))
+                  }.getOrElse("")
+
+                invariantOverview += funName ->
+                  FunInvariantStatus(Some(userFun), Some(templateStr), userInv.map(inv => PrettyPrinter(inv)),
+                  None, timeExecution, ic.solved)
+              case None =>
+                invariantOverview += funName ->
+                  FunInvariantStatus(Some(userFun), Some(""), ic.prettyInv.map(inv => PrettyPrinter(inv)),
+                  None, timeExecution, ic.solved)
+            }
+            notifyInvariantOverview(cstate)
+        }
       }
       // a call-back that would be invoked when inference, which is running in a Future, is completed
       val onInferComplete: InferenceContext => Try[InferenceReport] => Unit = inferctx => _ match {
@@ -99,7 +137,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
           clientLog("Failed due to: " + msg)
       }
 
-      if (hasLazyEval(startProg)) { // we need to use laziness extension phase
+      if (memVerification) {
         val leonctx = createLeonContext(ctx, "--mem", "--unrollfactor=2", "--webMode", "--timeout=120")
         val (clFac, stateVeriProg, resourceVeriProg) = HOInferencePhase.genVerifiablePrograms(this.ctx, startProg)
         val checkCtx = HOMemVerificationPhase.contextForChecks(leonctx)
@@ -112,7 +150,7 @@ class OrbWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) wi
               case (vc, vr) =>
                 val funName = HOMemUtil.userFunctionName(vc.fd) //vc.fd.id.name
                 val userFun = functionByName(funName, startProg).getOrElse(vc.fd)
-                val success = vr.isValid                
+                val success = vr.isValid
                 if (!success) {
                   val VCStatus.Invalid(cex) = vr.status
                   val cexStr = cex.toMap.map{ case (k,v) => k.name +" -> "+ PrettyPrinter(v) }.mkString("; ")
