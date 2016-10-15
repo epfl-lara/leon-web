@@ -13,12 +13,29 @@ abstract class WorkerActor(val session: ActorRef, val interruptManager: Interrup
 
   val reporter = new WorkerReporter(session)
 
-  lazy implicit val ctx = LeonContext(reporter = reporter,
-                                      interruptManager = interruptManager,
-                                      options =
-                                        Seq(
-                                            LeonOption(GlobalOptions.optSelectedSolvers)(Set("smt-cvc4","smt-z3"))
-                                        ))
+  private var _ctx: LeonContext = mergeWithOptions(Nil)
+  
+  def mergeWithOptions(customOptions: Seq[String]): LeonContext = {
+    val originalContext = leon.Main.processOptions(List(
+      "--feelinglucky",
+      "--solvers=smt-cvc4,smt-z3,ground",
+      "--debug=verification,solver"
+    ))
+    val augmentedContext = if(customOptions == Nil) {
+      originalContext
+    } else {
+      originalContext ++ leon.Main.parseOptions(customOptions, false)
+    }
+    augmentedContext.copy(interruptManager = interruptManager, reporter = reporter)
+  }
+  
+  def applyLeonContextOptions(customOptions: Seq[String], overridingOptions: Seq[String]*): Unit = {
+    _ctx = (mergeWithOptions(customOptions) /: overridingOptions) {
+      case (lctx, seqString) => lctx ++ leon.Main.parseOptions(seqString, true)
+    }
+  }
+
+  implicit def ctx = _ctx                   
 
   def pushMessage(v: Array[Byte]) = session ! NotifyClientBin(v)
 }

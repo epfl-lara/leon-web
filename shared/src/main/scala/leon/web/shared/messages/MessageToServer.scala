@@ -17,6 +17,7 @@ case class FeatureSet(feature: Module, active: Boolean) extends MessageToServer 
 case class DoUpdateCode(code: String, requestId: Int) extends MessageToServer with MainModule
 case class DoUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String, requestId: Int) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
+case class SetCommandFlags(flags: String) extends MessageToServer with MainModule
 
 // synthesis
 sealed trait SynthesisModule { val module = Synthesis }

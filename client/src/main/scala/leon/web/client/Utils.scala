@@ -19,14 +19,9 @@ trait JQueryExtended extends JQuery {
   def width(value: String): JQuery = js.native
   def alert(): JQuery = js.native
 
-  @JSName("val") def value(e: js.Any): JQuery = js.native
-  def html(e: js.Any): JQuery = js.native
-
   def autocomplete(e: js.Any, f: js.Any = null): JQuery = js.native
   
   def tooltip(e: js.Any): JQuery = js.native
-  
-  def on(e: String, f: () => Unit): JQuery = js.native
   
   def modal(e: String): JQuery = js.native
   
@@ -66,7 +61,7 @@ trait RangeExtended extends dom.raw.Range {
 
 @js.native
 trait JQueryEventObjectExtended extends JQueryEventObject {
-  val keyCode: Int = js.native
+  val keyCode: js.UndefOr[Int] = js.native
 }
 
 @js.native

@@ -119,6 +119,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       logInfo("Starting Cancel Procedure...")
       interruptManager.interrupt()
       modules.values.foreach(_.actor ! DoCancel)
+      
+    case message@USetCommandFlags(flags) =>
+      modules.values.foreach(_.actor ! message)
 
     case Cancelled(wa: WorkerActor)  =>
       cancelledWorkers += wa
@@ -163,6 +166,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   modules(f).isActive = false
                 }
               }
+            case SetCommandFlags(elems) => self ! USetCommandFlags(elems)
           }
           case message: GitModule => message match {
             case LoadRepositories => withUser { user =>

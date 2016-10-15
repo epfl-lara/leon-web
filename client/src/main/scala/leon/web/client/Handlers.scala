@@ -16,7 +16,6 @@ import scala.collection.mutable.ListBuffer
 object Handlers extends js.Object {
   import leon.web.shared.messages._
   import dom.console
-  import equal.EqOps
   
   val callbacks = ListBuffer[PartialFunction[MessageFromServer, Unit]]()
   
@@ -28,10 +27,8 @@ object Handlers extends js.Object {
 
   @JSName("apply")
   def apply(data: MessageFromServer): Unit = {
-    console.log("Dealing with", data.asInstanceOf[js.Any])
     callbacks.find(c => c.isDefinedAt(data)) match {
       case Some(callback) =>
-        console.log("consuming callback")
         callbacks -= callback
         callback(data)
         return
@@ -203,6 +200,9 @@ object Misc extends js.Object {
     } else $("") 
   }
   
+  var posSelection: (Int, Int) = (0, 0)
+  var posSelectedWasQuestionMark: Boolean = false
+  
   def displayAlternative(alternative: HDisambiguationDisplay, current: Boolean, custom: HDisambiguationDisplay, directEdit: Boolean): JQuery = {
     alternative.display = "(_edit_me\\d+_)+".r.replaceAllIn(alternative.display, "_edit_me_")
     val result: JQuery = $("<pre>")
@@ -226,8 +226,35 @@ object Misc extends js.Object {
     val editbox = $("""<i class="fa fa-pencil-square-o"></i>""").addClass("toactivate").text("edit").hide()
     val edittext = $("<pre>").attr("contentEditable", "true").addClass("disambiguationAlternative editing").addClass(if(current) "current" else "").text(alternative.display).hide()
     edittext.html(edittext.html().replaceAll("_edit_me_", """<span class="placeholder" style="font-family:FontAwesome">&#xf059;</span>"""))    
-    edittext.on("keyup paste click", () => {
+    edittext.on("keyup paste click", (e: JQueryEventObject) => {
+      console.log(e.keyCode)
       val pos = SelectionHandler.getSelection(edittext.get(0).asInstanceOf[dom.raw.Element])
+      val currentText = edittext.text()
+      val p1 = pos._1
+      if(p1 == pos._2) {
+        val toTheLeft = e.keyCode.getOrElse(0) == 37
+        val toTheRight = e.keyCode.getOrElse(0) == 39
+        val p = if(posSelectedWasQuestionMark && (toTheLeft || toTheRight)) { // If a questionmark was selected an upon a keystroke, the cursor should move one more.
+          if(toTheLeft) {
+            Math.max(p1 - 1, 0)
+          } else {
+            Math.min(p1+1, currentText.length - 1)
+          }
+        } else p1
+        val elem = edittext.get(0).asInstanceOf[dom.raw.Element]
+        if(p > 0 && currentText.charAt(p-1).toInt == 61529) {
+          SelectionHandler.setSelection(elem, (p - 1, p))
+          posSelectedWasQuestionMark = true
+        } else if(p < currentText.length && currentText.charAt(p).toInt == 61529) {
+          SelectionHandler.setSelection(elem, (p, p + 1))
+          posSelectedWasQuestionMark = true
+        } else {
+          SelectionHandler.setSelection(elem, (p, p))
+          posSelectedWasQuestionMark = false
+        }
+      } else if(pos._2 == p1 + 1 && currentText.length > p1 && 0 <= p1 && currentText.charAt(p1).toInt == 61529) {
+        posSelectedWasQuestionMark = true
+      }
       var changeSelection = false
       edittext.find("font[face=FontAwesome]").each{ (index: Int, _this: dom.Element) =>
         changeSelection = true

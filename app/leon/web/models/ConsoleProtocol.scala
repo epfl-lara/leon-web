@@ -23,6 +23,7 @@ object ConsoleProtocol {
 
   case class Cancelled(wa: WorkerActor)
   case object DoCancel
+  case class USetCommandFlags(ws: String)
   case class ULoadRepositories(user: User)
   case class ULoadRepository(user: User, owner: String, repo: String)
   case class ULoadFile(user: User, owner: String, repo: String, file: String)

@@ -199,7 +199,8 @@ case class InvariantDetails(
   newInvariant: String,
   newCode: String,
   time: Double
-)
+) extends Status
+
 case class OverviewFunction(
   name: String,
   displayName: String,
