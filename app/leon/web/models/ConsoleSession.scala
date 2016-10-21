@@ -156,6 +156,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   modules(f).isActive = false
                 }
               }
+            case SetCommandFlags(flags) =>
+              self ! USetCommandFlags(flags)
             case UnlinkAccount(provider) => withUser { user =>
               self ! UUnlinkAccount(user, provider)
             }
