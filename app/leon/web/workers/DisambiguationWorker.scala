@@ -55,7 +55,7 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
     }
     val confirm_solution_text = instantiate(question.current_output).asString(synth.program)(synth.context)
     
-    HDisambiguationResult(input = in.asString,
+    HDisambiguationResult(input = in.asString(cstate.program),
         fname = fd.id.name,
         forceAsking = currentSolutionNonDeterministic,
         confirm_solution = HDisambiguationDisplay(
@@ -152,12 +152,12 @@ class DisambiguationWorker(s: ActorRef, im: InterruptManager) extends WorkerActo
       exprsToTestFirst.map(_.map(println).toList)
       qb.setExpressionsToTestFirst(exprsToTestFirst)
       val questions = qb.resultAsStream()
-      val solutionNonDeterministic = ssol.headOption.exists(sol =>
+      if(questions.nonEmpty) {
+        val solutionNonDeterministic = ssol.headOption.exists(sol =>
         (sol.term #:: sol.defs.toStream.map(_.fullBody)).exists(expr =>
           ExprOps.exists{
             case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
             case _ => false }(expr)))
-      if(questions.nonEmpty) {
         logInfo("Got a question to ask:" + questions.head)
         val mainQuestion = convertQuestion(cstate, synth, fd, questions.head, solutionNonDeterministic, None)
         event(mainQuestion)

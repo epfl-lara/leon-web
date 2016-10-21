@@ -6,8 +6,6 @@ import leon.purescala.Expressions._
 import leon.purescala.Definitions._
 
 trait StringToExprCached {
-  implicit val ctx: LeonContext;
-  
   protected def program: Option[Program]
   
   /** Caches expr to string transformation to revert them back. */

@@ -393,7 +393,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val solCode = sol.toSimplifiedExpr(synth.context, synth.program, ci.problem.pc)
     val hasEditMe = ExprOps.exists{
-      case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => true
+      case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP_MULTIPLE()) => true
       case _ => false
     }(solCode)
 
@@ -417,7 +417,7 @@ class SynthesisWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, 
 
     val (allCodeSimplified, solCodeSimplified) = if(hasEditMe) {
       val solCodeSimplified = ExprOps.preMap{
-        case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP()) => Some(StringLiteral(""))
+        case StringLiteral(leon.synthesis.rules.StringRender.EDIT_ME_REGEXP_MULTIPLE()) => Some(StringLiteral(""))
         case _ => None
       }(solCode)
       val newFd2 = ci.fd.duplicate()

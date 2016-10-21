@@ -109,6 +109,9 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       logInfo("Starting Cancel Procedure...")
       interruptManager.interrupt()
       modules.values.foreach(_.actor ! DoCancel)
+      
+    case message@USetCommandFlags(flags) =>
+      modules.values.foreach(_.actor ! message)
 
     case Cancelled(wa)  =>
       cancelledWorkers += wa
@@ -157,23 +160,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               self ! UUnlinkAccount(user, provider)
             }
           }
-          // case message: GitModule => message match {
-          //   case LoadRepositories => withUser { user =>
-          //     self ! ULoadRepositories(user)
-          //   }
-          //   case LoadRepository(owner, repo) => withUser { user =>
-          //     self ! ULoadRepository(user, owner, repo)
-          //   }
-          //   case LoadFile(owner, repo, file) => withUser { user =>
-          //     self ! ULoadFile(user, owner, repo, file)
-          //   }
-          //   case SwitchBranch(owner, repo, branch) => withUser { user =>
-          //     self ! USwitchBranch(user, owner, repo, branch)
-          //   }
-          //   case DoGitOperation(op, project) => withUser { user =>
-          //     self ! UDoGitOperation(user, project, op)
-          //   }
-          // }
           case message if modules contains message.module =>
             val m = message.module
             if (modules(m).isActive) {

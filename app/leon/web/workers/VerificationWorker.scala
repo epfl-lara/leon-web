@@ -139,12 +139,14 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
   import ConsoleProtocol._
   import leon.evaluators._
   import leon.codegen._
-
-  override lazy implicit val ctx = leon.Main.processOptions(List(
-    "--feelinglucky",
-    "--solvers=smt-z3,smt-cvc4,ground",
-    "--debug=verification,solver"
-  )).copy(interruptManager = interruptManager, reporter = reporter)
+  
+  def applyLeonContextOptions(overridingOptions: Seq[String]) = {
+    super.applyLeonContextOptions(List(
+        "--feelinglucky",
+        "--solvers=smt-z3,smt-cvc4,ground",
+        "--debug=verification,solver"
+    ), overridingOptions)
+  }
 
   var program: Option[Program] = None
   var SOLVERTIMEOUT = 5
@@ -204,6 +206,8 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
   }
 
   def receive = {
+    case USetCommandFlags(flags) => applyLeonContextOptions(leon.Main.splitOptions(flags))
+    
     case OnUpdateCode(inputCState) if inputCState.isCompiled =>
       this.clearExprCache()
       // create a new cstate by instrumenting the program, if necessary
@@ -264,8 +268,10 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
       val toInvalidate = toGenerate.flatMap { program.callGraph.transitiveCallers _ }
 
       toGenerate ++= toInvalidate
+      
+      val solverTimeout = ctx.findOption(leon.GlobalOptions.optTimeout).map(_.toInt).getOrElse[Int](SOLVERTIMEOUT)
 
-      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(SOLVERTIMEOUT.seconds)
+      val tsolver = SolverFactory.getFromSettings(ctx, program).withTimeout(solverTimeout.seconds)
 
       val vctx = new VerificationContext(ctx, cstate.program, tsolver)
 

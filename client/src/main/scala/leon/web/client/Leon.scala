@@ -389,12 +389,25 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
     }
   }
   toggleWeb(Features.webbuilding.active)
-
+  
+  val leonCommandLineFlags = Persistent("leonCommandLineFlags", "")
+  if(leonCommandLineFlags() != "") {
+    sendBuffered(SetCommandFlags(leonCommandLineFlags()))
+  }
+   
   def regenerateFeaturesPanel() = {
     val fts = $("#params-panel ul").empty()
     for ((f, feature) <- Features.stringToFeature) {
       fts.append("""<li><label class="checkbox"><input id="feature-"""" + f + " class=\"feature\" ref=\"" + f + "\" type=\"checkbox\"" + (feature.active ? """ checked="checked"""" | "") + ">" + feature.name + "</label></li>")
     }
+    $("#additionalclflags")
+      .value(leonCommandLineFlags())
+      .off("keyup.updateServer paste.updateServer")
+      .on("keyup.updateServer paste.updateServer", () => {
+        val cl = $("#additionalclflags").value().asInstanceOf[String]
+        leonCommandLineFlags := cl
+        Server ! SetCommandFlags(cl)
+      })
     
     $(".feature").click(((self: Element) => {
       val f = $(self).attr("ref").getOrElse("")
@@ -404,7 +417,7 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
         toggleWeb(active)
       }
   
-      recompile()
+      recompile(true)
   
       drawOverView()
       drawSynthesisOverview()

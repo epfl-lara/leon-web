@@ -15,7 +15,7 @@ import scala.scalajs.js.typedarray._
 class BufferedWebSocket(val webSocket: WebSocket) extends AnyVal {
 
   def isOpen: Boolean =
-    webSocket.readyState === WebSocket.OPEN
+    webSocket != null && (webSocket.readyState === WebSocket.OPEN)
 
   def queue: Queue[ArrayBuffer] =
     BufferedWebSocket.queue
