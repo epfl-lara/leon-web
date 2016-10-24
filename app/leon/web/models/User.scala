@@ -4,7 +4,7 @@ package leon.web
 package models
 
 import play.api.libs.json._
-import leon.web.shared.{User => SharedUser, Identity => SharedIdentity, _}
+import leon.web.shared.{User => SharedUser, _}
 import securesocial.core._
 
 case class User(
@@ -14,7 +14,7 @@ case class User(
 ) {
 
   def identity(provider: Provider): Option[Identity] =
-    identities.find(_.i.provider == provider)
+    identities.find(_.publicId.provider == provider)
 
   lazy val github  = identity(Provider.GitHub)
   lazy val tequila = identity(Provider.Tequila)
@@ -29,15 +29,15 @@ case class User(
   }
 
   def toShared: SharedUser = {
-    SharedUser(userId, Some(main.i), identities.map(_.i))
+    SharedUser(userId, Some(main.publicId), identities.map(_.publicId))
   }
 }
 
 object User {
   import Identity._
-  
+
   def apply(userId: UserId, main: Provider, ids: Set[Identity]): User =
-    User(userId, ids.find(_.i.provider === main).get, ids)
+    User(userId, ids.find(_.publicId.provider === main).get, ids)
 
   def fromProfile(p: BasicProfile): User = {
     val id = Identity.fromProfile(p)
@@ -46,7 +46,7 @@ object User {
 
   implicit val userWrites = new Writes[User] {
     def writes(user: User): JsValue= {
-      val ids = user.identities.toSeq.map(i => i.i.provider.id -> i).toMap
+      val ids = user.identities.toSeq.map(i => i.publicId.provider.id -> i).toMap
 
       Json.obj(
         "id"         -> user.userId.value,

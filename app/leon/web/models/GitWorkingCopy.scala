@@ -293,8 +293,8 @@ class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
   def commit(msg: String): Boolean = {
     try {
       val userId = user.userId.value
-      val name   = user.github.flatMap(_.i.nameOrEmail).getOrElse(userId)
-      val email  = user.github.flatMap(_.i.email.map(_.value)).getOrElse(userId)
+      val name   = user.github.flatMap(_.publicId.nameOrEmail).getOrElse(userId)
+      val email  = user.github.flatMap(_.publicId.email.map(_.value)).getOrElse(userId)
 
       git.commit()
          .setAll(true)

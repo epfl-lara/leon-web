@@ -8,9 +8,8 @@ import anorm.SqlParser._
 import java.sql.Connection
 import play.api.Play.current
 import leon.web.models._
-import leon.web.shared.Provider
+import leon.web.shared.{Provider, UserId}
 import securesocial.core._
-import shared.{User => SharedUser, Identity => SharedIdentity, _}
 
 /** Provides methods to retrieve and store a [[leon.web.models.User]]
   * to/from the database.
@@ -45,7 +44,7 @@ object UserStore {
   def save(u: User)(implicit c: Connection): User = {
     val query = SQL"""
       MERGE INTO users (user_id, main_provider_id)
-      VALUES (${u.userId.value}, ${u.main.i.provider.id})
+      VALUES (${u.userId.value}, ${u.main.publicId.provider.id})
     """
 
     query.executeInsert()

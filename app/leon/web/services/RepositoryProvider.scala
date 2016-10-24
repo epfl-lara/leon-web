@@ -106,23 +106,23 @@ class TequilaRepositoryProvider(val user: User, val tequilaDir: String) extends 
 
   type R = TequilaRepository
 
-  val rootDir = s"$tequilaDir/${user.tequila.get.i.serviceUserId.value}"
+  val rootDir = user.tequila.map(t => s"$tequilaDir/${t.publicId.serviceUserId.value}")
 
-  lazy val localProvider = new LocalRepositoryProvider(rootDir)
+  val localProvider = rootDir.map(new LocalRepositoryProvider(_))
 
   override def provider: Provider =
     Provider.Tequila
 
   override def isAvailable = {
-    user.tequila.isDefined && localProvider.isAvailable
+    user.tequila.isDefined && localProvider.exists(_.isAvailable)
   }
 
   override def listRepositories()(implicit ec: ExecutionContext) = {
     require(isAvailable)
 
-    localProvider.listRepositories().map(_.map { repo =>
+    localProvider.get.listRepositories().map(_.map { repo =>
       TequilaRepository(
-        user.tequila.get.i.serviceUserId.value,
+        user.tequila.get.publicId.serviceUserId.value,
         repo.name,
         repo.defaultBranch,
         repo.branches

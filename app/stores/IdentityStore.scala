@@ -8,9 +8,8 @@ import anorm.SqlParser._
 import java.sql.Connection
 import play.api.Play.current
 import leon.web.models.Identity
-import leon.web.shared.Provider
+import leon.web.shared.{Identity => PublicIdentity, _}
 import securesocial.core._
-import shared.{Identity => SharedIdentity, _}
 
 /**
   * Provides methods to retrieve and store an [[leon.web.models.Identity]]
@@ -34,14 +33,15 @@ object IdentityStore {
       accessToken   <- str("access_token").?
     }
     yield Identity(
-      i= SharedIdentity(
+      publicId = PublicIdentity(
         ServiceUserId(serviceUserId),
         Provider(providerId),
         firstName, lastName, fullName,
-        email.map(Email), avatarUrl),
-      userId=     UserId(userId),
-      authMethod= AuthenticationMethod(authMethod),
-      oAuth2Info= accessToken.map(OAuth2Info(_, None, None, None))
+        email.map(Email), avatarUrl
+      ),
+      userId     = UserId(userId),
+      authMethod = AuthenticationMethod(authMethod),
+      oAuth2Info = accessToken.map(OAuth2Info(_, None, None, None))
     )
   }
 
@@ -84,9 +84,9 @@ object IdentityStore {
       auth_method, access_token
     )
     VALUES (
-      ${i.userId.value}, ${i.i.provider.id}, ${i.i.serviceUserId.value},
-      ${i.i.firstName}, ${i.i.lastName}, ${i.i.fullName},
-      ${i.i.email.map(_.value)}, ${i.i.avatarUrl},
+      ${i.userId.value}, ${i.publicId.provider.id}, ${i.publicId.serviceUserId.value},
+      ${i.publicId.firstName}, ${i.publicId.lastName}, ${i.publicId.fullName},
+      ${i.publicId.email.map(_.value)}, ${i.publicId.avatarUrl},
       ${i.authMethod.method}, ${i.oAuth2Info.map(_.accessToken)}
     )
     """
@@ -100,8 +100,8 @@ object IdentityStore {
     val query = SQL"""
       DELETE FROM identities
       WHERE user_id         = ${i.userId.value}
-        AND provider_id     = ${i.i.provider.id}
-        AND service_user_id = ${i.i.serviceUserId.value}
+        AND provider_id     = ${i.publicId.provider.id}
+        AND service_user_id = ${i.publicId.serviceUserId.value}
       LIMIT 1
     """
 
