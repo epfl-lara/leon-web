@@ -1,7 +1,7 @@
 package leon.web
 package client
 
-import scalacss.Defaults._
+import scalacss.ProdDefaults._
 
 import scala.language.postfixOps
 
