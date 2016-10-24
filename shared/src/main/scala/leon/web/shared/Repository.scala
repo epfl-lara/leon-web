@@ -92,7 +92,7 @@ sealed trait Repository {
   def fork: Boolean
 }
 
-case class GitHubRepositoryId(value: Long)// extends AnyVal
+case class GitHubRepositoryId(value: Long)
 
 case class GitHubRepository(
   id            : GitHubRepositoryId,
@@ -112,26 +112,26 @@ case class GitHubRepository(
 case class TequilaRepository(
   sciper        : String,
   name          : String,
-  path          : String,
   defaultBranch : String,
   branches      : Seq[Branch]
 ) extends Repository {
   val desc       = RepositoryDesc.fromTequila(sciper, name)
   val cloneURL   = ""
   val visibility = Visibility.Private
-  val fullName   = path
+  val fullName   = name
   val fork       = false
 }
 
 case class LocalRepository(
+  name          : String,
   path          : String,
-  cloneURL      : String,
   defaultBranch : String,
   branches      : Seq[Branch]
 ) extends Repository {
   val desc       = RepositoryDesc.fromLocal(path)
+  val cloneURL   = ""
   val visibility = Visibility.Private
-  val fullName   = path
+  val fullName   = name
   val fork       = false
 }
 

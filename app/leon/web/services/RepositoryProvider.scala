@@ -80,8 +80,8 @@ class LocalRepositoryProvider(val rootDir: String) extends RepositoryProvider {
     // TODO: Only keep dirs with a .git folder
     val repos = dirs.map { dir =>
       LocalRepository(
-        path          = dir.getName,
-        cloneURL      = s"file://${dir.getPath}",
+        name          = dir.getName,
+        path          = dir.getPath,
         defaultBranch = "master",
         branches      = Seq()
       )
@@ -102,21 +102,32 @@ class LocalRepositoryProvider(val rootDir: String) extends RepositoryProvider {
 
 }
 
-class TequilaRepositoryProvider(val user: User, tequilaDir: String)
-  extends LocalRepositoryProvider(s"$tequilaDir/${user.tequila.get.i.serviceUserId.value}") {
+class TequilaRepositoryProvider(val user: User, val tequilaDir: String) extends RepositoryProvider {
+
+  type R = TequilaRepository
+
+  val rootDir = s"$tequilaDir/${user.tequila.get.i.serviceUserId.value}"
+
+  lazy val localProvider = new LocalRepositoryProvider(rootDir)
 
   override def provider: Provider =
     Provider.Tequila
 
   override def isAvailable = {
-    println(rootDir)
-    user.tequila.isDefined && super.isAvailable
+    user.tequila.isDefined && localProvider.isAvailable
   }
 
   override def listRepositories()(implicit ec: ExecutionContext) = {
     require(isAvailable)
 
-    super.listRepositories()
+    localProvider.listRepositories().map(_.map { repo =>
+      TequilaRepository(
+        user.tequila.get.i.serviceUserId.value,
+        repo.name,
+        repo.defaultBranch,
+        repo.branches
+      )
+    })
   }
 
 }

@@ -14,10 +14,10 @@ class RepositoryService(user: User, ghService: Option[GitHubService]) {
 
   def fromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = desc match {
     case RepositoryDesc.Local(path) =>
-      Future.successful(getLocalRepository(path))
+      Future.successful(getLocalRepository(s"local/$path"))
 
     case RepositoryDesc.Tequila(sciper, name) =>
-      ???
+      Future.successful(getLocalRepository(s"tequila/$sciper/$name"))
 
     case RepositoryDesc.GitHub(owner, name) => ghService match {
       case Some(service) => service.getRepository(owner, name)
@@ -27,8 +27,8 @@ class RepositoryService(user: User, ghService: Option[GitHubService]) {
 
   def getLocalRepository(path: String): Repository =
     LocalRepository(
+      name          = path,
       path          = path,
-      cloneURL      = s"file://$path",
       defaultBranch = "master",
       branches      = Seq()
     )
