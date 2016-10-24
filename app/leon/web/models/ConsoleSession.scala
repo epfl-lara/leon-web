@@ -124,6 +124,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case NotifyClientBin(binData) =>
       pushMessage(binData)
+
     case NotifyClient(event) =>
       import boopickle.Default._
       import shared.messages._

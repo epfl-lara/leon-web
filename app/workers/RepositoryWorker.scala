@@ -100,7 +100,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
         val progressActor = context.actorOf(Props(
           classOf[JGitProgressWorker],
-          "git_progress", self
+          "git_progress", session
         ))
 
         val progressMonitor = new JGitProgressMonitor(progressActor)
@@ -358,7 +358,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
       sender ! Cancelled(this)
 
     case msg =>
-      clientLog(s"RepositoryActor received an unknown message: $msg")
+      clientLog(s"RepositoryWorker received an unknown message: $msg")
 
   }
 
