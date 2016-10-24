@@ -28,10 +28,12 @@ object LoadRepositoryModal {
     onSelect: Repository => Callback,
     cloning: Boolean = false,
     repos: Option[Map[Provider, Seq[Repository]]] = None
-  )
+  ) {
+    val providers: Seq[Provider] = repos.map(_.keys.toSeq).getOrElse(Seq())
+  }
 
   case class State(
-    selectedRepo  : Option[Repository] = None,
+    selectedRepo     : Option[Repository]  = None,
     selectedProvider : Option[Provider]    = None,
     cloneProgress    : Option[GitProgress] = None
   )
@@ -89,11 +91,11 @@ object LoadRepositoryModal {
 
     def render(props: Props, state: State) =
       Modal(onRequestHide)(
-        <.div(^.className := "modal-header",
+        <.div(^.className := "modal-header with-nav-tabs",
           Modal.closeButton(onRequestHide),
-          <.h3("Load a repository from GitHub")
+          <.h3("Load a Git repository")
         ),
-        <.div(^.className := "modal-body",
+        <.div(^.className := "modal-body with-nav-tabs",
           renderBody(props, state)
         ),
         renderFooter(props, state)
@@ -104,21 +106,34 @@ object LoadRepositoryModal {
         <.div(loading)
 
       case Some(repos) =>
-        <.div(
-          renderProviders(repos.keys.toSeq, state.selectedProvider),
-          state.selectedProvider.isDefined ?=
-            renderRepositories(
-              repos(state.selectedProvider.get),
-              state.selectedRepo,
-              props.cloning
+        <.div(^.className := "panel with-nav-tabs panel-default",
+          <.div(^.className := "panel-heading",
+            renderProviders(repos.keys.toSeq, state.selectedProvider)
+          ),
+          <.div(^.className := "panel-body",
+            state.selectedProvider.isDefined ?=
+              renderRepositories(
+                repos(state.selectedProvider.get),
+                state.selectedRepo,
+                props.cloning
+              )
             )
         )
     }
 
     def renderProviders(providers: Seq[Provider], selected: Option[Provider]) =
-      <.ul(
+      <.ul(^.className := "nav nav-tabs",
         providers.map { p =>
-          <.li(^.onClick --> onSelectProvider(p), p.id)
+          <.li(
+            ^.classSet1(
+              s"provider-${p.id}",
+              "active" -> selected.exists(_ == p)
+            ),
+            <.a(
+              ^.onClick --> onSelectProvider(p),
+              p.name
+            )
+          )
         }
       )
 
@@ -127,10 +142,7 @@ object LoadRepositoryModal {
       selectedRepo: Option[Repository],
       cloning: Boolean
     ) =
-      <.div(^.className := "modal-section",
-        <.h5(
-          """Select a provider and a repository from the list below:"""
-        ),
+      <.div(
         RepositoryList(
           repos    = repos,
           onSelect = onSelectRepo,
@@ -158,7 +170,9 @@ object LoadRepositoryModal {
 
   val component =
     ReactComponentB[Props]("LoadRepositoryModal")
-      .initialState(State())
+      .initialState_P(props =>
+        State(selectedProvider = props.providers.headOption)
+      )
       .renderBackend[Backend]
       .build
 

@@ -1,14 +1,13 @@
 package leon.web
 package shared
 
-sealed abstract class Provider {
-  def id: String
+sealed abstract class Provider(val id: String, val name: String) {
   def isUnknown: Boolean = this == UnknownProvider
 }
 
-case object GitHubProvider  extends Provider { val id = "github" }
-case object TequilaProvider extends Provider { val id = "tequila" }
-case object UnknownProvider extends Provider { val id = "unknown" }
+case object GitHubProvider  extends Provider("github", "GitHub")
+case object TequilaProvider extends Provider("tequila", "Tequila")
+case object UnknownProvider extends Provider("unknown", "Unknown")
 
 object Provider {
 

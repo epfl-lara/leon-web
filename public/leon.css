@@ -230,6 +230,34 @@ div.panel > h3 {
     width: 95% !important;
 }
 
+.modal-header.with-nav-tabs {
+  text-align: center !important;
+  border-bottom: 0 !important;
+}
+
+.modal-body.with-nav-tabs {
+  padding: 0 !important;
+}
+
+.panel.with-nav-tabs {
+  border: 0 !important;
+  margin: 0 !important;
+}
+
+.panel.with-nav-tabs .panel-body {
+  padding-bottom: 0 !important;
+}
+
+.panel.with-nav-tabs .panel-heading {
+    padding: 5px 5px 0 5px !important;
+}
+.panel.with-nav-tabs .nav-tabs {
+	border-bottom: none !important;
+}
+.panel.with-nav-tabs .nav-justified {
+	margin-bottom: -1px !important;
+}
+
 div.compilation-status {
     color: white;
     padding: 3px 15px 0px 0px;
