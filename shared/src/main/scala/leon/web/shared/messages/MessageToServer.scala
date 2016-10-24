@@ -38,7 +38,7 @@ case class VerificationTimeout(seconds: Int) extends MessageToServer with Verifi
 
 // git
 sealed trait RepositoryModule {
-  val module = Git
+  val module = RepositoryHandler
 }
 
 /** Actions that the React app can trigger.
