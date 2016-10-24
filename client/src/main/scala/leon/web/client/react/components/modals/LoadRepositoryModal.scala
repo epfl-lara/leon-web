@@ -131,6 +131,7 @@ object LoadRepositoryModal {
             ),
             <.a(
               ^.onClick --> onSelectProvider(p),
+              ^.href := "javascript:void",
               p.name
             )
           )

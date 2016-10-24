@@ -244,10 +244,6 @@ div.panel > h3 {
   margin: 0 !important;
 }
 
-.panel.with-nav-tabs .panel-body {
-  padding-bottom: 0 !important;
-}
-
 .panel.with-nav-tabs .panel-heading {
     padding: 5px 5px 0 5px !important;
 }
