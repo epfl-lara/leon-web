@@ -3,6 +3,8 @@
 package leon.web
 package services
 
+import play.Play
+
 import java.io.File
 
 import scala.concurrent.{Future, ExecutionContext}
@@ -15,7 +17,6 @@ trait RepositoryProvider {
   type R <: Repository
 
   def provider: Provider
-  def ofType: RepositoryType
 
   def isAvailable: Boolean
 
@@ -25,9 +26,14 @@ trait RepositoryProvider {
 
 object RepositoryProvider {
 
+  private
+  val tequilaRootDir = {
+    Play.application.configuration.getString("repositories.path") + "/tequila/"
+  }
+
   def forUser(user: User)(implicit ec: ExecutionContext): Seq[RepositoryProvider] = {
     val gh  = new GitHubRepositoryProvider(user)
-    val teq = new TequilaRepositoryProvider(user, "")
+    val teq = new TequilaRepositoryProvider(user, tequilaRootDir)
 
     Seq(gh, teq).filter(_.isAvailable)
   }
@@ -41,10 +47,7 @@ class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
     user.github.flatMap(_.oAuth2Info).map(_.accessToken)
 
   override def provider: Provider =
-    GitHubProvider
-
-  override def ofType: RepositoryType =
-    GitHubRepositoryType
+    Provider.GitHub
 
   override def isAvailable =
     token.isDefined
@@ -57,17 +60,14 @@ class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
 
 }
 
-class LocalRepositoryProvider(rootDir: String) extends RepositoryProvider {
+class LocalRepositoryProvider(val rootDir: String) extends RepositoryProvider {
 
   type R = LocalRepository
 
   private lazy val root = new File(rootDir)
 
   override def provider: Provider =
-    UnknownProvider
-
-  override def ofType: RepositoryType =
-    LocalRepositoryType
+    Provider.Local
 
   override def isAvailable =
     root.exists && root.isDirectory && root.canRead
@@ -75,23 +75,48 @@ class LocalRepositoryProvider(rootDir: String) extends RepositoryProvider {
   override def listRepositories()(implicit ec: ExecutionContext) = {
     require(isAvailable)
 
-    Future.successful(Seq())
+    val dirs = listDirsInDir(rootDir)
+
+    // TODO: Only keep dirs with a .git folder
+    val repos = dirs.map { dir =>
+      LocalRepository(
+        path          = dir.getName,
+        cloneURL      = s"file://${dir.getPath}",
+        defaultBranch = "master",
+        branches      = Seq()
+      )
+    }
+
+    Future.successful(repos)
+  }
+
+  private
+  def listDirsInDir(dir: String): Seq[File] = {
+    val d = new File(dir)
+    if (d.exists && d.isDirectory) {
+      d.listFiles.filter(_.isDirectory).toSeq
+    } else {
+      Nil
+    }
   }
 
 }
 
-class TequilaRepositoryProvider(user: User, rootDir: String) extends LocalRepositoryProvider(rootDir) {
+class TequilaRepositoryProvider(val user: User, tequilaDir: String)
+  extends LocalRepositoryProvider(s"$tequilaDir/${user.tequila.get.i.serviceUserId.value}") {
 
   override def provider: Provider =
-    TequilaProvider
+    Provider.Tequila
 
-  override def isAvailable =
+  override def isAvailable = {
+    println(rootDir)
     user.tequila.isDefined && super.isAvailable
+  }
 
   override def listRepositories()(implicit ec: ExecutionContext) = {
     require(isAvailable)
 
-    Future.successful(Seq())
+    super.listRepositories()
   }
 
 }

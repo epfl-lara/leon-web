@@ -1,7 +1,7 @@
 package leon.web
 package shared
 
-case class UserId(value: String)// extends AnyVal
+case class UserId(value: String)
 
 case class User (
   userId:     UserId,
@@ -9,9 +9,9 @@ case class User (
   identities: Set[Identity]
 ) {
 
-  lazy val github  = identity(GitHubProvider)
-  lazy val tequila = identity(TequilaProvider)
-  
+  lazy val github  = identity(Provider.GitHub)
+  lazy val tequila = identity(Provider.Tequila)
+
   def identity(provider: Provider): Option[Identity] =
     identities.find(_.provider == provider)
 
@@ -19,7 +19,7 @@ case class User (
     require (identities.size >= 2)
 
     val newIds  = identities - id
-    val newMain = if (main.map(i => id == i).getOrElse(false)) Some(newIds.head) else main
+    val newMain = if (main.exists(i => id == i)) Some(newIds.head) else main
 
     User(userId, newMain, newIds)
   }
@@ -29,3 +29,4 @@ object User {
   def apply(userId: UserId, main: Provider, ids: Set[Identity]): User =
     User(userId, ids.find(_.provider === main), ids)
 }
+

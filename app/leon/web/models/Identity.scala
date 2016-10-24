@@ -9,7 +9,8 @@ import leon.web.utils.Hash
 import leon.web.shared.{Identity => SharedIdentity, _}
 import play.api.libs.json.Json.toJsFieldJsValueWrapper
 
-case class Identity(i: SharedIdentity,
+case class Identity(
+  i: SharedIdentity,
   userId: UserId,
   authMethod: AuthenticationMethod,
   oAuth2Info: Option[OAuth2Info]) {

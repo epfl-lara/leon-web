@@ -35,8 +35,8 @@ object AccountModal {
       Actions dispatchCB UnlinkAccount(identity.provider)
 
     def providerIcon(provider: Provider) = provider match {
-      case GitHubProvider  => "Link with GitHub"
-      case TequilaProvider => "Link with Tequila"
+      case Provider.GitHub  => "Link with GitHub"
+      case Provider.Tequila => "Link with Tequila"
       case _                => sys.error("Unknown provider. This should never happen.")
     }
 

@@ -17,57 +17,57 @@ import leon.web.shared.GitHubRepositoryId
 import leon.web.shared.LocalRepository
 import scala.math.BigDecimal.long2bigDecimal
 
-trait StandaloneJsonWrites {
+trait RepositoryJsonReads {
 
   import leon.web.shared._
 
-  implicit val providerWrites: Writes[Provider] = Writes { p =>
-    JsString(p.id)
-  }
+  // implicit val providerWrites: Writes[Provider] = Writes { p =>
+  //   JsString(p.id)
+  // }
 
-  implicit val visibilityWrites: Writes[Visibility] = Writes {
-    case Public  => JsString("public")
-    case Private => JsString("private")
-    case All     => JsString("all")
-  }
+  // implicit val visibilityWrites: Writes[Visibility] = Writes {
+  //   case Public  => JsString("public")
+  //   case Private => JsString("private")
+  //   case All     => JsString("all")
+  // }
 
   implicit val visibilityReads: Reads[Visibility] = Reads {
     _.validate[Boolean].map {
-      case false => Public
-      case true  => Private
+      case false => Visibility.Public
+      case true  => Visibility.Private
     }
   }
 
-  implicit val branchWrites: Writes[Branch] = (
-    ( __ \ "name" ).write[String] and
-    ( __ \ "sha"  ).write[String]
-  )(unlift(Branch.unapply))
+  // implicit val branchWrites: Writes[Branch] = (
+  //   ( __ \ "name" ).write[String] and
+  //   ( __ \ "sha"  ).write[String]
+  // )(unlift(Branch.unapply))
 
   implicit val branchReads: Reads[Branch] = (
     ( __ \ "name"           ).read[String] and
     ( __ \ "commit" \ "sha" ).read[String]
   )(Branch.apply _)
 
-  implicit val repositoryIdWrites: Writes[GitHubRepositoryId] = Writes {
-    id => JsNumber(id.value)
-  }
+  // implicit val repositoryIdWrites: Writes[GitHubRepositoryId] = Writes {
+  //   id => JsNumber(id.value)
+  // }
 
   implicit val repositoryIdReads: Reads[GitHubRepositoryId] = Reads {
     _.validate[Long].map(GitHubRepositoryId(_))
   }
 
-  implicit val githubRepositoryWrites: Writes[GitHubRepository] = (
-    ( __ \ "id"            ).write[GitHubRepositoryId] and
-    ( __ \ "name"          ).write[String]       and
-    ( __ \ "fullName"      ).write[String]       and
-    ( __ \ "owner"         ).write[String]       and
-    ( __ \ "visibility"    ).write[Visibility]   and
-    ( __ \ "fork"          ).write[Boolean]      and
-    ( __ \ "size"          ).write[Long]         and
-    ( __ \ "cloneURL"      ).write[String]       and
-    ( __ \ "defaultBranch" ).write[String]       and
-    ( __ \ "branches"      ).write[Seq[Branch]]
-  )(unlift(GitHubRepository.unapply))
+  // implicit val githubRepositoryWrites: Writes[GitHubRepository] = (
+  //   ( __ \ "id"            ).write[GitHubRepositoryId] and
+  //   ( __ \ "name"          ).write[String]       and
+  //   ( __ \ "fullName"      ).write[String]       and
+  //   ( __ \ "owner"         ).write[String]       and
+  //   ( __ \ "visibility"    ).write[Visibility]   and
+  //   ( __ \ "fork"          ).write[Boolean]      and
+  //   ( __ \ "size"          ).write[Long]         and
+  //   ( __ \ "cloneURL"      ).write[String]       and
+  //   ( __ \ "defaultBranch" ).write[String]       and
+  //   ( __ \ "branches"      ).write[Seq[Branch]]
+  // )(unlift(GitHubRepository.unapply))
 
   implicit val githubRepositoryReads: Reads[GitHubRepository] = (
     ( __ \ "id"              ).read[GitHubRepositoryId] and
@@ -83,12 +83,12 @@ trait StandaloneJsonWrites {
                               .map(_.getOrElse(Seq()))
   )(GitHubRepository.apply _)
 
-  implicit val localRepositoryWrites: Writes[LocalRepository] = (
-    ( __ \ "name"          ).write[String]       and
-    ( __ \ "cloneURL"      ).write[String]       and
-    ( __ \ "defaultBranch" ).write[String]       and
-    ( __ \ "branches"      ).write[Seq[Branch]]
-  )(unlift(LocalRepository.unapply))
+  // implicit val localRepositoryWrites: Writes[LocalRepository] = (
+  //   ( __ \ "name"          ).write[String]       and
+  //   ( __ \ "cloneURL"      ).write[String]       and
+  //   ( __ \ "defaultBranch" ).write[String]       and
+  //   ( __ \ "branches"      ).write[Seq[Branch]]
+  // )(unlift(LocalRepository.unapply))
 
   implicit val localRepositoryReads: Reads[LocalRepository] = (
     ( __ \ "name"            ).read[String]       and
@@ -98,12 +98,12 @@ trait StandaloneJsonWrites {
                               .map(_.getOrElse(Seq()))
   )(LocalRepository.apply _)
 
-  implicit val repositoryWrites: Writes[Repository] = Writes {
-    case local: LocalRepository   => toJson(local)(localRepositoryWrites)
-    case github: GitHubRepository => toJson(github)(githubRepositoryWrites)
-  }
+  // implicit val repositoryWrites: Writes[Repository] = Writes {
+  //   case local: LocalRepository   => toJson(local)(localRepositoryWrites)
+  //   case github: GitHubRepository => toJson(github)(githubRepositoryWrites)
+  // }
 
 }
 
-object StandaloneJsonWrites extends StandaloneJsonWrites
+object RepositoryJsonReads extends RepositoryJsonReads
 

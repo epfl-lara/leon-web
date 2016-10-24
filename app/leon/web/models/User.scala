@@ -16,8 +16,8 @@ case class User(
   def identity(provider: Provider): Option[Identity] =
     identities.find(_.i.provider == provider)
 
-  lazy val github  = identity(GitHubProvider)
-  lazy val tequila = identity(TequilaProvider)
+  lazy val github  = identity(Provider.GitHub)
+  lazy val tequila = identity(Provider.Tequila)
 
   def unlink(id: Identity): User = {
     require (identities.size >= 2)

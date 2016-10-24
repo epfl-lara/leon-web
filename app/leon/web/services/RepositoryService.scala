@@ -11,18 +11,27 @@ class RepositoryService(user: User, ghService: Option[GitHubService]) {
 
   import RepositoryDesc._
   import shared._
+
   def fromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = desc match {
-    case LocalRepositoryDesc(path) =>
+    case RepositoryDesc.Local(path) =>
       Future.successful(getLocalRepository(path))
 
-    case GitHubRepositoryDesc(owner, name) if ghService.isDefined =>
-      ghService.get.getRepository(owner, name)
+    case RepositoryDesc.Tequila(sciper, name) =>
+      ???
 
-    case GitHubRepositoryDesc(owner, name) =>
-      Future.failed(new Throwable("Missing GitHub oAuth token."))
+    case RepositoryDesc.GitHub(owner, name) => ghService match {
+      case Some(service) => service.getRepository(owner, name)
+      case None          => Future.failed(new Throwable("Missing GitHub oAuth token."))
+    }
   }
 
-  def getLocalRepository(path: String): Repository = ???
+  def getLocalRepository(path: String): Repository =
+    LocalRepository(
+      path          = path,
+      cloneURL      = s"file://$path",
+      defaultBranch = "master",
+      branches      = Seq()
+    )
 
 }
 

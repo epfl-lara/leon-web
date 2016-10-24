@@ -32,8 +32,8 @@ object LoginModal {
       )
 
     def providerIcon(provider: Provider) = provider match {
-      case GitHubProvider  => "Login with GitHub"
-      case TequilaProvider => "Login with Tequila"
+      case Provider.GitHub  => "Login with GitHub"
+      case Provider.Tequila => "Login with Tequila"
       case _                => sys.error("Unknown provider. This should never happen.")
     }
 
@@ -78,10 +78,10 @@ object LoginModal {
           <.div(^.className := "auth-buttons container-fluid",
             <.div(^.className := "row",
               <.div(^.className := "col-md-6 center",
-                loginButton(GitHubProvider, state.loggingInWith)
+                loginButton(Provider.GitHub, state.loggingInWith)
               ),
               <.div(^.className := "col-md-6 center",
-                loginButton(TequilaProvider, state.loggingInWith)
+                loginButton(Provider.Tequila, state.loggingInWith)
               )
             )
           )

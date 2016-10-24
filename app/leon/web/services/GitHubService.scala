@@ -19,7 +19,7 @@ object GitHubService {
 /** Defines an interface to the GitHub API */
 class GitHubService(token: String) {
 
-  import leon.web.models.StandaloneJsonWrites._
+  import leon.web.models.RepositoryJsonReads._
 
   case class Error(private val message: String) extends Throwable(message)
 

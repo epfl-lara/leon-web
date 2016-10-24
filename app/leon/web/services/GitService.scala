@@ -17,13 +17,17 @@ object GitService {
     Play.application.configuration.getString("repositories.path")
   }
 
-  def getWorkingCopy(user: User, repoDesc: RepositoryDesc, token: Option[String] = None): GitWorkingCopy = repoDesc match {
-    case LocalRepositoryDesc(name) =>
-      val path = new File(s"$root/${user.userId.value}/local/$name")
+  def getWorkingCopy(user: User, desc: RepositoryDesc, token: Option[String] = None): GitWorkingCopy = desc match {
+    case RepositoryDesc.Local(name) =>
+      val path = new File(s"$root/${desc.provider.id}/${user.userId.value}/$name")
       new GitWorkingCopy(path, user)
 
-    case GitHubRepositoryDesc(owner, name) =>
-      val path = new File(s"$root/${user.userId.value}/$owner/$name")
+    case RepositoryDesc.Tequila(sciper, name) =>
+      val path = new File(s"$root/${desc.provider.id}/$sciper/$name")
+      new GitWorkingCopy(path, user)
+
+    case RepositoryDesc.GitHub(owner, name) =>
+      val path = new File(s"$root/${desc.provider.id}/${user.userId.value}/$owner/$name")
       new GitWorkingCopy(path, user, token)
   }
 

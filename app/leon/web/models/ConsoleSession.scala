@@ -32,7 +32,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import org.joda.time.DateTime
 import org.joda.time.format.DateTimeFormat
 import java.nio.ByteBuffer
-import leon.web.shared.{Provider, GitHubProvider}
 
 import leon.web.websitebuilder.memory.Memory
 
