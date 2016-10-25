@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals.LoadRepositoryModal
-import leon.web.shared.{Repository, Branch}
+import leon.web.shared.{Repository, Branch, Provider}
 
 /** Panel displayed in the sidebar on the right, wich lets
   * users pick a repository and load a specific file from that
@@ -52,7 +52,7 @@ object LoadRepositoryPanel {
     def render(props: Props) = {
       val hasRepo = props.repository.isDefined
       <.div(^.className := "panel",
-        <.h3("Load a GitHub repository:"),
+        <.h3("Load a repository:"),
         <.div(
           LoadRepositoryButton(props.repository, onClickSelect, onClickUnload),
           hasRepo ?= renderBranches(props.repository.get, props.branches, props.branch),
@@ -138,9 +138,18 @@ object LoadRepositoryButton {
       )
 
     def renderContent(repo: Option[Repository], isHover: Boolean) = repo match {
-      case Some(repo) if !isHover => octicon("mark-github", repo.fullName)
-      case Some(_)                => octicon("mark-github", "Select another repository")
-      case None                   => octicon("mark-github", "Select a GitHub repository")
+      case Some(_) if isHover =>
+        octicon("repo", "Select another repository")
+
+      case Some(repo) if repo.desc.provider == Provider.GitHub =>
+        octicon("mark-github", repo.desc.toString)
+
+      // TODO: Use better Tequila icon
+      case Some(repo) =>
+        octicon("repo", repo.desc.toString)
+
+      case None =>
+        octicon("repo", "Select a repository")
     }
 
     def renderUnloadButton(onClick: Callback) =

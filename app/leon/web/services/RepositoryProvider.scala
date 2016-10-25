@@ -9,7 +9,7 @@ import java.io.File
 
 import scala.concurrent.{Future, ExecutionContext}
 
-import leon.web.models.User
+import leon.web.models.{User, GitWorkingCopy}
 import leon.web.shared._
 
 trait RepositoryProvider {
@@ -22,21 +22,27 @@ trait RepositoryProvider {
 
   def listRepositories()(implicit ec: ExecutionContext): Future[Seq[R]]
 
+  def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[R]
+
 }
 
 object RepositoryProvider {
 
   private
   val tequilaRootDir = {
-    Play.application.configuration.getString("repositories.path") + "/tequila/"
+    Play.application.configuration.getString("repositories.tequila.path")
   }
 
-  def forUser(user: User)(implicit ec: ExecutionContext): Seq[RepositoryProvider] = {
-    val gh  = new GitHubRepositoryProvider(user)
-    val teq = new TequilaRepositoryProvider(user, tequilaRootDir)
-
-    Seq(gh, teq).filter(_.isAvailable)
+  // FIXME: Return Option
+  def forUser(user: User, provider: Provider): RepositoryProvider = provider match {
+    case Provider.GitHub  => new GitHubRepositoryProvider(user)
+    case Provider.Tequila => new TequilaRepositoryProvider(user, tequilaRootDir)
   }
+
+  def forUser(user: User): Set[RepositoryProvider] = {
+    Provider.all.map(forUser(user, _)).filter(_.isAvailable)
+  }
+
 }
 
 class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
@@ -58,6 +64,13 @@ class GitHubRepositoryProvider(user: User) extends RepositoryProvider {
     GitHubService(token.get).listUserRepositories()
   }
 
+  override def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext) = {
+    require(isAvailable)
+
+    val RepositoryDesc.GitHub(owner, name) = desc
+    GitHubService(token.get).getRepository(owner, name)
+  }
+
 }
 
 class LocalRepositoryProvider(val rootDir: String) extends RepositoryProvider {
@@ -75,26 +88,51 @@ class LocalRepositoryProvider(val rootDir: String) extends RepositoryProvider {
   override def listRepositories()(implicit ec: ExecutionContext) = {
     require(isAvailable)
 
-    val dirs = listDirsInDir(rootDir)
-
-    // TODO: Only keep dirs with a .git folder
-    val repos = dirs.map { dir =>
-      LocalRepository(
-        name          = dir.getName,
-        path          = dir.getPath,
-        defaultBranch = "master",
-        branches      = Seq()
-      )
-    }
+    val dirs  = listDirsInDir(rootDir)
+    val repos = dirs.map(repoFromDir)
 
     Future.successful(repos)
+  }
+
+  private def repoFromDir(dir: File): LocalRepository = {
+    // TODO: Make GitWorkingCopy take an optional user
+    val wc = new GitWorkingCopy(dir, null)
+    val defBranch = wc.branchName()
+    val branches = wc.branches().toSeq.map(refToBranch)
+
+    LocalRepository(
+      name          = dir.getName,
+      path          = dir.getPath,
+      defaultBranch = defBranch,
+      branches      = branches
+    )
+  }
+
+  override def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext) = {
+    require(isAvailable)
+
+    val RepositoryDesc.Local(path) = desc
+
+    Future.successful {
+      repoFromDir(new File(path))
+    }
+  }
+
+  import org.eclipse.jgit.lib.Ref
+
+  def refToBranch(ref: Ref): Branch =
+    Branch(ref.getName, ref.getObjectId.toString)
+
+  private
+  def hasGitFolder(dir: File): Boolean = {
+    dir.listFiles.filter(_.isDirectory).exists(_.getName == ".git")
   }
 
   private
   def listDirsInDir(dir: String): Seq[File] = {
     val d = new File(dir)
     if (d.exists && d.isDirectory) {
-      d.listFiles.filter(_.isDirectory).toSeq
+      d.listFiles.filter(f => f.isDirectory && hasGitFolder(f)).toSeq
     } else {
       Nil
     }
@@ -128,6 +166,21 @@ class TequilaRepositoryProvider(val user: User, val tequilaDir: String) extends 
         repo.branches
       )
     })
+  }
+
+  override def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext) = {
+    require(isAvailable)
+
+    val RepositoryDesc.Tequila(sciper, name) = desc
+
+    localProvider.get.getRepoFromDesc(RepositoryDesc.Local(s"$sciper/$name")).map { repo =>
+      TequilaRepository(
+        user.tequila.get.publicId.serviceUserId.value,
+        repo.name,
+        repo.defaultBranch,
+        repo.branches
+      )
+    }
   }
 
 }
