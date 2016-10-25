@@ -72,6 +72,12 @@ class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
     git.branchList().setListMode(mode).call()
   }
 
+  def branchesNamesAndRef(all: Boolean = true): Iterable[(String, String)] = {
+    branches(all).map(_.getTarget) map { ref =>
+      (Repository.shortenRefName(ref.getName), ref.getObjectId.getName)
+    }
+  }
+
   def branch(): Ref =
     repo.getRef(Constants.HEAD).getTarget()
 

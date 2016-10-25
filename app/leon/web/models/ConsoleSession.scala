@@ -232,7 +232,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
           case Some(p) =>
             val path = {
-              val wc = GitService.getWorkingCopy(user.get, p.repo.desc)
+              val wc = RepositoryService.getWorkingCopy(user.get, p.repo.desc)
 
               wc.getFile(p.branch, p.file)
                 .map(_._3)
@@ -256,7 +256,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               savedFile.getAbsolutePath() :: Nil
 
             case Some((user, Project(repo, branch, file, _))) =>
-              val wc = GitService.getWorkingCopy(user, repo.desc)
+              val wc = RepositoryService.getWorkingCopy(user, repo.desc)
 
               wc.getFiles(branch)
                 .getOrElse(Seq[String]())

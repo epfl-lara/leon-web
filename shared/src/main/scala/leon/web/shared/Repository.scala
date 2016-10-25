@@ -23,29 +23,20 @@ object RepositoryType {
     all.getOrElse(id, Unknown)
 }
 
-sealed trait RepositoryDesc {
-  def provider: Provider
-  def desc: String
-
-  override def toString = s"$provider:$desc"
+sealed abstract class RepositoryDesc(val desc: String, val provider: Provider) {
+  override def toString = desc
 }
 
 object RepositoryDesc {
 
-  case class GitHub(owner: String, name: String) extends RepositoryDesc {
-    val desc     = s"$owner/$name"
-    val provider = Provider.GitHub
-  }
+  case class GitHub(owner: String, name: String)
+    extends RepositoryDesc(s"$owner/$name", Provider.GitHub)
 
-  case class Tequila(sciper: String, name: String) extends RepositoryDesc {
-    val desc     = s"$sciper/$name"
-    val provider = Provider.Tequila
-  }
+  case class Tequila(sciper: String, name: String)
+    extends RepositoryDesc(s"$sciper/$name", Provider.Tequila)
 
-  case class Local(path: String) extends RepositoryDesc {
-    val desc     = path
-    val provider = Provider.Local
-  }
+  case class Local(path: String)
+    extends RepositoryDesc(path, Provider.Local)
 
   def fromGitHub(owner: String, repo: String) =
     RepositoryDesc.GitHub(owner, repo)

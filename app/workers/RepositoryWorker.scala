@@ -63,10 +63,10 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
     case ULoadRepositories(user) =>
       clientLog(s"Fetching repositories list...")
 
-      val providers = RepositoryProvider.forUser(user)
+      val services = RepositoryService.forUser(user)
       val result = Future.sequence {
-        providers.map { p =>
-          p.listRepositories().map(p.provider -> _)
+        services.map { s =>
+          s.listRepositories().map(s.provider -> _)
         }
       }
 
@@ -83,10 +83,11 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
     case ULoadRepository(user, repoDesc) =>
       clientLog(s"Fetching repository information...")
 
-      val rs     = RepositoryService(user)
-      val result = rs.fromDesc(repoDesc)
+      val rs     = RepositoryService.forUser(user, repoDesc.provider)
+      val result = rs.getRepoFromDesc(repoDesc)
 
       result onFailure { case err =>
+        println(err)
         notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
@@ -95,7 +96,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
         case repo: GitHubRepository =>
           clientLog(s"=> DONE")
 
-          val wc = GitService.getWorkingCopy(user, repoDesc)
+          val wc = rs.getWorkingCopy(repoDesc)
 
           val progressActor = context.actorOf(Props(
             classOf[JGitProgressWorker],
@@ -122,7 +123,9 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
           future pipeTo self
 
         case repo =>
-          val wc = GitService.getWorkingCopy(user, repoDesc)
+          println(repo)
+          val wc = rs.getWorkingCopy(repoDesc)
+          println(s"wc exists: ${wc.exists}")
 
           if (wc.exists) {
             clientLog(s"=> DONE")
@@ -134,7 +137,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
       }
 
     case URepositoryLoaded(user, repo, currentBranch) =>
-      val wc = GitService.getWorkingCopy(user, repo.desc)
+      val wc = RepositoryService.getWorkingCopy(user, repo.desc)
 
       clientLog(s"Listing files in '${repo.desc}'...")
 
@@ -157,15 +160,15 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
     case ULoadFile(user, repoDesc, file) =>
       clientLog(s"Loading file '$file'...")
 
-      val rs     = RepositoryService(user)
-      val result = rs.fromDesc(repoDesc)
+      val rs     = RepositoryService.forUser(user, repoDesc.provider)
+      val result = rs.getRepoFromDesc(repoDesc)
 
       result onFailure { case err =>
         notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
       result onSuccess { case repo =>
-        val wc = GitService.getWorkingCopy(user, repoDesc)
+        val wc = rs.getWorkingCopy(repoDesc)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$repoDesc'")
@@ -190,15 +193,15 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
     case USwitchBranch(user, repoDesc, branch) =>
       clientLog(s"Checking out branch '$branch'...")
 
-      val rs     = RepositoryService(user)
-      val result = rs.fromDesc(repoDesc)
+      val rs     = RepositoryService.forUser(user, repoDesc.provider)
+      val result = rs.getRepoFromDesc(repoDesc)
 
       result onFailure { case err =>
         notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
       result onSuccess { case repo =>
-        val wc = GitService.getWorkingCopy(user, repoDesc)
+        val wc = rs.getWorkingCopy(repoDesc)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$repoDesc'")
@@ -250,17 +253,17 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
     case UDoGitOperation(user, project, op) =>
       clientLog(s"Performing Git operation: $op")
 
-      val repo = project.repo
-      val rs       = RepositoryService(user)
+      val repo     = project.repo
       val repoDesc = repo.desc
-      val result   = rs.fromDesc(repoDesc)
+      val rs       = RepositoryService.forUser(user, repoDesc.provider)
+      val result   = rs.getRepoFromDesc(repoDesc)
 
       result onFailure { case err =>
         notifyError(s"Failed to load repository '${repoDesc}'. Reason: '${err.getMessage}'");
       }
 
       result onSuccess { case _ =>
-        val wc = GitService.getWorkingCopy(user, repoDesc)
+        val wc = rs.getWorkingCopy(repoDesc)
 
         if (!wc.exists) {
           logInfo(s"Could not find a working copy for repository '$repoDesc'")
