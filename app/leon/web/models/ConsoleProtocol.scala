@@ -13,6 +13,7 @@ import shared.{Provider, Repository, RepositoryDesc}
 import java.nio.ByteBuffer
 
 object ConsoleProtocol {
+
   case object Init
   case class InitSuccess(enum: Enumerator[Array[Byte]])
   case class InitFailure(error: String)
@@ -23,6 +24,7 @@ object ConsoleProtocol {
 
   case class Cancelled(wa: BaseActor)
   case object DoCancel
+
   case class USetCommandFlags(ws: String)
   case class ULoadRepositories(user: User)
   case class ULoadRepository(user: User, repo: RepositoryDesc)

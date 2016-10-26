@@ -34,6 +34,8 @@ object Backend {
     }
   }
   
+  var requestId = 0
+
   object main extends Module(MainModule) {
     def storePermaLink(code: String) =
       Server ! StorePermaLink(code)
@@ -42,8 +44,6 @@ object Backend {
     def setFeatureActive(feature: shared.Module, active: Boolean) =
       Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
 
-    var requestId = 0
-      
     def doUpdateCode(code: String): Int = {
       requestId += 1
       Server ! DoUpdateCode(code = code, requestId = requestId) andThenAnalytics Action.doUpdateCode
@@ -56,16 +56,20 @@ object Backend {
       Server ! UnlinkAccount(provider = provider) andThenAnalytics (Action.unlinkAccount, provider.id)
 
   }
-  
+
   object repository extends Module(RepositoryHandler) {
 
-    def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Unit =
+    def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Int = {
+      requestId += 1
       Server sendBuffered DoUpdateCodeInProject(
         repo   = repo,
         file   = file,
         branch = branch,
-        code   = code
-      ) andThenAnalytics (Action.doUpdateCodeInProject, s"$repo:$branch:$file")
+        code   = code,
+        requestId = requestId
+      ) andThenAnalytics(Action.doUpdateCodeInProject, s"$repo:$branch:$file")
+      requestId
+    }
 
     def loadRepositories(): Unit =
       Server sendBuffered LoadRepositories andThenAnalytics Action.loadRepositories

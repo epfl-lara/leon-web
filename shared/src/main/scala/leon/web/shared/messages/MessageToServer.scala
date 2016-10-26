@@ -15,7 +15,6 @@ case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPerm
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
 case class FeatureSet(feature: Module, active: Boolean) extends MessageToServer with MainModule
 case class DoUpdateCode(code: String, requestId: Int) extends MessageToServer with MainModule
-// case class DoUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String, requestId: Int) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
 case class UnlinkAccount(provider: Provider) extends MessageToServer with MainModule
 case class SetCommandFlags(flags: String) extends MessageToServer with MainModule
@@ -49,7 +48,7 @@ case object LoadRepositories extends MessageToServer with RepositoryModule
 case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToServer with RepositoryModule
 case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with RepositoryModule
 case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with RepositoryModule
-case class DoUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String) extends MessageToServer with RepositoryModule
+case class DoUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String, requestId: Int) extends MessageToServer with RepositoryModule
 
 // Website builder
 sealed trait WebsiteBuilderModule {

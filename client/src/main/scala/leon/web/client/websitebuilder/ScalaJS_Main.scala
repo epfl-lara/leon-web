@@ -147,8 +147,8 @@ object ScalaJS_Main {
 //      }
 //    }
   }
-  def idOfLastSourceCodeModificationSent = Backend.main.requestId
-  def idOfLastSourceCodeModificationSent_=(v: Int) = Backend.main.requestId = v
+  def idOfLastSourceCodeModificationSent = Backend.requestId
+  def idOfLastSourceCodeModificationSent_=(v: Int) = Backend.requestId = v
   def submitSourceCode_serverAnswerHandler(sourceCodeProcessingResult: SubmitSourceCodeResult) = {
     println("Server sent something in response to a code submission")
     sourceCodeProcessingResult match {

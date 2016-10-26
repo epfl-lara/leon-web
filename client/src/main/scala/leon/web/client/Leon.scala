@@ -1694,11 +1694,11 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
   Handlers += { case SubmitSourceCodeResult(SourceCodeSubmissionResult(optWebpage, log), javascript, requestId) =>
     optWebpage match {
       case Some(webPage) =>
-        if(requestId == Backend.main.requestId) {
+        if(requestId == Backend.requestId) {
           websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
           javascript foreach websitebuilder.ScalaJS_Main.loadJavascript
         } else {
-          println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")
+          println("Expecting id " + Backend.requestId + ", got " + requestId + ". Request ignored")
         }
       case None =>
     }

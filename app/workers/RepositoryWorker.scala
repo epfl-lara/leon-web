@@ -17,42 +17,54 @@ import leon.web.shared.{User => SharedUser, Identity => SharedIdentity, _ }
 import leon.web.utils.String._
 import shared.git._
 
-class RepositoryWorker(session: ActorRef, user: Option[User])
-  extends BaseActor with Actor with RepositoryWorkerHelpers {
+// TODO: Use context.become to handle logged-in user
+class RepositoryWorker(session: ActorRef, user: Option[User]) extends BaseActor with Actor {
 
   import ConsoleProtocol._
 
   import context.dispatcher
+  import shared.messages.{DoCancel => _, _}
 
   var currentUser: Option[User] = user
 
-  import shared.messages.{DoCancel => _, _}
+  def withUser(f: User => Unit): Unit = currentUser match {
+    case Some(user) =>
+      f(user)
+
+    case None =>
+      notifyError("You need to log-in to perform this operation.")
+      logInfo("Cannot perform this operation when user is not logged-in.")
+  }
 
   def receive = {
 
-    case OnClientEvent(_, event: RepositoryModule) =>
+    case OnClientEvent(_, event: RepositoryModule) => event match {
 
-      event match {
-        case DoUpdateCodeInProject(repo, file, branch, code) => withUser { user =>
-          val project = Project(repo, branch, file)
-          self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), -1) // FIXME: Supply proper requestId
-        }
-        case LoadRepositories => withUser { user =>
-          self ! ULoadRepositories(user)
-        }
-        case LoadRepository(repo) => withUser { user =>
-          self ! ULoadRepository(user, repo)
-        }
-        case LoadFile(repo, file) => withUser { user =>
-          self ! ULoadFile(user, repo, file)
-        }
-        case SwitchBranch(repo, branch) => withUser { user =>
-          self ! USwitchBranch(user, repo, branch)
-        }
-        case DoGitOperation(op, project) => withUser { user =>
-          self ! UDoGitOperation(user, project, op)
-        }
+      case DoUpdateCodeInProject(repo, file, branch, code, requestId) => withUser { user =>
+        val project = Project(repo, branch, file)
+        session ! UpdateCode(code, Some(user), Some(project), requestId)
       }
+
+      case LoadRepositories => withUser { user =>
+        self ! ULoadRepositories(user)
+      }
+
+      case LoadRepository(repo) => withUser { user =>
+        self ! ULoadRepository(user, repo)
+      }
+
+      case LoadFile(repo, file) => withUser { user =>
+        self ! ULoadFile(user, repo, file)
+      }
+
+      case SwitchBranch(repo, branch) => withUser { user =>
+        self ! USwitchBranch(user, repo, branch)
+      }
+
+      case DoGitOperation(op, project) => withUser { user =>
+        self ! UDoGitOperation(user, project, op)
+      }
+    }
 
     case OnClientEvent(_, event) =>
       notifyError(s"Could not process $event from RepositoryWorker")
@@ -64,10 +76,9 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
       clientLog(s"Fetching repositories list...")
 
       val services = RepositoryService.forUser(user)
-      val result = Future.sequence {
-        services.map { s =>
-          s.listRepositories().map(s.provider -> _)
-        }
+
+      val result = Future.traverse(services) { service =>
+        service.listRepositories().map(service.provider -> _)
       }
 
       result onSuccess { case repos =>
@@ -87,11 +98,9 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
       val result = rs.getRepoFromDesc(repoDesc)
 
       result onFailure { case err =>
-        println(err)
         notifyError(s"Failed to load repository '$repoDesc'. Reason: '${err.getMessage}'");
       }
 
-      // FIXME: Is it really asynchronous/concurrent "enough"?
       result onSuccess {
         case repo: GitHubRepository =>
           clientLog(s"=> DONE")
@@ -123,13 +132,10 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
           future pipeTo self
 
         case repo =>
-          println(repo)
           val wc = rs.getWorkingCopy(repoDesc)
-          println(s"wc exists: ${wc.exists}")
 
           if (wc.exists) {
             clientLog(s"=> DONE")
-
             self ! URepositoryLoaded(user, repo, wc.branchName())
           } else {
             notifyError(s"Failed to load repository '$repoDesc'. Reason: 'Repository does not exists'");
@@ -149,6 +155,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
       future foreach { files =>
         clientLog(s"=> DONE")
+
         event(RepositoryLoaded(
           repo          = repo,
           files         = files.toArray,
@@ -274,7 +281,6 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
             case GitStatus =>
               val status = wc.status()
               val diff   = wc.diff(Some("HEAD"), None)
-              clientLog(s"=> DONE")
 
               status match {
                 case Some(status) =>
@@ -290,6 +296,7 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
                   val diffData = diff.getOrElse("")
 
+                  clientLog(s"=> DONE")
                   event(GitOperationDone(
                     op      = op,
                     success = true,
@@ -374,46 +381,3 @@ class RepositoryWorker(session: ActorRef, user: Option[User])
 
 }
 
-trait RepositoryWorkerHelpers { self: RepositoryWorker =>
-
-  def withUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in.")
-  }
-
-  def withGitHubUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) if user.github.isDefined =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in with GitHub to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
-  }
-
-  def withGitHubToken(user: User)(f: String => Unit): Unit = {
-    val token = user.github.flatMap(_.oAuth2Info).map(_.accessToken)
-
-    token match {
-      case Some(token) =>
-        f(token)
-
-      case None =>
-        notifyError("You need to log-in again with GitHub to perform this operation.")
-        logInfo("Cannot perform this operation when user has no OAuth token.")
-    }
-  }
-
-  def withTequilaUser(f: User => Unit): Unit = currentUser match {
-    case Some(user) if user.tequila.isDefined =>
-      f(user)
-
-    case None =>
-      notifyError("You need to log-in with Tequila to perform this operation.")
-      logInfo("Cannot perform this operation when user is not logged-in with GitHub.")
-  }
-
-}

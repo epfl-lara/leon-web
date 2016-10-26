@@ -141,11 +141,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         message match {
           case message: MainModule => message match {
             case MDoCancel => self ! DoCancel
-            case DoUpdateCode(code, requestId) => self ! ConsoleProtocol.UpdateCode(code, None, None, requestId)
-            // case DoUpdateCodeInProject(owner, repo, file, branch, code, requestId) => withUser { user =>
-            //   val project = Project(owner, repo, branch, file)
-            //   self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), requestId)
-            // }
+            case DoUpdateCode(code, requestId) => self ! UpdateCode(code, None, None, requestId)
             case StorePermaLink(code) => self ! message
             case AccessPermaLink(link) => self ! message
             case FeatureSet(f, active) =>
@@ -272,8 +268,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                 }
                 .toList
           }
-
-         println(files)
 
           val (_, program) = pipeline.run(compContext, files)
 
