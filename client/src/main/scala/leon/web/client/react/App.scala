@@ -140,8 +140,6 @@ class App(private val api: LeonAPI) {
     case LoadRepositories() =>
       Backend.repository.loadRepositories()
 
-      api.sendBuffered(shared.messages.LoadRepositories)
-
       onEvent(Events.repositoriesLoaded) { e => state =>
         state.copy(repositories = Some(e.repos))
       }
