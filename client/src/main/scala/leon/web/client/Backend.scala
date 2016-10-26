@@ -38,22 +38,22 @@ object Backend {
 
   object main extends Module(MainModule) {
     def storePermaLink(code: String) =
-      Server ! StorePermaLink(code)
+      Server !! StorePermaLink(code)
     def accessPermaLink(link: String) = 
-      Server ! AccessPermaLink(link)
+      Server !! AccessPermaLink(link)
     def setFeatureActive(feature: shared.Module, active: Boolean) =
-      Server ! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
+      Server !! FeatureSet(feature = feature, active = active) andThenAnalytics (Action.featureSet, feature.name + "=" + active)
 
     def doUpdateCode(code: String): Int = {
       requestId += 1
-      Server ! DoUpdateCode(code = code, requestId = requestId) andThenAnalytics Action.doUpdateCode
+      Server !! DoUpdateCode(code = code, requestId = requestId) andThenAnalytics Action.doUpdateCode
       requestId
     }
 
     def cancel() =
-      Server ! DoCancel andThenAnalytics  (Action.doCancel, s"main")
+      Server !! DoCancel andThenAnalytics  (Action.doCancel, s"main")
     def unlinkAccount(provider: Provider) =
-      Server ! UnlinkAccount(provider = provider) andThenAnalytics (Action.unlinkAccount, provider.id)
+      Server !! UnlinkAccount(provider = provider) andThenAnalytics (Action.unlinkAccount, provider.id)
 
   }
 
@@ -61,7 +61,7 @@ object Backend {
 
     def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Int = {
       requestId += 1
-      Server ! DoUpdateCodeInProject(
+      Server !! DoUpdateCodeInProject(
         repo   = repo,
         file   = file,
         branch = branch,
@@ -72,17 +72,17 @@ object Backend {
     }
 
     def loadRepositories(): Unit =
-      Server ! LoadRepositories andThenAnalytics Action.loadRepositories
+      Server !! LoadRepositories andThenAnalytics Action.loadRepositories
 
     def loadRepository(repo: RepositoryDesc): Unit =
-      Server ! LoadRepository(repo) andThenAnalytics (Action.loadRepositories, s"$repo")
+      Server !! LoadRepository(repo) andThenAnalytics (Action.loadRepositories, s"$repo")
 
     def loadRepository(repo: Repository): Unit = {
       loadRepository(repo.desc)
     }
 
     def switchBranch(repo: RepositoryDesc, branch: String): Unit =
-      Server ! SwitchBranch(
+      Server !! SwitchBranch(
         repo   = repo,
         branch = branch
       ) andThenAnalytics (Action.switchBranch, s"$repo:$branch")
@@ -92,7 +92,7 @@ object Backend {
     }
 
     def loadFile(repo: RepositoryDesc, file: String): Unit =
-      Server ! LoadFile(
+      Server !! LoadFile(
         repo   = repo,
         file   = file
       ) andThenAnalytics (Action.loadFile, s"$repo:$file")
@@ -102,7 +102,7 @@ object Backend {
     }
 
     def doGitOperation(op: GitOperation, project: Project): Unit =
-      Server ! DoGitOperation(
+      Server !! DoGitOperation(
         op      = op,
         project = project
       ) andThenAnalytics (Action.doGitOperation, s"$project:$op")
@@ -110,15 +110,15 @@ object Backend {
 
   object synthesis extends Module(Synthesis) {
     def getRulesToApply(fname: String, cid: Int) = 
-      Server ! GetRulesToApply(fname = fname, cid = cid) andThenAnalytics Action.getRulesToApply
+      Server !! GetRulesToApply(fname = fname, cid = cid) andThenAnalytics Action.getRulesToApply
     def doApplyRule(fname: String, cid: Int, rid: Int) =
-      Server ! DoApplyRule( fname = fname, cid = cid, rid = rid) andThenAnalytics Action.doApplyRule
+      Server !! DoApplyRule( fname = fname, cid = cid, rid = rid) andThenAnalytics Action.doApplyRule
     def explore(fname: String, cid: Int,
         path: List[Int] = List[Int](),
         exploreAction: String = "init",
         ws: Int = 0,
         select: Int = 0) =
-      Server ! DoExplore(
+      Server !! DoExplore(
            fname  = fname,
            cid = cid,
            exploreAction = exploreAction,
@@ -126,19 +126,19 @@ object Backend {
            select = select,
            ws = ws) andThenAnalytics (Action.doExplore, exploreAction + select)
     def search(fname: String, cid: Int) =
-      Server ! DoSearch(fname = fname, cid = cid) andThenAnalytics (Action.doSearch, fname)
+      Server !! DoSearch(fname = fname, cid = cid) andThenAnalytics (Action.doSearch, fname)
   }
   
   object repair extends Module(Repair) {
     def doRepair(fname: String) =
-      Server ! DoRepair(fname = fname) andThenAnalytics (Action.doRepair, fname)
+      Server !! DoRepair(fname = fname) andThenAnalytics (Action.doRepair, fname)
     def cancel() =
-      Server ! DoCancel andThenAnalytics  (Action.doCancel, s"repair")
+      Server !! DoCancel andThenAnalytics  (Action.doCancel, s"repair")
   }
   
   object verification extends Module(Verification) {
     def prettyPrintCounterExample(output: String, rawoutput: String, fname: String) =
-      Server ! PrettyPrintCounterExample(
+      Server !! PrettyPrintCounterExample(
           output = output, rawoutput = rawoutput,
           fname = fname) andThenAnalytics Action.prettyPrintCounterExample
   }

@@ -125,7 +125,10 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
 
     /** Buffer the message in case the network is down */
     def sendBuffered(msg: MessageToServer): Unit = Main.sendBuffered(msg)
-    
+
+    /** Buffer the message in case the network is down */
+    def !!(msg: MessageToServer): Unit = Main.sendBuffered(msg)
+
     /** Sends a message after registering a callback to handle the response. */
     /*def ![T <: MessageFromServer](msg: MessageToServerExpecting[T], callback: PartialFunction[T, Unit]): Unit = {
       Handlers.callbacks += new PartialFunction[MessageFromServer, Unit] {
