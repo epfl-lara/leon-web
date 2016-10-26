@@ -332,7 +332,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               if(termmod.isActive)
                 termmod.actor ! OnUpdateCode(cstate)
             } else {
-              modules.values.filter(e => e.isActive && e.name =!= Invariant).foreach (_.actor ! OnUpdateCode(cstate))
+              val toUpdate = modules.values.filter { e =>
+                e.isActive && e.name =!= Invariant && e.name =!= RepositoryHandler
+              }
+
+              toUpdate.foreach (_.actor ! OnUpdateCode(cstate))
             }
 
           case None =>
