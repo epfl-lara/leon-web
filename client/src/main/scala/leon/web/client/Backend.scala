@@ -61,7 +61,7 @@ object Backend {
 
     def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Int = {
       requestId += 1
-      Server sendBuffered DoUpdateCodeInProject(
+      Server ! DoUpdateCodeInProject(
         repo   = repo,
         file   = file,
         branch = branch,
@@ -72,17 +72,17 @@ object Backend {
     }
 
     def loadRepositories(): Unit =
-      Server sendBuffered LoadRepositories andThenAnalytics Action.loadRepositories
+      Server ! LoadRepositories andThenAnalytics Action.loadRepositories
 
     def loadRepository(repo: RepositoryDesc): Unit =
-      Server sendBuffered LoadRepository(repo) andThenAnalytics (Action.loadRepositories, s"$repo")
+      Server ! LoadRepository(repo) andThenAnalytics (Action.loadRepositories, s"$repo")
 
     def loadRepository(repo: Repository): Unit = {
       loadRepository(repo.desc)
     }
 
     def switchBranch(repo: RepositoryDesc, branch: String): Unit =
-      Server sendBuffered SwitchBranch(
+      Server ! SwitchBranch(
         repo   = repo,
         branch = branch
       ) andThenAnalytics (Action.switchBranch, s"$repo:$branch")
@@ -92,7 +92,7 @@ object Backend {
     }
 
     def loadFile(repo: RepositoryDesc, file: String): Unit =
-      Server sendBuffered LoadFile(
+      Server ! LoadFile(
         repo   = repo,
         file   = file
       ) andThenAnalytics (Action.loadFile, s"$repo:$file")
@@ -102,13 +102,12 @@ object Backend {
     }
 
     def doGitOperation(op: GitOperation, project: Project): Unit =
-      Server sendBuffered DoGitOperation(
+      Server ! DoGitOperation(
         op      = op,
         project = project
       ) andThenAnalytics (Action.doGitOperation, s"$project:$op")
   }
 
-  
   object synthesis extends Module(Synthesis) {
     def getRulesToApply(fname: String, cid: Int) = 
       Server ! GetRulesToApply(fname = fname, cid = cid) andThenAnalytics Action.getRulesToApply

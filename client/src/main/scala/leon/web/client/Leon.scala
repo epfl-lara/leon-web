@@ -1506,19 +1506,13 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
 
       updateSaveButton()
 
-      currentProject match {
-        case Some(Project(repo, branch, file, _)) if treatAsProject =>
-          Backend.repository.doUpdateCodeInProject(
-            repo   = repo,
-            file   = file,
-            branch = branch,
-            code   = currentCode
-          )
-
-        case _ =>
-          // Backend.main.doUpdateCode(
-          //   code = currentCode
-          // )
+      if (treatAsProject && currentProject.isDefined) {
+        sendUpdateCodeInProject(currentProject.get, currentCode)
+      }
+      else {
+        Backend.main.doUpdateCode(
+          code = currentCode
+        )
       }
 
       Actions dispatch react.UpdateEditorCode(currentCode, updateEditor = false)
@@ -1527,7 +1521,16 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       updateCompilationProgress(0)
     }
   }
-  
+
+  def sendUpdateCodeInProject(project: Project, currentCode: String): Unit = {
+    Backend.repository.doUpdateCodeInProject(
+      repo   = project.repo,
+      file   = project.file,
+      branch = project.branch,
+      code   = currentCode
+    )
+  }
+
   def onCodeUpdate(): Unit = {
 
     val now = new js.Date().getTime()
