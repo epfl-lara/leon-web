@@ -24,7 +24,7 @@ object RepositoryType {
 }
 
 sealed abstract class RepositoryDesc(val desc: String, val provider: Provider) {
-  override def toString = desc
+  override def toString = s"$provider:$desc"
 }
 
 object RepositoryDesc {
@@ -74,6 +74,7 @@ case object OrganizationMember extends Affiliation
 case class Branch(name: String, sha: String)
 
 sealed trait Repository {
+  def remote: Boolean
   def cloneURL: String
   def defaultBranch: String
   def branches: Seq[Branch]
@@ -98,6 +99,7 @@ case class GitHubRepository(
   branches      : Seq[Branch]
 ) extends Repository {
   val desc = RepositoryDesc.fromGitHub(owner, name)
+  val remote = true
 }
 
 case class TequilaRepository(
@@ -111,6 +113,7 @@ case class TequilaRepository(
   val visibility = Visibility.Private
   val fullName   = name
   val fork       = false
+  val remote     = false
 }
 
 case class LocalRepository(
@@ -124,6 +127,7 @@ case class LocalRepository(
   val visibility = Visibility.Private
   val fullName   = name
   val fork       = false
+  val remote     = false
 }
 
 case class RepositoryId(value: Long)

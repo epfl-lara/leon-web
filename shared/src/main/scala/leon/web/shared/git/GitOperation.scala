@@ -7,20 +7,20 @@ sealed trait GitOperation {
 case object GitStatus extends GitOperation {
   val name = GitOperation.STATUS
 }
-case object GitPull  extends GitOperation {
+case object GitPull extends GitOperation {
   val name = GitOperation.PULL
 }
-case object GitReset  extends GitOperation {
+case object GitReset extends GitOperation {
   val name = GitOperation.RESET
 }
 
 case class GitCommit(message: String) extends GitOperation {
   val name = GitOperation.COMMIT
 }
-case class GitPush(force: Boolean)    extends GitOperation {
+case class GitPush(force: Boolean) extends GitOperation {
   val name = GitOperation.PUSH
 }
-case class GitLog(number: Int)        extends GitOperation {
+case class GitLog(number: Int) extends GitOperation {
   val name = GitOperation.LOG
 }
 

@@ -4,6 +4,7 @@ package shared
 sealed abstract class Provider(val id: String, val name: String) {
 
   def isUnknown: Boolean = this == Provider.Unknown
+  def isKnown: Boolean   = !isUnknown
 
   override
   def toString = id

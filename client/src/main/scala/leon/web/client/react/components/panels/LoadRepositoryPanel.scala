@@ -66,7 +66,8 @@ object LoadRepositoryPanel {
             props.repositories
           )
         ),
-        props.currentProject.isDefined ?= GitPanel()
+        props.currentProject.isDefined ?=
+          GitPanel(props.currentProject.get.repo)
       )
     }
 
@@ -137,16 +138,21 @@ object LoadRepositoryButton {
         props.repo.isDefined ?= renderUnloadButton(props.onClickUnload)
       )
 
+    def providerIcon(provider: Provider): String = provider match {
+      case Provider.GitHub  => "mark-github"
+      case Provider.Tequila => "repo"
+      case _                => "alert"
+    }
+
     def renderContent(repo: Option[Repository], isHover: Boolean) = repo match {
       case Some(_) if isHover =>
         octicon("repo", "Select another repository")
 
-      case Some(repo) if repo.desc.provider == Provider.GitHub =>
-        octicon("mark-github", repo.desc.toString)
+      case Some(repo) if repo.desc.provider.isKnown =>
+        octicon(providerIcon(repo.desc.provider), repo.fullName)
 
-      // TODO: Use better Tequila icon
-      case Some(repo) =>
-        octicon("repo", repo.desc.toString)
+      case Some(_) =>
+        octicon("alert", "Unknown repository type")
 
       case None =>
         octicon("repo", "Select a repository")
