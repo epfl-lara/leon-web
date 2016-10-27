@@ -59,15 +59,13 @@ object Backend {
 
   object repository extends Module(RepositoryHandler) {
 
-    def doUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String): Int = {
+    def doUpdateCodeInRepository(code: String, repoState: RepositoryState): Int = {
       requestId += 1
-      Server !! DoUpdateCodeInProject(
-        repo   = repo,
-        file   = file,
-        branch = branch,
-        code   = code,
+      Server !! DoUpdateCodeInRepository(
+        code      = code,
+        repoState = repoState.copy(code = Some(code)),
         requestId = requestId
-      ) andThenAnalytics(Action.doUpdateCodeInProject, s"$repo:$branch:$file")
+      ) andThenAnalytics(Action.doUpdateCodeInRepository, s"${repoState.asString}#$requestId")
       requestId
     }
 
@@ -101,11 +99,11 @@ object Backend {
       loadFile(repo.desc, file)
     }
 
-    def doGitOperation(op: GitOperation, project: Project): Unit =
+    def doGitOperation(op: GitOperation, repoState: RepositoryState): Unit =
       Server !! DoGitOperation(
-        op      = op,
-        project = project
-      ) andThenAnalytics (Action.doGitOperation, s"$project:$op")
+        op        = op,
+        repoState = repoState
+      ) andThenAnalytics (Action.doGitOperation, s"$op:${repoState.asString}")
   }
 
   object synthesis extends Module(Synthesis) {

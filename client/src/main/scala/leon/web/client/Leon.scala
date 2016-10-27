@@ -21,7 +21,7 @@ import Bool._
 import Implicits._
 import shared.{VerifStatus, TerminationStatus, InvariantStatus, Constants}
 import shared.{Module => ModuleDescription, Main => _, _}
-import shared.{Project}
+import shared.RepositoryState
 import shared.equal.EqSyntax
 import client.react.{App => ReactApp}
 import client.react.Actions
@@ -64,10 +64,11 @@ object MainDelayed extends js.JSApp {
 }
 
 trait LeonAPI {
-  def setEditorCode(code: String, resetEditor: Boolean = true): Unit
-  def setCurrentProject(project: Option[Project]): Unit
-  def getCurrentProject(): Option[Project]
-  def setTreatAsProject(value: Boolean): Unit
+  def setEditorCode(code: String, resetEditor: Boolean = true, force: Boolean = false): Unit
+  def setRepositoryState(state: Option[RepositoryState]): Unit
+  def modifyRepositoryState(f: RepositoryState => RepositoryState): Unit
+  def getRepositoryState: Option[RepositoryState]
+  def setTreatAsProject(treatAsProject: Boolean): Unit
   def sendMessage(m: MessageToServer): Unit
   def sendBuffered(m: MessageToServer): Unit
   /** The handler returns true if it could successfully handle the message. */
@@ -1463,30 +1464,37 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
   Handlers += { case data: HNotification => Main.notify(data.content, data.`type`) }
 
   private
-  var treatAsProject = true
+  var repoState = Option.empty[RepositoryState]
 
-  def setTreatAsProject(value: Boolean): Unit = {
-    treatAsProject = value
-    recompile(force = true)
+  def getRepositoryState: Option[RepositoryState] =
+    repoState
+
+  def modifyRepositoryState(f: RepositoryState => RepositoryState): Unit = {
+    setRepositoryState(getRepositoryState.map(f))
   }
 
-  private
-  var currentProject = Option.empty[Project]
+  def setRepositoryState(state: Option[RepositoryState]): Unit = {
+    if (state =!= repoState) {
+      state match {
+        case None    => showExamples()
+        case Some(_) => hideExamples()
+      }
 
-  def getCurrentProject(): Option[Project] =
-    currentProject
+      val prevState = repoState
+      val fileChanged = state.map(_.file) =!= prevState.map(_.file)
 
-  def setCurrentProject(project: Option[Project]): Unit = {
-    if (project =!= currentProject) {
-    project match {
-      case None    => showExamples()
-      case Some(_) => hideExamples()
+      repoState = state
+
+      state.flatMap(_.code) match {
+        case Some(code) => setEditorCode(code, fileChanged, force = true)
+        case None       => recompile(force = true)
+      }
     }
-    currentProject = project
-      project.flatMap(_.code).foreach(setEditorCode(_, project.map(_.file) != currentProject.map(_.file)))
-  
-    recompile(force = true)
   }
+
+  def setTreatAsProject(treatAsProject: Boolean): Unit = {
+    modifyRepositoryState(_.copy(asProject = treatAsProject))
+    recompile(force = true)
   }
 
   def hideExamples(): Unit = $("#selectcolumn").hide()
@@ -1509,13 +1517,12 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
 
       updateSaveButton()
 
-      if (treatAsProject && currentProject.isDefined) {
-        sendUpdateCodeInProject(currentProject.get, currentCode)
-      }
-      else {
-        Backend.main.doUpdateCode(
-          code = currentCode
-        )
+      repoState match {
+        case Some(state) =>
+          Backend.repository.doUpdateCodeInRepository(currentCode, state)
+
+        case None =>
+          Backend.main.doUpdateCode(currentCode)
       }
 
       Actions dispatch react.UpdateEditorCode(currentCode, updateEditor = false)
@@ -1523,15 +1530,6 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       updateCompilationStatus("unknown")
       updateCompilationProgress(0)
     }
-  }
-
-  def sendUpdateCodeInProject(project: Project, currentCode: String): Unit = {
-    Backend.repository.doUpdateCodeInProject(
-      repo   = project.repo,
-      file   = project.file,
-      branch = project.branch,
-      code   = currentCode
-    )
   }
 
   def onCodeUpdate(): Unit = {
@@ -1558,14 +1556,14 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
     loadExample(group, id)
   }
 
-  def setEditorCode(code: String, resetEditor: Boolean = true): Unit = {
+  def setEditorCode(code: String, resetEditor: Boolean = true, force: Boolean = false): Unit = {
     storeCurrent(editorSession.getValue())
     if(resetEditor) {
     editor.setValue(code);
     editor.selection.clearSelection();
     editor.gotoLine(0);
     }
-    recompile();
+    recompile(force);
   }
   
   @ScalaJSDefined

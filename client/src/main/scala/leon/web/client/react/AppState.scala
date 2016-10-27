@@ -9,7 +9,7 @@ import monifu.reactive._
 import monifu.reactive.subjects._
 import shared._
 import leon.web.shared.User
-import leon.web.shared.{Project, Provider}
+import leon.web.shared.{RepositoryState, Provider}
 
 import leon.web.client.utils.picklers._
 import upickle.default._
@@ -56,21 +56,22 @@ case class AppState(
   isLoggedIn          : Boolean                = false
 ) {
 
-  lazy val currentProject: Option[Project] = {
+  lazy val repoState: Option[RepositoryState] = {
     for {
       r      <- repository
       b      <- branch
       (f, c) <- file
     }
-    yield Project(
-      repo   = r,
-      branch = b,
-      file   = f,
-      code   = Some(c)
+    yield RepositoryState(
+      repo      = r,
+      branch    = b,
+      file      = f,
+      asProject = treatAsProject,
+      code      = Some(c)
     )
   }
 
-  lazy val unloadProject: AppState =
+  lazy val unloadRepo: AppState =
     copy(
       repository     = None,
       branch         = None,

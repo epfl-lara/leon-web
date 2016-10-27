@@ -13,112 +13,161 @@ import scala.concurrent.{Future, ExecutionContext}
 import leon.web.models.{User, GitWorkingCopy}
 import leon.web.shared._
 
-// WARNING: Work-in-progress, to be refactored soon.
-trait RepositoryService {
+abstract class RepositoryService(val provider: Provider, val rootDir: File) {
 
   type R <: Repository
 
-  def provider: Provider
-
-  def isAvailable: Boolean
-
   def listRepositories()(implicit ec: ExecutionContext): Future[Seq[R]]
 
-  def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[R]
-
-  def getWorkingCopy(desc: RepositoryDesc): GitWorkingCopy
+  def getRepository(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[R]
 
 }
+
+case object ServiceUnavailable extends Exception("Service unavailable")
 
 object RepositoryService {
 
   private
-  val tequilaRootDir = {
+  val tequilaRootDir = new File(
     Play.application.configuration.getString("repositories.tequila.path")
-  }
+  )
 
   private
-  val githubRootDir = {
+  val githubRootDir = new File(
     Play.application.configuration.getString("repositories.github.path")
+  )
+
+  private
+  val providers = Seq(Provider.GitHub, Provider.Tequila)
+
+  def apply(user: User, provider: Provider): Option[RepositoryService] = provider match {
+    case Provider.GitHub  => GitHubRepositoryService(user, githubRootDir)
+    case Provider.Tequila => TequilaRepositoryService(user, tequilaRootDir)
+    case _                => None
   }
 
-  // FIXME: Return Option
-  def forUser(user: User, provider: Provider): RepositoryService = provider match {
-    case Provider.GitHub  => new GitHubRepositoryService(user, githubRootDir)
-    case Provider.Tequila => new TequilaRepositoryService(user, tequilaRootDir)
+  def apply(user: User, desc: RepositoryDesc): Option[RepositoryService] = {
+    apply(user, desc.provider)
   }
 
-  def forUser(user: User): Set[RepositoryService] = {
-    Provider.all.map(forUser(user, _)).filter(_.isAvailable)
+  def listRepositoriesByProvider(user: User)(implicit ec: ExecutionContext): Future[Map[Provider, Seq[Repository]]] = {
+    val future = Future.sequence {
+      providers
+        .map(RepositoryService(user, _))
+        .filter(_.isDefined).map(_.get)
+        .map { service => 
+          service.listRepositories().map { repos =>
+            (service.provider -> repos)
+          }
+        }
+    }
+
+    future.map(_.toMap)
   }
 
-  def getWorkingCopy(user: User, desc: RepositoryDesc): GitWorkingCopy =
-    forUser(user, desc.provider).getWorkingCopy(desc)
+  def getRepository(user: User, desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = {
+    RepositoryService(user, desc)
+      .map(_.getRepository(desc))
+      .getOrElse(Future.failed(ServiceUnavailable))
+  }
+
+  def getWorkingCopy(user: User, desc: RepositoryDesc): Option[GitWorkingCopy] =
+    desc match {
+      case RepositoryDesc.GitHub(owner, name) =>
+        for {
+          service <- GitHubRepositoryService(user, githubRootDir)
+          rootDir = service.rootDir.getPath
+          token   = service.token
+          path    = Paths.get(rootDir, user.userId.value, owner, name)
+        }
+        yield new GitWorkingCopy(path.toFile, user, Some(token))
+
+      case RepositoryDesc.Tequila(sciper, name) =>
+        for {
+          service <- TequilaRepositoryService(user, tequilaRootDir)
+          rootDir = service.rootDir.getPath
+          path    = Paths.get(rootDir, name)
+        }
+        yield new GitWorkingCopy(path.toFile, user)
+
+      case _ =>
+        None
+    }
 
 }
 
-class GitHubRepositoryService(user: User, rootDir: String) extends RepositoryService {
+class GitHubRepositoryService(user: User, rootDir: File, val token: String)
+  extends RepositoryService(Provider.GitHub, rootDir) {
 
   type R = GitHubRepository
 
-  private def token =
-    user.github.flatMap(_.oAuth2Info).map(_.accessToken)
+  private
+  val ghService = GitHubService(token)
 
-  override def provider: Provider =
-    Provider.GitHub
-
-  override def isAvailable =
-    token.isDefined
-
-  override def listRepositories()(implicit ec: ExecutionContext) = {
-    require(isAvailable)
-
-    GitHubService(token.get).listUserRepositories()
+  override
+  def listRepositories()(implicit ec: ExecutionContext): Future[Seq[GitHubRepository]] = {
+    ghService.listUserRepositories()
   }
 
-  override def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext) = {
-    require(isAvailable)
-
+  override
+  def getRepository(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[GitHubRepository] = {
     val RepositoryDesc.GitHub(owner, name) = desc
-
-    GitHubService(token.get).getRepository(owner, name)
-  }
-
-  override def getWorkingCopy(desc: RepositoryDesc): GitWorkingCopy = {
-    require(isAvailable)
-
-    val RepositoryDesc.GitHub(owner, name) = desc
-
-    val path = Paths.get(rootDir, user.userId.value, owner, name)
-    new GitWorkingCopy(path.toFile, user, token)
+    ghService.getRepository(owner, name)
   }
 
 }
 
-class LocalRepositoryService(user: User, rootDir: String) extends RepositoryService {
+object GitHubRepositoryService {
+
+  def apply(user: User, rootDir: File): Option[GitHubRepositoryService] =
+    for {
+      token <- user.github.flatMap(_.oAuth2Info).map(_.accessToken)
+      if RootDir.isValid(rootDir)
+    }
+    yield new GitHubRepositoryService(user, rootDir, token)
+
+}
+
+class LocalRepositoryService(user: User, rootDir: File)
+  extends RepositoryService(Provider.Local, rootDir) {
 
   type R = LocalRepository
 
-  private lazy val root = new File(rootDir)
-
-  override def provider: Provider =
-    Provider.Local
-
-  override def isAvailable =
-    root.exists && root.isDirectory && root.canRead
-
-  override def listRepositories()(implicit ec: ExecutionContext) = {
-    require(isAvailable)
-
-    val dirs  = listDirsInDir(rootDir)
+  override
+  def listRepositories()(implicit ec: ExecutionContext) = {
+    val dirs  = listDirsIn(rootDir)
     val repos = dirs.map(repoFromDir)
 
     Future.successful(repos)
   }
 
-  private def repoFromDir(dir: File): LocalRepository = {
-    // TODO: Make GitWorkingCopy take an optional user
-    val wc        = new GitWorkingCopy(dir, null)
+  override
+  def getRepository(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[LocalRepository] = {
+    val RepositoryDesc.Local(path) = desc
+
+    Future.successful {
+      repoFromDir(Paths.get(rootDir.getPath, path).toFile)
+    }
+  }
+
+  import org.eclipse.jgit.lib.Ref
+
+  private
+  def hasGitFolder(dir: File): Boolean = {
+    dir.listFiles.filter(_.isDirectory).exists(_.getName == ".git")
+  }
+
+  private
+  def listDirsIn(dir: File): Seq[File] = {
+    if (dir.exists && dir.isDirectory)
+      dir.listFiles.filter(f => f.isDirectory && hasGitFolder(f)).toSeq
+    else
+      Nil
+  }
+
+  private
+  def repoFromDir(dir: File): LocalRepository = {
+    val wc        = new GitWorkingCopy(dir, user)
     val defBranch = wc.branchName()
     val branches  = wc.branchesNamesAndRef(false).map(r => Branch(r._1, r._2)).toSeq
 
@@ -130,95 +179,72 @@ class LocalRepositoryService(user: User, rootDir: String) extends RepositoryServ
     )
   }
 
-  override def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext) = {
-    require(isAvailable)
+}
 
-    val RepositoryDesc.Local(path) = desc
+object LocalRepositoryService {
 
-    Future.successful {
-      repoFromDir(Paths.get(rootDir, path).toFile)
+  def apply(user: User, rootDir: File): Option[LocalRepositoryService] =
+    for {
+      dir <- Some(rootDir)
+      if RootDir.isValid(dir)
+    }
+    yield new LocalRepositoryService(user, dir)
+
+}
+
+class TequilaRepositoryService(user: User, rootDir: File, localService: LocalRepositoryService)
+  extends RepositoryService(Provider.Tequila, rootDir) {
+
+  type R = TequilaRepository
+
+  override
+  def listRepositories()(implicit ec: ExecutionContext): Future[Seq[TequilaRepository]] = {
+    localService.listRepositories() map { repos =>
+      repos map { repo =>
+        TequilaRepository(
+          user.tequila.get.publicId.serviceUserId.value,
+          repo.name,
+          repo.defaultBranch,
+          repo.branches
+        )
+      }
     }
   }
 
-  override def getWorkingCopy(desc: RepositoryDesc): GitWorkingCopy = {
-    require(isAvailable)
+  override
+  def getRepository(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[TequilaRepository] = {
+    val RepositoryDesc.Tequila(sciper, name) = desc
 
-    val RepositoryDesc.Local(path) = desc
-
-    val file = Paths.get(rootDir, path).toFile
-    new GitWorkingCopy(file, user)
-  }
-
-  import org.eclipse.jgit.lib.Ref
-
-  private
-  def hasGitFolder(dir: File): Boolean = {
-    dir.listFiles.filter(_.isDirectory).exists(_.getName == ".git")
-  }
-
-  private
-  def listDirsInDir(dir: String): Seq[File] = {
-    val d = new File(dir)
-    if (d.exists && d.isDirectory) {
-      d.listFiles.filter(f => f.isDirectory && hasGitFolder(f)).toSeq
-    } else {
-      Nil
+    localService.getRepository(RepositoryDesc.Local(name)) map { repo =>
+      TequilaRepository(
+        user.tequila.get.publicId.serviceUserId.value,
+        repo.name,
+        repo.defaultBranch,
+        repo.branches
+      )
     }
   }
 
 }
 
-class TequilaRepositoryService(user: User, tequilaDir: String) extends RepositoryService {
+object TequilaRepositoryService {
 
-  type R = TequilaRepository
-
-  val rootDir = user.tequila.map(t => s"$tequilaDir/${t.publicId.serviceUserId.value}")
-
-  val localProvider = rootDir.map(new LocalRepositoryService(user, _))
-
-  override def provider: Provider =
-    Provider.Tequila
-
-  override def isAvailable = {
-    user.tequila.isDefined && localProvider.exists(_.isAvailable)
-  }
-
-  override def listRepositories()(implicit ec: ExecutionContext) = {
-    require(isAvailable)
-
-    localProvider.get.listRepositories().map(_.map { repo =>
-      TequilaRepository(
-        user.tequila.get.publicId.serviceUserId.value,
-        repo.name,
-        repo.defaultBranch,
-        repo.branches
-      )
-    })
-  }
-
-  override def getRepoFromDesc(desc: RepositoryDesc)(implicit ec: ExecutionContext) = {
-    require(isAvailable)
-
-    val RepositoryDesc.Tequila(sciper, name) = desc
-
-    localProvider.get.getRepoFromDesc(RepositoryDesc.Local(name)).map { repo =>
-      TequilaRepository(
-        user.tequila.get.publicId.serviceUserId.value,
-        repo.name,
-        repo.defaultBranch,
-        repo.branches
-      )
+  def apply(user: User, tequilaDir: File): Option[TequilaRepositoryService] =
+    for {
+      tequila <- user.tequila
+      tequilaId = tequila.publicId.serviceUserId.value
+      rootDir = Paths.get(tequilaDir.getPath, tequilaId).toFile
+      if RootDir.isValid(rootDir)
+      localService <- LocalRepositoryService(user, rootDir)
     }
+    yield new TequilaRepositoryService(user, rootDir, localService)
+
+}
+
+private
+object RootDir {
+  def isValid(d: File): Boolean = {
+    d.exists && d.isDirectory && d.canWrite
   }
-
-  override def getWorkingCopy(desc: RepositoryDesc): GitWorkingCopy = {
-    require(isAvailable)
-
-    val RepositoryDesc.Tequila(sciper, name) = desc
-
-    val file = Paths.get(rootDir.get, name).toFile
-    new GitWorkingCopy(file, user)
-  }
-
 }
 

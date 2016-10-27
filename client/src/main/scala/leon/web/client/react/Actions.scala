@@ -22,7 +22,7 @@ case class DoGitOperation(op: GitOperation) extends Action
 case class ToggleLoadRepoModal(value: Boolean) extends Action
 case class ToggleLoginModal(value: Boolean) extends Action
 case class ToggleAccountModal(value: Boolean) extends Action
-case class SetCurrentProject(project: Option[Project]) extends Action
+case class SetRepositoryState(state: Option[RepositoryState]) extends Action
 case class SetTreatAsProject(value: Boolean) extends Action
 case class UnlinkAccount(provider: Provider) extends Action
 case class UpdateUser(user: User) extends Action

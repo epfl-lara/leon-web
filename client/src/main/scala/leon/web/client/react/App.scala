@@ -105,12 +105,12 @@ class App(private val api: LeonAPI) {
   def restoreAppState(state: AppState): Unit = {
     println("Restoring application state...")
 
-    api.setCurrentProject(state.currentProject)
+    api.setRepositoryState(state.repoState)
   }
 
   private
   def onStateUpdate(state: AppState): Unit = {
-    api.setCurrentProject(state.currentProject)
+    api.setRepositoryState(state.repoState)
 
     js.timers.setTimeout(0) {
       LocalStorage.update("appState", state.toJSON)
@@ -232,15 +232,15 @@ class App(private val api: LeonAPI) {
         state.copy(file = file)
       }
 
-    case SetCurrentProject(project) =>
-      api.setCurrentProject(project)
+    case SetRepositoryState(repoState) =>
+      api.setRepositoryState(repoState)
 
-      project.flatMap(_.code).foreach { code =>
+      repoState.flatMap(_.code).foreach { code =>
         Actions dispatch UpdateEditorCode(code)
       }
 
-      val newState = project match {
-        case None    => state.unloadProject
+      val newState = repoState match {
+        case None    => state.unloadRepo
         case Some(_) => state
       }
 
@@ -254,14 +254,14 @@ class App(private val api: LeonAPI) {
       }
 
     case DoGitOperation(op) =>
-      api.getCurrentProject() match {
+      api.getRepositoryState match {
         case None =>
-          throw new Exception("No project is currently set, cannot perform Git operation")
+          throw new Exception("No repository is currently loaded, cannot perform Git operation")
 
-        case Some(project) =>
+        case Some(repoState) =>
           val msg = shared.messages.DoGitOperation(
-            op      = op,
-            project = project
+            op        = op,
+            repoState = repoState
           )
 
           api.sendMessage(msg)

@@ -20,7 +20,7 @@ object ConsoleProtocol {
 
   case class ProcessClientEvent(event: Array[Byte])
 
-  case class UpdateCode(code: String, user: Option[User], project: Option[Project], requestId: Int)
+  case class UpdateCode(code: String, user: Option[User], repoState: Option[RepositoryState], requestId: Int)
 
   case class Cancelled(wa: BaseActor)
   case object DoCancel
@@ -30,7 +30,7 @@ object ConsoleProtocol {
   case class ULoadRepository(user: User, repo: RepositoryDesc)
   case class ULoadFile(user: User, repo: RepositoryDesc, file: String)
   case class USwitchBranch(user: User, repo: RepositoryDesc, branch: String)
-  case class UDoGitOperation(user: User, project: Project, op: GitOperation)
+  case class UDoGitOperation(user: User, repoState: RepositoryState, op: GitOperation)
   case class URepositoryLoaded(user: User, repo: Repository, currentBranch: String)
   case class UUnlinkAccount(user: User, provider: Provider)
   case class UUserUpdated(user: Option[User])

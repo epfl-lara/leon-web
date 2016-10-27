@@ -20,9 +20,7 @@ import leon.web.shared.{Repository, Branch, Provider}
   */
 object LoadRepositoryPanel {
 
-  type Props = AppState
-
-  class Backend($: BackendScope[Props, Unit]) {
+  class Backend($: BackendScope[AppState, Unit]) {
 
     def showLoadRepoModal: Callback =
       Actions dispatchCB ToggleLoadRepoModal(true)
@@ -34,7 +32,7 @@ object LoadRepositoryPanel {
       showLoadRepoModal >> loadRepos
 
     def onClickUnload: Callback =
-      Actions dispatchCB SetCurrentProject(None)
+      Actions dispatchCB SetRepositoryState(None)
 
     def onLoadRepo(repo: Repository): Callback =
       Actions dispatchCB LoadRepository(repo)
@@ -49,7 +47,7 @@ object LoadRepositoryPanel {
     def onChangeProjectType(e: ReactEventI): Callback =
       Actions dispatchCB SetTreatAsProject(e.target.checked)
 
-    def render(props: Props) = {
+    def render(props: AppState) = {
       val hasRepo = props.repository.isDefined
       <.div(^.className := "panel",
         <.h3("Load a repository:"),
@@ -66,8 +64,8 @@ object LoadRepositoryPanel {
             props.repositories
           )
         ),
-        props.currentProject.isDefined ?=
-          GitPanel(props.currentProject.get.repo)
+        props.repoState.isDefined ?=
+          GitPanel(props.repoState.get.repo)
       )
     }
 
@@ -101,11 +99,11 @@ object LoadRepositoryPanel {
   }
 
   val component =
-    ReactComponentB[Props]("LoadRepositoryPanel")
+    ReactComponentB[AppState]("LoadRepositoryPanel")
       .renderBackend[Backend]
       .build
 
-  def apply(props: Props) = component(props)
+  def apply(props: AppState) = component(props)
 
 }
 

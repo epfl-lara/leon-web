@@ -22,7 +22,7 @@ import leon.utils.PreprocessingPhase
 import leon.web.workers._
 import leon.web.stores._
 import leon.web.services._
-import leon.web.shared.{Action, Project}
+import leon.web.shared.{Action, RepositoryState}
 import leon.web.shared.Module
 import leon.web.utils.String._
 import java.io.File
@@ -208,35 +208,31 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           event(UserUpdated(user = newUser.toShared))
 
           self ! DispatchTo(RepositoryHandler, UUserUpdated(currentUser))
-          
+
         case None =>
           clientLog("=> ERROR: No such account found.")
       }
 
-    case UpdateCode(code, user, project, requestId) =>
+    case UpdateCode(code, user, repoState, requestId) =>
       Memory.clearClarificationSession()
 
-      if (lastCompilationState.project =!= project ||
+      if (lastCompilationState.repoState =!= repoState ||
           lastCompilationState.code =!= Some(code)) {
 
         clientLog("Compiling...")
         logInfo(s"Code updated:\n$code")
 
-        val savedFile = project match {
-          case None =>
-            saveCode(code)
+        val file = for {
+          s            <- repoState
+          u            <- user
+          wc           <- RepositoryService.getWorkingCopy(u, s.repo.desc)
+          (_, _, path) <- wc.getFile(s.branch, s.file)
+        } yield wc.path.toPath.resolve(path).toFile
 
-          case Some(p) =>
-            val path = {
-              val wc = RepositoryService.getWorkingCopy(user.get, p.repo.desc)
+        println(repoState)
+        println(file)
 
-              wc.getFile(p.branch, p.file)
-                .map(_._3)
-                .map(filePath => s"${wc.path.getAbsolutePath()}/$filePath")
-            }
-
-            saveCode(code, path.map(new File(_)))
-        }
+        val savedFile = saveCode(code, file)
 
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
@@ -245,31 +241,39 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           val pipeline = ExtractionPhase andThen
                          (new PreprocessingPhase(false))
 
-        // We need both a logged-in user and a project to
-        // load files from the repository
-         val files = user.zip(project).headOption match {
-            case None =>
-              savedFile.getAbsolutePath() :: Nil
+          // We need both a logged-in user and a repository to
+          // load files from the repository
 
-            case Some((user, Project(repo, branch, file, _))) =>
-              val wc = RepositoryService.getWorkingCopy(user, repo.desc)
-
-              wc.getFiles(branch)
-                .getOrElse(Seq[String]())
-                .filter(_.extension === "scala")
-                // replace the path to the file currently loaded
-                // in the editor with the path to the temp file
-                // `saveCode` just wrote.
-                .map { f =>
-                  if (f === file)
-                    savedFile.getAbsolutePath()
-                  else
-                    s"${wc.path.getAbsolutePath()}/$f"
-                }
-                .toList
+          val repoFiles = for {
+            s     <- repoState
+            if s.asProject
+            u     <- user
+            wc    <- RepositoryService.getWorkingCopy(u, s.repo.desc)
+            files = wc.getFiles(s.branch).getOrElse(Seq()).toList
+          } yield {
+            files
+              .filter(_.extension === "scala")
+              .map(new File(_))
+              .map { f =>
+                if (f.getName === savedFile.getName)
+                  savedFile.getAbsolutePath
+                else
+                  wc.path.toPath.resolve(f.getPath).toFile.getAbsolutePath
+              }
           }
 
-          val (_, program) = pipeline.run(compContext, files)
+          println("savedFile:")
+          println(savedFile.getAbsolutePath)
+
+          println("repoFiles:")
+          println(repoFiles)
+
+          val runFiles = repoFiles.getOrElse(savedFile.getAbsolutePath :: Nil)
+
+          println("runFiles:")
+          println(runFiles)
+
+          val (_, program) = pipeline.run(compContext, runFiles)
 
           compReporter.terminateIfError
 
@@ -294,7 +298,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               compResult = "success",
               requestId  = Some(requestId),
               wasLoop    = Set(),
-              project    = project,
+              repoState  = repoState,
               savedFile  = Some(savedFile.getName())
             )
 
@@ -348,7 +352,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             event(HCompilation("failure"))
 
             lastCompilationState = CompilationState.failure(
-              code, project, Some(savedFile.getName())
+              code, repoState, Some(savedFile.getName())
             )
         }
 

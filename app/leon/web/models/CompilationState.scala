@@ -4,12 +4,12 @@ package models
 import scala.Function.const
 
 import leon.web.utils.String._
-import leon.web.shared.Project
+import leon.web.shared.RepositoryState
 import leon.purescala.Definitions._
 
 case class CompilationState (
   code: Option[String],
-  project: Option[Project] = None,
+  repoState: Option[RepositoryState] = None,
   savedFile: Option[String] = None,
   compResult: String,
   optProgram: Option[Program],
@@ -41,7 +41,7 @@ case class CompilationState (
     !(fd.annotations contains "library")
   }
 
-  def functions = project.flatMap(const(savedFile)) match {
+  def functions = repoState.flatMap(const(savedFile)) match {
     case None =>
       program.definedFunctions
         .toList
@@ -66,14 +66,14 @@ case class CompilationState (
 
 object CompilationState {
 
-  def failure(code: String, project: Option[Project] = None, savedFile: Option[String] = None) =
+  def failure(code: String, repoState: Option[RepositoryState] = None, savedFile: Option[String] = None) =
     CompilationState(
       code       = Some(code),
       compResult = "failure",
       optProgram = None,
       requestId  = None,
       wasLoop    = Set(),
-      project    = project,
+      repoState  = repoState,
       savedFile  = savedFile
     )
 
@@ -84,7 +84,7 @@ object CompilationState {
       optProgram = None,
       requestId  = None,
       wasLoop    = Set(),
-      project    = None,
+      repoState  = None,
       savedFile  = None
     )
 

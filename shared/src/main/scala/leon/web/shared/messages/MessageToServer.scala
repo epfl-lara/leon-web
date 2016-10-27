@@ -47,8 +47,13 @@ case class LoadRepository(repo: RepositoryDesc) extends MessageToServer with Rep
 case object LoadRepositories extends MessageToServer with RepositoryModule
 case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToServer with RepositoryModule
 case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with RepositoryModule
-case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with RepositoryModule
-case class DoUpdateCodeInProject(repo: Repository, file: String, branch: String, code: String, requestId: Int) extends MessageToServer with RepositoryModule
+case class DoGitOperation(op: GitOperation, repoState: RepositoryState) extends MessageToServer with RepositoryModule
+
+case class DoUpdateCodeInRepository(
+  code: String,
+  repoState: RepositoryState,
+  requestId: Int
+) extends MessageToServer with RepositoryModule
 
 // Website builder
 sealed trait WebsiteBuilderModule {
