@@ -39,24 +39,20 @@ class App(private val api: LeonAPI) {
     // Register the WebSocket handlers.
     api.registerMessageHandler(Handlers)
 
-    val appState =
-      LocalStorage("appState")
-        .map((s: String) =>
-          try {
-            val res = AppState.fromJSON(s)
-            if(!res.treatAsProject) {
-              api.setTreatAsProject(res.treatAsProject)
-            }
-            res
-          } catch {
-            case e: Throwable =>
-              println("Impossible to recover app state. Recreating a new one")
-              AppState()
-          }
-        )
-        .map(resetAppState _)
-        .map(GlobalAppState(_))
-        .getOrElse(GlobalAppState())
+    val appState = {
+      val restored =
+        LocalStorage("appState")
+          .flatMap(AppState.unserialize)
+          .getOrElse(AppState())
+
+      GlobalAppState(resetAppState(restored))
+    }
+
+    if(!appState.initial.treatAsProject) {
+      api.setTreatAsProject(false)
+    }
+
+    println(appState.initial)
 
     // Trigger a re-render of the app, each time
     // the application state is updated.
@@ -113,7 +109,7 @@ class App(private val api: LeonAPI) {
     api.setRepositoryState(state.repoState)
 
     js.timers.setTimeout(0) {
-      LocalStorage.update("appState", state.toJSON)
+      LocalStorage.update("appState", state.serialize)
     }
   }
 

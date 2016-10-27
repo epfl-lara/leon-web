@@ -7,53 +7,56 @@ package react
 import scala.concurrent.Future
 import monifu.reactive._
 import monifu.reactive.subjects._
-import shared._
-import leon.web.shared.User
-import leon.web.shared.{RepositoryState, Provider}
 
-import leon.web.client.utils.picklers._
-import upickle.default._
+import leon.web.shared._
+import leon.web.client.utils.Base64
+
+import java.nio.ByteBuffer
+import boopickle.Default._
+
+// import leon.web.client.utils.picklers._
+// import upickle.default._
 
 case class AppState(
 
   // Currently logged-in user (if any)
-  user              : Option[User]             = None,
+  user              : Option[User] = None,
 
-  // Repositories fetched from GitHub API
+  // Repositories fetched from GitHub/Tequila
   repositories      : Option[Map[Provider, Seq[Repository]]] = None,
 
   // Currently selected repository
-  repository        : Option[Repository]      = None,
+  repository        : Option[Repository] = None,
 
   // Available branches for selected repository
-  branches          : Seq[Branch]             = Seq(),
+  branches          : Seq[Branch] = Seq(),
 
   // Currently selected branch
-  branch            : Option[String]           = None,
+  branch            : Option[String] = None,
 
   // Scala files in the selected repository
-  files             : Seq[String]              = Seq(),
+  files             : Seq[String] = Seq(),
 
   // File+content loaded in the editor
   file              : Option[(String, String)] = None,
 
   // Whether or not to show the 'Load repository' modal
-  showLoadRepoModal : Boolean                  = false,
+  showLoadRepoModal : Boolean = false,
 
   // Whether or not to show the 'Login' modal
-  showLoginModal    : Boolean                  = false,
+  showLoginModal    : Boolean = false,
 
   // Whether or not to show the 'Account' modal
-  showAccountModal  : Boolean                  = false,
+  showAccountModal  : Boolean = false,
 
   // Whether or not we are in the process of cloning `repository`
-  isLoadingRepo     : Boolean                  = false,
+  isLoadingRepo     : Boolean = false,
 
   // Whether or not to treat the repo as a project
-  treatAsProject    : Boolean                  = true,
+  treatAsProject    : Boolean = true,
 
   // Whether or not a user is logged-in
-  isLoggedIn          : Boolean                = false
+  isLoggedIn          : Boolean = false
 ) {
 
   lazy val repoState: Option[RepositoryState] = {
@@ -81,15 +84,27 @@ case class AppState(
       treatAsProject = false
     )
 
-  def toJSON: String = {
-    write(this)
+  def serialize: String = {
+    val buffer = Pickle.intoBytes(this)
+    val array = new Array[Byte](buffer.remaining)
+    buffer.get(array, 0, array.length)
+    Base64.Encoder(array).toBase64
   }
 
 }
 
 object AppState {
-  def fromJSON(json: String): AppState =
-    read[AppState](json)
+  def unserialize(base64: String): Option[AppState] = {
+    try {
+      val array = Base64.Decoder(base64).toByteArray
+      val buffer = ByteBuffer.wrap(array)
+      Unpickle[AppState].tryFromBytes(buffer).toOption
+    } catch {
+      case err: Throwable =>
+        println(err)
+        None
+    }
+  }
 }
 
 /** This objects holds the whole React application state,

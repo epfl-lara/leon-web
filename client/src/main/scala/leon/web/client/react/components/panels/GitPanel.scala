@@ -77,7 +77,7 @@ object GitPanel {
         state.showModalForOp.isDefined ?= displayModal(state.showModalForOp.get),
         <.ul(
           buttons
-            .filter(props.repo.remote || !_.remote)
+            .filter(props.repo.remote.isDefined || !_.remote)
             .map(renderButton)
         )
       )

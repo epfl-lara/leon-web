@@ -28,7 +28,7 @@ import org.eclipse.jgit.api.ListBranchCommand.ListMode
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.eclipse.jgit.transport.RemoteRefUpdate
 
-import leon.web.shared.messages.{Commit => SharedCommit }
+import leon.web.shared.messages.{Commit => SharedCommit}
 
 /** Provides a type-safe wrapper around a subset of the JGit API.
   *
@@ -198,7 +198,7 @@ class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
 
   def setOrigin(origin: String): Boolean = {
     try {
-      val config = git.getRepository().getConfig();
+      val config = git.getRepository.getConfig
       config.setString("remote", "origin", "url", origin);
       config.save();
       true
@@ -206,6 +206,17 @@ class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
       case NonFatal(e) =>
         Logger.error(e.getMessage, e)
         false
+    }
+  }
+
+  def getOrigin(): Option[Remote] = {
+    try {
+      val config = git.getRepository.getConfig
+      val origin = Option(config.getString("remote", "origin", "url"))
+      origin.map(Remote("origin", _))
+    } catch {
+      case NonFatal(e) =>
+        None
     }
   }
 
@@ -358,30 +369,31 @@ class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
 
 }
 
+case class Remote(name: String, url: String)
+
 case class Commit(revc: RevCommit) {
   def hash          = ObjectId.toString(revc)
   def shortHash     = hash.substring(0,10)
   def shortMessage  = revc.getShortMessage
   def fullMessage   = revc.getFullMessage
+  def author        = revc.getAuthorIdent().getName
+  def committer     = revc.getCommitterIdent().getName
+  def desc          = shortHash+" - "+shortMessage
   def commitTime    = new DateTime(revc.getCommitTime*1000l)
   def commitTimeStr = {
     commitTime.toString(DateTimeFormat.forPattern("dd.MM.YYYY, HH:mm:ss"))
   }
-  def author        = revc.getAuthorIdent().getName
-  def committer     = revc.getCommitterIdent().getName
-  def desc          = shortHash+" - "+shortMessage
-
 
   def toSharedCommit = {
     SharedCommit(
-      hash = hash,
-      shortHash = shortHash,
+      hash         = hash,
+      shortHash    = shortHash,
       shortMessage = shortMessage,
-      fullMessage = fullMessage,
-      commitTime = commitTimeStr,
-      author = author,
-      committer = committer,
-      desc = desc
+      fullMessage  = fullMessage,
+      commitTime   = commitTimeStr,
+      author       = author,
+      committer    = committer,
+      desc         = desc
     )
   }
 }

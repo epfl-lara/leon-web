@@ -19,9 +19,9 @@ object GitHubService {
 /** Defines an interface to the GitHub API */
 class GitHubService(token: String) {
 
-  import leon.web.models.RepositoryJsonReads._
+  import leon.web.models.GitHubJsonReads._
 
-  case class Error(private val message: String) extends Throwable(message)
+  case class Error(private val message: String) extends Exception(message)
 
   private val baseURL = "https://api.github.com"
 
@@ -39,7 +39,11 @@ class GitHubService(token: String) {
     */
   def listUserRepositories()(implicit ec: ExecutionContext): Future[Seq[GitHubRepository]] = {
     req("/user/repos")
-      .withQueryString("affiliation" -> "owner", "per_page" -> "100")
+      .withQueryString(
+        "affiliation" -> "owner",
+        "per_page" -> "100",
+        "sort" -> "updated"
+      )
       .get()
       .map(unwrapSuccess[Seq[GitHubRepository]])
       .flatMap(eitherToFuture[Seq[GitHubRepository]])

@@ -65,23 +65,22 @@ object Visibility {
   def unapply(v: Visibility) = Some(v.name)
 }
 
-sealed trait Affiliation
-
-case object Owner              extends Affiliation
-case object Collaborator       extends Affiliation
-case object OrganizationMember extends Affiliation
-
 case class Branch(name: String, sha: String)
 
-sealed trait Repository {
-  def remote: Boolean
-  def cloneURL: String
+case class Remote(
+  name: String,
+  url: String
+)
+
+sealed abstract class Repository {
+  def name: String
+  def fullName: String
+  def desc: RepositoryDesc
   def defaultBranch: String
   def branches: Seq[Branch]
-  def desc: RepositoryDesc
   def visibility: Visibility
-  def fullName: String
   def fork: Boolean
+  def remote: Option[Remote]
 }
 
 case class GitHubRepositoryId(value: Long)
@@ -89,7 +88,6 @@ case class GitHubRepositoryId(value: Long)
 case class GitHubRepository(
   id            : GitHubRepositoryId,
   name          : String,
-  fullName      : String,
   owner         : String,
   visibility    : Visibility,
   fork          : Boolean,
@@ -98,37 +96,34 @@ case class GitHubRepository(
   defaultBranch : String,
   branches      : Seq[Branch]
 ) extends Repository {
-  val desc = RepositoryDesc.fromGitHub(owner, name)
-  val remote = true
+  val desc     = RepositoryDesc.fromGitHub(owner, name)
+  val remote   = Some(Remote("origin", cloneURL))
+  val fullName = s"$owner/$name"
 }
 
 case class TequilaRepository(
   sciper        : String,
   name          : String,
   defaultBranch : String,
-  branches      : Seq[Branch]
+  branches      : Seq[Branch],
+  remote        : Option[Remote] = None
 ) extends Repository {
   val desc       = RepositoryDesc.fromTequila(sciper, name)
-  val cloneURL   = ""
   val visibility = Visibility.Private
-  val fullName   = name
   val fork       = false
-  val remote     = false
+  val fullName   = name
 }
 
 case class LocalRepository(
   name          : String,
   path          : String,
   defaultBranch : String,
-  branches      : Seq[Branch]
+  branches      : Seq[Branch],
+  remote        : Option[Remote] = None
 ) extends Repository {
   val desc       = RepositoryDesc.fromLocal(path)
-  val cloneURL   = ""
   val visibility = Visibility.Private
-  val fullName   = name
   val fork       = false
-  val remote     = false
+  val fullName   = name
 }
-
-case class RepositoryId(value: Long)
 

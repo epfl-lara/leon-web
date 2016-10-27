@@ -21,6 +21,8 @@ abstract class RepositoryService(val provider: Provider, val rootDir: File) {
 
   def getRepository(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[R]
 
+  def getWorkingCopy(desc: RepositoryDesc): Option[GitWorkingCopy]
+
 }
 
 case object ServiceUnavailable extends Exception("Service unavailable")
@@ -46,10 +48,6 @@ object RepositoryService {
     case _                => None
   }
 
-  def apply(user: User, desc: RepositoryDesc): Option[RepositoryService] = {
-    apply(user, desc.provider)
-  }
-
   def listRepositoriesByProvider(user: User)(implicit ec: ExecutionContext): Future[Map[Provider, Seq[Repository]]] = {
     val future = Future.sequence {
       providers
@@ -66,33 +64,14 @@ object RepositoryService {
   }
 
   def getRepository(user: User, desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = {
-    RepositoryService(user, desc)
+    RepositoryService(user, desc.provider)
       .map(_.getRepository(desc))
       .getOrElse(Future.failed(ServiceUnavailable))
   }
 
-  def getWorkingCopy(user: User, desc: RepositoryDesc): Option[GitWorkingCopy] =
-    desc match {
-      case RepositoryDesc.GitHub(owner, name) =>
-        for {
-          service <- GitHubRepositoryService(user, githubRootDir)
-          rootDir = service.rootDir.getPath
-          token   = service.token
-          path    = Paths.get(rootDir, user.userId.value, owner, name)
-        }
-        yield new GitWorkingCopy(path.toFile, user, Some(token))
-
-      case RepositoryDesc.Tequila(sciper, name) =>
-        for {
-          service <- TequilaRepositoryService(user, tequilaRootDir)
-          rootDir = service.rootDir.getPath
-          path    = Paths.get(rootDir, name)
-        }
-        yield new GitWorkingCopy(path.toFile, user)
-
-      case _ =>
-        None
-    }
+  def getWorkingCopy(user: User, desc: RepositoryDesc): Option[GitWorkingCopy] = {
+    RepositoryService(user, desc.provider).flatMap(_.getWorkingCopy(desc))
+  }
 
 }
 
@@ -113,6 +92,15 @@ class GitHubRepositoryService(user: User, rootDir: File, val token: String)
   def getRepository(desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[GitHubRepository] = {
     val RepositoryDesc.GitHub(owner, name) = desc
     ghService.getRepository(owner, name)
+  }
+
+  override
+  def getWorkingCopy(desc: RepositoryDesc): Option[GitWorkingCopy] = desc match {
+    case RepositoryDesc.GitHub(owner, name) =>
+      val path = Paths.get(rootDir.getPath, user.userId.value, owner, name)
+      Some(new GitWorkingCopy(path.toFile, user, Some(token)))
+
+    case _ => None
   }
 
 }
@@ -150,6 +138,15 @@ class LocalRepositoryService(user: User, rootDir: File)
     }
   }
 
+  override
+  def getWorkingCopy(desc: RepositoryDesc): Option[GitWorkingCopy] = desc match {
+    case RepositoryDesc.Local(name) =>
+      val path = Paths.get(rootDir.getPath, name)
+      Some(new GitWorkingCopy(path.toFile, user))
+
+    case _ => None
+  }
+
   import org.eclipse.jgit.lib.Ref
 
   private
@@ -170,12 +167,14 @@ class LocalRepositoryService(user: User, rootDir: File)
     val wc        = new GitWorkingCopy(dir, user)
     val defBranch = wc.branchName()
     val branches  = wc.branchesNamesAndRef(false).map(r => Branch(r._1, r._2)).toSeq
+    val origin    = wc.getOrigin()
 
     LocalRepository(
       name          = dir.getName,
       path          = dir.getPath,
       defaultBranch = defBranch,
-      branches      = branches
+      branches      = branches,
+      remote        = origin.map(o => Remote(o.name, o.url))
     )
   }
 
@@ -220,9 +219,19 @@ class TequilaRepositoryService(user: User, rootDir: File, localService: LocalRep
         user.tequila.get.publicId.serviceUserId.value,
         repo.name,
         repo.defaultBranch,
-        repo.branches
+        repo.branches,
+        repo.remote
       )
     }
+  }
+
+  override
+  def getWorkingCopy(desc: RepositoryDesc): Option[GitWorkingCopy] = desc match {
+    case RepositoryDesc.Tequila(sciper, name) =>
+      val path = Paths.get(rootDir.getPath, name)
+      Some(new GitWorkingCopy(path.toFile, user))
+
+    case _ => None
   }
 
 }
