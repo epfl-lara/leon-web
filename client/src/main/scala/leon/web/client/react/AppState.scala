@@ -14,9 +14,6 @@ import leon.web.client.utils.Base64
 import java.nio.ByteBuffer
 import boopickle.Default._
 
-// import leon.web.client.utils.picklers._
-// import upickle.default._
-
 case class AppState(
 
   // Currently logged-in user (if any)
