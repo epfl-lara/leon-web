@@ -30,6 +30,7 @@ object LoadRepositoryModal {
     repos: Option[Map[Provider, Seq[Repository]]] = None
   ) {
     val providers: Seq[Provider] = repos.map(_.keys.toSeq).getOrElse(Seq())
+    val firstProvider: Option[Provider] = providers.headOption
   }
 
   case class State(
@@ -106,14 +107,16 @@ object LoadRepositoryModal {
         <.div(loading)
 
       case Some(repos) =>
+        val selectedProvider = state.selectedProvider.orElse(props.firstProvider)
+
         <.div(^.className := "panel with-nav-tabs panel-default",
           <.div(^.className := "panel-heading",
-            renderProviders(repos.keys.toSeq, state.selectedProvider)
+            renderProviders(repos.keys.toSeq, selectedProvider)
           ),
           <.div(^.className := "panel-body",
-            state.selectedProvider.isDefined ?=
+            selectedProvider.isDefined ?=
               renderRepositories(
-                repos(state.selectedProvider.get),
+                repos(selectedProvider.get),
                 state.selectedRepo,
                 props.cloning
               )
@@ -172,7 +175,7 @@ object LoadRepositoryModal {
   val component =
     ReactComponentB[Props]("LoadRepositoryModal")
       .initialState_P(props =>
-        State(selectedProvider = props.providers.headOption)
+        State(selectedProvider = props.firstProvider)
       )
       .renderBackend[Backend]
       .build
