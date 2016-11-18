@@ -141,7 +141,7 @@ object ProgramEvaluator {
     * @return concrete value of the program execution.
     */
   private def evaluateProgramConcrete(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter): Option[Expr] = {
-     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Abstract Evaluator")
+     val sReporter = serverReporter.startFunction("Evaluating Program with leon's Evaluator")
     val leonReporter = new DefaultReporter(Set())
     val ctx = leon.Main.processOptions(Seq()).copy(reporter = leonReporter)
     ctx.interruptManager.registerSignalHandler()
@@ -160,11 +160,11 @@ object ProgramEvaluator {
         Some(res)
       }
       case EvaluationResults.EvaluatorError(msg) => {
-        sReporter.report(Error, "Evaluation failed: abstractEvaluator returned an EvaluationError with message: "+msg)
+        sReporter.report(Error, "Evaluation failed: evaluator returned an EvaluationError with message: "+msg)
         None
       }
       case EvaluationResults.RuntimeError(msg) => {
-        sReporter.report(Error, "Evaluation failed: abstractEvaluator returned a RuntimeError with message: "+msg)
+        sReporter.report(Error, "Evaluation failed: evaluator returned a RuntimeError with message: "+msg)
         None
       }
     }

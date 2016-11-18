@@ -817,6 +817,10 @@ ul.repository-list .private .octicon {
   }
 }
 
+#webPageDisplayer {
+  position: relative
+}
+
 /* Clone progress text */
 .clone-progress {
   margin-right: 1em;
