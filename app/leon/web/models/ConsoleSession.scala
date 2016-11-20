@@ -229,9 +229,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           (_, _, path) <- wc.getFile(s.branch, s.file)
         } yield wc.path.toPath.resolve(path).toFile
 
-        println(repoState)
-        println(file)
-
         val savedFile = saveCode(code, file)
 
         val compReporter = new CompilingWSReporter(channel)
@@ -262,16 +259,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               }
           }
 
-          println("savedFile:")
-          println(savedFile.getAbsolutePath)
-
-          println("repoFiles:")
-          println(repoFiles)
-
           val runFiles = repoFiles.getOrElse(savedFile.getAbsolutePath :: Nil)
-
-          println("runFiles:")
-          println(runFiles)
 
           val (_, program) = pipeline.run(compContext, runFiles)
 

@@ -17,7 +17,6 @@ import leon.web.shared.{User => SharedUser, Identity => SharedIdentity, _ }
 import leon.web.utils.String._
 import shared.git._
 
-// TODO: Use context.become to handle logged-in user
 class RepositoryWorker(session: ActorRef, user: Option[User]) extends BaseActor with Actor {
 
   import ConsoleProtocol._

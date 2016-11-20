@@ -35,11 +35,12 @@ Later, when pulling changes, use the command `git submodule update --recursive`.
     assets.production.external.dir="PATH_TO_LEON/localhome-leonweb/git/leon-web/"
     http.port=9000
 
-    # Path to where the GitHub repositories will be cloned
-    repositories.github.path="PATH_TO_LEON/localhome-leonweb/repos/github/"
+    # Path where the repositories will be cloned
+    repositories.path="PATH_TO_LEON/localhome-leonweb/repos/"
 
-    # Path where to look for Tequila user-specific repositories
-    repositories.tequila.path="PATH_TO_LEON/localhome-leonweb/repos/tequila/"
+    # This entails the following configuration (which can be overriden):
+    # repositories.github.path="PATH_TO_LEON/localhome-leonweb/repos/github/"
+    # repositories.tequila.path="PATH_TO_LEON/localhome-leonweb/repos/tequila/"
 
     # GitHub application OAuth credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
@@ -82,11 +83,12 @@ Write `conf/setup.conf` and add the following lines, for example:
     assets.production.external.dir="/localhome/leonweb/git/leon-web/"
     http.port=9900
 
-    # Path to where the GitHub repositories will be cloned
-    repositories.github.path="PATH_TO_LEON/localhome-leonweb/repos/github/"
+    # Path where the repositories will be cloned
+    repositories.path="PATH_TO_LEON/localhome-leonweb/repos/"
 
-    # Path where to look for Tequila user-specific repositories
-    repositories.tequila.path="PATH_TO_LEON/localhome-leonweb/repos/tequila/"
+    # This entails the following configuration (which can be overriden):
+    # repositories.github.path="PATH_TO_LEON/localhome-leonweb/repos/github/"
+    # repositories.tequila.path="PATH_TO_LEON/localhome-leonweb/repos/tequila/"
 
     # GitHub application OAuth credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"

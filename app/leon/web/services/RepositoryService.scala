@@ -1,16 +1,19 @@
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 package leon.web
 package services
 
-import play.Play
+import play.api.Play
+import play.api.Play.current
 
 import java.io.File
-import java.nio.file.Paths
+import java.nio.file.{Path, Paths}
 
+import scala.util.Try
 import scala.concurrent.{Future, ExecutionContext}
 
 import leon.web.models.{User, GitWorkingCopy}
+import leon.web.config.RepositoryService.Config
 import leon.web.shared._
 
 abstract class RepositoryService(val provider: Provider, val rootDir: File) {
@@ -30,25 +33,16 @@ case object ServiceUnavailable extends Exception("Service unavailable")
 object RepositoryService {
 
   private
-  val tequilaRootDir = new File(
-    Play.application.configuration.getString("repositories.tequila.path")
-  )
-
-  private
-  val githubRootDir = new File(
-    Play.application.configuration.getString("repositories.github.path")
-  )
-
-  private
   val providers = Seq(Provider.GitHub, Provider.Tequila)
 
-  def apply(user: User, provider: Provider): Option[RepositoryService] = provider match {
-    case Provider.GitHub  => GitHubRepositoryService(user, githubRootDir)
-    case Provider.Tequila => TequilaRepositoryService(user, tequilaRootDir)
+  def apply(user: User, provider: Provider)(implicit config: Config): Option[RepositoryService] = provider match {
+    case Provider.GitHub  => GitHubRepositoryService(user, config.githubDir)
+    case Provider.Tequila => TequilaRepositoryService(user, config.tequilaDir)
     case _                => None
   }
 
-  def listRepositoriesByProvider(user: User)(implicit ec: ExecutionContext): Future[Map[Provider, Seq[Repository]]] = {
+  def listRepositoriesByProvider(user: User)
+                                (implicit config: Config, ec: ExecutionContext): Future[Map[Provider, Seq[Repository]]] = {
     val future = Future.sequence {
       providers
         .map(RepositoryService(user, _))
@@ -63,13 +57,15 @@ object RepositoryService {
     future.map(_.toMap)
   }
 
-  def getRepository(user: User, desc: RepositoryDesc)(implicit ec: ExecutionContext): Future[Repository] = {
+  def getRepository(user: User, desc: RepositoryDesc)
+                   (implicit config: Config, ec: ExecutionContext): Future[Repository] = {
+
     RepositoryService(user, desc.provider)
       .map(_.getRepository(desc))
       .getOrElse(Future.failed(ServiceUnavailable))
   }
 
-  def getWorkingCopy(user: User, desc: RepositoryDesc): Option[GitWorkingCopy] = {
+  def getWorkingCopy(user: User, desc: RepositoryDesc)(implicit config: Config): Option[GitWorkingCopy] = {
     RepositoryService(user, desc.provider).flatMap(_.getWorkingCopy(desc))
   }
 
