@@ -39,8 +39,8 @@ class RepositoryWorker(session: ActorRef, user: Option[User]) extends BaseActor 
 
     case OnClientEvent(_, event: RepositoryModule) => event match {
 
-      case DoUpdateCodeInRepository(code, state, requestId) => withUser { user =>
-        session ! UpdateCode(code, Some(user), Some(state), requestId)
+      case DoUpdateCodeInRepository(code, state) => withUser { user =>
+        session ! UpdateCode(code, Some(user), Some(state), Int.MinValue)
       }
 
       case LoadRepositories => withUser { user =>

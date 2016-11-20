@@ -34,9 +34,10 @@ object Backend {
     }
   }
   
-  var requestId = 0
-
   object main extends Module(MainModule) {
+
+    var requestId = 0
+
     def storePermaLink(code: String) =
       Server !! StorePermaLink(code)
     def accessPermaLink(link: String) = 
@@ -59,14 +60,11 @@ object Backend {
 
   object repository extends Module(RepositoryHandler) {
 
-    def doUpdateCodeInRepository(code: String, repoState: RepositoryState): Int = {
-      requestId += 1
+    def doUpdateCodeInRepository(code: String, repoState: RepositoryState): Unit = {
       Server !! DoUpdateCodeInRepository(
         code      = code,
-        repoState = repoState.copy(code = Some(code)),
-        requestId = requestId
-      ) andThenAnalytics(Action.doUpdateCodeInRepository, s"${repoState.asString}#$requestId")
-      requestId
+        repoState = repoState.copy(code = Some(code))
+      ) andThenAnalytics(Action.doUpdateCodeInRepository, s"${repoState.asString}")
     }
 
     def loadRepositories(): Unit =

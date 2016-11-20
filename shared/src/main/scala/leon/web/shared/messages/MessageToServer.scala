@@ -49,11 +49,7 @@ case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToS
 case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with RepositoryModule
 case class DoGitOperation(op: GitOperation, repoState: RepositoryState) extends MessageToServer with RepositoryModule
 
-case class DoUpdateCodeInRepository(
-  code: String,
-  repoState: RepositoryState,
-  requestId: Int
-) extends MessageToServer with RepositoryModule
+case class DoUpdateCodeInRepository( code: String, repoState: RepositoryState) extends MessageToServer with RepositoryModule
 
 // Website builder
 sealed trait WebsiteBuilderModule {
