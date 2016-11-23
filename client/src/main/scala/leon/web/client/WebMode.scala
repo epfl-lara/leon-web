@@ -13,6 +13,7 @@ import js.Dynamic.{global => g}
 import org.scalajs.dom.{window, _}
 import js.annotation.ScalaJSDefined
 import org.scalajs.dom.html.Element
+import scalacss.Defaults._
 
 object WebMode {
   
@@ -48,6 +49,8 @@ object WebMode {
   }
   
   var previewWindow: Window = null
+  
+  def body = if(previewWindow == null) $("body") else $(previewWindow.document).find("body")
   
   def isWebModeOn: Boolean = !webmodebutton.hasClass("off")
   def isWindowExternalized: Boolean = previewWindow != null
@@ -89,7 +92,7 @@ object WebMode {
     setExternIconAction(externalize = false)
     previewWindow = window.open(window.location.origin.getOrElse("") + "/preview", "Preview", "width=400,height=400")
     previewWindow.addEventListener("load", ((e: Event) => {
-      $(previewWindow.document).find("head").append(webpagecss)
+      $(previewWindow.document).find("head").append(webpagecss).append($("<style>").text(GlobalStyles.render[String]))
       $(previewWindow.document).find("body").append(htmlDisplayerDiv) // Move htmlDisplayerDiv to the outer window.
       htmlDisplayerDiv.find("#"+WebBuildingUIManager.webPageDisplayerID).empty()
       ScalaJS_Main.renderWebPage(ScalaJS_Main.lastRenderedWebpage)

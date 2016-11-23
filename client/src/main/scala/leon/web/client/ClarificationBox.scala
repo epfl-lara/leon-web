@@ -4,7 +4,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.websitebuilder.ScalaJS_Main
 import leon.webDSL.webDescription.WebPageWithIDedWebElements
 import org.scalajs.dom.document
-import org.scalajs.jquery.{ jQuery => $, _ }
+import org.scalajs.jquery.{ /*jQuery => $,*/_ }
 
 import scala.collection.mutable.ListBuffer
 import scalacss.ScalaCssReact._
@@ -21,18 +21,11 @@ object ClarificationBox {
   private val solutionButtonsDivID = "buttonDiv"
 
   def initialState = {
-    //    val solutionButtonsDiv  = <.div(
-    //      ^.id := solutionButtonsDiv
-    //      IDMang.interfaceIDAttr := solutionButtonsDivID
-    //    )
     <.div(
       ^.id := WebBuildingUIManager.clarificationBoxID,
-      //      IDMang.interfaceIDAttr := "clarificationBox",
-      ////      ^.id := "discussionbox",
       GlobalStyles.discussionbox,
       <.div(
         ^.id := solutionButtonsDivID
-        //        IDMang.interfaceIDAttr := solutionButtonsDivID
       )
 
       //      <.div(
@@ -52,10 +45,12 @@ object ClarificationBox {
   }
 
   def removeSolutionButtons() = {
-    val el = document.getElementById(solutionButtonsDivID)
+    val el = $("#" + solutionButtonsDivID).get(0)
     if (el != null)
       ReactDOM.render(<.div(), document.getElementById(solutionButtonsDivID))
   }
+  
+  def $(s: String) = WebMode.body.find(s)
 
   def setSolutionButtons(solutions: List[ShippableClarificationSolution], idOfClarifiedWebElement: Int): Unit = {
     val clarifiedElement = $("span[data-reservedattributeforimplicitwebprogrammingid="+idOfClarifiedWebElement+"]")
@@ -90,6 +85,6 @@ object ClarificationBox {
     )
     
     val newSolutionButtonDiv = <.div(allButtons)
-    ReactDOM.render(newSolutionButtonDiv, document.getElementById(solutionButtonsDivID))
+    ReactDOM.render(newSolutionButtonDiv, $("#"+solutionButtonsDivID).get(0))
   }
 }
