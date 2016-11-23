@@ -612,7 +612,8 @@ object ScalaJS_Main {
     LeonList.mkString(s.elems, "\n\n", renderRule)
   }
 
-  var lastJavascript = "0";
+  var lastJavascript = "0"
+  var lastRenderedWebpage: WebPageWithIDedWebElements = null
   def loadJavascript(s: String): Unit = {
     lastJavascript = s
     WebMode.evalJavascript(s)
@@ -623,7 +624,8 @@ object ScalaJS_Main {
   //document.getElementById(htmlWebPageDisplayerDivID)
   def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements/*, inElement: Element*/) = {
     println("Rendering " + webPageWithIDedWebElements)
-    val css = renderCss(webPageWithIDedWebElements.css)
+    lastRenderedWebpage = webPageWithIDedWebElements
+    val css = renderCss(webPageWithIDedWebElements.css) // TODO: Have this in the code natively so that we can modify it afterwards.
     
     val webPageDiv = <.div(
       ^.id := "webPage",
@@ -685,14 +687,14 @@ object ScalaJS_Main {
               reservedAttributeForImplicitWebProgrammingID := webElID,
               ^.contentEditable := "true",
               ^.onChange ==> textChangeCallback,
-              ^.onInput ==> textChangeCallback,
-              ^.title := "webElID= "+webElID
+              ^.onInput ==> textChangeCallback//,
+              //^.title := "webElID= "+webElID
             )
           case Element(tag, sons, attributes, styles) =>
             tag.reactTag(
               reservedAttributeForImplicitWebProgrammingID := webElID,
               leonListToList(sons).map(convertWebElementWithIDToReactElement),
-              ^.title := "webElID= "+webElID,
+              //^.title := "webElID= "+webElID,
               leonListToList(attributes).map{ x =>
                 if(x.attributeName == "class") {
                   ^.className := x.attributeValue 

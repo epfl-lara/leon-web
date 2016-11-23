@@ -91,6 +91,9 @@ object WebMode {
     previewWindow.addEventListener("load", ((e: Event) => {
       $(previewWindow.document).find("head").append(webpagecss)
       $(previewWindow.document).find("body").append(htmlDisplayerDiv) // Move htmlDisplayerDiv to the outer window.
+      htmlDisplayerDiv.find("#"+WebBuildingUIManager.webPageDisplayerID).empty()
+      ScalaJS_Main.renderWebPage(ScalaJS_Main.lastRenderedWebpage)
+      
       htmlDisplayerDivOldClass = htmlDisplayerDiv.attr("class").getOrElse("")
       htmlDisplayerDiv.attr("class", htmlDisplayerDivNewlass)
       evalJavascript(ScalaJS_Main.lastJavascript)
