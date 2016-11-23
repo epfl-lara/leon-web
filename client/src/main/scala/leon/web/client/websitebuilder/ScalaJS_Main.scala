@@ -39,8 +39,6 @@ object ScalaJS_Main {
 //  An attribute that SHOULD NOT be used by the end user, whose purpose is to serve as id for the html elements of the web interface
   val reservedAttributeForImplicitWebProgrammingID = "data-reservedattributeforimplicitwebprogrammingid".reactAttr
   val reservedAttributeForImplicitWebProgrammingID_name = "data-reservedattributeforimplicitwebprogrammingid"
-//  val htmlWebPageDisplayerDivID = "htmlDisplayerDiv"
-  val htmlWebPageDisplayerDivID = WebBuildingUIManager.webPageDisplayerID
 
   import leon.web.client.Main.Server
   
@@ -84,7 +82,7 @@ object ScalaJS_Main {
           //            webPage.asInstanceOf[WebPageWithIDedWebElements].sons.foldLeft(0)((useless, webElem) => {println(webElem.weid); useless})
           //            dom.document.getElementById("sourceCodeSubmitButton").setAttribute("style", "background-color:none")
           SourceCodeSubmitButton.removeCustomBackground()
-          renderWebPage(webPage, htmlWebPageDisplayerDivID)
+          renderWebPage(webPage)
         } else {
           println(s"Received answer $requestId while expecting answer $idOfLastSourceCodeModificationSent from the server. Waiting.")
         }
@@ -143,7 +141,7 @@ object ScalaJS_Main {
 //                        AceEditor.activateAceEdOnChangeCallback_standard()
                     }
                     val firstSolution = potentialWebPageList.solutionList.head
-                    renderWebPage(firstSolution.idedWebPage, htmlWebPageDisplayerDivID)
+                    renderWebPage(firstSolution.idedWebPage)
                     println("Displaying source code: "+firstSolution.sourceCode)
                     setSourceCode(firstSolution.sourceCode, firstSolution.positionsOfModificationsInSourceCode)
                     if (n > 1 && idOfClarifiedWebElementOption.isDefined) {
@@ -336,12 +334,12 @@ object ScalaJS_Main {
 //      ^.onClick --> testCallback,
 //      "Test button"
 //    )
-    val htmlDisplayerDiv = <.div(
-      ^.id := htmlWebPageDisplayerDivID
+    val htmlDisplayerDivContent = <.div(
+      ^.id := WebBuildingUIManager.webPageDisplayerID
     )
     val divContent = <.div(
 //      testButton,
-      htmlDisplayerDiv
+      htmlDisplayerDivContent
     )
     ReactDOM.render(divContent, document.getElementById(destinationDivId))
   }
@@ -608,19 +606,22 @@ object ScalaJS_Main {
       s.attributeName + ": " + s.attributeValue
     }
     def renderRule(r: StyleRule): String = {
-      r.target.split(",").map("#"+htmlWebPageDisplayerDivID+" " + _).mkString(",") +
-        " {\n  " + LeonList.mkString(r.rules, ";\n  ", renderStyle) + "}"
+      r.target.split(",").map("#"+WebBuildingUIManager.webPageDisplayerID+" " + _).mkString(",") +
+        " {\n  " + LeonList.mkString(r.rules, ";\n  ", renderStyle) + "}\n\n"
     }
     LeonList.mkString(s.elems, "\n\n", renderRule)
   }
 
+  var lastJavascript = "0";
   def loadJavascript(s: String): Unit = {
-    window.eval(s)    
+    lastJavascript = s
+    WebMode.evalJavascript(s)
   }
 //  def includeScriptInMainTemplate(scriptTagToInclude: scalatags.JsDom.TypedTag[org.scalajs.dom.html.Script]) = {
 //    dom.document.getElementById("scalajsScriptInclusionPoint").appendChild(scriptTagToInclude.render)
 //  }
-  def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements, destinationDivID: String = htmlWebPageDisplayerDivID) = {
+  //document.getElementById(htmlWebPageDisplayerDivID)
+  def renderWebPage(webPageWithIDedWebElements: WebPageWithIDedWebElements/*, inElement: Element*/) = {
     println("Rendering " + webPageWithIDedWebElements)
     val css = renderCss(webPageWithIDedWebElements.css)
     
@@ -628,11 +629,9 @@ object ScalaJS_Main {
       ^.id := "webPage",
       convertWebElementWithIDToReactElement(webPageWithIDedWebElements.main)
     )
-    ReactDOM.render(webPageDiv, document.getElementById(destinationDivID))
-    if($("#webpagecss").length == 0) {
-      $("head").append($("<style>").attr("id", "webpagecss"))
-    }
-    $("#webpagecss").text(css)
+    val inElement = WebMode.htmlDisplayerDiv.find("#"+WebBuildingUIManager.webPageDisplayerID).get(0)
+    ReactDOM.render(webPageDiv, inElement)
+    WebMode.webpagecss.text(css)
   }
 
   def leonListToList[T](leonList: leon.collection.List[T]): List[T] = {

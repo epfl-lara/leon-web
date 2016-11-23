@@ -821,6 +821,20 @@ ul.repository-list .private .octicon {
   position: relative
 }
 
+#separatewindowlink {
+  position: absolute;
+  float: right;
+  z-index: 1000;
+  right: 0px;
+  padding: 5px;
+  cursor: pointer;
+}
+
+#separatewindowlink:hover {
+  color: #0320ff;
+  background: lightgray;
+}
+
 /* Clone progress text */
 .clone-progress {
   margin-right: 1em;

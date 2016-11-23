@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/epfl-lara/leon-web.svg?branch=master)](https://travis-ci.org/epfl-lara/leon-web)
+
 # HOW TO CLONE
 
     git clone --recursive https://github.com/EPFL-LARA/leon-web

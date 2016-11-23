@@ -1692,7 +1692,7 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
     optWebpage match {
       case Some(webPage) =>
         if(requestId == Backend.main.requestId) {
-          websitebuilder.ScalaJS_Main.renderWebPage(webPage, WebBuildingUIManager.webPageDisplayerID)
+          websitebuilder.ScalaJS_Main.renderWebPage(webPage)
           javascript foreach websitebuilder.ScalaJS_Main.loadJavascript
         } else {
           println("Expecting id " + Backend.main.requestId + ", got " + requestId + ". Request ignored")

@@ -23,5 +23,9 @@ GET   /logout                       @securesocial.controllers.LoginPage.logout
 GET   /authenticate/:provider  @securesocial.controllers.ProviderController.authenticate(provider, redirectTo: Option[String])
 POST  /authenticate/:provider  @securesocial.controllers.ProviderController.authenticateByPost(provider, redirectTo: Option[String])
 
+# External webpage presentation
+GET   /preview                      @leon.web.controllers.Interface.preview
+
+# Index file (index.scala.html)
 GET   /$dir<[a-z0-9]*>              @leon.web.controllers.Interface.index(dir: String)
 

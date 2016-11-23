@@ -5,7 +5,6 @@ import scala.concurrent.Await
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.TimeoutException
-
 import akka.actor._
 import akka.pattern.ask
 import akka.util.Timeout
@@ -21,6 +20,7 @@ import play.api.libs.json.Writes._
 import play.api.mvc._
 import securesocial.core._
 import shared.messages.{MessageFromServer, HLog}
+import play.api.Play
 
 class Interface(override implicit val env: RuntimeEnvironment[User]) extends SecureSocial[User] {
 
@@ -29,6 +29,21 @@ class Interface(override implicit val env: RuntimeEnvironment[User]) extends Sec
       dir -> new FileExamples(dir).allExamples
     )
   }
+  
+  def preview = UserAwareAction { implicit request => 
+    val url = Play.current.configuration.getString("app.url").getOrElse("/")
+    val ssl = Play.current.configuration.getBoolean("app.ssl").getOrElse(true)
+    val webconfig = LeonWebConfig(
+      examples=Nil,
+      default=null,
+      url=url,
+      isSSL=ssl,
+      release=LeonWebConfig.getLeonRelease
+    )
+
+    Ok(views.html.preview(webconfig))
+  }
+
 
   def index(dir: String) = UserAwareAction { implicit request =>
     val examples = if (dir === "") {
