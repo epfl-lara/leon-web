@@ -35,6 +35,10 @@ input[type="checkbox"] + label {
   margin-left: 5px;
 }
 
+.center {
+  text-align: center;
+}
+
 .panel > h3, #title {
     background: #19214F;
 }
@@ -174,6 +178,11 @@ div.toolbox {
     font-size: 1em;
 }
 
+div.toolbox.right {
+  float: right;
+  margin-right: 15px;
+}
+
 div#title div.toolbox a, div#title div.toolbox > span {
     float: left;
     color: white;
@@ -219,6 +228,30 @@ div.panel > h3 {
 
 .panel-element-full {
     width: 95% !important;
+}
+
+.modal-header.with-nav-tabs {
+  text-align: center !important;
+  border-bottom: 0 !important;
+}
+
+.modal-body.with-nav-tabs {
+  padding: 0 !important;
+}
+
+.panel.with-nav-tabs {
+  border: 0 !important;
+  margin: 0 !important;
+}
+
+.panel.with-nav-tabs .panel-heading {
+    padding: 5px 5px 0 5px !important;
+}
+.panel.with-nav-tabs .nav-tabs {
+	border-bottom: none !important;
+}
+.panel.with-nav-tabs .nav-justified {
+	margin-bottom: -1px !important;
 }
 
 div.compilation-status {
@@ -614,15 +647,16 @@ pre.exploreBlock .header .name span {
 }
 
 /* Login */
+.auth-buttons {
+  margin-top: 2em;
+  margin-bottom: 1em;
+}
+
 .hide-login-footer {
   margin-right: 10px;
 }
 
 /* Load Repository Panel */
-#load-repo-panel {
-  display: none;
-}
-
 #load-repo-btn {
   padding: 4px !important;
 }
@@ -705,16 +739,26 @@ textarea.git-commit-msg {
 }
 
 .git-diff-view pre.diff {
+  background-color: #f8f8f8;
   max-height: 350px;
   overflow: scroll;
 }
 
-.git-diff-view pre.diff .added {
-  color: green;
+.git-diff-view pre.diff .diff-addition {
+  background: #dfd;
 }
 
-.git-diff-view pre.diff .removed {
-  color: red;
+.git-diff-view pre.diff .diff-deletion {
+  background: #fdd;
+}
+
+.git-diff-view pre.diff .diff-header {
+  color: #998;
+  font-style: italic;
+}
+
+.git-diff-view pre.diff .diff-chunk {
+  color: #aaa;
 }
 
 /* Load Repository Modal */
@@ -842,14 +886,24 @@ ul.repository-list .private .octicon {
   font-style: italic;
 }
 
+/* Account modal */
+.account-identities {}
+
+.account-link-another {}
+
+/* Font-Awesome icons */
 .fa {
 	line-height: initial !important
 }
+
+/* Ace */
+
 /*.ace_gutter-cell {
 	display: block;
 	padding-left: initial;
 	font-family: monospace;
 }*/
+
 .ace_gutter-cell.fa:before {
 	font-family: fontAwesome;
 }

@@ -16,8 +16,30 @@ import securesocial.core.providers.GitHubProvider
 import leon.web.models.User
 import leon.web.services.DatabaseUserService
 import leon.web.stores.CookieAuthenticatorStore
+import leon.web.config.RepositoryService
+import leon.web.auth.providers.TequilaProvider
 
 object Global extends GlobalSettings {
+
+  override def onStart(app: Application) = {
+    Logger.info("Application has started")
+
+    checkConfiguration(app)
+  }
+
+  def checkConfiguration(app: Application) = {
+    Logger.info("Checking configuration...")
+
+    try {
+      val config = RepositoryService.Config.fromPlayAppConfig(app.configuration)
+      Logger.info("√ Configuration is OK!")
+    }
+    catch {
+      case e: Exception =>
+        Logger.error(s"X Configuration is INVALID: $e")
+        throw e
+    }
+  }
 
   object RuntimeEnv extends RuntimeEnvironment.Default[User] {
 
@@ -28,9 +50,10 @@ object Global extends GlobalSettings {
     )
 
     override lazy val providers = ListMap(
-      include(new GitHubProvider(routes, cacheService, oauth2ClientFor(GitHubProvider.GitHub)))
+      include(new GitHubProvider(routes, cacheService, oauth2ClientFor(GitHubProvider.GitHub))),
+      include(new TequilaProvider(routes, cacheService, oauth2ClientFor(TequilaProvider.Tequila)))
     )
-  }
+ }
 
   /**
     * Inject RuntimeEnv into controllers requiring it.

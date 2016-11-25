@@ -52,7 +52,9 @@ object ClarificationBox {
   }
 
   def removeSolutionButtons() = {
-    ReactDOM.render(<.div(), document.getElementById(solutionButtonsDivID))
+    val el = document.getElementById(solutionButtonsDivID)
+    if (el != null)
+      ReactDOM.render(<.div(), document.getElementById(solutionButtonsDivID))
   }
 
   def setSolutionButtons(solutions: List[ShippableClarificationSolution], idOfClarifiedWebElement: Int): Unit = {

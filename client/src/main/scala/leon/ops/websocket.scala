@@ -2,7 +2,7 @@
 
 package leon.web
 package client
-package syntax
+package ops
 
 import org.scalajs.dom.WebSocket
 

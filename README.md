@@ -27,7 +27,7 @@ Later, when pulling changes, use the command `git submodule update --recursive`.
 #### Create your configuration file
 
 * Create the `localhome-leonweb/git/leon-web/` folders in your leon installation folder
-* Create the `localhome-leonweb/repos` folder in your leon installation folder
+* Create the `localhome-leonweb/repos/github`, and `localhome-leonweb/repos/tequila` folders in your leon installation folder
 * Create a `setup.conf`file in the `conf` folder of your leon installation folder and add the following lines (where `PATH_TO_LEON`is the path to your leon installation folder) :
 
 	```
@@ -36,15 +36,24 @@ Later, when pulling changes, use the command `git submodule update --recursive`.
     app.url="http://localhost:9000/"
     assets.production.external.dir="PATH_TO_LEON/localhome-leonweb/git/leon-web/"
     http.port=9000
-    
-    # Path to where the Git repositories will be cloned
+
+    # Path where the repositories will be cloned
     repositories.path="PATH_TO_LEON/localhome-leonweb/repos/"
 
-    # GitHub application credentials
+    # This entails the following configuration (which can be overriden):
+    # repositories.github.path="PATH_TO_LEON/localhome-leonweb/repos/github/"
+    # repositories.tequila.path="PATH_TO_LEON/localhome-leonweb/repos/tequila/"
+
+    # GitHub application OAuth credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
-    auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"```
-	```
-* To enable github integration when you will launch your local leon server, do the following:
+    auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
+
+    # Tequila application OAuth credentials
+    auth.tequila.clientId="YOUR_TEQUILA_APP_CLIENT_ID"
+    auth.tequila.clientSecret="YOUR_TEQUILA_APP_CLIENT_SECRET"
+```
+
+* To enable GitHub integration when you will launch your local leon server, do the following:
    * Go to [github.com](https://github.com)
    * Click on your picture > Settings
    * Navigate to "OAuth applications"
@@ -53,6 +62,8 @@ Later, when pulling changes, use the command `git submodule update --recursive`.
    * Give a name, for example "LeonWebLocal"
    * Put http://localhost:9000 in Homepage URL and Authorization callback URL
    * Validate.
+
+* To enable Tequila integration when you will need OAuth access tokens for Tequila.
 
 #### Launch your local leon server
 
@@ -73,13 +84,21 @@ Write `conf/setup.conf` and add the following lines, for example:
     app.url="https://leon.epfl.ch"
     assets.production.external.dir="/localhome/leonweb/git/leon-web/"
     http.port=9900
-    
-    # Path to where the Git repositories will be cloned
-    repositories.path="/localhome/leonweb/repos/"
 
-    # GitHub application credentials
+    # Path where the repositories will be cloned
+    repositories.path="PATH_TO_LEON/localhome-leonweb/repos/"
+
+    # This entails the following configuration (which can be overriden):
+    # repositories.github.path="PATH_TO_LEON/localhome-leonweb/repos/github/"
+    # repositories.tequila.path="PATH_TO_LEON/localhome-leonweb/repos/tequila/"
+
+    # GitHub application OAuth credentials
     auth.github.clientId="YOUR_GITHUB_APP_CLIENT_ID"
     auth.github.clientSecret="YOUR_GITHUB_APP_CLIENT_SECRET"
+
+    # Tequila application OAuth credentials
+    auth.tequila.clientId="YOUR_TEQUILA_APP_CLIENT_ID"
+    auth.tequila.clientSecret="YOUR_TEQUILA_APP_CLIENT_SECRET"
 
 ## Step 2 (to start leon-web)
 

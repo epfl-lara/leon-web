@@ -1,4 +1,8 @@
-@(webconfig: leon.web.models.LeonWebConfig, user: Option[leon.web.models.User])(implicit request: RequestHeader)
+@import play.api.libs.json.Json
+@import leon.web.models.LeonWebConfig
+@import leon.web.models.User
+
+@(webconfig: LeonWebConfig, user: Option[User])(implicit request: RequestHeader)
 
 @main("Leon Online", webconfig) {
   <div id="allcontent">
@@ -18,6 +22,8 @@
         <a id="button-about" href="http://lara.epfl.ch/w/leon" target="_blank"><i class="fa fa-info"></i> <span>About</span></a>
         <a id="button-doc" href="/doc/" target="_blank"><i class="fa fa-graduation-cap"></i> <span>Documentation</span></a>
         <span id="button-web" class="off"><i class="fa fa-newspaper-o"></i> <span>WebBuilder</span></span>
+      </div>
+      <div class="toolbox right">
         @tags.login(user)
       </div>
     </div>
@@ -25,6 +31,8 @@
         var _leon_websocket_url = "@leon.web.controllers.routes.Interface.openConsole().webSocketURL(webconfig.isSSL)";
 
         var _leon_isLoggedIn = @user.isDefined;
+
+        var _leon_user = @Html(user.map(u =>Json.stringify(Json.toJson(u))).getOrElse("null"))
     </script>
 
     <div class="container-fluid">
@@ -56,9 +64,7 @@
                 <strong>Error:</strong> @msg
               </div>
             }
-            @if(user.isDefined) {
-              <div id="load-repo-panel"></div>
-            }
+            <div id="load-repo-panel"></div>
             <div id="selectcolumn" class="panel">
               <h3 class="std-background"><i class="icon-upload"></i> Load an example</h3>
               <select id="example-loader" class="form-control panel-element-full" name="codeexample">
@@ -338,5 +344,6 @@
     </div>
   </div>
   <div id="login-modal"><!-- This modal is handled by React --></div>
+  <div id="account-modal"><!-- This modal is handled by React --></div>
   <div id="release">@webconfig.release &copy; EPFL, Lausanne 2009-2015 </div>
 }

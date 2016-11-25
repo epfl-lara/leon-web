@@ -218,10 +218,7 @@ class VerificationWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(
       }
       val cstate =
         if (needsInstrumentation) {
-          CompilationState(inputCState.code,
-            inputCState.project, inputCState.savedFile,
-            inputCState.compResult, inputCState.optProgram.map(InstrumentationPhase.apply(ctx, _)),
-            inputCState.requestId, inputCState.wasLoop)
+          inputCState.copy(optProgram = inputCState.optProgram.map(InstrumentationPhase.apply(ctx, _)))
         } else inputCState
 
       this.program = Some(cstate.program)

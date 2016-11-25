@@ -20,11 +20,9 @@ import leon.utils.TemporaryInputPhase
 import leon.utils.InterruptManager
 import leon.utils.PreprocessingPhase
 import leon.web.workers._
-import leon.web.stores.PermalinkStore
-import leon.web.services.RepositoryService
-import leon.web.services.github._
-import leon.web.models.github.json._
-import leon.web.shared.{Action, Project}
+import leon.web.stores._
+import leon.web.services._
+import leon.web.shared.{Action, RepositoryState}
 import leon.web.shared.Module
 import leon.web.utils.String._
 import java.io.File
@@ -40,9 +38,6 @@ import leon.web.websitebuilder.memory.Memory
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
   import context.dispatcher
   import ConsoleProtocol._
-
-  val githubServiceTimeout =
-    Play.current.configuration.getInt("services.github.timeout").getOrElse(10).seconds
 
   val (enumerator, channel) = Concurrent.broadcast[Array[Byte]]
   var reporter: WSReporter = _
@@ -61,34 +56,27 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     }
   }
 
-  def withUser(f: User => Unit): Unit = user match {
+  case class ModuleContext(name: Module, actor: ActorRef, var isActive: Boolean = false)
+
+  var modules = Map[Module, ModuleContext]()
+  var cancelledWorkers = Set[BaseActor]()
+  var interruptManager: InterruptManager = _
+
+  object ModuleEntry {
+    def apply(name: Module, worker: => BaseActor, isActive: Boolean = false): (Module, ModuleContext) = {
+      name -> ModuleContext(name, context.actorOf(Props(worker)), isActive)
+    }
+  }
+
+  private var currentUser: Option[User] = user
+
+  def withUser(f: User => Unit): Unit = currentUser match {
     case Some(user) =>
       f(user)
 
     case None =>
-      notifyError("Cannot perform this operation when user is not logged-in.")
+      notifyError("You need to log-in to perform this operation.")
       logInfo("Cannot perform this operation when user is not logged-in.")
-  }
-
-  def withToken(user: User)(f: String => Unit): Unit = user.oAuth2Info.map(_.accessToken) match {
-    case Some(token) =>
-      f(token)
-
-    case None =>
-      notifyError("Cannot perform this operation when user has no OAuth token.")
-      logInfo("Cannot perform this operation when user has no OAuth token.")
-  }
-
-  case class ModuleContext(name: Module, actor: ActorRef, var isActive: Boolean = false)
-
-  var modules = Map[Module, ModuleContext]()
-  var cancelledWorkers = Set[WorkerActor]()
-  var interruptManager: InterruptManager = _
-
-  object ModuleEntry {
-    def apply(name: Module, worker: =>WorkerActor): (Module, ModuleContext) = {
-      name -> ModuleContext(name, Akka.system.actorOf(Props(worker)))
-    }
   }
 
   import shared.messages.{DoCancel => MDoCancel, _}
@@ -101,14 +89,15 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       interruptManager = new InterruptManager(reporter)
 
-      modules += ModuleEntry(Verification  , new VerificationWorker(self, interruptManager))
-      modules += ModuleEntry(Termination   , new TerminationWorker(self, interruptManager))
-      modules += ModuleEntry(Synthesis     , new SynthesisWorker(self, interruptManager))
-      modules += ModuleEntry(Disambiguation, new DisambiguationWorker(self, interruptManager))
-      modules += ModuleEntry(Execution     , new ExecutionWorker(self, interruptManager))
-      modules += ModuleEntry(Repair        , new RepairWorker(self, interruptManager))
-      modules += ModuleEntry(Invariant     , new OrbWorker(self, interruptManager))
-      modules += ModuleEntry(WebsiteBuilder, new WebBuilderWorker(self, interruptManager))
+      modules += ModuleEntry(Verification      , new VerificationWorker(self, interruptManager))
+      modules += ModuleEntry(Termination       , new TerminationWorker(self, interruptManager))
+      modules += ModuleEntry(Synthesis         , new SynthesisWorker(self, interruptManager))
+      modules += ModuleEntry(Disambiguation    , new DisambiguationWorker(self, interruptManager))
+      modules += ModuleEntry(Execution         , new ExecutionWorker(self, interruptManager))
+      modules += ModuleEntry(Repair            , new RepairWorker(self, interruptManager))
+      modules += ModuleEntry(Invariant         , new OrbWorker(self, interruptManager))
+      modules += ModuleEntry(WebsiteBuilder    , new WebBuilderWorker(self, interruptManager))
+      modules += ModuleEntry(RepositoryHandler , new RepositoryWorker(self, currentUser), true)
 
       Memory.reinitialiseSourceMapsVariablesAndClarificationSession()
 
@@ -123,7 +112,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
     case message@USetCommandFlags(flags) =>
       modules.values.foreach(_.actor ! message)
 
-    case Cancelled(wa: WorkerActor)  =>
+    case Cancelled(wa)  =>
       cancelledWorkers += wa
 
       logInfo(cancelledWorkers.size+"/"+modules.size+": Worker "+wa.getClass+" notified its cancellation")
@@ -134,6 +123,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
     case NotifyClientBin(binData) =>
       pushMessage(binData)
+
     case NotifyClient(event) =>
       import boopickle.Default._
       import shared.messages._
@@ -151,11 +141,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         message match {
           case message: MainModule => message match {
             case MDoCancel => self ! DoCancel
-            case DoUpdateCode(code, requestId) => self ! ConsoleProtocol.UpdateCode(code, None, None, requestId)
-            case DoUpdateCodeInProject(owner, repo, file, branch, code, requestId) => withUser { user =>
-              val project = Project(owner, repo, branch, file)
-              self ! ConsoleProtocol.UpdateCode(code, Some(user), Some(project), requestId)
-            }
+            case DoUpdateCode(code, requestId) => self ! UpdateCode(code, None, None, requestId)
             case StorePermaLink(code) => self ! message
             case AccessPermaLink(link) => self ! message
             case FeatureSet(f, active) =>
@@ -166,23 +152,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   modules(f).isActive = false
                 }
               }
-            case SetCommandFlags(elems) => self ! USetCommandFlags(elems)
-          }
-          case message: GitModule => message match {
-            case LoadRepositories => withUser { user =>
-              self ! ULoadRepositories(user)
-            }
-            case LoadRepository(owner, repo) => withUser { user =>
-              self ! ULoadRepository(user, owner, repo)
-            }
-            case LoadFile(owner, repo, file) => withUser { user =>
-              self ! ULoadFile(user, owner, repo, file)
-            }
-            case SwitchBranch(owner, repo, branch) => withUser { user =>
-              self ! USwitchBranch(user, owner, repo, branch)
-            }
-            case DoGitOperation(op, project) => withUser { user =>
-              self ! UDoGitOperation(user, project, op)
+            case SetCommandFlags(flags) =>
+              self ! USetCommandFlags(flags)
+            case UnlinkAccount(provider) => withUser { user =>
+              self ! UUnlinkAccount(user, provider)
             }
           }
           case message if modules contains message.module =>
@@ -219,296 +192,44 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           notifyError("Link not found ?!?: "+link)
       }
 
-      case ULoadRepositories(user) => withToken(user) { token =>
-        clientLog(s"Fetching repositories list...")
+    case UUnlinkAccount(user, provider) =>
+      clientLog(s"Unlinking account '${provider.id}'...")
 
-        val gh     = GitHubService(token)
-        val result = gh.listUserRepositories()
+      user.identity(provider) match {
+        case Some(id) =>
+          import play.api.db._
 
-        result onSuccess { case repos =>
-          clientLog(s"=> DONE")
-          event(RepositoriesLoaded(repos.toArray))
-        }
+          implicit val c = DB.getConnection()
+          val newUser = UserStore.unlinkIdentity(user, id)
+          currentUser = Some(newUser)
 
-        result onFailure { case err =>
-          notifyError(s"Failed to load repositories for user ${user.email}. Reason: '${err.getMessage}'")
-        }
+          clientLog("=> DONE")
+
+          event(UserUpdated(user = newUser.toShared))
+
+          self ! DispatchTo(RepositoryHandler, UUserUpdated(currentUser))
+
+        case None =>
+          clientLog("=> ERROR: No such account found.")
       }
 
-    case ULoadRepository(user, owner, name) => withToken(user) { token =>
-      clientLog(s"Fetching repository information...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-          notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        clientLog(s"=> DONE")
-
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
-
-        val progressActor = Akka.system.actorOf(Props(
-          classOf[JGitProgressWorker],
-          "git_progress", self
-        ))
-
-        val progressMonitor = new JGitProgressMonitor(progressActor)
-
-        val future = Future {
-          if (!wc.exists) {
-            clientLog(s"Cloning repository '$owner/$name'...")
-            wc.cloneRepo(repo.cloneURL, Some(progressMonitor))
-            clientLog(s"=> DONE")
-          }
-          else {
-            clientLog(s"Pulling repository '$owner/$name'...")
-            wc.pull(Some(progressMonitor))
-            clientLog(s"=> DONE")
-          }
-
-          URepositoryLoaded(user, repo, wc.branchName())
-        }
-
-        future pipeTo self
-      }
-    }
-
-    case URepositoryLoaded(user, repo, currentBranch) =>
-      val (owner, name) = (repo.owner, repo.name)
-      val wc = RepositoryService.repositoryFor(user, owner, name)
-
-      clientLog(s"Listing files in '$owner/$name'...")
-
-      val future = Future {
-        wc.getFiles(currentBranch)
-          .getOrElse(Seq[String]())
-          .filter(_.extension === "scala")
-      }
-
-      future foreach { files =>
-        clientLog(s"=> DONE")
-        event(RepositoryLoaded(
-            repository = repo,
-            files = files.toArray,
-            branches = repo.branches.toArray,
-            currentBranch = currentBranch))
-      }
-
-    case ULoadFile(user, owner, name, file) => withToken(user) { token =>
-      clientLog(s"Loading file '$file'...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name)
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          wc.getFile("HEAD", file) match {
-            case None =>
-              notifyError(s"Could not find file '$file' in '$owner/$name'.")
-
-            case Some((_, _, path)) =>
-              val filePath = s"${wc.path}/$path"
-              val content  = Source.fromFile(filePath).mkString
-
-              clientLog(s"=> DONE")
-
-              event(FileLoaded(file = file, content = content))
-          }
-        }
-      }
-    }
-
-    case USwitchBranch(user, owner, name, branch) => withToken(user) { token =>
-      clientLog(s"Checking out branch '$branch'...")
-
-      val gh     = GitHubService(token)
-      val result = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      result onSuccess { case repo =>
-        val (owner, name) = (repo.owner, repo.name)
-        val wc = RepositoryService.repositoryFor(user, owner, name)
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          val future = Future {
-            val switched =
-              if (wc.branchExists(branch))
-                wc.checkout(branch)
-              else
-                wc.checkoutRemote(branch)
-
-            if (switched) {
-              val files = wc.getFiles(branch)
-                            .getOrElse(Seq[String]())
-                            .filter(_.extension === "scala")
-
-              Some(files)
-            }
-            else
-              None
-          }
-
-          future onSuccess {
-            case Some(files) =>
-              clientLog(s"=> DONE")
-              event(BranchChanged(
-                  success = true,
-                  branch = Some(branch),
-                  files = Some(files.toArray),
-                  error = None
-              ))
-
-            case None =>
-              val error = s"Failed to checkout branch '$branch', please commit " +
-                          s"or reset your changes and try again."
-
-              clientLog(s"=> ERROR: $error")
-              notifyError(error)
-
-              event(BranchChanged(
-                  success = true,
-                  error = Some(error),
-                  branch = None,
-                  files = None))
-          }
-        }
-      }
-    }
-
-    case UDoGitOperation(user, project, op) => withToken(user) { token =>
-      clientLog(s"Performing Git operation: $op")
-
-      val (owner, name) = (project.owner, project.repo)
-      val gh            = GitHubService(token)
-      val result        = gh.getRepository(owner, name)
-
-      result onFailure { case err =>
-        notifyError(s"Failed to load repository '$owner/$name'. Reason: '${err.getMessage}'");
-      }
-
-      import shared.git._
-
-      result onSuccess { case _ =>
-        val wc = RepositoryService.repositoryFor(user, owner, name, Some(token))
-
-        if (!wc.exists) {
-          logInfo(s"Could not find a working copy for repository '$owner/$name'")
-          notifyError(s"Could not find a working copy for repository '$owner/$name', please load it again.")
-        }
-        else {
-          op match {
-            case GitStatus =>
-              val status = wc.status()
-              val diff   = wc.diff(Some("HEAD"), None)
-              clientLog(s"=> DONE")
-
-              status match {
-                case Some(status) =>
-                  import scala.collection.JavaConverters._
-                  val statusData: Map[String, Set[String]] = Map(
-                    "added"       -> status.getAdded().asScala.toSet,
-                    "changed"     -> status.getChanged().asScala.toSet,
-                    "modified"    -> status.getModified().asScala.toSet,
-                    "removed"     -> status.getRemoved().asScala.toSet,
-                    "conflicting" -> status.getConflicting().asScala.toSet,
-                    "missing"     -> status.getMissing().asScala.toSet,
-                    "untracked"   -> status.getUntracked().asScala.toSet
-                  )
-
-                  val diffData = diff.getOrElse("")
-
-                  event(GitOperationDone(op, true, GitStatusDiff(statusData, diffData)))
-
-                case None =>
-                  event(GitOperationDone(op, false, GitOperationResultNone))
-              }
-
-            case GitPush(force) =>
-              val success = wc.push(force)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitPull =>
-              val progressActor = Akka.system.actorOf(Props(
-                classOf[JGitProgressWorker],
-                "git_progress", self
-              ))
-
-              val progressMonitor = new JGitProgressMonitor(progressActor)
-
-              val success = wc.pull(Some(progressMonitor))
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitReset =>
-              val success = wc.reset(hard = true)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitCommit(message) =>
-              val success = wc.add(project.file) && wc.commit(message)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, success, GitOperationResultNone))
-
-            case GitLog(count) =>
-              val commits = wc.getLastCommits(count)
-
-              clientLog(s"=> DONE")
-              event(GitOperationDone(op, commits.nonEmpty, GitCommits(commits.map(_.toCommit).toSeq)))
-          }
-        }
-      }
-    }
-
-    case UpdateCode(code, user, project, requestId) =>
+    case UpdateCode(code, user, repoState, requestId) =>
       Memory.clearClarificationSession()
 
-      if (lastCompilationState.project =!= project ||
+      if (lastCompilationState.repoState =!= repoState ||
           lastCompilationState.code =!= Some(code)) {
 
         clientLog("Compiling...")
         logInfo(s"Code updated:\n$code")
 
-        val savedFile = project match {
-          case None =>
-            saveCode(code)
+        val file = for {
+          s            <- repoState
+          u            <- user
+          wc           <- RepositoryService.getWorkingCopy(u, s.repo.desc)
+          (_, _, path) <- wc.getFile(s.branch, s.file)
+        } yield wc.path.toPath.resolve(path).toFile
 
-          case Some(p) =>
-            val path = {
-              val wc   = RepositoryService.repositoryFor(user.get, p.owner, p.repo)
-              wc.getFile(p.branch, p.file)
-                .map(_._3)
-                .map(filePath => s"${wc.path.getAbsolutePath()}/$filePath")
-            }
-
-            saveCode(code, path.map(new File(_)))
-        }
+        val savedFile = saveCode(code, file)
 
         val compReporter = new CompilingWSReporter(channel)
         var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
@@ -517,32 +238,30 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           val pipeline = ExtractionPhase andThen
                          (new PreprocessingPhase(false))
 
-        // We need both a logged-in user and a project to
-        // load files from the repository
-         val files = user.zip(project).headOption match {
-            case None =>
-              savedFile.getAbsolutePath() :: Nil
+          // We need both a logged-in user and a repository to
+          // load files from the repository
 
-            case Some((user, Project(owner, repo, branch, file, _))) =>
-              val wc    = RepositoryService.repositoryFor(user, owner, repo)
-              wc.getFiles(branch)
-                .getOrElse(Seq[String]())
-                .filter(_.extension === "scala")
-                // replace the path to the file currently loaded
-                // in the editor with the path to the temp file
-                // `saveCode` just wrote.
-                .map { f =>
-                  if (f === file)
-                    savedFile.getAbsolutePath()
-                  else
-                    s"${wc.path.getAbsolutePath()}/$f"
-                }
-                .toList
+          val repoFiles = for {
+            s     <- repoState
+            if s.asProject
+            u     <- user
+            wc    <- RepositoryService.getWorkingCopy(u, s.repo.desc)
+            files = wc.getFiles(s.branch).getOrElse(Seq()).toList
+          } yield {
+            files
+              .filter(_.extension === "scala")
+              .map(new File(_))
+              .map { f =>
+                if (f.getName === savedFile.getName)
+                  savedFile.getAbsolutePath
+                else
+                  wc.path.toPath.resolve(f.getPath).toFile.getAbsolutePath
+              }
           }
 
-         println(files)
+          val runFiles = repoFiles.getOrElse(savedFile.getAbsolutePath :: Nil)
 
-          val (_, program) = pipeline.run(compContext, files)
+          val (_, program) = pipeline.run(compContext, runFiles)
 
           compReporter.terminateIfError
 
@@ -567,7 +286,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               compResult = "success",
               requestId  = Some(requestId),
               wasLoop    = Set(),
-              project    = project,
+              repoState  = repoState,
               savedFile  = Some(savedFile.getName())
             )
 
@@ -605,7 +324,11 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
               if(termmod.isActive)
                 termmod.actor ! OnUpdateCode(cstate)
             } else {
-              modules.values.filter(e => e.isActive && e.name =!= Invariant).foreach (_.actor ! OnUpdateCode(cstate))
+              val toUpdate = modules.values.filter { e =>
+                e.isActive && e.name =!= Invariant && e.name =!= RepositoryHandler
+              }
+
+              toUpdate.foreach (_.actor ! OnUpdateCode(cstate))
             }
 
           case None =>
@@ -617,7 +340,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
             event(HCompilation("failure"))
 
             lastCompilationState = CompilationState.failure(
-              code, project, Some(savedFile.getName())
+              code, repoState, Some(savedFile.getName())
             )
         }
 

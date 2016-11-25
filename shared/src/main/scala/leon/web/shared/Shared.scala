@@ -9,7 +9,7 @@ object Action {
   val featureSet = "featureSet"
   val accessPermaLink = "accessPermaLink"
   val doUpdateCode = "doUpdateCode"
-  val doUpdateCodeInProject = "doUpdateCodeInProject"
+  val doUpdateCodeInRepository = "doUpdateCodeInRepository"
   val storePermaLink = "storePermaLink"
   val getRulesToApply = "getRulesToApply"
   val doCancel = "doCancel"
@@ -23,6 +23,7 @@ object Action {
   val loadFile = "loadFile"
   val switchBranch = "switchBranch"
   val doGitOperation = "doGitOperation"
+  val unlinkAccount = "unlinkAccount"
 }
 
 object VerifStatus { // See leon/verification/VerificationCondition.scala

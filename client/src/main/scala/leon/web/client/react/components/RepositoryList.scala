@@ -8,7 +8,7 @@ package components
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
-import leon.web.shared.github.Repository
+import leon.web.shared.Repository
 
 /** List of GitHub repository, matching the GitHub
   * color scheme (eg. yellow background for private repos)

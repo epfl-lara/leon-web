@@ -12,7 +12,7 @@ import leon.purescala.PrinterOptions
 import models.CompilationState
 import leon.purescala.PrinterContext
 import models.MuteReporter
-import leon.purescala.ExprOps
+import leon.purescala.PrinterHelpers
 
 /**
  * @author Mikael

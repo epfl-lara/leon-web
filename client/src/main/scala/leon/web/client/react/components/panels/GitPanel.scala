@@ -9,6 +9,7 @@ package panels
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals._
 import leon.web.shared.git._
+import leon.web.shared.Repository
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 
@@ -20,14 +21,28 @@ import japgolly.scalajs.react.vdom.prefix_<^._
   */
 object GitPanel {
 
+  case class Props(repo: Repository)
+
   case class State(showModalForOp: Option[String] = None)
 
-  class Backend($: BackendScope[Unit, State]) {
+  class Backend($: BackendScope[Props, State]) {
 
-    def onCommit = showModal(GitOperation.COMMIT)
-    def onPush   = showModal(GitOperation.PUSH)
-    def onPull   = showModal(GitOperation.PULL)
-    def onReset  = showModal(GitOperation.RESET)
+    case class GitButton(
+      op: String,
+      title: String,
+      icon: String,
+      remote: Boolean = false
+    ) {
+      val callback = showModal(op)
+      val modal    = displayModal(op)
+    }
+
+    val buttons = Seq(
+      GitButton(GitOperation.COMMIT, "Commit", "checklist"),
+      GitButton(GitOperation.PUSH  , "Push",   "repo-push", true),
+      GitButton(GitOperation.PULL  , "Pull",   "repo-pull", true),
+      GitButton(GitOperation.RESET , "Reset",  "zap")
+    )
 
     def showModal(op: String): Callback =
       $.modState(_.copy(showModalForOp = Some(op)))
@@ -38,57 +53,44 @@ object GitPanel {
     def fetchStatus: Callback =
       doGitOperation(GitStatus)
 
-    def displayModal(op: String) =
-      op match {
-        case GitOperation.COMMIT => CommitModal(onRequestHideModal)
-        case GitOperation.PUSH   => PushModal(onRequestHideModal)
-        case GitOperation.PULL   => PullModal(onRequestHideModal)
-        case GitOperation.RESET  => ResetModal(onRequestHideModal)
-      }
+    def displayModal(op: String) = op match {
+      case GitOperation.COMMIT => CommitModal(onRequestHideModal)
+      case GitOperation.PUSH   => PushModal(onRequestHideModal)
+      case GitOperation.PULL   => PullModal(onRequestHideModal)
+      case GitOperation.RESET  => ResetModal(onRequestHideModal)
+    }
 
     def onRequestHideModal: Callback =
       $.modState(_.copy(showModalForOp = None))
 
-    def render(state: State) =
+    def renderButton(btn: GitButton) =
+      <.li(
+        <.button(
+          ^.className := "btn btn-default",
+          ^.onClick --> btn.callback,
+          octicon(btn.icon, btn.title)
+        )
+    )
+
+    def render(props: Props, state: State) =
       <.div(^.id := "git-ops-panel",
         state.showModalForOp.isDefined ?= displayModal(state.showModalForOp.get),
         <.ul(
-          <.li(
-            <.button(^.className := "btn btn-default",
-              ^.onClick --> onCommit,
-              octicon("checklist", "Commit")
-            )
-          ),
-          <.li(
-            <.button(^.className := "btn btn-default",
-              ^.onClick --> onPush,
-              octicon("repo-push", "Push")
-            )
-          ),
-          <.li(
-            <.button(^.className := "btn btn-default",
-              ^.onClick --> onPull,
-              octicon("repo-pull", "Pull")
-            )
-          ),
-          <.li(
-            <.button(^.className := "btn btn-default",
-              ^.onClick --> onReset,
-              octicon("zap", "Reset")
-            )
-          )
+          buttons
+            .filter(props.repo.remote.isDefined || !_.remote)
+            .map(renderButton)
         )
       )
 
   }
 
   val component =
-    ReactComponentB[Unit]("GitPanel")
+    ReactComponentB[Props]("GitPanel")
       .initialState(State())
       .renderBackend[Backend]
-      .buildU
+      .build
 
-  def apply() = component()
+  def apply(repo: Repository) = component(Props(repo))
 
 }
 

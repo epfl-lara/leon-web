@@ -12,7 +12,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import leon.web.client.react._
 import leon.web.client.react.utils._
 import leon.web.client.react.components.modals.LoadRepositoryModal
-import leon.web.shared.github.{Repository, Branch}
+import leon.web.shared.{Repository, Branch, Provider}
 
 /** Panel displayed in the sidebar on the right, wich lets
   * users pick a repository and load a specific file from that
@@ -20,9 +20,7 @@ import leon.web.shared.github.{Repository, Branch}
   */
 object LoadRepositoryPanel {
 
-  type Props = AppState
-
-  class Backend($: BackendScope[Props, Unit]) {
+  class Backend($: BackendScope[AppState, Unit]) {
 
     def showLoadRepoModal: Callback =
       Actions dispatchCB ToggleLoadRepoModal(true)
@@ -34,7 +32,7 @@ object LoadRepositoryPanel {
       showLoadRepoModal >> loadRepos
 
     def onClickUnload: Callback =
-      Actions dispatchCB SetCurrentProject(None)
+      Actions dispatchCB SetRepositoryState(None)
 
     def onLoadRepo(repo: Repository): Callback =
       Actions dispatchCB LoadRepository(repo)
@@ -49,10 +47,10 @@ object LoadRepositoryPanel {
     def onChangeProjectType(e: ReactEventI): Callback =
       Actions dispatchCB SetTreatAsProject(e.target.checked)
 
-    def render(props: Props) = {
+    def render(props: AppState) = {
       val hasRepo = props.repository.isDefined
       <.div(^.className := "panel",
-        <.h3("Load a GitHub repository:"),
+        <.h3("Load a repository:"),
         <.div(
           LoadRepositoryButton(props.repository, onClickSelect, onClickUnload),
           hasRepo ?= renderBranches(props.repository.get, props.branches, props.branch),
@@ -66,7 +64,8 @@ object LoadRepositoryPanel {
             props.repositories
           )
         ),
-        props.currentProject.isDefined ?= GitPanel()
+        props.repoState.isDefined ?=
+          GitPanel(props.repoState.get.repo)
       )
     }
 
@@ -100,11 +99,11 @@ object LoadRepositoryPanel {
   }
 
   val component =
-    ReactComponentB[Props]("LoadRepositoryPanel")
+    ReactComponentB[AppState]("LoadRepositoryPanel")
       .renderBackend[Backend]
       .build
 
-  def apply(props: Props) = component(props)
+  def apply(props: AppState) = component(props)
 
 }
 
@@ -137,10 +136,24 @@ object LoadRepositoryButton {
         props.repo.isDefined ?= renderUnloadButton(props.onClickUnload)
       )
 
+    def providerIcon(provider: Provider): String = provider match {
+      case Provider.GitHub  => "mark-github"
+      case Provider.Tequila => "repo"
+      case _                => "alert"
+    }
+
     def renderContent(repo: Option[Repository], isHover: Boolean) = repo match {
-      case Some(repo) if !isHover => octicon("mark-github", repo.fullName)
-      case Some(_)                => octicon("mark-github", "Select another repository")
-      case None                   => octicon("mark-github", "Select a GitHub repository")
+      case Some(_) if isHover =>
+        octicon("repo", "Select another repository")
+
+      case Some(repo) if repo.desc.provider.isKnown =>
+        octicon(providerIcon(repo.desc.provider), repo.fullName)
+
+      case Some(_) =>
+        octicon("alert", "Unknown repository type")
+
+      case None =>
+        octicon("repo", "Select a repository")
     }
 
     def renderUnloadButton(onClick: Callback) =
@@ -148,7 +161,7 @@ object LoadRepositoryButton {
         ^.id        := "unload-repo-btn",
         ^.className := "btn btn-default",
         ^.onClick  --> onClick,
-        "x"
+        "×"
       )
 
   }

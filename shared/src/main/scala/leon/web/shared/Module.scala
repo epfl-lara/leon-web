@@ -11,10 +11,11 @@ case object Repair extends Module { val name= "repair" }
 case object Invariant extends Module { val name= "invariant" }
 case object Disambiguation extends Module { val name= "disambiguation" }
 case object Git extends Module { val name= "git" }
+case object RepositoryHandler extends Module { val name = "repository" }
 case object WebsiteBuilder extends Module { val name = "websitebuilder" }
 
 object Module {
   import boopickle.Default._
-  
+
   implicit val modulePickler = generatePickler[Module]
 }

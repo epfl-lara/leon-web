@@ -28,11 +28,13 @@ import org.eclipse.jgit.api.ListBranchCommand.ListMode
 import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider
 import org.eclipse.jgit.transport.RemoteRefUpdate
 
+import leon.web.shared.messages.{Commit => SharedCommit}
+
 /** Provides a type-safe wrapper around a subset of the JGit API.
   *
   * @author Etienne Kneuss (etienne.kneuss@epfl.ch)
   */
-class RepositoryInfos(val path: File, user: User, token: Option[String] = None) {
+class GitWorkingCopy(val path: File, user: User, token: Option[String] = None) {
   import scala.collection.JavaConversions._
 
   case class Walker(tw: TreeWalk) {
@@ -68,6 +70,12 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
     val mode = if (all) ListMode.ALL else null
 
     git.branchList().setListMode(mode).call()
+  }
+
+  def branchesNamesAndRef(all: Boolean = true): Iterable[(String, String)] = {
+    branches(all).map(_.getTarget) map { ref =>
+      (Repository.shortenRefName(ref.getName), ref.getObjectId.getName)
+    }
   }
 
   def branch(): Ref =
@@ -190,7 +198,7 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
 
   def setOrigin(origin: String): Boolean = {
     try {
-      val config = git.getRepository().getConfig();
+      val config = git.getRepository.getConfig
       config.setString("remote", "origin", "url", origin);
       config.save();
       true
@@ -198,6 +206,17 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
       case NonFatal(e) =>
         Logger.error(e.getMessage, e)
         false
+    }
+  }
+
+  def getOrigin(): Option[Remote] = {
+    try {
+      val config = git.getRepository.getConfig
+      val origin = Option(config.getString("remote", "origin", "url"))
+      origin.map(Remote("origin", _))
+    } catch {
+      case NonFatal(e) =>
+        None
     }
   }
 
@@ -291,8 +310,8 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
   def commit(msg: String): Boolean = {
     try {
       val userId = user.userId.value
-      val name   = user.nameOrEmail.getOrElse(userId)
-      val email  = user.email.map(_.value).getOrElse(userId)
+      val name   = user.github.flatMap(_.publicId.nameOrEmail).getOrElse(userId)
+      val email  = user.github.flatMap(_.publicId.email.map(_.value)).getOrElse(userId)
 
       git.commit()
          .setAll(true)
@@ -310,7 +329,7 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
   }
 
   def branchExists(branch: String): Boolean =
-    git.getRepository().getRef(branch) =!= null
+    git.getRepository().getRef(branch) != null
 
   def checkout(branch: String, force: Boolean = false): Boolean = {
     try {
@@ -350,27 +369,31 @@ class RepositoryInfos(val path: File, user: User, token: Option[String] = None) 
 
 }
 
+case class Remote(name: String, url: String)
+
 case class Commit(revc: RevCommit) {
   def hash          = ObjectId.toString(revc)
   def shortHash     = hash.substring(0,10)
   def shortMessage  = revc.getShortMessage
   def fullMessage   = revc.getFullMessage
+  def author        = revc.getAuthorIdent().getName
+  def committer     = revc.getCommitterIdent().getName
+  def desc          = shortHash+" - "+shortMessage
   def commitTime    = new DateTime(revc.getCommitTime*1000l)
   def commitTimeStr = {
     commitTime.toString(DateTimeFormat.forPattern("dd.MM.YYYY, HH:mm:ss"))
   }
-  def author        = revc.getAuthorIdent().getName
-  def committer     = revc.getCommitterIdent().getName
-  def desc          = shortHash+" - "+shortMessage
-  
-  def toCommit: shared.messages.Commit = shared.messages.Commit(
-      hash,
-      shortHash,
-      shortMessage,
-      fullMessage,
-      commitTimeStr,
-      author,
-      committer,
-      desc
-  )
+
+  def toSharedCommit = {
+    SharedCommit(
+      hash         = hash,
+      shortHash    = shortHash,
+      shortMessage = shortMessage,
+      fullMessage  = fullMessage,
+      commitTime   = commitTimeStr,
+      author       = author,
+      committer    = committer,
+      desc         = desc
+    )
+  }
 }

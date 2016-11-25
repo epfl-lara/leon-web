@@ -1,54 +1,60 @@
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 package leon.web
 package models
 
+import play.api.libs.json._
+import leon.web.shared.{User => SharedUser, _}
 import securesocial.core._
 
-case class UserId(value: String)     extends AnyVal
-case class ProviderId(value: String) extends AnyVal
-case class Email(value: String)      extends AnyVal
-
 case class User(
-  providerId: ProviderId,
   userId: UserId,
-  firstName: Option[String],
-  lastName: Option[String],
-  fullName: Option[String],
-  email: Option[Email],
-  avatarUrl: Option[String],
-  authMethod: AuthenticationMethod,
-  oAuth2Info: Option[OAuth2Info] = None) {
+  main: Identity,
+  identities: Set[Identity]
+) {
 
-  def fullId: String          = s"${providerId.value}-${userId.value}"
-  def toProfile: BasicProfile = User.toProfile(this)
+  def identity(provider: Provider): Option[Identity] =
+    identities.find(_.publicId.provider == provider)
 
-  def nameOrEmail: Option[String] = {
-    lazy val firstLast =
-      firstName
-        .zip(lastName)
-        .headOption
-        .map { case (f, l) => s"$f $l" }
+  lazy val github  = identity(Provider.GitHub)
+  lazy val tequila = identity(Provider.Tequila)
 
-    fullName orElse firstLast orElse email.map(_.value)
+  def unlink(id: Identity): User = {
+    require (identities.size >= 2)
+
+    val newIds  = identities - id
+    val newMain = if (main === id) newIds.head else main
+
+    User(userId, newMain, newIds)
+  }
+
+  def toShared: SharedUser = {
+    SharedUser(userId, Some(main.publicId), identities.map(_.publicId))
   }
 }
 
 object User {
+  import Identity._
 
-  def toProfile(u: User): BasicProfile = BasicProfile(
-    u.providerId.value, u.userId.value,
-    u.firstName, u.lastName, u.fullName,
-    u.email.map(_.value), u.avatarUrl,
-    u.authMethod, None, u.oAuth2Info, None
-  )
+  def apply(userId: UserId, main: Provider, ids: Set[Identity]): User =
+    User(userId, ids.find(_.publicId.provider === main).get, ids)
 
-  def fromProfile(p: BasicProfile): User = User (
-    ProviderId(p.providerId), UserId(p.userId),
-    p.firstName, p.lastName, p.fullName,
-    p.email.map(Email), p.avatarUrl,
-    p.authMethod, p.oAuth2Info
-  )
+  def fromProfile(p: BasicProfile): User = {
+    val id = Identity.fromProfile(p)
+    User(id.userId, id, Set(id))
+  }
+
+  implicit val userWrites = new Writes[User] {
+    def writes(user: User): JsValue= {
+      val ids = user.identities.toSeq.map(i => i.publicId.provider.id -> i).toMap
+
+      Json.obj(
+        "id"         -> user.userId.value,
+        "main"       -> user.main,
+        "identities" -> ids
+      )
+    }
+  }
 
 }
 

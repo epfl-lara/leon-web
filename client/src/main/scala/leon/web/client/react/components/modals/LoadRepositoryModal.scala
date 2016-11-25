@@ -13,9 +13,9 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 
 import leon.web.client.react._
 import leon.web.client.react.attrs._
-import leon.web.client.utils.GitHubURL
 import leon.web.shared.messages._
-import shared.github.{Repository, RepositoryId, Visibility, Branch}
+import shared.Repository
+import leon.web.shared.Provider
 
 import monifu.concurrent.Implicits.globalScheduler
 
@@ -27,13 +27,16 @@ object LoadRepositoryModal {
   case class Props(
     onSelect: Repository => Callback,
     cloning: Boolean = false,
-    repos: Option[Seq[Repository]] = None
-  )
+    repos: Option[Map[Provider, Seq[Repository]]] = None
+  ) {
+    val providers: Seq[Provider] = repos.map(_.keys.toSeq).getOrElse(Seq())
+    val firstProvider: Option[Provider] = providers.headOption
+  }
 
   case class State(
-    selectedRepo  : Option[Repository] = None,
-    url           : Option[String]      = None,
-    cloneProgress : Option[GitProgress] = None
+    selectedRepo     : Option[Repository]  = None,
+    selectedProvider : Option[Provider]    = None,
+    cloneProgress    : Option[GitProgress] = None
   )
 
   class Backend($: BackendScope[Props, State]) {
@@ -56,43 +59,14 @@ object LoadRepositoryModal {
           .getOrElse(Callback.empty)
       }
 
-    def urlToRepo(url: GitHubURL): Repository = Repository(
-      id            = RepositoryId(0L),
-      name          = url.repo,
-      fullName      = url.repopath,
-      owner         = url.user,
-      visibility    = Visibility(""),
-      fork          = false,
-      size          = 0L,
-      cloneURL      = s"https://github.com/${url.repopath}.git",
-      defaultBranch = "master",
-      branches      = Array[Branch]()
-    )
+    def onSelectProvider(provider: Provider): Callback =
+      $.modState(_.copy(selectedProvider = Some(provider)))
 
-    def repoToURL(repo: Repository): String =
-      s"https://github.com/${repo.fullName}.git"
-
-    def onChangeURL(e: ReactEventI): Callback = {
-      val url   = e.target.value
-      val ghUrl = GitHubURL.parse(url)
-
-      $.modState(_.copy(url = Some(url))) >> CallbackTo.sequenceO {
-        ghUrl.map(urlToRepo).map { repo =>
-          $.modState(_.copy(
-            selectedRepo  = Some(repo),
-            cloneProgress = None
-          ))
-        }
-      }
-    }.void
-
-    def onSelectRepo(repo: Repository): Callback = {
+    def onSelectRepo(repo: Repository): Callback =
       $.modState(_.copy(
         selectedRepo  = Some(repo),
-        url           = Some(repoToURL(repo)),
         cloneProgress = None
       ))
-    }
 
     def onRequestHide: Callback =
       Actions dispatchCB ToggleLoadRepoModal(false)
@@ -118,47 +92,67 @@ object LoadRepositoryModal {
 
     def render(props: Props, state: State) =
       Modal(onRequestHide)(
-        <.div(^.className := "modal-header",
+        <.div(^.className := "modal-header with-nav-tabs",
           Modal.closeButton(onRequestHide),
-          <.h3("Load a repository from GitHub")
+          <.h3("Load a Git repository")
         ),
-        <.div(^.className := "modal-body",
-          renderURLForm(state.selectedRepo, state.url),
-          renderRepositoriesList(props.repos, state.selectedRepo, props.cloning)
+        <.div(^.className := "modal-body with-nav-tabs",
+          renderBody(props, state)
         ),
         renderFooter(props, state)
       )
 
-    def renderURLForm(repo: Option[Repository], url: Option[String]) = {
-      <.div(^.className := "modal-section",
-        <.h5(
-          """Enter the URL of a GitHub repository:"""
-        ),
-        <.input(
-          ^.`type`      := "text",
-          ^.className   := "form-control",
-          ^.placeholder := "https://github.com/user/reponame",
-          ^.value       := url.getOrElse(""),
-          ^.onChange   ==> onChangeURL
+    def renderBody(props: Props, state: State) = props.repos match {
+      case None =>
+        <.div(loading)
+
+      case Some(repos) =>
+        val selectedProvider = state.selectedProvider.orElse(props.firstProvider)
+
+        <.div(^.className := "panel with-nav-tabs panel-default",
+          <.div(^.className := "panel-heading",
+            renderProviders(repos.keys.toSeq, selectedProvider)
+          ),
+          <.div(^.className := "panel-body",
+            selectedProvider.isDefined ?=
+              renderRepositories(
+                repos(selectedProvider.get),
+                state.selectedRepo,
+                props.cloning
+              )
+            )
         )
-      )
     }
 
-    def renderRepositoriesList(repos: Option[Seq[Repository]], selected: Option[Repository], cloning: Boolean) =
-      <.div(^.className := "modal-section",
-        <.h5(
-          """Or pick a repository to load from the list below:"""
-        ),
-        repos match {
-          case None        => loading
-          case Some(repos) =>
-            RepositoryList(
-              repos    = repos,
-              onSelect = onSelectRepo,
-              selected = selected,
-              disabled = cloning
+    def renderProviders(providers: Seq[Provider], selected: Option[Provider]) =
+      <.ul(^.className := "nav nav-tabs",
+        providers.map { p =>
+          <.li(
+            ^.classSet1(
+              s"provider-${p.id}",
+              "active" -> selected.exists(_ == p)
+            ),
+            <.a(
+              ^.onClick --> onSelectProvider(p),
+              ^.href := "javascript:void",
+              p.name
             )
+          )
         }
+      )
+
+    def renderRepositories(
+      repos: Seq[Repository],
+      selectedRepo: Option[Repository],
+      cloning: Boolean
+    ) =
+      <.div(
+        RepositoryList(
+          repos    = repos,
+          onSelect = onSelectRepo,
+          selected = selectedRepo,
+          disabled = cloning
+        )
       )
 
     def renderFooter(props: Props, state: State) = {
@@ -180,14 +174,16 @@ object LoadRepositoryModal {
 
   val component =
     ReactComponentB[Props]("LoadRepositoryModal")
-      .initialState(State())
+      .initialState_P(props =>
+        State(selectedProvider = props.firstProvider)
+      )
       .renderBackend[Backend]
       .build
 
   def apply(
     onSelect: Repository => Callback,
     loading: Boolean = false,
-    repos: Option[Seq[Repository]] = None
+    repos: Option[Map[Provider, Seq[Repository]]] = None
   ) = component(Props(onSelect, loading, repos))
 
 }

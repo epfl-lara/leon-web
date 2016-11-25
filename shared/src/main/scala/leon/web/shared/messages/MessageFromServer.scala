@@ -1,9 +1,8 @@
 package leon.web
 package shared
 package messages
-//package leon.web.shared
-import github._
-import git._
+
+import shared.git._
 import shared.SourceCodeSubmissionResult
 
 sealed trait MessageFromServer
@@ -29,7 +28,11 @@ case class Commit(
   desc: String
 )
 
-case class HMoveCursor(line: Double, column: Double = 0)
+case class UserUpdated(
+  user: User
+) extends MessageFromServer
+
+case class HMoveCursor(line: Double, column: Double = 0) extends MessageFromServer
 
 case class HUpdateOverview(
   overview: Map[String, OverviewFunction]
@@ -208,16 +211,14 @@ case class OverviewFunction(
   column: Int
 )
 
-case class RepositoriesLoaded (
-  repos: Array[Repository]
-) extends MessageFromServer with Event
-
 case class RepositoryLoaded(
-  repository: Repository,
+  repo: Repository,
   files: Array[String],
   branches: Array[Branch],
   currentBranch: String
 ) extends MessageFromServer with Event
+
+case class RepositoriesLoaded(repos: Map[Provider, Seq[Repository]]) extends MessageFromServer with Event
 
 case class FileLoaded(
   file: String,
@@ -226,9 +227,9 @@ case class FileLoaded(
 
 case class BranchChanged(
   success: Boolean,
-  branch: Option[String],
-  files: Option[Array[String]],
-  error: Option[String]
+  branch: Option[String]  = None,
+  files: Option[Array[String]] = None,
+  error: Option[String] = None
 ) extends MessageFromServer with Event
 //case class FileLoaded(fileName: String, content: String) extends Event
 

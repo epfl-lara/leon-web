@@ -1,4 +1,4 @@
-/* Copyright 2009-2015 EPFL, Lausanne */
+/* Copyright 2009-2016 EPFL, Lausanne */
 
 package leon.web
 package client
@@ -6,15 +6,18 @@ package react
 
 import scala.concurrent.Future
 import scala.scalajs.js
-import js.Dynamic.{ literal => l, global => g }
+//import js.Dynamic.{ literal => l, global => g }
 import org.scalajs.dom.ext.LocalStorage
-import org.scalajs.dom.{console, document}
+import org.scalajs.dom.{/*console, */document}
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
 import japgolly.scalajs.react._
 import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 import leon.web.shared.messages._
+import leon.web.client.react.components.modals._
+import leon.web.client.react.components.panels._
+import leon.web.client.data.UserManager
 
 /** This class is in charge of the following:
   *
@@ -30,35 +33,26 @@ import leon.web.shared.messages._
   */
 class App(private val api: LeonAPI) {
 
-  import leon.web.client.react.components.modals._
-  import leon.web.client.react.components.panels._
-
-  import leon.web.shared.{Action => LeonAction}
-
-  lazy val isLoggedIn = g._leon_isLoggedIn.asInstanceOf[Boolean]
+  lazy val initialUser = UserManager.initial
 
   def init(): Unit = {
     // Register the WebSocket handlers.
     api.registerMessageHandler(Handlers)
 
-    val appState =
-      LocalStorage("appState")
-        .map((s: String) =>
-          try {
-            val res = AppState.fromJSON(s)
-            if(!res.treatAsProject) {
-              api.setTreatAsProject(res.treatAsProject)
-            }
-            res
-          } catch {
-            case e: Throwable =>
-              println("Impossible to recover app state. Recreating a new one")
-              AppState()
-          }
-        )
-        .map(resetAppState _)
-        .map(GlobalAppState(_))
-        .getOrElse(GlobalAppState())
+    val appState = {
+      val restored =
+        LocalStorage("appState")
+          .flatMap(AppState.unserialize)
+          .getOrElse(AppState())
+
+      GlobalAppState(resetAppState(restored))
+    }
+
+    if(!appState.initial.treatAsProject) {
+      api.setTreatAsProject(false)
+    }
+
+    println(appState.initial)
 
     // Trigger a re-render of the app, each time
     // the application state is updated.
@@ -68,38 +62,54 @@ class App(private val api: LeonAPI) {
       .foreach(render)
 
     // Apply every state transformation to the application state.
+    Actions.bus.map(processAction).subscribe(appState.updates)
 
-      Actions.bus.map(processAction).subscribe(appState.updates)
     // If the user is logged-in and was working on a project,
     // restore such project.
-    if (isLoggedIn) {
+    if (initialUser.isDefined) {
       restoreAppState(appState.initial)
+    }
+
+    injectEvents()
+    bindToolbarButtons()
+  }
+
+  private
+  def injectEvents(): Unit = {
+    Events.userUpdated.foreach { case UserUpdated(user) =>
+      Actions dispatch UpdateUser(user)
     }
   }
 
   private
-  def resetAppState(state: AppState): AppState = state.copy(
-    isLoggedIn     = isLoggedIn,
-    showLoginModal = state.showLoginModal && !isLoggedIn,
-    repository     = if (isLoggedIn) state.repository else None,
-    branch         = if (isLoggedIn) state.branch     else None,
-    file           = if (isLoggedIn) state.file       else None,
-    isLoadingRepo  = false
-  )
+  def resetAppState(state: AppState): AppState = {
+    val isLoggedIn = initialUser.isDefined
+
+    state.copy(
+      user             = initialUser,
+      isLoggedIn       = isLoggedIn,
+      showLoginModal   = state.showLoginModal && !isLoggedIn,
+      showAccountModal = isLoggedIn && state.showAccountModal,
+      repository       = if (isLoggedIn) state.repository else None,
+      branch           = if (isLoggedIn) state.branch     else None,
+      file             = if (isLoggedIn) state.file       else None,
+      isLoadingRepo    = false
+    )
+  }
 
   private
   def restoreAppState(state: AppState): Unit = {
     println("Restoring application state...")
 
-    api.setCurrentProject(state.currentProject)
+    api.setRepositoryState(state.repoState)
   }
 
   private
   def onStateUpdate(state: AppState): Unit = {
-    api.setCurrentProject(state.currentProject)
+    api.setRepositoryState(state.repoState)
 
     js.timers.setTimeout(0) {
-      LocalStorage.update("appState", state.toJSON)
+      LocalStorage.update("appState", state.serialize)
     }
   }
 
@@ -124,12 +134,7 @@ class App(private val api: LeonAPI) {
       }
 
     case LoadRepositories() =>
-      val msg = l(
-        action = LeonAction.loadRepositories,
-        module = "main"
-      )
-
-      api.sendBuffered(shared.messages.LoadRepositories)
+      Backend.repository.loadRepositories()
 
       onEvent(Events.repositoriesLoaded) { e => state =>
         state.copy(repositories = Some(e.repos))
@@ -138,11 +143,11 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadRepository(repo) =>
-      api.sendBuffered(shared.messages.LoadRepository(owner = repo.owner, repo = repo.name))
+      api.sendBuffered(shared.messages.LoadRepository(repo.desc))
 
       onEvent(Events.repositoryLoaded) { e => state =>
         state.copy(
-          repository        = Some(e.repository),
+          repository        = Some(e.repo),
           files             = e.files,
           file              = None,
           branches          = e.branches,
@@ -161,7 +166,7 @@ class App(private val api: LeonAPI) {
       }
 
     case SwitchBranch(repo, branch) =>
-      api.sendBuffered(shared.messages.SwitchBranch(owner = repo.owner, repo = repo.name, branch = branch))
+      api.sendBuffered(shared.messages.SwitchBranch(repo.desc, branch))
 
       onEvent(Events.branchChanged) { e => state =>
         state.copy(
@@ -174,7 +179,7 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case LoadFile(repo, file) =>
-      api.sendBuffered(shared.messages.LoadFile(owner = repo.owner, repo = repo.name, file = file))
+      api.sendBuffered(shared.messages.LoadFile(repo = repo.desc, file = file))
 
       onEvent(Events.fileLoaded) { e => state =>
         //println("Got file Load with content: " + e.content)
@@ -190,18 +195,17 @@ class App(private val api: LeonAPI) {
       now(state)
 
     case ReloadCurrentFile() =>
-      val msg =
+      val infos =
         for {
-          repo          <- state.repository
-          (fileName, _) <- state.file
+          repo      <- state.repository
+          (file, _) <- state.file
         }
         yield shared.messages.LoadFile(
-          owner = repo.owner,
-          repo   = repo.name,
-          file   = fileName
+          repo   = repo.desc,
+          file   = file
         )
 
-      msg foreach { msg =>
+      infos foreach { msg =>
         api.sendBuffered(msg)
 
         onEvent(Events.fileLoaded) { e => state =>
@@ -224,15 +228,15 @@ class App(private val api: LeonAPI) {
         state.copy(file = file)
       }
 
-    case SetCurrentProject(project) =>
-      api.setCurrentProject(project)
+    case SetRepositoryState(repoState) =>
+      api.setRepositoryState(repoState)
 
-      project.flatMap(_.code).foreach { code =>
+      repoState.flatMap(_.code).foreach { code =>
         Actions dispatch UpdateEditorCode(code)
       }
 
-      val newState = project match {
-        case None    => state.unloadProject
+      val newState = repoState match {
+        case None    => state.unloadRepo
         case Some(_) => state
       }
 
@@ -246,18 +250,26 @@ class App(private val api: LeonAPI) {
       }
 
     case DoGitOperation(op) =>
-      api.getCurrentProject() match {
+      api.getRepositoryState match {
         case None =>
-          console.error("No project is currently set, cannot perform Git operation")
+          throw new Exception("No repository is currently loaded, cannot perform Git operation")
 
-        case Some(project) =>
+        case Some(repoState) =>
           val msg = shared.messages.DoGitOperation(
-            op      = op,
-            project = project
+            op        = op,
+            repoState = repoState
           )
 
           api.sendMessage(msg)
+          now(state)
       }
+
+    case UpdateUser(user) => now {
+      state.copy(user = Some(user))
+    }
+
+    case UnlinkAccount(provider) =>
+      Backend.main.unlinkAccount(provider)
 
       now(state)
 
@@ -274,49 +286,75 @@ class App(private val api: LeonAPI) {
         state.copy(showLoginModal = value)
       }
 
+    case ToggleAccountModal(value) =>
+      now {
+        state.copy(showAccountModal = value)
+      }
   }
 
   private
   def render(state: AppState): Unit = {
     renderLogin(state)
+    renderAccount(state)
     renderLoadRepoPanel(state)
   }
 
   private
+  def bindToolbarButtons(): Unit = {
+    $("#login-btn").click { e: JQueryEventObject =>
+      e.preventDefault()
+      Actions dispatch ToggleLoginModal(true)
+    }
+
+    $("#account-btn").click { e: JQueryEventObject =>
+      e.preventDefault()
+      Actions dispatch ToggleAccountModal(true)
+    }
+  }
+
+  private
   def renderLogin(state: AppState): Unit = {
-    val el             = document.getElementById("login-modal")
-    val showLoginModal = !state.isLoggedIn && state.showLoginModal
+    val el   = document.getElementById("login-modal")
+    val show = !state.isLoggedIn && state.showLoginModal
 
     def onRequestHide: Callback = Callback {
       Actions dispatch ToggleLoginModal(false)
     }
 
-    if (showLoginModal) {
-      ReactDOM.render(LoginModal(onRequestHide), el)
-    } else {
-      ReactDOM.render(<.span(), el)
+    val component: ReactElement =
+      if (show) LoginModal(state.user, onRequestHide)
+      else      <.span()
+
+    ReactDOM.render(component, el)
+  }
+
+  private def renderAccount(state: AppState): Unit = {
+    val el   = document.getElementById("account-modal")
+    val show = state.isLoggedIn &&
+               state.showAccountModal &&
+               state.user.isDefined
+
+    def onRequestHide: Callback = Callback {
+      Actions dispatch ToggleAccountModal(false)
     }
 
-    $("#login-btn").click { e: JQueryEventObject =>
-      if (!shouldSkipLoginModal) {
-        e.preventDefault()
-        Actions dispatch ToggleLoginModal(true)
-      }
-    }
+    val component: ReactElement =
+      if (show) AccountModal(state.user.get, onRequestHide)
+      else      <.span()
+
+    ReactDOM.render(component, el)
   }
 
   private
-  def shouldSkipLoginModal: Boolean =
-    LocalStorage("hideLogin").map(_ === "true").getOrElse(false)
-
-  private
   def renderLoadRepoPanel(state: AppState): Unit = {
-    val panelEl = document.getElementById("load-repo-panel")
+    val el   = document.getElementById("load-repo-panel")
+    val show = state.user.flatMap(_.github).isDefined
 
-    if (panelEl =!= null) {
-      ReactDOM.render(LoadRepositoryPanel(state), panelEl)
-      $(panelEl).show()
-    }
+    val component: ReactElement =
+      if (show) LoadRepositoryPanel(state)
+      else     <.span()
+
+    ReactDOM.render(component, el)
   }
 
 }

@@ -21,7 +21,7 @@ object Spinner {
         <.div(^.className := "bounce1"),
         <.div(^.className := "bounce2"),
         <.div(^.className := "bounce3")))
-      .buildU
+      .build
 
     def apply() = component()
 

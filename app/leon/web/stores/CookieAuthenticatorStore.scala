@@ -18,7 +18,8 @@ import org.joda.time.DateTime
 
 import _root_.java.sql.Connection
 
-import leon.web.models.{User, UserId}
+import leon.web.models.User
+import shared._
 
 class CookieAuthenticatorStore(implicit executionContext: ExecutionContext)
   extends AuthenticatorStore[CookieAuthenticator[User]] {

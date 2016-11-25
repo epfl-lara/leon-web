@@ -5,31 +5,35 @@ import workers.WorkerActor
 import play.api.libs.iteratee._
 import leon.purescala.Definitions._
 import leon.purescala.Expressions._
-import leon.web.shared.github.Repository
 import leon.synthesis.Synthesizer
 import leon.web.shared._
 import leon.web.shared.messages._
 import shared.git.GitOperation
+import shared.{Provider, Repository, RepositoryDesc}
 import java.nio.ByteBuffer
 
 object ConsoleProtocol {
+
   case object Init
   case class InitSuccess(enum: Enumerator[Array[Byte]])
   case class InitFailure(error: String)
 
   case class ProcessClientEvent(event: Array[Byte])
 
-  case class UpdateCode(code: String, user: Option[User], project: Option[Project], requestId: Int)
+  case class UpdateCode(code: String, user: Option[User], repoState: Option[RepositoryState], requestId: Int)
 
-  case class Cancelled(wa: WorkerActor)
+  case class Cancelled(wa: BaseActor)
   case object DoCancel
+
   case class USetCommandFlags(ws: String)
   case class ULoadRepositories(user: User)
-  case class ULoadRepository(user: User, owner: String, repo: String)
-  case class ULoadFile(user: User, owner: String, repo: String, file: String)
-  case class USwitchBranch(user: User, owner: String, repo: String, branch: String)
-  case class UDoGitOperation(user: User, project: Project, op: GitOperation)
+  case class ULoadRepository(user: User, repo: RepositoryDesc)
+  case class ULoadFile(user: User, repo: RepositoryDesc, file: String)
+  case class USwitchBranch(user: User, repo: RepositoryDesc, branch: String)
+  case class UDoGitOperation(user: User, repoState: RepositoryState, op: GitOperation)
   case class URepositoryLoaded(user: User, repo: Repository, currentBranch: String)
+  case class UUnlinkAccount(user: User, provider: Provider)
+  case class UUserUpdated(user: Option[User])
 
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)

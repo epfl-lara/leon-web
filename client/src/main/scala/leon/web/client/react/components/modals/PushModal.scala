@@ -74,8 +74,10 @@ object PushModal {
     def onRequestHide: Callback =
       $.props.flatMap(_.onRequestHide)
 
-    def onForcePushChange(e: ReactEventI): Callback =
-      $.modState(_.copy(forcePush = e.target.checked))
+    def onForcePushChange(e: ReactEventI): Callback = {
+      val checked = e.target.checked
+      $.modState(_.copy(forcePush = checked))
+    }
 
     def onClickPush: Callback =
       $.modState(_.copy(pushing = true)) >> push

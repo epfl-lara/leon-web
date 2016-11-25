@@ -15,8 +15,8 @@ case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPerm
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
 case class FeatureSet(feature: Module, active: Boolean) extends MessageToServer with MainModule
 case class DoUpdateCode(code: String, requestId: Int) extends MessageToServer with MainModule
-case class DoUpdateCodeInProject(owner: String, repo: String, file: String, branch: String, code: String, requestId: Int) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
+case class UnlinkAccount(provider: Provider) extends MessageToServer with MainModule
 case class SetCommandFlags(flags: String) extends MessageToServer with MainModule
 
 // synthesis
@@ -36,18 +36,20 @@ case class PrettyPrintCounterExample(output: String, rawoutput: String, fname: S
 case class VerificationTimeout(seconds: Int) extends MessageToServer with VerificationModule
 
 // git
-sealed trait GitModule {
-  val module = Git
+sealed trait RepositoryModule {
+  val module = RepositoryHandler
 }
 
 /** Actions that the React app can trigger.
  *  These will have side effects that are to be reflected
  *  in the global [[leon.web.client.react.AppState]]. */
-case class LoadRepository(owner: String, repo: String) extends MessageToServer with GitModule
-case object LoadRepositories extends MessageToServer with GitModule
-case class SwitchBranch(owner: String, repo: String, branch: String) extends MessageToServer with GitModule
-case class LoadFile(owner: String, repo: String, file: String) extends MessageToServer with GitModule
-case class DoGitOperation(op: GitOperation, project: Project) extends MessageToServer with GitModule
+case class LoadRepository(repo: RepositoryDesc) extends MessageToServer with RepositoryModule
+case object LoadRepositories extends MessageToServer with RepositoryModule
+case class SwitchBranch(repo: RepositoryDesc, branch: String) extends MessageToServer with RepositoryModule
+case class LoadFile(repo: RepositoryDesc, file: String) extends MessageToServer with RepositoryModule
+case class DoGitOperation(op: GitOperation, repoState: RepositoryState) extends MessageToServer with RepositoryModule
+
+case class DoUpdateCodeInRepository( code: String, repoState: RepositoryState) extends MessageToServer with RepositoryModule
 
 // Website builder
 sealed trait WebsiteBuilderModule {
@@ -60,5 +62,7 @@ case class SubmitStringModification(stringModification: StringModification, sour
 
 object MessageToServer {
   import boopickle.Default._
+  import Module._
+  
   implicit val msgPickler = generatePickler[MessageToServer] 
 }
