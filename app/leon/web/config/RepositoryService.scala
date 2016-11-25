@@ -21,10 +21,24 @@ object RepositoryService {
   object Config {
 
     def create(globalDir: File, githubDir: Option[File], tequilaDir: Option[File]): Config = {
-      if (!RootDir.isValid(globalDir)) throw new BadConfig(s"$globalDir does not exists")
+      val isValid = RootDir.isValid(globalDir)
+
+      // As suggested by @MikaelMeyer: "Instead of throwing an exception, I would rather recommend to check first
+      // if githubDir is set, and if so, remove the part ending with "/github" and set it as
+      // the globalDir so that it can be used in the tequila directory."
+      val rootDir = (isValid, githubDir) match {
+          case (true, _) =>
+            globalDir
+
+          case (false, Some(dir)) =>
+            new File(dir.getAbsolutePath.stripSuffix("/github"))
+
+          case (false, None) =>
+            throw new BadConfig(s"$globalDir does not exists")
+        }
 
       def getPathOrResolveWith(file: Option[File], subDir: String) = 
-        file.filter(RootDir.isValid).map(_.toPath).getOrElse(globalDir.toPath.resolve(subDir))
+        file.filter(RootDir.isValid).map(_.toPath).getOrElse(rootDir.toPath.resolve(subDir))
 
       val githubPath  = getPathOrResolveWith(githubDir, "github")
       val tequilaPath = getPathOrResolveWith(tequilaDir, "tequila")
