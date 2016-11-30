@@ -403,10 +403,7 @@ object StringModificationProcessor {
           .reverse
           .foldLeft(sourceCode)({
             case (sCode, (identifier, string)) =>
-              changedElements += (identifier.getPos match {
-                case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
-                case _ => StringPositionInSourceCode(0, 0, 0, 0)
-              })
+              changedElements += utils.Converters.posToMessage(identifier)
               identifier.getPos match {
                 case r: RangePosition =>
                   sReporter.report(Info, s"""Replacing from (${r.lineFrom}, ${r.colFrom}) to (${r.lineTo}, ${r.colTo}) with "$string" (I guess)""")
@@ -456,10 +453,7 @@ object StringModificationProcessor {
           .reverse
           .foldLeft((sourceCode, program, ProgramEvaluator.functionToEvaluate, List[StringPositionInSourceCode]()))(
             {case ((sCode, prog, optFunDef, changedElements), (identifier, string)) =>
-              val newChangedElements = changedElements :+ {identifier.getPos match {
-                case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
-                case _ => StringPositionInSourceCode(0, 0, 0, 0)
-              }}
+              val newChangedElements = changedElements :+ utils.Converters.posToMessage(identifier)
               val replacement = StringLiteral(string).copiedFrom(identifier)
               val transformer = DefOps.funDefReplacer(fd => {
                 if(ExprOps.exists{ e => e.getPos == identifier.getPos }(fd.fullBody)) {
@@ -485,10 +479,7 @@ object StringModificationProcessor {
 
       def buildListOfStringPositionsForModifiedIdentifier(solution: StringSolver.Assignment): List[StringPositionInSourceCode] = {
         solution.map({ case (identifier, str) =>
-          identifier.getPos match {
-            case RangePosition(lineFrom, colFrom, pointFrom, lineTo, colTo, pointTo, file) => StringPositionInSourceCode(lineFrom, colFrom, lineTo, colTo)
-            case _ => StringPositionInSourceCode(0, 0, 0, 0)
-          }
+          utils.Converters.posToMessage(identifier)
         }).toList
       }
 

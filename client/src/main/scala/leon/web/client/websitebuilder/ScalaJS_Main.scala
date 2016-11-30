@@ -6,8 +6,7 @@ import scala.language.implicitConversions
 import scala.scalajs.js
 import js.Dynamic.{global => g, literal => l, newInstance => jsnew}
 import scala.scalajs.js.annotation.ScalaJSDefined
-import org.scalajs.dom.Element
-import org.scalajs.dom.document
+import org.scalajs.dom.{Element, document, console}
 import org.scalajs.jquery.{jQuery => $}
 import com.scalawarrior.scalajs.ace._
 import japgolly.scalajs.react.Callback
@@ -105,9 +104,9 @@ object ScalaJS_Main {
         |NewValue: ${stringModification.newValue}
       """.stripMargin)
     idOfLastStringModificationSent += 1
-    Server !SubmitStringModification(stringModification, idOfLastSourceCodeModificationSent, idOfLastStringModificationSent)
+    Server ! SubmitStringModification(stringModification, idOfLastSourceCodeModificationSent, idOfLastStringModificationSent)
   }
-  
+    
   Handlers += {
     case SubmitStringModification_answer(stringModificationSubmissionResult, requestSourceId, requestStringModID) => {
       println(
@@ -163,6 +162,14 @@ object ScalaJS_Main {
           }
       }
     }
+  }
+  
+  def pointSourceOrigin(webId: Int, charIndex: Int) = {
+    Server ! PointSourceProducingElement(webId, charIndex, idOfLastSourceCodeModificationSent)
+  }
+  Handlers += {
+    case SourcePositionProducingElement(webId, sourceId, pos: StringPositionInSourceCode) =>
+      AceEditor.addMarkings(List(pos))
   }
 
   def getElementByImplicitWebProgrammingID(impWebProgID: String) : org.scalajs.jquery.JQuery = {
@@ -658,6 +665,12 @@ object ScalaJS_Main {
         StringModificationSubmitter.newStringModificationOfTheTextWebAttr(webElID, newValue)
       }
     }
+    def generateOriginCallback(webElID: Int, charIndex: Int) = {
+      Callback{
+        org.scalajs.dom.console.log("Looking to highlight element with id: " + webElID)
+        pointSourceOrigin(webElID, charIndex)
+      }
+    }
 
     def splitTextIntoReactNodeSeq(text: String): Seq[ReactNode] = {
       text.split("(?=\n)").flatMap( (element: String) =>
@@ -683,11 +696,26 @@ object ScalaJS_Main {
         webElem match {
           case TextElement(text) =>
             val textChangeCallback = (e: ReactEvent) => generateTextChangeCallback(webElID, e.target.textContent)
+            val onContextMenuCallback = (webElID: Int) => (e: ReactEvent) => {
+              val x = e.nativeEvent.asInstanceOf[js.Dynamic].clientX
+              val y = e.nativeEvent.asInstanceOf[js.Dynamic].clientY
+              val charIndex =               
+              if (!js.isUndefined(document.asInstanceOf[js.Dynamic].caretPositionFromPoint)) {    // standard
+                  val range = document.asInstanceOf[js.Dynamic].caretPositionFromPoint(x, y);
+                  range.offset.asInstanceOf[Int];
+              } else if (!js.isUndefined(document.asInstanceOf[js.Dynamic].caretRangeFromPoint)) {    // WebKit
+                  val range = document.asInstanceOf[js.Dynamic].caretRangeFromPoint(x, y);
+                  range.startOffset.asInstanceOf[Int];
+              } else 0
+              generateOriginCallback(webElID, charIndex)
+            }
             <.span(splitTextIntoReactNodeSeq(text),
               reservedAttributeForImplicitWebProgrammingID := webElID,
               ^.contentEditable := "true",
               ^.onChange ==> textChangeCallback,
-              ^.onInput ==> textChangeCallback//,
+              ^.onInput ==> textChangeCallback,
+              ^.onContextMenu ==> onContextMenuCallback(webElID)
+              //,
               //^.title := "webElID= "+webElID
             )
           case Element(tag, sons, attributes, styles) =>

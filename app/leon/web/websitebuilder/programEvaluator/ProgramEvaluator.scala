@@ -293,7 +293,13 @@ object ProgramEvaluator {
                     }
                   )
                   (WebElementWithID(Element(tag, iDedSons, properties, styles), id), newId)
-                case e => throw new Exception("Did not pattern match Element")
+                case CaseClass(CaseClassType(`elementCaseClassDef`, targs), args) =>
+                  throw new Exception("Not the right number of arguments. Expected 4, got " + args.length + " in " + args)
+                case CaseClass(CaseClassType(ccd, targs), args) =>
+                  throw new Exception("Not the right class. Expected " + elementCaseClassDef + ", got ccd")
+                case FunctionInvocation(tfd, args) =>
+                  throw new Exception("Expected a case class of type " + elementCaseClassDef + ", got a function invocation of " + tfd.fd.id.name + " over " + args.length + " arguments")
+                case e => throw new Exception("Did not pattern match Element " + e + " of class " + (if(e != null) e.getClass else "Null"))
               }
           }
         }

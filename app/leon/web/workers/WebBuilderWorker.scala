@@ -19,9 +19,12 @@ import leon.web.shared.messages.GetBootstrapSourceCode_answer
 import leon.web.shared.messages.SubmitStringModification_answer
 import leon.web.shared.messages.SubmitStringModification
 import leon.web.shared.messages.SubmitSourceCodeResult
+import leon.web.shared.messages.PointSourceProducingElement
+import leon.web.shared.messages.SourcePositionProducingElement
 import leon.web.shared.messages.MessageFromServer
 import leon.web.websitebuilder.logging.serverReporter._
 import leon.evaluators.DefaultEvaluator
+import leon.web.shared.StringPositionInSourceCode
 
 class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
@@ -43,6 +46,11 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
         case s: SubmitStringModification => 
           println("Will process string modification " + s)
           event(processStringModificationSubmission(cstate, s))
+        case PointSourceProducingElement(webId, charIndex, sourceId) =>
+          getPosOfWebId(cstate, webId, charIndex, sourceId) match {
+            case Some(pos) => event(SourcePositionProducingElement(webId, sourceId, pos))
+            case _ => notifyError("Unknown position of element #" + webId)
+          }
         case _ => notifyError("Unknown event for WebBuilderWorker : " + s)
       }
 
@@ -113,4 +121,34 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
 
     SubmitStringModification_answer(StringModificationProcessor.process(this, cstate, stringModification, sourceCodeId, sReporter), sourceCodeId, stringModID)
   }
+  
+  def getPosOfWebId(cstate: CompilationState, weID: Int, charIndex: Int, sourceCodeId: Int): Option[StringPositionInSourceCode] = {
+    def length(a: Expr): Int = a match {
+      case StringLiteral(s) => s.length
+      case StringConcat(a, b) => length(a) + length(b)
+      case _ => throw new Exception("Cahnnot take length of " + a)
+    }
+    def atIndex(a: Expr, c: Int): StringLiteral = a match {
+      case s: StringLiteral => s
+      case StringConcat(l, r) =>
+        val ll = length(l)
+        val lr = length(r)
+        if(c >= ll) atIndex(r, c-ll)
+        else /*if(c < ll)*/ atIndex(l, c)
+      case _ => throw new Exception("Cannot take index " + c + " of " + a)
+    }
+    Memory.getSourceMap(sourceCodeId).flatMap(sourceMap =>
+      sourceMap.webElementIDToExpr(weID).optionValue.map(el =>
+        el match {
+          case CaseClass(_, List(s: StringLiteral)) =>
+            utils.Converters.posToMessage(s)
+          case s: StringLiteral =>
+            utils.Converters.posToMessage(s)
+          case CaseClass(_, List(s: StringConcat)) =>
+            utils.Converters.posToMessage(atIndex(s, charIndex))
+        }
+        )
+    )
+  }
+  
 }
