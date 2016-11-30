@@ -6,7 +6,7 @@ package react
 
 import scala.concurrent.Future
 import scala.scalajs.js
-//import js.Dynamic.{ literal => l, global => g }
+import js.Dynamic.global
 import org.scalajs.dom.ext.LocalStorage
 import org.scalajs.dom.{/*console, */document}
 import org.scalajs.jquery.{ jQuery => $, JQueryEventObject }
@@ -15,6 +15,7 @@ import japgolly.scalajs.react.vdom.prefix_<^._
 import monifu.reactive.Observable
 import monifu.concurrent.Implicits.globalScheduler
 import leon.web.shared.messages._
+import leon.web.shared.Provider
 import leon.web.client.react.components.modals._
 import leon.web.client.react.components.panels._
 import leon.web.client.data.UserManager
@@ -51,8 +52,6 @@ class App(private val api: LeonAPI) {
     if(!appState.initial.treatAsProject) {
       api.setTreatAsProject(false)
     }
-
-    println(appState.initial)
 
     // Trigger a re-render of the app, each time
     // the application state is updated.
@@ -182,15 +181,12 @@ class App(private val api: LeonAPI) {
       api.sendBuffered(shared.messages.LoadFile(repo = repo.desc, file = file))
 
       onEvent(Events.fileLoaded) { e => state =>
-        //println("Got file Load with content: " + e.content)
         val newState = state.copy(file = Some((e.file, e.content)))
         js.timers.setTimeout(0) { 
           api.setEditorCode(e.content)
         }
         newState
       }
-      
-      
 
       now(state)
 
@@ -321,14 +317,18 @@ class App(private val api: LeonAPI) {
       Actions dispatch ToggleLoginModal(false)
     }
 
+    val providersIds = global._leon_login_providers.asInstanceOf[js.Array[String]]
+    val providers = providersIds.toList map (Provider(_)) filter (_.isKnown)
+
     val component: ReactElement =
-      if (show) LoginModal(state.user, onRequestHide)
+      if (show) LoginModal(state.user, providers, onRequestHide)
       else      <.span()
 
     ReactDOM.render(component, el)
   }
 
-  private def renderAccount(state: AppState): Unit = {
+  private
+  def renderAccount(state: AppState): Unit = {
     val el   = document.getElementById("account-modal")
     val show = state.isLoggedIn &&
                state.showAccountModal &&

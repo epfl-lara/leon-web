@@ -17,7 +17,7 @@ import leon.web.shared._
   */
 object LoginModal {
 
-  case class Props(user: Option[User], onRequestHide: Callback)
+  case class Props(user: Option[User], providers: List[Provider], onRequestHide: Callback)
   case class State(loggingInWith: Option[Provider] = None)
 
   class Backend($: BackendScope[Props, State]) {
@@ -54,7 +54,7 @@ object LoginModal {
     def onLogin(provider: Provider): Callback =
       $.modState(_.copy(loggingInWith = Some(provider)))
 
-    def render(state: State) =
+    def render(props: Props, state: State) =
       Modal(onClose)(
         <.div(^.className := "modal-header",
           Modal.closeButton(onClose),
@@ -77,12 +77,11 @@ object LoginModal {
           ),
           <.div(^.className := "auth-buttons container-fluid",
             <.div(^.className := "row",
-              <.div(^.className := "col-md-6 center",
-                loginButton(Provider.GitHub, state.loggingInWith)
-              ),
-              <.div(^.className := "col-md-6 center",
-                loginButton(Provider.Tequila, state.loggingInWith)
-              )
+              props.providers map { provider =>
+                <.div(^.className := "col-md-6 center",
+                  loginButton(provider, state.loggingInWith)
+                )
+              }
             )
           )
         ),
@@ -98,8 +97,8 @@ object LoginModal {
       .renderBackend[Backend]
       .build
 
-  def apply(user: Option[User], onRequestHide: Callback) =
-    component(Props(user, onRequestHide))
+  def apply(user: Option[User], providers: List[Provider], onRequestHide: Callback) =
+    component(Props(user, providers, onRequestHide))
 
 }
 
