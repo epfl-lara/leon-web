@@ -18,8 +18,8 @@ object Provider {
   case object Local   extends Provider("local",   "Local")
   case object Unknown extends Provider("unknown", "Unknown")
 
-  val all: Set[Provider] =
-    Set(GitHub, Tequila)
+  val all: List[Provider] =
+    List(GitHub, Tequila)
 
   val map: Map[String, Provider] =
     all.map(p => (p.id, p)).toMap

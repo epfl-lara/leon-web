@@ -1,4 +1,4 @@
-@(someUser: Option[leon.web.models.User])
+@(someUser: Option[leon.web.models.User], providers: List[leon.web.shared.Provider])
 
 @someUser match {
   case Some(user) => {
@@ -13,9 +13,14 @@
   }
 
   case None => {
-    <a id="login-btn" href="#">
-      <i class="fa fa-sign-in"></i>
-      <span>Login</span>
-    </a>
+    @if(providers.nonEmpty) {
+      <a id="login-btn" href="#">
+        <i class="fa fa-sign-in"></i>
+        <span>Login</span>
+      </a>
+    } else {
+      <span></span>
+    }
   }
+
 }

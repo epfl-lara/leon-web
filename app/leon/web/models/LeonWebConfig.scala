@@ -1,6 +1,8 @@
 package leon.web
 package models
 
+import leon.web.shared.Provider
+
 import play.api._
 
 case class LeonWebConfig(
@@ -9,7 +11,21 @@ case class LeonWebConfig(
   url: String,
   isSSL: Boolean,
   release: String
-)
+) {
+
+  lazy val enabledLoginProviders: List[Provider] = {
+    val c = Play.current.configuration
+
+    def isEnabled(provider: Provider) = {
+      val id     = c.getString(s"auth.${provider.id}.clientId")
+      val secret = c.getString(s"auth.${provider.id}.clientSecret")
+      id.exists(_.nonEmpty) && secret.exists(_.nonEmpty)
+    }
+
+    Provider.all.toList.filter(isEnabled)
+  }
+
+}
 
 object LeonWebConfig {
   def fromCurrent(exs: List[(String, List[Example])]) = {
@@ -34,4 +50,5 @@ object LeonWebConfig {
       ""
     }
   }
+
 }

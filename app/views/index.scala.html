@@ -24,7 +24,7 @@
         <span id="button-web" class="off"><i class="fa fa-newspaper-o"></i> <span>WebBuilder</span></span>
       </div>
       <div class="toolbox right">
-        @tags.login(user)
+        @tags.login(user, webconfig.enabledLoginProviders)
       </div>
     </div>
     <script>
@@ -32,7 +32,7 @@
 
         var _leon_isLoggedIn = @user.isDefined;
 
-        var _leon_user = @Html(user.map(u =>Json.stringify(Json.toJson(u))).getOrElse("null"))
+        var _leon_user = @Html(user.map(u => Json.stringify(Json.toJson(u))).getOrElse("null"));
     </script>
 
     <div class="container-fluid">

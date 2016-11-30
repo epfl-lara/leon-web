@@ -12,6 +12,8 @@ import models.ConsoleProtocol._
 import models.FileExamples
 import models.LeonWebConfig
 import models.User
+import config.RepositoryService.{Config => RepositoryServiceConfig}
+import services.RepositoryService
 import play.api.libs.concurrent._
 import play.api.libs.iteratee._
 import play.api.libs.json._
