@@ -370,4 +370,3 @@ class RepositoryWorker(session: ActorRef, user: Option[User]) extends BaseActor 
   def pushMessage(v: Array[Byte]) = session ! NotifyClientBin(v)
 
 }
-
