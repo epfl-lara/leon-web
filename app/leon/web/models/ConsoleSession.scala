@@ -304,7 +304,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>
-                funDef.postcondition match {
+                funDef.getPos.file == savedFile && (funDef.postcondition match {
                   case Some(postCondition) =>
                   import leon.purescala._
                   import Expressions._
@@ -315,7 +315,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                       false
                   }(postCondition)
                   case None => false
-                }
+                })
               }
 
             if (isOnlyInvariantActivated || postConditionHasQMark) {
