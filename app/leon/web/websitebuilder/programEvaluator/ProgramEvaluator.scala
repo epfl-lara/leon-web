@@ -22,6 +22,11 @@ import scala.reflect.api
 import leon.evaluators.DefaultEvaluator
 import scala.collection.mutable.ListBuffer
 import leon.LeonContext
+import leon.utils.Timer
+import leon.evaluators.HasDefaultRecContext
+import leon.evaluators.RecursiveEvaluator
+import leon.evaluators.EvaluationBank
+import leon.evaluators.HasDefaultGlobalContext
 
 /**
   * Created by dupriez on 3/10/16.
@@ -98,6 +103,7 @@ object ProgramEvaluator {
     ctx
   }
   
+  private val abstractTimer = new Timer()
   /**
     *
     * @param program
@@ -116,10 +122,11 @@ object ProgramEvaluator {
 //    }
     val mainFunDef = program.lookupFunDef(fullNameOfTheFunctionToEvaluate).getOrElse(
         throw new Exception("Could not find function " + fullNameOfTheFunctionToEvaluate))
+    abstractTimer.start
     abstractEvaluator.eval(FunctionInvocation(mainFunDef.typed, List())) match {
       case EvaluationResults.Successful(resultEvaluationTreeExpr) => {
 //        Note: in resultEvaluationTreeExpr, the function calls are replaced by their return value
-        sReporter.report(Info, "Abstract Evaluation successful")
+        sReporter.report(Info, "Abstract Evaluation successful, in " + (abstractTimer.stop / 1000) + "s")
         //sReporter.report(Info, "Abstract Evaluation result " + resultEvaluationTreeExpr)
         Some(resultEvaluationTreeExpr)
       }
@@ -134,6 +141,12 @@ object ProgramEvaluator {
     }
   }
   
+  private class AugmentedDefaultEvaluator(ctx: LeonContext, prog: Program, bank: EvaluationBank = new EvaluationBank)
+  extends RecursiveEvaluator(ctx, prog, bank, Int.MaxValue)
+     with HasDefaultGlobalContext
+     with HasDefaultRecContext
+  
+  private val concreteTimer = new Timer()
   /**
     *
     * @param program
@@ -141,11 +154,17 @@ object ProgramEvaluator {
     * @return concrete value of the program execution.
     */
   private def evaluateProgramConcrete(program: Program, forceFunDef: Option[FunDef], serverReporter: ServerReporter): Option[Expr] = {
+    program.definedFunctions.flatMap(program.callGraph.transitiveCallees).find(fd => leon.purescala.ExprOps.exists{ case This(cd) => true case _ => false}(fd.fullBody) ) match {
+      case Some(f) => println(";######### Error: There is still a this in this function")
+      println(f)
+      case None => 
+        println(";####### fine: No This in all the functions")
+    }
      val sReporter = serverReporter.startFunction("Evaluating Program with leon's Evaluator")
     val leonReporter = new DefaultReporter(Set())
     val ctx = leon.Main.processOptions(Seq()).copy(reporter = leonReporter)
     ctx.interruptManager.registerSignalHandler()
-    val defaultEvaluator = new DefaultEvaluator(ctx, program)
+    val defaultEvaluator = new AugmentedDefaultEvaluator(ctx, program)
     val mainFunDef = forceFunDef.orElse(program.lookupFunDef(fullNameOfTheFunctionToEvaluate).orElse(functionToEvaluate)) match {
       case Some(funDef) => funDef
       case None => {
@@ -153,10 +172,11 @@ object ProgramEvaluator {
         return None
       }
     }
+    concreteTimer.start
     defaultEvaluator.eval(FunctionInvocation(mainFunDef.typed, List())) match {
       case EvaluationResults.Successful(res) => {
 //        Note: in resultEvaluationTreeExpr, the function calls are replaced by their return value
-        sReporter.report(Info, "Concrete Evaluation successful")
+        sReporter.report(Info, "Concrete Evaluation successful in " + (concreteTimer.stop / 1000) + "s")
         Some(res)
       }
       case EvaluationResults.EvaluatorError(msg) => {

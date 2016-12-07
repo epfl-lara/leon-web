@@ -24,6 +24,14 @@ class Feature(_a: Boolean, _n: String, _m: Either[shared.Module, String]) extend
     LocalStorage.update("leonFeatures", JSON.stringify(Main.Features.toJsObject));
     active
   }
+  
+  def activate(): Unit = {
+    if(!active) toggle()
+  }
+  
+  def deactivate(): Unit = {
+    if(active) toggle()
+  }
 }
 
 object FeaturesMappings {

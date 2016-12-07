@@ -21,14 +21,14 @@ object Placement {
   case object Top extends Placement("top")
 }
   
-@ScalaJSDefined class Demo(_where: => JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
-  def where: JQuery = _where
+@ScalaJSDefined class Demo(_where: () =>JQuery, _title: String, _content: String, _placement: Placement) extends js.Object {
+  def where: JQuery = _where()
   val title: String = _title
   val content: String = _content
   val placement: Placement = _placement
 }
 object Demo {
-  def apply(where: => JQuery, title: String, content: String, placement: Placement): Demo = new Demo(where, title, content, placement)
+  def apply(where: => JQuery, title: String, content: String, placement: Placement): Demo = new Demo(() => where, title, content, placement)
 }
 
 trait DemoHandler { self: Main.type =>
@@ -238,6 +238,14 @@ trait DemoHandler { self: Main.type =>
       placement = Placement.Left,
       title = "Synthesize Pretty Printer",
       content = """After showing how to render the counter-example, click to synthesize the renderer. After doing so and having clicked on "import code", the pretty printer will be ready."""
+    )
+    
+  val demoWebpageFullscreen =
+    Demo(
+      where = $("#separatewindowlink").first(),
+      placement = Placement.Left,
+      title = "External window",
+      content = "You can view the webpage you generated in an external window"
     )
     
   def showContextDemo(demo: Demo, demos: Demo*): Unit = showContextDemo(demo +: demos.toSeq, 0)

@@ -138,6 +138,9 @@ object WebMode {
     allThingsToPutInWebDesign.addClass("webdesign", 800)
     leonTitle.text(WebModeTitle)
     insertWebPanel()
+    js.timers.setTimeout(800){
+      Main.showContextDemo(Main.demoWebpageFullscreen)
+    }
   }
   def deactivate() = {
     webmodebutton.addClass("off")

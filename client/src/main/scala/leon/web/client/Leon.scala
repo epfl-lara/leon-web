@@ -1354,6 +1354,15 @@ trait LeonWeb extends EqSyntax with ExplorationFactHandler with UndoRedoHandler 
       Backend.main.accessPermaLink(hash.substring("#link/".length))
       window.location.hash = ""
     }
+    if (hash.indexOf("#weblink/") == 0) {
+      Backend.main.accessPermaLink(hash.substring("#weblink/".length))
+      window.location.hash = ""
+      Features.webbuilding.activate()
+      Features.termination.deactivate()
+      Features.verification.deactivate()
+      Features.execution.deactivate()
+      WebMode.activate()
+    }
     if (hash.indexOf("#demo/") == 0) {
       loadExample("demo", hash.substring("#demo/".length))
       window.location.hash = ""
