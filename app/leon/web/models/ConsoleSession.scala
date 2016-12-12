@@ -304,7 +304,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
             lazy val postConditionHasQMark =
               program.definedFunctions.exists { funDef =>
-                funDef.getPos.file.getAbsolutePath == savedFile.getAbsolutePath && (funDef.postcondition match {
+                funDef.getPos.file != null && savedFile != null && funDef.getPos.file.getAbsolutePath == savedFile.getAbsolutePath && (funDef.postcondition match {
                   case Some(postCondition) =>
                   import leon.purescala._
                   import Expressions._
