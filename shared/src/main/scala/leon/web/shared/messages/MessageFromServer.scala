@@ -268,7 +268,8 @@ case class SubmitStringModification_answer(
                                             requestStringModSubResID: Int
                                           ) extends MessageFromServer
 case class SourcePositionProducingElement(webId: Int, sourceId: Int, pos: StringPositionInSourceCode) extends MessageFromServer
-    
+case class DownloadWebpage_answer(filename: String, webpage: String) extends MessageFromServer
+
 object HandlerMessages {
   type VCS = Array[VC]
   type Html = String

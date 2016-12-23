@@ -40,6 +40,9 @@ trait HTMLElementExtended extends Element {
   def selectionStart: js.UndefOr[Int] = js.native
   def focus(): Unit = js.native
   var selectedIndex: Int = js.native
+  var href: String = js.native
+  var download: String = js.native
+  def click(): Unit = js.native
 }
 
 @js.native
@@ -76,6 +79,15 @@ trait JQueryStaticExtendedUi extends js.Any {
 trait JQueryStaticExtendedUiAutoComplete extends js.Any {
   def filter(a: js.Array[String], part: String): js.Array[String] = js.native
 }
+@js.native
+trait Navigator extends js.Object {
+  def msSaveBlob(blob: js.Any, filename: String): Unit = js.native
+}
+
+@js.native
+trait AugmentedWindowURL extends js.Object {
+  def createObjectURL(blob: js.Any): String = js.native
+}
 
 
 object JQueryExtended {
@@ -86,7 +98,6 @@ object JQueryExtended {
   //@inline implicit def dynamicToHandlerDataArgument(d: js.Dynamic): HandlerDataArgument = d.asInstanceOf[HandlerDataArgument]
 
   @inline implicit def toJQueryEventObjectExtended(t: JQueryEventObject) = t.asInstanceOf[JQueryEventObjectExtended]
-
   /*implicit class ComparisonOp(d: js.Dynamic) {
     def ==(other: String) = d.asInstanceOf[String] == other
   }*/

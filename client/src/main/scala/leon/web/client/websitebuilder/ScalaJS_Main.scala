@@ -141,6 +141,8 @@ object ScalaJS_Main {
                     }
                     val firstSolution = potentialWebPageList.solutionList.head
                     renderWebPage(firstSolution.idedWebPage)
+                    loadJavascript(lastJavascript)
+                    
                     println("Displaying source code: "+firstSolution.sourceCode)
                     setSourceCode(firstSolution.sourceCode, firstSolution.positionsOfModificationsInSourceCode)
                     if (n > 1 && idOfClarifiedWebElementOption.isDefined) {
@@ -304,7 +306,6 @@ object ScalaJS_Main {
     $("#minimizeButton").on("click", () => {
       minimizeSourceCodeView()
     })
-    AceEditor.initialiseAndIncludeEditorInWebPage()
   }
 
   def minimizeSourceCodeView(): Unit = {
@@ -370,80 +371,6 @@ object ScalaJS_Main {
     def aceEditor = Option(MainDelayed.editor)
     lazy val aceRange = ace.require("ace/range").Range;
 
-    def initialiseAndIncludeEditorInWebPage() = {
-      /*val editor = ace.edit(aceEditorID)
-      aceEditor = Some(editor)
-      //editor.setTheme("ace/theme/monokai")
-      //ace.require("ace/token_tooltip"); // From leon-web
-      editor.setTheme("ace/theme/chrome");
-      editor.getSession().setUseWrapMode(true)
-      editor.setShowPrintMargin(false);
-      editor.setAutoScrollEditorIntoView();
-      editor.setHighlightActiveLine(false);
-
-      editor.getSession().setMode("ace/mode/scala")
-      editor.getSession().setTabSize(2)
-//      updateEditorContent()
-
-      Server ![GetBootstrapSourceCode_answer] (GetBootstrapSourceCode(), {
-        case GetBootstrapSourceCode_answer(Some(bootstrapSourceCode)) =>
-          println("ajax bootstrap source code request success")
-          setEditorValue(bootstrapSourceCode)
-          editor.getSession().on("change", aceEdOnChangeCallbackVal_master)
-        //              editor.getSession().on("change", DoNothing_OnChangeCallback.onChangeCallback)
-          activateAceEdOnChangeCallback_standard()
-          submitSourceCode()
-        case GetBootstrapSourceCode_answer(None) =>
-          println("Error: did not received bootStrapSourceCode in response to a GetBootstrapSourceCode message sent to the server")
-      })
-//      AjaxClient[Api].sendToServer(GetBootstrapSourceCode()).call().onComplete {
-//        case Failure(exception) => {println("Unable to fetch bootstrap source code: " + exception.getMessage)}
-//        case Success(serverAnswer) => CallbackForServerMessages.callbackForServerMessages(serverAnswer)
-//        #Original version, before the migration to leon web client-server communication model
-//          serverReturn match {
-//            case Left(bootstrapSourceCode) =>
-//              println("ajax bootstrap source code request success")
-//              setEditorValue(bootstrapSourceCode)
-//              editor.getSession().on("change", aceEdOnChangeCallbackVal_master)
-////              editor.getSession().on("change", DoNothing_OnChangeCallback.onChangeCallback)
-//              activateAceEdOnChangeCallback_standard()
-//              submitSourceCode()
-//            case Right(serverError) =>
-//              println("ajax bootstrap source code request failed: It triggered the following server error: "+serverError.text)
-//          }
-
-      resizeEditor()
-
-
-      //    val sourceCode = getSourceCode()
-      //    println(sourceCode)
-      //    println("sourceCode should have been printed (in function initialiseAndIncludeAceEditorForSourceCode of ScalaJS_Main)")
-      //    editor.setValue(sourceCode)
-       *
-       */
-    }
-//    def getBootstrapSourceCode_serverAnswerHandler(serverAnswer: Either[String, ServerError]) = {
-//      serverAnswer match {
-//        case Left(bootstrapSourceCode) =>
-//          println("ajax bootstrap source code request success")
-//          setEditorValue(bootstrapSourceCode)
-//          aceEditor.get.getSession().on("change", aceEdOnChangeCallbackVal_master)
-//          //              editor.getSession().on("change", DoNothing_OnChangeCallback.onChangeCallback)
-//          activateAceEdOnChangeCallback_standard()
-//          submitSourceCode()
-//        case Right(serverError) =>
-//          println("ajax bootstrap source code request failed: It triggered the following server error: "+serverError.text)
-//      }
-//    }
-
-
-//    def updateEditorContent() = {
-//      aceEditor match {
-//        case Some(editor) => fetchAndUseSourceCode(s => editor.setValue(s))
-//        case None => println("Strange, someone asked to update the aceEditor while there is none")
-//      }
-//    }
-
     def getEditorValue = {
       aceEditor match {
         case Some(e) => e.getValue()
@@ -499,7 +426,7 @@ object ScalaJS_Main {
     def addMarking(lineFrom: Int, colFrom: Int, lineTo: Int, colTo: Int)(timeoutms: Int): Int = {
       aceEditor match {
         case Some(editor) =>
-          println(s"Adding merking at $lineFrom, $colFrom, $lineTo, $colTo of class tmp-highlight")
+          println(s"Adding marking at $lineFrom, $colFrom, $lineTo, $colTo of class tmp-highlight")
           val range = jsnew(aceRange)(lineFrom - 1, colFrom-1, lineTo - 1, colTo).asInstanceOf[Range]
           val marker = editor.getSession().addMarker(range, "tmp-highlight", "text", false)
           js.timers.setTimeout(timeoutms){
@@ -543,31 +470,15 @@ object ScalaJS_Main {
     private val aceEdOnChangeCallbackVal_master/*: js.Function1[scala.scalajs.js.Any, Unit]*/ = aceEdOnChangeCallback_master _
     private def aceEdOnChangeCallback_master(uselessThingJustThereForTypingWithJavaScriptFunctions: scala.scalajs.js.Any) : Unit = {
       currentOnChangeCallback("useless")
-//      println("masterCallback: currentOnChangeCallback=" +currentOnChangeCallback)
-//      if(currentOnChangeCallback == Standard_OnChangeCallback) {
-//        aceEdOnChangeCallback_standard("useless")
-//      }
-//      else{
-//        aceEdOnChangeCallback_doNothing("useless")
-//      }
     }
 
     private case object Standard_OnChangeCallback extends OnChangeCallback {override val onChangeCallback: js.Function1[scala.scalajs.js.Any, Unit] = aceEdOnChangeCallback_standard _}
     private def aceEdOnChangeCallback_standard(uselessThingJustThereForTypingWithJavaScriptFunctions: scala.scalajs.js.Any) : Unit= {
-//      println("AceEditor onChange callback: standard")
       SourceCodeSubmitButton.turnBackgroundRed()
-//      dom.document.getElementById("sourceCodeSubmitButton").setAttribute("style", "background-color:red")
-//      AjaxClient[Api].setSourceCode(getEditorValue).call().onComplete{
-//        case Failure(exception) => {println("setSourceCode request failed: " + exception.getMessage)}
-//        case Success(unit) => {println("setSourceCode request successful")}
-//      }
-//      setSourceCodeRequestsAbsorber.newRequest()
     }
 
     private case object DoNothing_OnChangeCallback extends OnChangeCallback {override val onChangeCallback: js.Function1[scala.scalajs.js.Any, Unit] = aceEdOnChangeCallback_doNothing _}
     private def aceEdOnChangeCallback_doNothing(uselessThingJustThereForTypingWithJavaScriptFunctions: scala.scalajs.js.Any) : Unit = {
-//      Do Nothing
-//      println("AceEditor onChange callback: do nothing")
   }
   }
 
@@ -688,9 +599,7 @@ object ScalaJS_Main {
         }
       )
     }
-//    val textChangeCallBack = Callback{
-//      StringModificationSubmitter.newStringModificationOfTheTextWebAttr(webElID)
-//    }
+
     webElWithID match {
       case WebElementWithID(webElem, webElID) =>
         webElem match {

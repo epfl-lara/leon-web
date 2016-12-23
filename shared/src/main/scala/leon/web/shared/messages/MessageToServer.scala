@@ -59,6 +59,7 @@ sealed trait WebsiteBuilderModule {
 case class GetBootstrapSourceCode() extends MessageToServerExpecting[GetBootstrapSourceCode_answer] with WebsiteBuilderModule
 case class SubmitStringModification(stringModification: StringModification, sourceCodeId: Int, stringModID: Int) extends MessageToServerExpecting[SubmitStringModification_answer] with WebsiteBuilderModule
 case class PointSourceProducingElement(webElementID: Int, charIndex: Int, sourceId: Int) extends MessageToServerExpecting[SourcePositionProducingElement] with WebsiteBuilderModule
+case class DownloadWebpage() extends MessageToServerExpecting[DownloadWebpage_answer] with WebsiteBuilderModule
 
 object MessageToServer {
   import boopickle.Default._

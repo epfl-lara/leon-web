@@ -9,7 +9,7 @@ import leon.web.client.websitebuilder.Offset
 import org.scalajs.dom.document
 import leon.web.client.websitebuilder.ScalaJS_Main
 import scala.scalajs.js
-import js.Dynamic.{global => g}
+import js.Dynamic.{global => g, newInstance => jsnew, literal => l}
 import org.scalajs.dom.{window, _}
 import js.annotation.ScalaJSDefined
 import org.scalajs.dom.html.Element
@@ -141,7 +141,30 @@ object WebMode {
     js.timers.setTimeout(800){
       Main.showContextDemo(Main.demoWebpageFullscreen)
     }
+    if($("#downloadhtmlpage").length == 0) {
+       $("#additionalclflags").after($("<input id='downloadhtmlpage' type='button' value='Download Html Page'>"))
+       $("#downloadhtmlpage").click(() => {
+         Main.Server ! shared.messages.DownloadWebpage()
+       })
+    }
+    $("#downloadhtmlpage").show()
   }
+  import Implicits._
+  Handlers += { case shared.messages.DownloadWebpage_answer(filename, data) =>
+      val blob = jsnew(g.Blob)(js.Array(data), l("type" -> "text/html"));
+      if(!js.isUndefined(g.window.navigator.msSaveOrOpenBlob)) {
+          g.window.navigator.asInstanceOf[Navigator].msSaveBlob(blob, filename);
+      }
+      else{
+          var elem = window.document.createElement("a");
+          elem.href = g.window.URL.asInstanceOf[AugmentedWindowURL].createObjectURL(blob);
+          elem.download = filename;        
+          document.body.appendChild(elem);
+          elem.click();        
+          document.body.removeChild(elem);
+      }
+  }
+  
   def deactivate() = {
     webmodebutton.addClass("off")
     allThingsToPutInWebDesign.removeClass("webdesign", 800)
@@ -156,5 +179,6 @@ object WebMode {
     } else {
       removeWebPanel()
     }
+    $("#downloadhtmlpage").hide()
   }
 }

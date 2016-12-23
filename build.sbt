@@ -28,7 +28,7 @@ val appDependencies = Seq(
   "org.webjars" % "bootstrap" % "3.2.0",
   "org.webjars" % "jquery" % "2.1.1",
   "org.webjars" % "jquery-ui" % "1.11.4",
-  "org.webjars" % "font-awesome" % "4.2.0",
+  "org.webjars" % "font-awesome" % "4.7.0",
   "org.webjars" % "octicons" % "3.1.0",
   "org.webjars" % "prettify" % "4-Mar-2013",
   "com.vmunier" %% "play-scalajs-scripts" % "0.2.2"

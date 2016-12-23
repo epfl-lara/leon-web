@@ -1,4 +1,5 @@
-package leon.web
+package leon
+package web
 package workers
 
 import akka.actor._
@@ -25,11 +26,14 @@ import leon.web.shared.messages.MessageFromServer
 import leon.web.websitebuilder.logging.serverReporter._
 import leon.evaluators.DefaultEvaluator
 import leon.web.shared.StringPositionInSourceCode
+import leon.web.shared.messages.{DownloadWebpage_answer, DownloadWebpage}
 
 class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s, im) {
   import ConsoleProtocol._
 
   def receive = {
+    case USetCommandFlags(flags) => applyLeonContextOptions(leon.Main.splitOptions(flags))
+    
     case OnUpdateCode(c) => 
       logInfo("WebBuilder received code requestId = "+c.requestId+", processing...")
       //println(c.program)
@@ -51,6 +55,10 @@ class WebBuilderWorker(s: ActorRef, im: InterruptManager) extends WorkerActor(s,
             case Some(pos) => event(SourcePositionProducingElement(webId, sourceId, pos))
             case _ => notifyError("Unknown position of element #" + webId)
           }
+        case DownloadWebpage() =>
+          val p = leon.transformations.WebBuilderPhase(ctx, cstate.program)
+          val outputFileName = ctx.findOptionOrDefault(RawFileOutputPhase.optOutputFile)
+          event(DownloadWebpage_answer(outputFileName, p))
         case _ => notifyError("Unknown event for WebBuilderWorker : " + s)
       }
 
