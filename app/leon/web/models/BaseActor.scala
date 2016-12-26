@@ -34,7 +34,6 @@ trait BaseActor extends Actor {
     pushMessage(Pickle.intoBytes(msg).array())
   }
 
-
   def notifyError(msg: String): Unit = {
     event(HNotification(msg, "error"))
   }

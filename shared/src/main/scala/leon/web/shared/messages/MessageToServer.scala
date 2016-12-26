@@ -14,10 +14,12 @@ sealed trait MainModule { val module = Main }
 case class StorePermaLink(code: String) extends MessageToServerExpecting[GotPermalink] with MainModule
 case class AccessPermaLink(link: String) extends MessageToServer with MainModule
 case class FeatureSet(feature: Module, active: Boolean) extends MessageToServer with MainModule
-case class DoUpdateCode(code: String, requestId: Int) extends MessageToServer with MainModule
 case object DoCancel extends MessageToServer with MainModule
 case class UnlinkAccount(provider: Provider) extends MessageToServer with MainModule
 case class SetCommandFlags(flags: String) extends MessageToServer with MainModule
+
+// compilation
+case class DoUpdateCode(code: String, requestId: Int) extends MessageToServer with MainModule
 
 // synthesis
 sealed trait SynthesisModule { val module = Synthesis }

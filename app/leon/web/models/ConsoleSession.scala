@@ -36,6 +36,7 @@ import java.nio.ByteBuffer
 import leon.web.websitebuilder.memory.Memory
 
 class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with BaseActor {
+
   import context.dispatcher
   import ConsoleProtocol._
 
@@ -45,16 +46,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   def pushMessage(v: Array[Byte]) = channel.push(v)
 
   var lastCompilationState: CompilationState = CompilationState.unknown
-
-  def assumeCompiled[A](f: CompilationState => A) = {
-    lastCompilationState match {
-      case cstate if cstate.isCompiled =>
-        f(cstate)
-      case _ =>
-        notifyError("Not compiled ?!")
-        logInfo("Not compiled ?!")
-    }
-  }
 
   case class ModuleContext(name: Module, actor: ActorRef, var isActive: Boolean = false)
 
@@ -89,6 +80,7 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       interruptManager = new InterruptManager(reporter)
 
+      modules += ModuleEntry(Compilation       , new CompilationWorker(self, interruptManager, channel), true)
       modules += ModuleEntry(Verification      , new VerificationWorker(self, interruptManager))
       modules += ModuleEntry(Termination       , new TerminationWorker(self, interruptManager))
       modules += ModuleEntry(Synthesis         , new SynthesisWorker(self, interruptManager))
@@ -103,19 +95,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       logInfo("New client")
 
+    case message @ USetCommandFlags(flags) =>
+      modules.values.foreach(_.actor ! message)
+
     case DoCancel =>
       cancelledWorkers = Set()
       logInfo("Starting Cancel Procedure...")
       interruptManager.interrupt()
       modules.values.foreach(_.actor ! DoCancel)
-      
-    case message@USetCommandFlags(flags) =>
-      modules.values.foreach(_.actor ! message)
 
     case Cancelled(wa)  =>
       cancelledWorkers += wa
 
-      logInfo(cancelledWorkers.size+"/"+modules.size+": Worker "+wa.getClass+" notified its cancellation")
+      logInfo(cancelledWorkers.size + "/" + modules.size + ": Worker " + wa.getClass + " notified its cancellation")
       if (cancelledWorkers.size === modules.size) {
         logInfo("All workers got cancelled, resuming normal operations")
         interruptManager.recoverInterrupt()
@@ -138,12 +130,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
 
       try {
         logInfo("[<] " + message.getClass.getName)
+
         message match {
           case message: MainModule => message match {
-            case MDoCancel => self ! DoCancel
-            case DoUpdateCode(code, requestId) => self ! UpdateCode(code, None, None, requestId)
-            case StorePermaLink(code) => self ! message
-            case AccessPermaLink(link) => self ! message
+
+            case MDoCancel =>
+              self ! DoCancel
+
+            case StorePermaLink(code) =>
+              self ! message
+
+            case AccessPermaLink(link) =>
+              self ! message
+
             case FeatureSet(f, active) =>
               if (modules contains f) {
                 if (active) {
@@ -152,28 +151,72 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
                   modules(f).isActive = false
                 }
               }
+
             case SetCommandFlags(flags) =>
               self ! USetCommandFlags(flags)
+
             case UnlinkAccount(provider) => withUser { user =>
               self ! UUnlinkAccount(user, provider)
             }
+
+            case DoUpdateCode(code, requestId) =>
+              self ! UpdateCode(code, None, None, requestId)
+
           }
-          case message if modules contains message.module =>
-            val m = message.module
-            if (modules(m).isActive) {
-              modules(m).actor ! ConsoleProtocol.OnClientEvent(lastCompilationState, message)
-            }
-          case m => notifyError("Module "+m+" not available.")
+
+          case message if modules.get(message.module).exists(_.isActive) =>
+            val module = modules(message.module)
+            module.actor ! OnClientEvent(lastCompilationState, message)
+
+          case message =>
+            notifyError("Module "+ message.module +" not available.")
         }
-      } catch {
-        case t: Throwable => notifyError("Could not process event: "+t.getMessage)
+      }
+      catch {
+        case t: Throwable =>
+          notifyError("Could not process event: " + t.getMessage)
       }
 
-    case DispatchTo(m, msg: Any) =>
-      modules.get(m) match {
-        case Some(m) if m.isActive =>
-          m.actor ! msg
-        case _ =>
+    case DispatchTo(module, msg: Any) =>
+      modules.get(module).filter(_.isActive) foreach { module =>
+        module.actor ! msg
+      }
+
+    case UpdateCode(code, user, repoState, reqId) => {
+      val isOnlyInvariantActivated =
+        modules.values.forall(m =>
+          ( m.isActive && m.name === shared.Invariant) ||
+          (!m.isActive && m.name =!= shared.Invariant))
+
+      self ! DispatchTo(Compilation, Compile(
+        lastCompilationState,
+        code,
+        user,
+        repoState,
+        reqId,
+        isOnlyInvariantActivated
+      ))
+    }
+
+    case CompilationDone(cstate, None, _) =>
+      lastCompilationState = cstate
+
+    case CompilationDone(cstate, Some(program), notifyTerminationChecker) =>
+      lastCompilationState = cstate
+
+      if (notifyTerminationChecker) {
+        modules(Invariant).actor ! OnUpdateCode(cstate)
+        val termMod = modules(Termination)
+        if (termMod.isActive) {
+          termMod.actor ! OnUpdateCode(cstate)
+        }
+      }
+      else {
+        val toUpdate = modules.values.filter { e =>
+          e.isActive && e.name =!= Invariant
+        }
+
+        toUpdate.foreach (_.actor ! OnUpdateCode(cstate))
       }
 
     case StorePermaLink(code) =>
@@ -213,197 +256,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
           clientLog("=> ERROR: No such account found.")
       }
 
-    case UpdateCode(code, user, repoState, requestId) =>
-      Memory.clearClarificationSession()
-
-      if (lastCompilationState.repoState =!= repoState ||
-          lastCompilationState.code =!= Some(code)) {
-
-        clientLog("Compiling...")
-        logInfo(s"Code updated:\n$code")
-
-        val file = for {
-          s            <- repoState
-          u            <- user
-          wc           <- RepositoryService.getWorkingCopy(u, s.repo.desc)
-          (_, _, path) <- wc.getFile(s.branch, s.file)
-        } yield wc.path.toPath.resolve(path).toFile
-
-        val savedFile = saveCode(code, file)
-
-        val compReporter = new CompilingWSReporter(channel)
-        var compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
-
-        val optProgram = try {
-          val pipeline = ExtractionPhase andThen
-                         (new PreprocessingPhase(false))
-
-          // We need both a logged-in user and a repository to
-          // load files from the repository
-
-          val repoFiles = for {
-            s     <- repoState
-            if s.asProject
-            u     <- user
-            wc    <- RepositoryService.getWorkingCopy(u, s.repo.desc)
-            files = wc.getFiles(s.branch).getOrElse(Seq()).toList
-          } yield {
-            files
-              .filter(_.extension === "scala")
-              .map(new File(_))
-              .map { f =>
-                if (f.getName === savedFile.getName)
-                  savedFile.getAbsolutePath
-                else
-                  wc.path.toPath.resolve(f.getPath).toFile.getAbsolutePath
-              }
-          }
-
-          val runFiles = repoFiles.getOrElse(savedFile.getAbsolutePath :: Nil)
-
-          val (_, program) = pipeline.run(compContext, runFiles)
-
-          compReporter.terminateIfError
-
-          Some(program)
-        }
-        catch {
-          case e: java.nio.channels.ClosedChannelException =>
-            logInfo("Channel closed")
-            None
-
-          case t: Throwable =>
-            logInfo("Failed to compile and/or extract "+t)
-            None
-        }
-
-        optProgram match {
-          case Some(program) =>
-
-            val cstate = CompilationState(
-              optProgram = Some(program),
-              code       = Some(code),
-              compResult = "success",
-              requestId  = Some(requestId),
-              wasLoop    = Set(),
-              repoState  = repoState,
-              savedFile  = Some(savedFile.getName())
-            )
-
-            lastCompilationState = cstate
-
-            event(HCompilation("success"))
-
-            clientLog("Compilation successful!")
-
-            notifyMainOverview(cstate)
-
-            lazy val isOnlyInvariantActivated = modules.values.forall(m =>
-                ( m.isActive && m.name === shared.Invariant) ||
-                (!m.isActive && m.name =!= shared.Invariant))
-
-            lazy val postConditionHasQMark =
-              program.definedFunctions.exists { funDef =>
-                funDef.getPos.file != null && savedFile != null && funDef.getPos.file.getAbsolutePath == savedFile.getAbsolutePath && (funDef.postcondition match {
-                  case Some(postCondition) =>
-                  import leon.purescala._
-                  import Expressions._
-                  ExprOps.exists {
-                    case FunctionInvocation(callee, _) =>
-                      leon.purescala.DefOps.fullName(callee.fd)(program) === "leon.invariant.?"
-                    case _ =>
-                      false
-                  }(postCondition)
-                  case None => false
-                })
-              }
-
-            if (isOnlyInvariantActivated || postConditionHasQMark) {
-              modules(Invariant).actor ! OnUpdateCode(cstate)
-              val termmod = modules(Termination)
-              if(termmod.isActive)
-                termmod.actor ! OnUpdateCode(cstate)
-            } else {
-              val toUpdate = modules.values.filter { e =>
-                e.isActive && e.name =!= Invariant && e.name =!= RepositoryHandler
-              }
-
-              toUpdate.foreach (_.actor ! OnUpdateCode(cstate))
-            }
-
-          case None =>
-            for ((l,e) <- compReporter.errors) {
-              logInfo(s"  ${e mkString "\n  "}")
-            }
-
-            clientLog("Compilation failed!")
-            event(HCompilation("failure"))
-
-            lastCompilationState = CompilationState.failure(
-              code, repoState, Some(savedFile.getName())
-            )
-        }
-
-        val annotations = {
-          compReporter.errors.map{ case (l,e) =>
-            shared.CodeAnnotation(l, 0, e.mkString("\n"), shared.CodeAnnotationError)
-          }.toSeq ++
-          compReporter.warnings.map{ case (l,e) =>
-            shared.CodeAnnotation(l, 0, e.mkString("\n"), shared.CodeAnnotationWarning)
-          }.toSeq
-        }.filter(_.line >= 0)
-
-        notifyAnnotations(annotations)
-      }
-      else {
-        val cstate = lastCompilationState.copy(requestId = Some(requestId))
-        self ! DispatchTo(WebsiteBuilder, OnUpdateCode(cstate))
-        event(HCompilation(cstate.compResult))
-      }
-
     case Quit =>
 
     case msg =>
-      clientLog("Unknown Actor Message: "+msg)
-  }
-
-  def notifyMainOverview(cstate: CompilationState): Unit = {
-    def decodeName(name: String): String = {
-      scala.reflect.NameTransformer.decode(name).replaceAll("\\$", ".")
-    }
-    if (cstate.isCompiled) {
-      val facts: Map[String, OverviewFunction] = (for (fd <- cstate.functions) yield {
-        fd.id.name -> OverviewFunction(fd.id.name, decodeName(fd.id.name), fd.getPos.line, fd.getPos.col)
-      }).toMap
-
-      event(HUpdateOverview(facts))
-    }
-
-  }
-
-  def saveCode(code: String, file: Option[File] = None): File = file match {
-    case None =>
-
-      val format   = DateTimeFormat.forPattern("YYYY-MM-dd_HH-mm-ss.SS")
-      val dateTime = new DateTime().toString(format)
-      val file     = new File(s"logs/inputs/$dateTime.scala")
-
-      saveCode(code, Some(file))
-
-    case Some(file) =>
-      val w = new PrintWriter(file , "UTF-8")
-
-      try {
-        w.print(code)
-      } finally {
-        w.close
-      }
-
-      file
-  }
-
-  def notifyAnnotations(annotations: Seq[shared.CodeAnnotation]): Unit = {
-    event(HEditor(annotations = Some(annotations.toArray)))
+      clientLog("ConsoleSession received an unknown message: " + msg)
   }
 
 }

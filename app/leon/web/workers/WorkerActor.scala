@@ -11,10 +11,10 @@ import leon.utils._
 abstract class WorkerActor(val session: ActorRef, val interruptManager: InterruptManager)  extends BaseActor {
   import ConsoleProtocol._
 
-  val reporter = new WorkerReporter(session)
+  val reporter: Reporter = new WorkerReporter(session)
 
   private var _ctx: LeonContext = mergeWithOptions(Nil)
-  
+
   def mergeWithOptions(customOptions: Seq[String]): LeonContext = {
     val originalContext = leon.Main.processOptions(List(
       "--feelinglucky",
@@ -28,14 +28,21 @@ abstract class WorkerActor(val session: ActorRef, val interruptManager: Interrup
     }
     augmentedContext.copy(interruptManager = interruptManager, reporter = reporter)
   }
-  
+
   def applyLeonContextOptions(customOptions: Seq[String], overridingOptions: Seq[String]*): Unit = {
     _ctx = (mergeWithOptions(customOptions) /: overridingOptions) {
       case (lctx, seqString) => lctx ++ leon.Main.parseOptions(seqString, true)
     }
   }
 
-  implicit def ctx = _ctx                   
+  def resetLeonContextOptions(): Unit = {
+    _ctx = leon.Main.processOptions(Nil).copy(
+      interruptManager = interruptManager,
+      reporter = reporter
+    )
+  }
+
+  implicit def ctx = _ctx
 
   def pushMessage(v: Array[Byte]) = session ! NotifyClientBin(v)
 }
