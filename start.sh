@@ -21,4 +21,5 @@ while [ /bin/true ]; do
     echo "Restarting in 5 seconds..."
     sleep 5
     rm -f target/universal/stage/RUNNING_PID
+    pkill --signal SIGKILL -u leonweb java
 done
