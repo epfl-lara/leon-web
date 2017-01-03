@@ -20,10 +20,8 @@ object ConsoleProtocol {
 
   case class ProcessClientEvent(event: Array[Byte])
 
-  case class UpdateCode(code: String, user: Option[User], repoState: Option[RepositoryState], requestId: Int)
-
-  case class Cancelled(wa: BaseActor)
   case object DoCancel
+  case class Cancelled(wa: BaseActor)
 
   case class USetCommandFlags(ws: String)
   case class ULoadRepositories(user: User)
@@ -35,10 +33,35 @@ object ConsoleProtocol {
   case class UUnlinkAccount(user: User, provider: Provider)
   case class UUserUpdated(user: Option[User])
 
+  case class UpdateCode(
+    code: String,
+    user: Option[User],
+    repoState: Option[RepositoryState],
+    requestId: Int
+  )
+
+  // Compilation
+  case class Compile(
+    cstate: CompilationState,
+    code: String,
+    user: Option[User],
+    repoState: Option[RepositoryState],
+    requestId: Int,
+    isOnlyInvariantActivated: Boolean = false
+  )
+
+  case class CompilationDone(
+    cstate: CompilationState,
+    program: Option[Program],
+    notifyTerminationChecker: Boolean = false
+  )
+
+  // Synthesis
   case class SynthesisGetRulesToApply(chooseLine: Int, chooseColumn: Int)
   case class SynthesisApplyRule(cid: Int, rid: Int)
   case class SynthesisSearch(cid: Int)
 
+  // Verification
   case class VerificationDoManualVerify(fname: String)
   case class VerificationDoVerify(fnames: Set[String], standalone: Boolean)
   case object VerificationDone

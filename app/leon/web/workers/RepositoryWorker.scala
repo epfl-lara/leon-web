@@ -362,6 +362,9 @@ class RepositoryWorker(session: ActorRef, user: Option[User]) extends BaseActor 
     case DoCancel =>
       sender ! Cancelled(this)
 
+    case USetCommandFlags(_) | OnUpdateCode(_) =>
+      // Nothing to do here
+
     case msg =>
       clientLog(s"RepositoryWorker received an unknown message: $msg")
 
@@ -370,4 +373,3 @@ class RepositoryWorker(session: ActorRef, user: Option[User]) extends BaseActor 
   def pushMessage(v: Array[Byte]) = session ! NotifyClientBin(v)
 
 }
-
