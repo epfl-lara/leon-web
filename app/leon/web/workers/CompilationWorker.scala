@@ -110,8 +110,8 @@ class CompilationWorker(
     case DoCancel =>
       sender ! Cancelled(this)
 
-    case USetCommandFlags(flags) =>
-      applyLeonContextOptions(leon.Main.splitOptions(flags))
+    case USetCommandFlags(_) =>
+      // do nothing, as those flags don't affect compilation
 
     case OnUpdateCode(_) =>
       // do nothing, as we're the ones who just triggered that event
@@ -133,8 +133,8 @@ class CompilationWorker(
 
         resetLeonContextOptions()
 
-        val compContext  = this.ctx
-        val compReporter = this.reporter
+        val compReporter = new CompilingWSReporter(channel)
+        val compContext  = leon.Main.processOptions(Nil).copy(reporter = compReporter)
 
         val optProgram = try {
           val pipeline = ExtractionPhase andThen (new PreprocessingPhase(false))
@@ -156,7 +156,7 @@ class CompilationWorker(
             None
 
           case t: Throwable =>
-            logInfo("Failed to compile and/or extract "+t)
+            logInfo("Failed to compile and/or extract " + t)
             None
         }
 
