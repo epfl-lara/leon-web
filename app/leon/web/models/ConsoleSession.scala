@@ -11,8 +11,8 @@ import scala.util.Try
 import scala.io.Source
 import scala.collection.JavaConverters._
 import play.api._
-import play.api.libs.iteratee._
-import play.api.libs.concurrent._
+import play.api.libs.iteratee.{ Execution => _, _ }
+import play.api.libs.concurrent.{ Execution => _, _ }
 import akka.pattern._
 import play.api.Play.current
 import leon.frontends.scalac._
@@ -22,8 +22,8 @@ import leon.utils.PreprocessingPhase
 import leon.web.workers._
 import leon.web.stores._
 import leon.web.services._
-import leon.web.shared.{Action, RepositoryState}
-import leon.web.shared.Module
+import leon.web.shared.{ User => _, _ }
+import leon.web.shared.messages.{ DoCancel => MDoCancel, _ }
 import leon.web.utils.String._
 import java.io.File
 import java.io.PrintWriter
@@ -53,6 +53,10 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
   var cancelledWorkers = Set[BaseActor]()
   var interruptManager: InterruptManager = _
 
+  def leonModules: Map[Module, ModuleContext] = modules.filter { case (m, _) =>
+    m =!= Compilation && m =!= RepositoryHandler
+  }
+
   object ModuleEntry {
     def apply(name: Module, worker: => BaseActor, isActive: Boolean = false): (Module, ModuleContext) = {
       name -> ModuleContext(name, context.actorOf(Props(worker)), isActive)
@@ -69,9 +73,6 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       notifyError("You need to log-in to perform this operation.")
       logInfo("Cannot perform this operation when user is not logged-in.")
   }
-
-  import shared.messages.{DoCancel => MDoCancel, _}
-  import shared._
 
   def receive = {
     case Init =>
@@ -96,19 +97,19 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       logInfo("New client")
 
     case message @ USetCommandFlags(flags) =>
-      modules.values.foreach(_.actor ! message)
+      leonModules.values.foreach(_.actor ! message)
 
     case DoCancel =>
       cancelledWorkers = Set()
       logInfo("Starting Cancel Procedure...")
       interruptManager.interrupt()
-      modules.values.foreach(_.actor ! DoCancel)
+      leonModules.values.foreach(_.actor ! DoCancel)
 
     case Cancelled(wa)  =>
       cancelledWorkers += wa
 
-      logInfo(cancelledWorkers.size + "/" + modules.size + ": Worker " + wa.getClass + " notified its cancellation")
-      if (cancelledWorkers.size === modules.size) {
+      logInfo(cancelledWorkers.size + "/" + leonModules.size + ": Worker " + wa.getClass + " notified its cancellation")
+      if (cancelledWorkers.size === leonModules.size) {
         logInfo("All workers got cancelled, resuming normal operations")
         interruptManager.recoverInterrupt()
       }
@@ -183,8 +184,8 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
       }
 
     case UpdateCode(code, user, repoState, reqId) => {
-      val isOnlyInvariantActivated =
-        modules.values.forall(m =>
+      val isOnlyInvariantActive =
+        leonModules.values.forall(m =>
           ( m.isActive && m.name === shared.Invariant) ||
           (!m.isActive && m.name =!= shared.Invariant))
 
@@ -194,22 +195,20 @@ class ConsoleSession(remoteIP: String, user: Option[User]) extends Actor with Ba
         user,
         repoState,
         reqId,
-        isOnlyInvariantActivated
+        isOnlyInvariantActive
       ))
     }
 
     case CompilationDone(cstate, None, _) =>
       lastCompilationState = cstate
 
-    case CompilationDone(cstate, Some(program), notifyTerminationChecker) =>
+    case CompilationDone(cstate, Some(program), notifyInvariant) =>
       lastCompilationState = cstate
 
-      if (notifyTerminationChecker) {
-        modules(Invariant).actor ! OnUpdateCode(cstate)
-        val termMod = modules(Termination)
-        if (termMod.isActive) {
-          termMod.actor ! OnUpdateCode(cstate)
-        }
+      self ! DispatchTo(Termination, OnUpdateCode(cstate))
+
+      if (notifyInvariant) {
+        self ! DispatchTo(Invariant, OnUpdateCode(cstate))
       }
       else {
         val toUpdate = modules.values.filter { e =>

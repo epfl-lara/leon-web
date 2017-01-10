@@ -116,7 +116,7 @@ class CompilationWorker(
     case OnUpdateCode(_) =>
       // do nothing, as we're the ones who just triggered that event
 
-    case Compile(lastCompilationState, code, user, repoState, requestId, invariantEnabled) =>
+    case Compile(lastCompilationState, code, user, repoState, requestId, isInvariantOnlyEnabled) =>
       Memory.clearClarificationSession()
 
       if (!shouldRecompile(lastCompilationState, repoState, code)) {
@@ -144,11 +144,11 @@ class CompilationWorker(
 
           val (ctx, program) = pipeline.run(compContext, runFiles)
 
-          val notifyTerminationChecker = invariantEnabled && postConditionHasQMark(program, savedFile)
+          val notifyInvariant = isInvariantOnlyEnabled || postConditionHasQMark(program, savedFile)
 
           compReporter.terminateIfError
 
-          Some((program, notifyTerminationChecker))
+          Some((program, notifyInvariant))
         }
         catch {
           case e: java.nio.channels.ClosedChannelException =>
