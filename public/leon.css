@@ -1195,3 +1195,7 @@ div#codebox .ace_gutter-tooltip {
 
 */
 
+#htmlDisplayerDiv {
+	height: 100%;
+}
+
