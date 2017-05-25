@@ -13,7 +13,7 @@ import shared.git._
  * @author Mikael
  */
 object Backend {
-  val activateSessionAnalytics = true
+  val activateSessionAnalytics = false
   import Main.Server
 
   /** A module interaction to send message and report analytics */
